@@ -48,7 +48,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Scheduling: Vercel Hobby cron only runs once a day. Proposal: Supabase Cron (pg_cron + pg_net) calls the sync routes, with `CRON_SECRET`. Pending confirmation.
 
 ## Notion mapping (from notion-inspect, 2026-09-28. Confirmed by Dean)
-- Source: data source **Master Production** `2716e9bb-1958-81b0-a4e2-000bf0330ac3` (database page `2716e9bb19588036bc5fe7bc7c46b71e`). The only other shared data source is "From Camber Internal Notion" (slide content). Ignore it.
+- Source: data source **Master Production** `2716e9bb-1958-81b0-a4e2-000bf0330ac3` (database page `2716e9bb19588036bc5fe7bc7c46b71e`). **This is the only Notion database the app ever reads or writes** (Dean). The connection can also see "From Camber Internal Notion". Never use it.
 - **Client is a `select` property ("Client"), not a relation.** So `clients.notion_client_option` (the exact option name, e.g. "Camber") replaces `clients.notion_page_id`. Mirrored rows resolve `client_id` by matching that name. Rows whose name has no match go to the admin "unmapped" list.
 - Rows are briefs/projects, which drive the Briefs tab: title `Project`, `Production Type`, `Master Status` (status), `Priority`, `Project Lead`, `Date of Brief - Completion of Project`, `Description of Request`, parent/child via `Parent item` / `Child Item`.
 - `Master Status` puts every option in the "To-do" group, so status groups can't mean open/closed. "Open" needs an explicit list of statuses.
@@ -111,3 +111,6 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Backlog (agreed, not yet built)
+- **Ad previews** (Dean, 2026-09-28: option 2, after the Notion step). Windsor gives Meta `thumbnail_url` / `image_url` / `ad_preview_shareable_link`, LinkedIn `creative_thumbnail`, and Google image/display/Demand Gen image fields (search ads are text only, so show headlines). Meta and LinkedIn image URLs expire after about a week, so **copy each image into Supabase Storage** the first time it's seen. Show previews on best/worst ad, ad fatigue, new creatives and the matching check pre-loads, plus a Meta "View ad" link.

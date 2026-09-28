@@ -14,7 +14,8 @@
     "test:db": "node supabase/tests/rls-check.mjs",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "sync:windsor": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-windsor.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sync:notion": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-notion.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
