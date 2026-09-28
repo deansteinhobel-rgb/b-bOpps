@@ -82,6 +82,8 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Responses are `{ data: [...] }` with numbers as numbers. Filter with `select_accounts=<id>`. The account IDs come from `onboard.windsor.ai/api/common/ds-accounts?datasource=...`.
 - LinkedIn form fields (e.g. `lead_type`) can't be requested together with metrics. Windsor returns HTTP 400.
 - Rule (Dean): use the conversion field that has data over the last 14 days. See `pnpm scan:conversions`. 14-day scan (to 2026-09-27): LinkedIn externalwebsiteconversions Camber 1 / DNSF 32, oneclickleads 4 / 7; Google conversions 1 / 151.08; Meta actions_lead 14 / 25, DNSF MQL custom event 24. Meta `custom_conversion_action_count` (2232 / 3904) is implausibly high. Excluded, pending Dean.
+- LinkedIn: its account-level spend differs slightly (<1%) from the sum of its campaigns and creatives (e.g. Camber Sept +$76, DNSFilter −$71). We store campaign/creative-level rows, which match LinkedIn's campaign breakdown exactly.
+- Windsor backfill of 90 days takes ~6 minutes for 6 accounts: too long for one Vercel request, so the admin backfill must run in chunks.
 - Google Ads refuses some field combinations in one request (HTTP 400). Request segment-type conversion fields separately.
 - Plan: store the conversion and lead field IDs **per `client_platform_accounts` row** (`conversion_fields`, `lead_fields` text[]), with the defaults above. Meta needs this.
 - Accounts on the key: LinkedIn (Filevine, DNSFilter, Camber), Google Ads (DNSFilter, Camber), Facebook (Filevine, "DNSFilter X", Camber). Everything is in USD so far.

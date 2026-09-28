@@ -12,7 +12,9 @@
     "inspect:windsor": "tsx --env-file=.env.local scripts/windsor-inspect.ts",
     "scan:conversions": "tsx --env-file=.env.local scripts/windsor-conversion-scan.ts",
     "test:db": "node supabase/tests/rls-check.mjs",
-    "seed": "tsx --env-file=.env.local scripts/seed.ts"
+    "seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "sync:windsor": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-windsor.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
