@@ -5,11 +5,10 @@ import ReactMarkdown from "react-markdown"
 import { X } from "lucide-react"
 import { WinePour } from "@/components/fx/wine-pour"
 import { Button } from "@/components/ui/button"
+import { NEWS_STARTERS as STARTERS } from "@/lib/ai/news-starters"
 import { cn } from "@/lib/utils"
 
-type Msg = { role: "user" | "assistant"; content: string; sources?: { url: string; title: string }[]; error?: boolean }
-
-const STARTERS = ["What changed on LinkedIn Ads this month?", "Anything new from Google Ads for B2B?", "Are ChatGPT Ads open to advertisers yet?", "Reddit Ads updates worth knowing"]
+type Msg = { role: "user" | "assistant"; content: string; sources?: { url: string; title: string }[]; error?: boolean; cachedAt?: string }
 
 /**
  * "The news cellar": a floating chat for the latest paid media news (Google, Bing, LinkedIn, Meta,
@@ -28,17 +27,18 @@ export function NewsChat() {
     end.current?.scrollIntoView({ block: "end" })
   }, [msgs, status])
 
-  const ask = async (q: string) => {
+  // `fresh` skips the shared 7-day answer for a suggested question (starts the chat over).
+  const ask = async (q: string, fresh = false) => {
     const question = q.trim()
     if (!question || busy) return
-    const history: Msg[] = [...msgs.filter((m) => !m.error), { role: "user", content: question }]
+    const history: Msg[] = [...(fresh ? [] : msgs.filter((m) => !m.error)), { role: "user", content: question }]
     setMsgs([...history, { role: "assistant", content: "" }])
     setInput("")
     setBusy(true)
     setStatus("Uncorking the news…")
     const patch = (fn: (m: Msg) => Msg) => setMsgs((all) => [...all.slice(0, -1), fn(all[all.length - 1])])
     try {
-      const res = await fetch("/api/news-chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: history.map(({ role, content }) => ({ role, content })) }) })
+      const res = await fetch("/api/news-chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ fresh, messages: history.map(({ role, content }) => ({ role, content })) }) })
       if (!res.ok || !res.body) throw new Error(await res.text().catch(() => "Couldn't reach Claude."))
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -51,13 +51,14 @@ export function NewsChat() {
         buf = lines.pop() ?? ""
         for (const line of lines) {
           if (!line.trim()) continue
-          const ev = JSON.parse(line) as { type: string; text?: string; sources?: Msg["sources"] }
+          const ev = JSON.parse(line) as { type: string; text?: string; sources?: Msg["sources"]; at?: string }
           if (ev.type === "status") setStatus(ev.text ?? null)
           if (ev.type === "text") {
             setStatus(null)
             patch((m) => ({ ...m, content: m.content + (ev.text ?? "") }))
           }
           if (ev.type === "sources") patch((m) => ({ ...m, sources: ev.sources }))
+          if (ev.type === "cached") patch((m) => ({ ...m, cachedAt: ev.at }))
           if (ev.type === "error") patch((m) => ({ ...m, content: ev.text ?? "Something went wrong.", error: true }))
         }
       }
@@ -119,6 +120,16 @@ export function NewsChat() {
                   <ReactMarkdown components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer">{children}</a> }}>{m.content}</ReactMarkdown>
                 </div>
               )}
+              {m.cachedAt && (
+                <p className="text-[11px] text-muted-foreground">
+                  Shared answer from {ago(m.cachedAt)}, kept for 7 days to save tokens.{" "}
+                  {i === 1 && !busy && (
+                    <button type="button" onClick={() => ask(msgs[0].content, true)} className="underline hover:text-foreground">
+                      Get a fresh answer
+                    </button>
+                  )}
+                </p>
+              )}
               {m.sources && m.sources.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {m.sources.map((s) => (
@@ -153,6 +164,15 @@ export function NewsChat() {
       </form>
     </div>
   )
+}
+
+function ago(iso: string) {
+  const mins = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000))
+  if (mins < 60) return mins <= 1 ? "just now" : `${mins} minutes ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`
+  const days = Math.round(hours / 24)
+  return `${days} day${days === 1 ? "" : "s"} ago`
 }
 
 function hostname(url: string) {
