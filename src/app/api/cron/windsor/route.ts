@@ -1,3 +1,4 @@
+import { revalidateTag } from "next/cache"
 import { NextResponse, type NextRequest } from "next/server"
 import { daysAgo, syncWindsor } from "@/lib/windsor/sync"
 
@@ -13,6 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
   const results = await syncWindsor({ dateFrom: daysAgo(3), dateTo: daysAgo(1), kind: "daily" })
+  revalidateTag("windsor", { expire: 0 }) // fresh numbers everywhere
   const failed = results.filter((r) => r.error)
   return NextResponse.json({ ok: failed.length === 0, results }, { status: failed.length ? 207 : 200 })
 }

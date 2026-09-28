@@ -44,11 +44,32 @@ export type CheckRun = { id: string; cadence: Cadence; period_start: string; per
  */
 export async function ensureCurrentRuns(supabase: SupabaseClient, clientId: string, now = new Date()) {
   const { weekly, monthly } = currentPeriods(now)
-  const { data: defs, error: defErr } = await supabase.from("check_definitions").select("id, cadence").eq("active", true)
-  if (defErr) throw new Error(defErr.message)
+  const periods = [weekly, monthly] as Period[]
 
-  const runs: Record<Cadence, CheckRun> = {} as Record<Cadence, CheckRun>
-  for (const period of [weekly, monthly] as Period[]) {
+  // Fast path (almost every visit): both runs exist and already have a result per active check.
+  // One round trip for runs + result counts, one for the active check count.
+  const [{ data: existing }, { data: defs, error: defErr }] = await Promise.all([
+    supabase
+      .from("check_runs")
+      .select("id, cadence, period_start, period_end, created_at, check_results(count)")
+      .eq("client_id", clientId)
+      .in("period_start", periods.map((p) => p.start)),
+    supabase.from("check_definitions").select("id, cadence").eq("active", true),
+  ])
+  if (defErr) throw new Error(defErr.message)
+  const runs = {} as Record<Cadence, CheckRun>
+  let complete = true
+  for (const period of periods) {
+    const run = (existing ?? []).find((r) => r.cadence === period.cadence && r.period_start === period.start)
+    const expected = (defs ?? []).filter((d) => d.cadence === period.cadence).length
+    const have = (run?.check_results as unknown as { count: number }[] | undefined)?.[0]?.count ?? 0
+    if (run && have >= expected) runs[period.cadence] = run as unknown as CheckRun
+    else complete = false
+  }
+  if (complete) return runs
+
+  // Slow path (first visit of a new week/month, or a new check was added): create what's missing.
+  for (const period of periods) {
     await supabase
       .from("check_runs")
       .upsert({ client_id: clientId, cadence: period.cadence, period_start: period.start, period_end: period.end }, { onConflict: "client_id,cadence,period_start", ignoreDuplicates: true })

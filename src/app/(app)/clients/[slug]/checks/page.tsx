@@ -5,7 +5,7 @@ import { londonToday } from "@/lib/checks/periods"
 import { ensureCurrentRuns, loadRun, pastRuns } from "@/lib/checks/runs"
 import { longDate } from "@/lib/format"
 import { addDays } from "@/lib/metrics/ads"
-import { getOverview } from "@/lib/metrics/overview"
+import { cachedOverview } from "@/lib/metrics/cached"
 import { notionWritesLive } from "@/lib/notion/server"
 import { peopleForClient } from "@/lib/people"
 import { previewsFor } from "@/lib/previews"
@@ -19,28 +19,27 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
   const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target").eq("slug", slug).maybeSingle()
   if (!client) notFound()
 
-  const current = await ensureCurrentRuns(supabase, client.id)
-  // ?result=<id> (the link Notion's "QA Document" points to) opens the run that result belongs to.
-  let focusRun = typeof runParam === "string" ? runParam : null
-  if (!focusRun && typeof resultParam === "string") {
-    const { data: r } = await supabase.from("check_results").select("check_run_id").eq("id", resultParam).eq("client_id", client.id).maybeSingle()
-    focusRun = r?.check_run_id ?? null
-  }
-  const isCurrent = !focusRun || focusRun === current.weekly.id || focusRun === current.monthly.id
-  const runIds = isCurrent ? [current.weekly.id, current.monthly.id] : [focusRun!]
-
-  const [runs, overview, { data: team }, { data: profiles }, owners] = await Promise.all([
-    Promise.all(runIds.map((id) => loadRun(supabase, id))),
-    getOverview(supabase, client.id),
+  // Round 2, all in parallel: runs, the focused result (?result= links from Notion's "QA Document"),
+  // cached numbers, people and history.
+  const [current, focusResult, overview, { data: team }, { data: profiles }, owners, allPast] = await Promise.all([
+    ensureCurrentRuns(supabase, client.id),
+    typeof runParam !== "string" && typeof resultParam === "string"
+      ? supabase.from("check_results").select("check_run_id").eq("id", resultParam).eq("client_id", client.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    cachedOverview(client.id), // access confirmed above (client loaded through RLS)
     supabase.from("client_team").select("profile_id").eq("client_id", client.id).is("removed_at", null),
     supabase.from("profiles").select("id, full_name, email, notion_user_id").not("role", "is", null).order("full_name"),
     peopleForClient(supabase, client.id),
+    pastRuns(supabase, client.id, []),
   ])
+  const focusRun = typeof runParam === "string" ? runParam : (focusResult.data?.check_run_id ?? null)
+  const isCurrent = !focusRun || focusRun === current.weekly.id || focusRun === current.monthly.id
+  const runIds = isCurrent ? [current.weekly.id, current.monthly.id] : [focusRun!]
+  const history = allPast.filter((h) => h.id !== current.weekly.id && h.id !== current.monthly.id)
+
+  // Round 3: the runs being shown.
+  const runs = await Promise.all(runIds.map((id) => loadRun(supabase, id)))
   const actionIds = runs.flatMap((r) => r?.items.map((i) => i.result.notion_action_page_id).filter(Boolean) ?? []) as string[]
-  const { data: actionPages } = actionIds.length
-    ? await supabase.from("notion_pages_mirror").select("notion_page_id, url").in("notion_page_id", actionIds)
-    : { data: [] as { notion_page_id: string; url: string }[] }
-  const actionUrl = new Map((actionPages ?? []).map((p) => [p.notion_page_id, p.url]))
   const notionIdByProfile = new Map((profiles ?? []).map((p) => [p.id, p.notion_user_id as string | null]))
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
   const live = notionWritesLive()
@@ -56,15 +55,21 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
       for (const k of [...(d?.adKeys ?? []), ...(((result.auto_data as AutoData | null)?.adKeys) ?? [])]) if (k) keys.add(k)
     }
   }
-  const previews = await previewsFor(
-    supabase,
-    client.id,
-    [...keys].map((k) => {
-      const [platform, external_account_id, ...rest] = k.split("|")
-      return { platform, external_account_id, ad_id: rest.join("|") }
-    }),
-  )
-  const history = await pastRuns(supabase, client.id, [current.weekly.id, current.monthly.id])
+  // Round 4, in parallel: Notion links for actioned reds, and ad previews.
+  const [{ data: actionPages }, previews] = await Promise.all([
+    actionIds.length
+      ? supabase.from("notion_pages_mirror").select("notion_page_id, url").in("notion_page_id", actionIds)
+      : Promise.resolve({ data: [] as { notion_page_id: string; url: string }[] }),
+    previewsFor(
+      supabase,
+      client.id,
+      [...keys].map((k) => {
+        const [platform, external_account_id, ...rest] = k.split("|")
+        return { platform, external_account_id, ad_id: rest.join("|") }
+      }),
+    ),
+  ])
+  const actionUrl = new Map((actionPages ?? []).map((p) => [p.notion_page_id, p.url]))
 
   const teamIds = new Set((team ?? []).map((t) => t.profile_id))
   const names = new Map((profiles ?? []).map((p) => [p.id, p.full_name ?? p.email]))

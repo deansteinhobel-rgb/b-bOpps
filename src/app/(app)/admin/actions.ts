@@ -1,9 +1,10 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { redirect } from "next/navigation"
 import { z } from "zod"
 import { requireAdmin } from "@/lib/auth"
+import { windsorTag } from "@/lib/metrics/cached"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { CONNECTORS, DEFAULT_FIELDS } from "@/lib/windsor/accounts"
@@ -118,6 +119,7 @@ export async function addAccount(_prev: FormState, form: FormData): Promise<Form
     ...DEFAULT_FIELDS[connector],
   })
   if (error) return fail(error.code === "23505" ? "That account is already mapped (to this or another client)." : error.message)
+  revalidateTag(windsorTag(String(form.get("client_id"))), { expire: 0 })
   revalidatePath("/admin/clients", "layout")
   return { ok: true, message: "Account mapped. Run a backfill to load its history." }
 }
@@ -137,6 +139,7 @@ export async function updateAccount(_prev: FormState, form: FormData): Promise<F
     })
     .eq("id", String(form.get("id")))
   if (error) return fail(error.message)
+  revalidateTag("windsor", { expire: 0 })
   revalidatePath("/admin/clients", "layout")
   revalidatePath("/clients", "layout")
   return { ok: true, message: "Saved. Conversion field changes apply from the next sync or backfill." }
@@ -158,6 +161,7 @@ export async function saveBudgets(_prev: FormState, form: FormData): Promise<For
   const supabase = await createClient()
   const { error } = await supabase.from("client_budgets").upsert(rows, { onConflict: "client_id,platform,campaign_id,month" })
   if (error) return fail(error.message)
+  revalidateTag(windsorTag(clientId), { expire: 0 })
   revalidatePath("/admin/clients", "layout")
   revalidatePath("/clients", "layout")
   return { ok: true, message: "Budgets saved." }
@@ -167,6 +171,7 @@ export async function saveBudgets(_prev: FormState, form: FormData): Promise<For
 export async function backfillChunk(accountId: string, dateFrom: string, dateTo: string) {
   await requireAdmin()
   const [result] = await syncWindsor({ accountId, dateFrom, dateTo, kind: "backfill" })
+  if (result) revalidateTag(windsorTag(result.client_id), { expire: 0 })
   revalidatePath("/clients", "layout")
   return result ? { ok: !result.error, rows: result.rows, error: result.error } : { ok: false, rows: 0, error: "Account not found or inactive" }
 }

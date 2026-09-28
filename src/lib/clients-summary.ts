@@ -2,7 +2,8 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { currentPeriods } from "@/lib/checks/periods"
 import { isRedNotActioned } from "@/lib/checks/runs"
-import { getPacing, type PlatformPacing } from "@/lib/metrics/overview"
+import { cachedPacing } from "@/lib/metrics/cached"
+import type { PlatformPacing } from "@/lib/metrics/overview"
 import { CLOSED_STATUSES, PROP } from "@/lib/notion/config"
 
 export type ClientCard = {
@@ -39,7 +40,7 @@ export async function clientCards(supabase: SupabaseClient, opts: { profileId: s
   return Promise.all(
     list.map(async (c) => {
       const [pacing, { data: run }, { data: actions }, { data: reds }] = await Promise.all([
-        getPacing(supabase, c.id),
+        cachedPacing(c.id), // clients list came through RLS
         supabase.from("check_runs").select("id, check_results(status)").eq("client_id", c.id).eq("cadence", "weekly").eq("period_start", weekly.start).maybeSingle(),
         supabase.from("notion_pages_mirror").select("properties").eq("client_id", c.id).eq("page_type", "action").eq("in_trash", false),
         supabase.from("check_results").select("status, notion_action_page_id, checked_at").eq("client_id", c.id).eq("status", "red").is("notion_action_page_id", null),

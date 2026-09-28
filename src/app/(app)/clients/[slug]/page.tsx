@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { longDate, money, oneDp, percent, signedPct, whole } from "@/lib/format"
 import type { RankedAd } from "@/lib/metrics/ads"
 import { pctChange } from "@/lib/metrics/ads"
-import { getOverview } from "@/lib/metrics/overview"
+import { cachedOverview } from "@/lib/metrics/cached"
 import { PLATFORM_LABEL } from "@/lib/metrics/types"
 import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
@@ -16,7 +16,7 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target").eq("slug", slug).maybeSingle()
   if (!client) notFound()
-  const o = await getOverview(supabase, client.id)
+  const o = await cachedOverview(client.id) // access confirmed above (client loaded through RLS)
   const cur = client.currency
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
 

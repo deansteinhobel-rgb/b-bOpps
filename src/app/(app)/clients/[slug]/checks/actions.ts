@@ -5,7 +5,7 @@ import { z } from "zod"
 import { getProfile } from "@/lib/auth"
 import { buildAutoData } from "@/lib/checks/auto-data"
 import { weekOf } from "@/lib/checks/periods"
-import { getOverview } from "@/lib/metrics/overview"
+import { cachedOverview } from "@/lib/metrics/cached"
 import { createClient } from "@/lib/supabase/server"
 
 const Input = z.object({
@@ -42,7 +42,8 @@ export async function saveCheckResult(input: z.input<typeof Input>): Promise<Sav
   const def = current.check_definitions as unknown as { key: string }
   const run = current.check_runs as unknown as { period_start: string }
   const client = current.clients as unknown as { slug: string; currency: string; monthly_kpi_target: number | null }
-  const overview = await getOverview(supabase, current.client_id)
+  // Access already confirmed: `current` was loaded through RLS.
+  const overview = await cachedOverview(current.client_id)
   const autoData = overview
     ? buildAutoData(def.key, overview, {
         currency: client.currency,
