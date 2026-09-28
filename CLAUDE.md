@@ -33,13 +33,13 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 ## Decisions from Phase 0 answers (2026-09-28)
 - First admin: dean.steinhobel@bordeauxandburgundy.co.uk. Other new users get a profile with no role until an admin assigns one.
 - Notion: a single "Master Production" board, grouped by a `Client` select. See "Notion mapping" below.
-- **Data model change: `client_team` (client_id, profile_id, role) replaces `clients.am_profile_id` / `pm_profile_id` / `specialist_profile_id`.** Reason: DNSFilter and Camber each have two AMs (Danny and Kieran). RLS scopes by membership of `client_team`. Roles: `admin | gtm_lead | am | specialist` (whether `gtm_lead` = the brief's PM, which owns the PM checks, is pending Dean).
+- **Data model change: `client_team` (client_id, profile_id, role) replaces `clients.am_profile_id` / `pm_profile_id` / `specialist_profile_id`.** Reason: DNSFilter and Camber each have two AMs (Danny and Kieran). RLS scopes by membership of `client_team`. Roles: `admin | gtm_lead | am | specialist`. **`gtm_lead` oversees all performance marketing and has admin rights**, seeing every client (Dean, 2026-09-28). Who runs the PM-owned checks is pending Dean.
 - Team: DNSFilter: Dean (GTM lead), Andrea (specialist), Danny and Kieran (AM). Camber: Esa (GTM lead), Andrea, Danny and Kieran. Details are in `seed/clients.json`.
 - KPI: `cost_per_result` = spend / (conversions + leads). Targets: DNSFilter $300, Camber $200. Budgets are in the seed file.
 - Conversions: Google Ads uses conversions. LinkedIn and Meta use conversions plus leads.
 - Currency: one per client. A mapped ad account must be in the client's currency.
 - Metrics unique key: `(platform, external_account_id, date, ad_id)`. Rows with no ad use `ad_id = ''`.
-- Budgets: monthly budget per client per platform, with optional per-campaign budgets. Pacing uses the campaign budget where one is set.
+- Budgets: **per month** (`client_budgets`: client_id, platform, campaign_id nullable, month, amount). Budgets vary month to month (e.g. leftover Q3 budget spent in September). A new month copies the previous month's figures until someone edits them. Optional per-campaign budgets; pacing uses the campaign budget where one is set. The seed file's budgets are the default monthly amounts. September 2026 pacing (DNSFilter LinkedIn 135%, Google 127%; Camber Meta 133%) is intentional, per Dean.
 - Best/worst ad: rank by cost per conversion when at least 2 eligible ads have 3 or more conversions, otherwise by CTR. Eligible means spend strictly above the account's median ad spend over the last 7 days.
 - Ad fatigue: "live" means impressions in the last 2 available days. First seen is capped at the backfill window (90 days) and shown as "90+".
 - Periods: weeks run Monday to Sunday, Europe/London. Months are calendar months. A scheduled job creates check runs; one is also created on first open if missing.
