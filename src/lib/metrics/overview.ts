@@ -1,6 +1,6 @@
 import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { addDays, fatiguedAds, newCreativesThisMonth, rankAds, totals, type AdStat, type DailyRow, type FatigueInput } from "./ads"
+import { addDays, adHealth, fatiguedAds, newCreativesThisMonth, rankAds, totals, type AdStat, type DailyRow, type FatigueInput } from "./ads"
 import { calculatePacing, type PacingResult } from "./pacing"
 import type { Platform } from "./types"
 
@@ -162,8 +162,14 @@ export async function getOverview(supabase: SupabaseClient, clientId: string) {
     recent_clicks: n(r.recent_clicks),
     recent_spend: n(r.recent_spend),
     early_impressions: n(r.early_impressions),
+    recent_conversions: n(r.recent_conversions),
+    recent_leads: n(r.recent_leads),
     early_clicks: n(r.early_clicks),
+    early_spend: n(r.early_spend),
+    early_conversions: n(r.early_conversions),
+    early_leads: n(r.early_leads),
   }))
+  const liveAds = adHealth(fatigueRows)
 
   return {
     dataThrough,
@@ -177,6 +183,8 @@ export async function getOverview(supabase: SupabaseClient, clientId: string) {
     periods,
     byPlatform,
     rankings: rankAds(ads),
+    /** Every live ad, first 14 vs last 14 days (the Overview's ad fatigue tiles). */
+    liveAds,
     fatigued: fatiguedAds(fatigueRows),
     newCreatives: newCreativesThisMonth(fatigueRows),
   }

@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { CheckDeck } from "../(app)/clients/[slug]/checks/check-deck"
+import { FatiguePanel } from "../(app)/clients/[slug]/fatigue-panel"
 import { PacingPanel } from "../(app)/clients/[slug]/pacing-panel"
+import { adHealth, type FatigueInput } from "@/lib/metrics/ads"
 import type { CheckDefinition, CheckResult } from "@/lib/checks/runs"
 import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
 
@@ -33,6 +35,18 @@ const deckItems = [
 const pp = (platform: PlatformPacing["platform"], spend: number, budget: number, status: PlatformPacing["status"]): PlatformPacing => ({
   platform, spendMtd: spend, budget, budgetSource: "default", dataThrough: "2026-09-27", status, month: "2026-09", daysElapsed: 27, daysInMonth: 30, expected: (budget * 27) / 30, ratio: spend / ((budget * 27) / 30), variancePct: 0, reasons: [],
 })
+const fi = (id: string, name: string, platform: FatigueInput["platform"], first_seen: string, rc: number, rs: number, rr: number): FatigueInput => ({
+  platform, external_account_id: "1", ad_id: id, ad_name: name, campaign_name: "DG | Search | Non-Brand Core", first_seen, data_from: "2026-06-30", data_through: "2026-09-27", live: true,
+  recent_impressions: 10000, recent_clicks: rc, recent_spend: rs, recent_conversions: rr, recent_leads: 0,
+  early_impressions: 10000, early_clicks: 500, early_spend: 3000, early_conversions: 10, early_leads: 0,
+})
+const sampleAds = adHealth([
+  fi("a", "DNS Filtering Service | Cloud DNS Filter", "google_ads", "2026-08-03", 416, 6910, 22),
+  fi("b", "Single Image #1b - High Intent Form", "meta", "2026-08-24", 560, 1616, 8),
+  fi("c", "Carousel - Protective DNS for MSPs", "linkedin", "2026-09-05", 520, 900, 3),
+  fi("d", "Single Image #1 - The AI Arms Race", "meta", "2026-09-21", 500, 679, 2),
+  fi("e", "Brand | DNSFilter", "google_ads", "2026-06-30", 700, 400, 0),
+])
 const samplePacing = [pp("linkedin", 24235, 20000, "red"), pp("google_ads", 80015, 70000, "red"), pp("meta", 5518, 15000, "amber")]
 const sampleCampaigns: CampaignPacing[] = [
   { ...pp("google_ads", 18700, 20000, "green"), campaignId: "1", campaignName: "DG | Search | Non-Brand Core" },
@@ -143,6 +157,11 @@ export default async function DesignPreview() {
           <section className="space-y-4">
             <SectionHeader title="Budget pacing" description="Sliders with the today marker." />
             <PacingPanel platforms={samplePacing} campaigns={sampleCampaigns} currency="USD" month="2026-09-01" canEdit clientSlug="dnsfilter" />
+          </section>
+
+          <section className="space-y-4">
+            <SectionHeader title="Ad fatigue" description="Compact tiles; click one to expand." />
+            <FatiguePanel ads={sampleAds} previews={{}} currency="USD" />
           </section>
 
           <CheckDeck title="Week of 28 Sept 2026 – 4 Oct 2026" subtitle="Weekly checks (sample)" items={deckItems} />

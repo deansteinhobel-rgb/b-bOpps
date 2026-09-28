@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { fatiguedAds, median, rankAds, type AdStat, type FatigueInput } from "./ads"
+import { adHealth, fatiguedAds, median, rankAds, type AdStat, type FatigueInput } from "./ads"
 
 const ad = (id: string, spend: number, impressions: number, clicks: number, conversions = 0, leads = 0): AdStat => ({
   platform: "linkedin", external_account_id: "1", ad_id: id, ad_name: id, campaign_name: "c", spend, impressions, clicks, conversions, leads,
@@ -55,7 +55,8 @@ describe("fatiguedAds", () => {
   const row = (id: string, first_seen: string, live = true): FatigueInput => ({
     platform: "meta", external_account_id: "1", ad_id: id, ad_name: id, campaign_name: "c", first_seen,
     data_from: "2026-06-30", data_through: "2026-09-27", live,
-    recent_impressions: 1000, recent_clicks: 5, recent_spend: 100, early_impressions: 1000, early_clicks: 10,
+    recent_impressions: 1000, recent_clicks: 5, recent_spend: 100, recent_conversions: 2, recent_leads: 0,
+    early_impressions: 1000, early_clicks: 10, early_spend: 100, early_conversions: 4, early_leads: 0,
   })
   it("lists live ads first seen 45+ days before data-through, flagging capped first-seen dates", () => {
     const out = fatiguedAds([row("old", "2026-06-30"), row("edge", "2026-08-13"), row("young", "2026-08-14"), row("paused", "2026-07-01", false)])
@@ -63,5 +64,33 @@ describe("fatiguedAds", () => {
     expect(out[0].firstSeenCapped).toBe(true)
     expect(out[1].ageDays).toBe(45)
     expect(out[1].ctrChangePct).toBe(-50)
+    expect(out[1].ctrDown).toBe(true)
+    expect(out[1].cprChangePct).toBe(100)
+    expect(out[1].cprUp).toBe(true)
+    expect(out[0].comparable).toBe(false) // first-seen capped: its real first 14 days aren't in our data
+  })
+})
+
+describe("adHealth", () => {
+  const row = (id: string, first_seen: string, over: Partial<FatigueInput> = {}): FatigueInput => ({
+    platform: "meta", external_account_id: "1", ad_id: id, ad_name: id, campaign_name: "c", first_seen,
+    data_from: "2026-06-30", data_through: "2026-09-27", live: true,
+    recent_impressions: 1000, recent_clicks: 10, recent_spend: 100, recent_conversions: 0, recent_leads: 0,
+    early_impressions: 1000, early_clicks: 10, early_spend: 100, early_conversions: 2, early_leads: 2,
+    ...over,
+  })
+  it("marks ads older than 30 days, and only compares once the two 14-day windows don't overlap", () => {
+    const [young, mid, old] = adHealth([row("young", "2026-09-10", { recent_spend: 3 }), row("mid", "2026-08-31", { recent_spend: 2 }), row("old", "2026-08-27", { recent_spend: 1 })])
+    expect([young.old, mid.old, old.old]).toEqual([false, false, true])
+    expect(young.comparable).toBe(false)
+    expect(young.ctrChangePct).toBeNull()
+    expect(mid.comparable).toBe(true)
+  })
+  it("counts spend with no results in the last 14 days as cost per result up", () => {
+    const [a] = adHealth([row("a", "2026-08-01")])
+    expect(a.recentCpr).toBeNull()
+    expect(a.earlyCpr).toBe(25)
+    expect(a.cprUp).toBe(true)
+    expect(a.ctrDown).toBe(false) // equal CTR is not down
   })
 })

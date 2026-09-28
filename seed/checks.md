@@ -49,7 +49,7 @@ This file is the source for the app's checks. Edit the wording freely. Keep the 
 ### ad_fatigue: Ad fatigue
 - Cadence: weekly
 - Owner: Specialist
-- Pre-loaded: live ads first seen 45 or more days ago, with CTR over the last 7 days against their first 14 days. Windsor can't see creative edits, so age is based on the first date each ad appeared.
+- Pre-loaded: live ads first seen 45 or more days ago, with CTR over the last 14 days against their first 14 days. Windsor can't see creative edits, so age is based on the first date each ad appeared.
 - Instructions: Review the list above. For each old ad, compare its recent CTR with its early CTR, and on Meta also check frequency. Decide which ads to refresh or rotate out.
 - What to record: which ads are fatigued, and the refresh plan, owner and date.
 - Not applicable when: there are no live ads older than 45 days.

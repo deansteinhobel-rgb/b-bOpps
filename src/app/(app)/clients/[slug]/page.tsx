@@ -8,11 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { longDate, money, oneDp, percent, signedPct, whole } from "@/lib/format"
 import type { RankedAd } from "@/lib/metrics/ads"
-import { pctChange } from "@/lib/metrics/ads"
+import { AD_OLD_DAYS, pctChange } from "@/lib/metrics/ads"
 import { cachedOverview } from "@/lib/metrics/cached"
 import { PLATFORM_LABEL } from "@/lib/metrics/types"
 import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
+import { FatiguePanel } from "./fatigue-panel"
 import { PacingPanel } from "./pacing-panel"
 
 export default async function OverviewPage({ params }: PageProps<"/clients/[slug]">) {
@@ -29,7 +30,7 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
   const newest = o.newCreatives.slice(0, 12)
   const previews = await previewsFor(supabase, client.id, [
     ...o.rankings.flatMap((r) => [r.best, r.worst]).filter((a) => a !== null),
-    ...o.fatigued.slice(0, 20),
+    ...o.liveAds,
     ...newest,
   ])
 
@@ -132,53 +133,12 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
       </section>
 
       {/* Fatigue */}
-      <section>
-        <h2 className="text-2xl">Ad fatigue</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Live ads first seen 45 or more days ago. Windsor can&apos;t see creative edits, so age is counted from the first day an ad had impressions in our data
-          (which starts {longDate(o.dataFrom)}). &ldquo;{longDate(o.dataFrom)} or earlier&rdquo; means it may be older.
-        </p>
-        {o.fatigued.length === 0 ? (
-          <p className="mt-4 text-sm">No fatigued ads.</p>
-        ) : (
-          <Table className="surface mt-4">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Ad</TableHead>
-                <TableHead>Platform</TableHead>
-                <TableHead>First seen</TableHead>
-                <TableHead className="text-right">Age</TableHead>
-                <TableHead className="text-right">Spend 7d</TableHead>
-                <TableHead className="text-right">CTR 7d</TableHead>
-                <TableHead className="text-right">CTR first 14d</TableHead>
-                <TableHead className="text-right">Change</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {o.fatigued.slice(0, 20).map((a) => (
-                <TableRow key={`${a.platform}-${a.ad_id}`}>
-                  <TableCell className="max-w-80">
-                    <div className="flex items-center gap-3">
-                      <AdThumb preview={previews[adKey(a)]} alt={a.ad_name ?? a.ad_id} size="sm" />
-                      <div className="min-w-0">
-                        <span className="line-clamp-1" title={a.ad_name ?? a.ad_id}>{a.ad_name ?? a.ad_id}</span>
-                        <span className="line-clamp-1 text-xs text-muted-foreground">{a.campaign_name}</span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell><PlatformLabel platform={a.platform} className="text-muted-foreground" /></TableCell>
-                  <TableCell>{a.firstSeenCapped ? `${longDate(a.first_seen)} or earlier` : longDate(a.first_seen)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{a.firstSeenCapped ? `${a.ageDays}+` : a.ageDays} days</TableCell>
-                  <TableCell className="text-right tabular-nums">{money(a.recent_spend, cur)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{percent(a.recentCtr, 2)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{a.firstSeenCapped ? "–" : percent(a.earlyCtr, 2)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{a.firstSeenCapped ? "–" : signedPct(a.ctrChangePct)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-        {o.fatigued.length > 20 && <p className="mt-2 text-xs text-muted-foreground">Showing the 20 biggest spenders of {o.fatigued.length}.</p>}
+      <section className="space-y-4">
+        <SectionHeader
+          title="Ad fatigue"
+          description={`Every live ad: its first 14 days against its last 14 days. First seen is red when it's over ${AD_OLD_DAYS} days ago; the last 14 days are red when worse. Age counts from the first day with impressions in our data (from ${longDate(o.dataFrom)}), because Windsor can't see creative edits.`}
+        />
+        <FatiguePanel ads={o.liveAds} previews={previews} currency={cur} />
       </section>
 
       {/* New creatives */}

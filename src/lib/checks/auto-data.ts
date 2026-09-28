@@ -62,7 +62,7 @@ export function buildAutoData(key: string, o: Overview, ctx: { currency: string;
         ...base,
         note: `${o.fatigued.length} live ads first seen 45+ days ago. Age counts from the first day with impressions in our data (from ${o.dataFrom}), because Windsor can't see creative edits.`,
         table: {
-          columns: ["Ad", "Platform", "Age", "Spend 7d", "CTR 7d", "CTR first 14d"],
+          columns: ["Ad", "Platform", "Age", "Spend last 14d", "CTR last 14d", "CTR first 14d"],
           rows: o.fatigued.slice(0, 10).map((a) => [
             a.ad_name ?? a.ad_id,
             PLATFORM_LABEL[a.platform],

@@ -92,43 +92,86 @@ export type FatigueInput = {
   data_from: string
   data_through: string
   live: boolean
+  /** Last 14 days to data-through. */
   recent_impressions: number
   recent_clicks: number
   recent_spend: number
+  recent_conversions: number
+  recent_leads: number
+  /** The ad's first 14 days. */
   early_impressions: number
   early_clicks: number
+  early_spend: number
+  early_conversions: number
+  early_leads: number
 }
 
 export type FatiguedAd = FatigueInput & {
   ageDays: number
   /** first_seen is the start of our cache, so the ad may be older than shown. */
   firstSeenCapped: boolean
+  /** Older than AD_OLD_DAYS (shown in red). */
+  old: boolean
+  /** Its first 14 days and last 14 days don't overlap and the first 14 are in our data. */
+  comparable: boolean
   recentCtr: number | null
   earlyCtr: number | null
   ctrChangePct: number | null
+  /** CTR in the last 14 days is below its first 14 days. */
+  ctrDown: boolean
+  recentCpr: number | null
+  earlyCpr: number | null
+  cprChangePct: number | null
+  /** Cost per result in the last 14 days is above its first 14 days (or spend with no results). */
+  cprUp: boolean
 }
 
 export const FATIGUE_MIN_AGE_DAYS = 45
+/** Ads first seen more than this many days ago show their first-seen date in red (Dean). */
+export const AD_OLD_DAYS = 30
+const WINDOW = 14
 
 export const dayDiff = (from: string, to: string) => Math.round((Date.parse(to) - Date.parse(from)) / 864e5)
 
-/** Live ads first seen 45+ days before the data-through date. Biggest recent spenders first. */
-export function fatiguedAds(rows: FatigueInput[], minAgeDays = FATIGUE_MIN_AGE_DAYS): FatiguedAd[] {
+const ratio = (a: number, b: number) => (b > 0 ? a / b : null)
+const change = (now: number | null, then: number | null) => (now !== null && then ? Math.round((now / then - 1) * 100) : null)
+
+/** Every live ad with its first-14 vs last-14 day CTR and cost per result. Biggest recent spenders first. */
+export function adHealth(rows: FatigueInput[]): FatiguedAd[] {
   return rows
-    .filter((r) => r.live && dayDiff(r.first_seen, r.data_through) >= minAgeDays)
+    .filter((r) => r.live)
     .map((r) => {
-      const recentCtr = r.recent_impressions > 0 ? r.recent_clicks / r.recent_impressions : null
-      const earlyCtr = r.early_impressions > 0 ? r.early_clicks / r.early_impressions : null
+      const ageDays = dayDiff(r.first_seen, r.data_through)
+      const firstSeenCapped = r.first_seen <= r.data_from
+      const comparable = !firstSeenCapped && ageDays >= WINDOW * 2 - 1
+      const recentCtr = ratio(r.recent_clicks, r.recent_impressions)
+      const earlyCtr = ratio(r.early_clicks, r.early_impressions)
+      const recentResults = r.recent_conversions + r.recent_leads
+      const earlyResults = r.early_conversions + r.early_leads
+      const recentCpr = ratio(r.recent_spend, recentResults)
+      const earlyCpr = ratio(r.early_spend, earlyResults)
       return {
         ...r,
-        ageDays: dayDiff(r.first_seen, r.data_through),
-        firstSeenCapped: r.first_seen <= r.data_from,
+        ageDays,
+        firstSeenCapped,
+        old: ageDays > AD_OLD_DAYS,
+        comparable,
         recentCtr,
         earlyCtr,
-        ctrChangePct: recentCtr !== null && earlyCtr ? Math.round((recentCtr / earlyCtr - 1) * 100) : null,
+        ctrChangePct: comparable ? change(recentCtr, earlyCtr) : null,
+        ctrDown: comparable && recentCtr !== null && earlyCtr !== null && recentCtr < earlyCtr,
+        recentCpr,
+        earlyCpr,
+        cprChangePct: comparable ? change(recentCpr, earlyCpr) : null,
+        cprUp: comparable && earlyCpr !== null && (recentCpr === null ? r.recent_spend > 0 : recentCpr > earlyCpr),
       }
     })
     .sort((a, b) => b.recent_spend - a.recent_spend)
+}
+
+/** Live ads first seen 45+ days before the data-through date (the fatigue check). Biggest recent spenders first. */
+export function fatiguedAds(rows: FatigueInput[], minAgeDays = FATIGUE_MIN_AGE_DAYS): FatiguedAd[] {
+  return adHealth(rows).filter((a) => a.ageDays >= minAgeDays)
 }
 
 /** Ads first seen in the calendar month of the data-through date (not ones already there at backfill). */
