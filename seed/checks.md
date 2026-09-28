@@ -3,7 +3,7 @@
 This file is the source for the app's checks. Edit the wording freely. Keep the headings and the
 `Field:` labels as they are, because the seed script reads them.
 
-- **Owner:** `PM` checks sit with whoever runs weekly QA (see the open question in chat). `Specialist` checks sit with the paid media specialist.
+- **Owner:** the paid media specialist (Andrea) runs the checks by default. Change a check's `Owner:` to `AM` or `GTM lead` if someone else should own it.
 - **Pre-loaded:** numbers the app fills in from Windsor before you start, so you don't have to look them up.
 - **Status:** always one of Green, Amber, Red or N/A. Thresholds below are suggestions to edit.
 - **Red:** a Red status offers a "Create action in Notion" button, pre-filled from your findings.
@@ -14,7 +14,7 @@ This file is the source for the app's checks. Edit the wording freely. Keep the 
 
 ### leads_in_crm: Leads in CRM
 - Cadence: weekly
-- Owner: PM
+- Owner: Specialist
 - Pre-loaded: leads and conversions per platform for the last 7 days (from Windsor). HubSpot lead counts come in a later phase.
 - Instructions: In HubSpot, filter contacts created in the last 7 days whose original source is paid social or paid search. Compare the count with the platform totals shown above. Open three or four recent paid leads and check that source, campaign and UTM fields are filled in.
 - What to record: the HubSpot paid lead count, the platform count, the gap as a %, and any leads with missing source or campaign data.
@@ -24,7 +24,7 @@ This file is the source for the app's checks. Edit the wording freely. Keep the 
 
 ### budget_pacing: Budget pacing
 - Cadence: weekly
-- Owner: PM
+- Owner: Specialist
 - Pre-loaded: spend month-to-date against this month's budget for each platform, pacing %, and the last two days of spend.
 - Instructions: Check the pacing figures above against the plan. If a platform is off pace, look at which campaigns are driving it in the platform UI and decide whether to adjust daily budgets. If the variance is intentional (for example, leftover quarterly budget being spent), say so.
 - What to record: pacing % per platform, the reason for any variance, and any budget changes made.
@@ -34,7 +34,7 @@ This file is the source for the app's checks. Edit the wording freely. Keep the 
 
 ### landing_pages: Landing pages, tags and forms
 - Cadence: weekly
-- Owner: PM
+- Owner: Specialist
 - Pre-loaded: none.
 - Instructions: For every landing page receiving paid traffic:
   1. Check the page loads on desktop and mobile.
@@ -48,7 +48,7 @@ This file is the source for the app's checks. Edit the wording freely. Keep the 
 
 ### ad_fatigue: Ad fatigue
 - Cadence: weekly
-- Owner: PM
+- Owner: Specialist
 - Pre-loaded: live ads first seen 45 or more days ago, with CTR over the last 7 days against their first 14 days. Windsor can't see creative edits, so age is based on the first date each ad appeared.
 - Instructions: Review the list above. For each old ad, compare its recent CTR with its early CTR, and on Meta also check frequency. Decide which ads to refresh or rotate out.
 - What to record: which ads are fatigued, and the refresh plan, owner and date.
@@ -58,7 +58,7 @@ This file is the source for the app's checks. Edit the wording freely. Keep the 
 
 ### naming_spot_check: Naming structure spot check
 - Cadence: weekly
-- Owner: PM
+- Owner: Specialist
 - Pre-loaded: campaigns and ads first seen this week (names from Windsor).
 - Instructions: Check five of the new campaigns or ads against the B&B naming convention. On LinkedIn and Meta that's currently `Audience | Offer | Format | Objective`. On Google it's `SEM-{Type}-{Theme}`. Check segment order, separators and spelling.
 - What to record: the names checked, and any that break the convention, with the corrected name.
@@ -68,7 +68,7 @@ This file is the source for the app's checks. Edit the wording freely. Keep the 
 
 ### utm_spot_check: UTM consistency spot check
 - Cadence: weekly
-- Owner: PM
+- Owner: Specialist
 - Pre-loaded: none. Windsor doesn't return final URLs, so check in the platform.
 - Instructions: Open the final URLs of five live ads across platforms. Check `utm_source`, `utm_medium` and `utm_campaign` are all present and lowercase, follow the B&B UTM convention, and that `utm_campaign` matches the campaign.
 - What to record: the ads checked and any wrong or missing UTMs.
@@ -122,7 +122,7 @@ This file is the source for the app's checks. Edit the wording freely. Keep the 
 
 ### new_creatives: New creatives this month
 - Cadence: monthly
-- Owner: PM
+- Owner: Specialist
 - Pre-loaded: ads first seen this calendar month, per platform.
 - Instructions: Compare the new creatives launched with the creative plan and with the ad fatigue findings. Check each new creative went through proofing and approval (Notion status).
 - What to record: the number launched against plan, what's missing, and when it will launch.
@@ -132,7 +132,7 @@ This file is the source for the app's checks. Edit the wording freely. Keep the 
 
 ### naming_full_review: Naming structure full review
 - Cadence: monthly
-- Owner: PM
+- Owner: Specialist
 - Pre-loaded: all campaigns and ads with spend this month (names from Windsor).
 - Instructions: Check every active campaign, ad group and ad against the naming convention, and rename or log anything that breaks it.
 - What to record: the number checked, the number fixed, and anything left to fix.
@@ -142,7 +142,7 @@ This file is the source for the app's checks. Edit the wording freely. Keep the 
 
 ### utm_full_review: UTM consistency full review
 - Cadence: monthly
-- Owner: PM
+- Owner: Specialist
 - Pre-loaded: none.
 - Instructions: Check the UTMs on every live ad. In HubSpot, check this month's paid leads are attributed to the right source and campaign, with no "offline" or "direct" leaks from paid traffic.
 - What to record: the ads checked, the fixes made, and the attribution gaps found in HubSpot.

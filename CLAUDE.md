@@ -2,7 +2,7 @@
 
 An internal web app for Bordeaux & Burgundy. For each client it shows paid media performance (from Windsor.ai), runs the weekly and monthly QA checks, and shows and creates action points in Notion. Notion stays the system of record.
 
-**Current phase: 0 (discovery).** Only the throwaway scripts in `/scripts` exist. Don't write app code until the Notion and Windsor mappings are confirmed.
+**Current phase: 1 (build).** Phase 0 is complete: the Notion and Windsor mappings are confirmed (2026-09-28). The check wording in `seed/checks.md` is a draft Dean is still editing.
 
 ## The client is the spine
 Every page, query, table and RLS policy is scoped by `client_id`. In v1 the client list is the only view that spans clients. If a new query or table isn't client-scoped, stop and ask.
@@ -33,7 +33,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 ## Decisions from Phase 0 answers (2026-09-28)
 - First admin: dean.steinhobel@bordeauxandburgundy.co.uk. Other new users get a profile with no role until an admin assigns one.
 - Notion: a single "Master Production" board, grouped by a `Client` select. See "Notion mapping" below.
-- **Data model change: `client_team` (client_id, profile_id, role) replaces `clients.am_profile_id` / `pm_profile_id` / `specialist_profile_id`.** Reason: DNSFilter and Camber each have two AMs (Danny and Kieran). RLS scopes by membership of `client_team`. Roles: `admin | gtm_lead | am | specialist`. **`gtm_lead` oversees all performance marketing and has admin rights**, seeing every client (Dean, 2026-09-28). Who runs the PM-owned checks is pending Dean.
+- **Data model change: `client_team` (client_id, profile_id, role) replaces `clients.am_profile_id` / `pm_profile_id` / `specialist_profile_id`.** Reason: DNSFilter and Camber each have two AMs (Danny and Kieran). RLS scopes by membership of `client_team`. Roles: `admin | gtm_lead | am | specialist`. **`gtm_lead` oversees all performance marketing and has admin rights**, seeing every client (Dean, 2026-09-28). The paid media specialist (Andrea) owns the checks by default. There is no PM role; each check's owner is set in `seed/checks.md`.
 - Team: DNSFilter: Dean (GTM lead), Andrea (specialist), Danny and Kieran (AM). Camber: Esa (GTM lead), Andrea, Danny and Kieran. Details are in `seed/clients.json`.
 - KPI: `cost_per_result` = spend / (conversions + leads). Targets: DNSFilter $300, Camber $200. Budgets are in the seed file.
 - Conversions: Google Ads uses conversions. LinkedIn and Meta use conversions plus leads.
