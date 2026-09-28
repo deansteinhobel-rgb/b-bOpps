@@ -1,5 +1,5 @@
 /**
- * Phase 0 throwaway script: discover the Notion schema. Read-only. It never writes to Notion.
+ * Phase 0 throwaway script: discover the Notion schema. Read-only: it uses a client that blocks every write.
  *
  *   pnpm inspect:notion                 # uses NOTION_DATABASE_IDS from .env.local
  *   pnpm inspect:notion <id> [<id> ...] # or pass database / page IDs directly
@@ -9,7 +9,8 @@
  * and a proposed mapping to our data model for you to confirm.
  * Full raw output is written to scripts/output/notion-inspect.json (git-ignored).
  */
-import { Client, APIResponseError, isFullPage } from "@notionhq/client"
+import { APIResponseError, isFullPage } from "@notionhq/client"
+import { readOnlyNotion } from "./notion-readonly"
 import { mkdirSync, writeFileSync } from "node:fs"
 
 const NOTION_VERSION = "2026-03-11"
@@ -29,7 +30,7 @@ if (!ids.length) {
   process.exit(1)
 }
 
-const notion = new Client({ auth: token, notionVersion: NOTION_VERSION })
+const notion = readOnlyNotion(token, NOTION_VERSION)
 
 let last = 0
 async function call<T>(fn: () => Promise<T>): Promise<T> {

@@ -16,6 +16,13 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Vercel (Hobby for now) for hosting.
 - All third-party keys stay server-side. Nothing secret goes in a `NEXT_PUBLIC_` variable.
 
+## NO WRITES TO NOTION WHILE TESTING. NOTHING GETS DELETED. (Dean, 2026-09-28)
+- Nothing may write to the real Notion workspace during development or testing. That covers scripts, dev servers, tests and one-off checks.
+- Scripts use `scripts/notion-readonly.ts`, which throws on any create, update, append, delete, move, comment or upload call. Never use `new Client()` directly.
+- In the app, a real write needs `NOTION_WRITES_ENABLED=true` **and** `NOTION_DRY_RUN=false`. Both default to the safe value. Dean alone decides when to switch them. Never change them yourself, and never set them in `.env.local`.
+- Tests use a mocked Notion client only.
+- Deletes are never allowed in any environment. There is no delete code path.
+
 ## Notion write-side rules (strict)
 - The app writes to Notion in one way only: **creating an action page** with the mapped properties. Updating status on pages the app created is **off in v1** (pending confirmation, because the team changes statuses by hand once work is verified).
 - No deletes, ever. No edits to pages the app didn't create.
