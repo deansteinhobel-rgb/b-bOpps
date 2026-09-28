@@ -217,6 +217,12 @@ async function main() {
       report.roots.push(await inspectDatabase(id))
     } catch (e) {
       if (e instanceof APIResponseError && (e.code === "object_not_found" || e.code === "validation_error")) {
+        // Not a database: try it as a data source ID (what search returns), then as a page.
+        try {
+          console.log(`\n${id} is not a database ID. Trying it as a data source...`)
+          report.roots.push({ kind: "data_source", ...(await inspectDataSource(id)) })
+          continue
+        } catch {}
         try {
           report.roots.push(await inspectPage(id))
           continue
