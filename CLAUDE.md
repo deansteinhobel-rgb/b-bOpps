@@ -36,6 +36,21 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Red not actioned: 24 hours after `checked_at` with no `notion_action_page_id`. Flag-to records the person and appears in their "Flagged to me" list. Slack notifications come later.
 - Scheduling: Vercel Hobby cron only runs once a day. Proposal: Supabase Cron (pg_cron + pg_net) calls the sync routes, with `CRON_SECRET`. Pending confirmation.
 
+## Windsor field mapping (from windsor-inspect, 2026-09-28, pending confirmation)
+| ours | linkedin | google_ads | facebook |
+|---|---|---|---|
+| campaign_id / name | `campaign_id` / `campaign` (an Ad Set in the LinkedIn UI) | `campaign_id` / `campaign` | `campaign_id` / `campaign` |
+| ad_id / ad_name | `creative_id` / `sponsored_creative_content_title` (`ad_name` is deprecated) | `ad_id` / `ad_name` | `ad_id` / `ad_name` |
+| spend | `spend` | `spend` | `spend` |
+| impressions, clicks | `impressions`, `clicks` | `impressions`, `clicks` | `impressions`, `clicks` (`link_clicks` also available) |
+| conversions | `externalwebsiteconversions` (? vs `conversions`) | `conversions` | no single field. Custom events differ per client |
+| leads | `oneclickleads` | n/a | `actions_lead` (or `actions_leadgen_grouped` / `actions_onsite_conversion_lead_grouped`) |
+- Responses are `{ data: [...] }` with numbers as numbers. Filter with `select_accounts=<id>`. The account IDs come from `onboard.windsor.ai/api/common/ds-accounts?datasource=...`.
+- LinkedIn form fields (e.g. `lead_type`) can't be requested together with metrics. Windsor returns HTTP 400.
+- Plan: store the conversion and lead field IDs **per `client_platform_accounts` row** (`conversion_fields`, `lead_fields` text[]), with the defaults above. Meta needs this.
+- Accounts on the key: LinkedIn (Filevine, DNSFilter, Camber), Google Ads (DNSFilter, Camber), Facebook (Filevine, "DNSFilter X", Camber). Everything is in USD so far.
+- Supabase uses the new keys: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`. The legacy anon and service_role keys are deprecated by the end of 2026.
+
 ## Look and feel (from bordeauxandburgundy.com)
 - Fonts: **MADE Avenue** (serif) for headings, falling back to Georgia. **Helvetica Neue** (400/700) for UI and body text, falling back to Helvetica and Arial. Small uppercase labels use letter-spacing of 0.1–0.2em.
 - The MADE Avenue and Helvetica Neue files are licensed fonts. Get them, and confirm the licence covers this app, from the B&B web team. Until then, use the fallbacks.

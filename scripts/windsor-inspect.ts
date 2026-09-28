@@ -19,23 +19,25 @@ if (!apiKey) {
 }
 const selected = process.argv.slice(2).length ? process.argv.slice(2) : [...CONNECTORS]
 
-// Metrics and dimensions we want. For each one, the patterns are tried in order against the
-// connector's field IDs and the first match is used. Printed so you can confirm or correct.
-const WANTED: Record<string, RegExp[]> = {
-  date: [/^date$/],
-  account_id: [/^account_id$/, /account.*id$/],
-  account_name: [/^account_name$/, /account.*name$/],
-  campaign_id: [/^campaign_id$/, /campaign.*id$/],
-  campaign_name: [/^campaign$/, /^campaign_name$/, /campaign.*name$/],
-  ad_id: [/^ad_id$/, /^creative_id$/, /(^|_)ad_id$/],
-  ad_name: [/^ad_name$/, /^ad$/, /^creative_name$/, /(^|_)ad_name$/],
-  spend: [/^spend$/, /^cost$/, /^totalcost$/, /cost_in_local/, /spend/],
-  impressions: [/^impressions$/],
-  clicks: [/^clicks$/, /^link_clicks$/],
-  conversions: [/^conversions$/, /^externalwebsiteconversions$/, /^all_conversions$/, /conversion/],
-  leads: [/^leads$/, /^one_click_leads$/, /^actions_lead$/, /lead/],
+// Metrics and dimensions we want, as candidate field IDs in order of preference. Every candidate
+// the connector offers is pulled in the smoke test, so you can compare them and pick. The first
+// one found is the proposal. Names come from each connector's own field list.
+const WANTED: Record<string, string[]> = {
+  date: ["date"],
+  account_id: ["account_id"],
+  account_name: ["account_name"],
+  currency: ["currency", "account_currency_code", "account_currency"],
+  campaign_id: ["campaign_id", "campaign_group_id"],
+  campaign_name: ["campaign", "campaign_name", "campaign_group_name"],
+  ad_id: ["ad_id", "creative_id"],
+  ad_name: ["ad_name", "sponsored_creative_content_title", "creative_name"],
+  spend: ["spend", "cost", "totalcost"],
+  impressions: ["impressions"],
+  clicks: ["clicks", "link_clicks"],
+  conversions: ["conversions", "externalwebsiteconversions", "all_conversions", "actions_offsite_conversion"],
+  leads: ["leads", "oneclickleads", "actions_lead", "actions_onsite_conversion_lead_grouped", "actions_offsite_conversion_fb_pixel_lead"],
 }
-const INTERESTING = /spend|cost|impression|click|conversion|lead|ad_id|ad_name|creative|campaign|account|date|ctr|currency/i
+const MAX_LISTED = 60
 
 const redact = (url: string) => url.replace(/api_key=[^&]+/, "api_key=REDACTED")
 
@@ -90,37 +92,40 @@ async function inspect(connector: string) {
   const fields = asList(f.body)
   const fieldId = (x: any) => String(x.id ?? x.field_id ?? x.name ?? x)
   console.log(`\nFields (GET ${redact(fieldsUrl)}) -> HTTP ${f.status}, ${fields.length} fields. Shape of one: ${JSON.stringify(shape(fields[0]))}`)
-  console.log(`Relevant fields:`)
-  for (const x of fields.filter((x) => INTERESTING.test(fieldId(x)))) {
-    console.log(`  - ${fieldId(x)}${x.name && x.name !== fieldId(x) ? `  "${x.name}"` : ""}${x.type ? `  [${x.type}]` : ""}`)
-  }
+  // Short list only: numeric fields that look like conversions or leads (the ones that differ most
+  // between connectors). Everything else is in the JSON file.
+  const byId = new Map(fields.map((x) => [fieldId(x), x]))
+  const convLike = fields.filter((x) => x.type === "NUMERIC" && /conversion|lead/i.test(fieldId(x)) && !/value|cost_per|rate|micros|form/i.test(fieldId(x)))
+  console.log(`Numeric conversion/lead fields (${convLike.length}${convLike.length > MAX_LISTED ? `, first ${MAX_LISTED}` : ""}):`)
+  for (const x of convLike.slice(0, MAX_LISTED)) console.log(`  - ${fieldId(x)}  "${x.name}"`)
   out.fields = fields
 
   // 3. Pick field IDs from what the connector actually offers.
-  const ids = fields.map(fieldId)
   const chosen: Record<string, string | null> = {}
-  for (const [want, patterns] of Object.entries(WANTED)) {
-    chosen[want] = null
-    for (const re of patterns) {
-      const hit = ids.find((id) => re.test(id))
-      if (hit) {
-        chosen[want] = hit
-        break
-      }
-    }
+  const present: Record<string, string[]> = {}
+  for (const [want, candidates] of Object.entries(WANTED)) {
+    present[want] = candidates.filter((c) => byId.has(c))
+    chosen[want] = present[want][0] ?? null
   }
   console.log(`\nPROPOSED FIELD MAPPING (please confirm or correct):`)
-  for (const [k, v] of Object.entries(chosen)) console.log(`  ${k.padEnd(14)} <- ${v ?? "?? no matching field"}`)
+  for (const [k, v] of Object.entries(chosen)) {
+    const label = v ? `${v}  "${byId.get(v)?.name}"` : "?? no matching field"
+    const alts = present[k].slice(1).map((a) => `${a} "${byId.get(a)?.name}"`)
+    console.log(`  ${k.padEnd(14)} <- ${label}${alts.length ? `   (also available: ${alts.join(", ")})` : ""}`)
+  }
   out.proposed_field_mapping = chosen
+  out.candidate_fields = present
 
   // 4. Smoke test: 7 days for one account, filtered to that account by Windsor (not in code).
   const envKey = `WINDSOR_SAMPLE_ACCOUNT_${connector.toUpperCase()}`
-  const account = process.env[envKey] || accounts[0]?.account_id
+  // Default to Camber (the definition-of-done client) when it's on this connector.
+  const camber = accounts.find((a) => /camber/i.test(String(a.account_name)))
+  const account = process.env[envKey] || (camber ?? accounts[0])?.account_id
   if (!account) {
     console.log(`\nNo account to smoke-test. Skipping.`)
     return out
   }
-  const fieldList = [...new Set(Object.values(chosen).filter(Boolean))].join(",")
+  const fieldList = [...new Set(Object.values(present).flat())].join(",")
   const dataUrl =
     `https://connectors.windsor.ai/${connector}?api_key=${apiKey}` +
     `&date_from=${isoDate(7)}&date_to=${isoDate(1)}` +
@@ -134,8 +139,13 @@ async function inspect(connector: string) {
   if (!rows.length) console.log(`  (none) Raw body: ${JSON.stringify(d.body).slice(0, 500)}`)
   const accountIds = new Set(rows.map((r) => String(r[chosen.account_id ?? "account_id"])))
   if (accountIds.size > 1) console.log(`  WARNING: rows came back for ${accountIds.size} accounts. The account filter did not apply.`)
-  const sum = (k: string | null) => (k ? rows.reduce((s, r) => s + (Number(r[k]) || 0), 0) : null)
-  console.log(`Totals: spend=${sum(chosen.spend)} impressions=${sum(chosen.impressions)} clicks=${sum(chosen.clicks)} conversions=${sum(chosen.conversions)} leads=${sum(chosen.leads)}`)
+  const sum = (k: string) => Math.round(rows.reduce((s, r) => s + (Number(r[k]) || 0), 0) * 100) / 100
+  console.log(`7-day totals per candidate field (compare with the platform UI to pick the right one):`)
+  for (const metric of ["spend", "impressions", "clicks", "conversions", "leads"]) {
+    console.log(`  ${metric.padEnd(12)} ${present[metric].map((f) => `${f}=${sum(f)}`).join("   ") || "(no field)"}`)
+  }
+  const adIds = new Set(rows.map((r) => r[chosen.ad_id ?? ""]).filter(Boolean))
+  console.log(`  distinct ads: ${adIds.size}, dates: ${[...new Set(rows.map((r) => r.date))].sort().join(", ")}`)
   out.smoke = { account, status: d.status, shape: shape(d.body), sample_rows: rows.slice(0, 20), row_count: rows.length }
   return out
 }
