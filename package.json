@@ -1,0 +1,17 @@
+{
+  "name": "bb-account-ops",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "inspect:notion": "tsx --env-file=.env.local scripts/notion-inspect.ts",
+    "inspect:windsor": "tsx --env-file=.env.local scripts/windsor-inspect.ts"
+  },
+  "dependencies": {
+    "@notionhq/client": "^5.26.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
