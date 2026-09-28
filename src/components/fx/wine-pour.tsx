@@ -3,8 +3,10 @@ import { cn } from "@/lib/utils"
 /**
  * A floating glass of Sauvignon Blanc being poured. `progress` (0..1) sets how full it is, so the
  * glass fills with the real work. Animations live in globals.css (wine-*) and stop for reduced motion.
+ * `hoverPour`: resting glass; when a parent with `group/pour` is hovered, the bottle tips in and
+ * pours a little more.
  */
-export function WinePour({ progress, pouring = true, className }: { progress: number; pouring?: boolean; className?: string }) {
+export function WinePour({ progress, pouring = true, hoverPour = false, className }: { progress: number; pouring?: boolean; hoverPour?: boolean; className?: string }) {
   const p = Math.max(0, Math.min(1, progress))
   // The bowl's inside runs from y=162 (bottom) to y=78 (rim); a glass is served about two-thirds full.
   const level = 162 - p * 62
@@ -26,7 +28,12 @@ export function WinePour({ progress, pouring = true, className }: { progress: nu
       </defs>
 
       {/* The bottle, tipped over the glass */}
-      <g className={cn("transition-transform duration-700", pouring ? "" : "-translate-y-4 translate-x-6 opacity-0")} style={{ transitionProperty: "transform, opacity" }}>
+      <g
+        className={cn(
+          "transition-[translate,opacity] duration-500",
+          hoverPour ? "-translate-y-4 translate-x-6 opacity-0 group-hover/pour:translate-x-0 group-hover/pour:translate-y-0 group-hover/pour:opacity-100" : pouring ? "" : "-translate-y-4 translate-x-6 opacity-0",
+        )}
+      >
         <g transform="translate(104 8) rotate(-38)">
           <path d="M0 -4 L24 -4 C30 -4 32 -15 40 -15 L122 -15 Q126 -15 126 -11 L126 11 Q126 15 122 15 L40 15 C32 15 30 4 24 4 L0 4 Z" fill="#1d3a28" stroke="#2f5a3f" strokeWidth="1" />
           <rect x="62" y="-15" width="38" height="30" fill="#e4ff1a" opacity="0.9" />
@@ -38,14 +45,28 @@ export function WinePour({ progress, pouring = true, className }: { progress: nu
       </g>
 
       {/* The pour */}
-      {pouring && p < 1 && <line className="wine-stream" x1="104" y1="10" x2="104" y2={level} stroke="#efe59a" strokeWidth="3" strokeLinecap="round" strokeDasharray="10 6" />}
+      {((pouring && p < 1) || hoverPour) && (
+        <line
+          className={cn("wine-stream", hoverPour && "opacity-0 transition-opacity duration-300 group-hover/pour:opacity-100 group-hover/pour:delay-300")}
+          x1="104"
+          y1="10"
+          x2="104"
+          y2={level}
+          stroke="#efe59a"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray="10 6"
+        />
+      )}
 
       {/* Wine */}
       <g clipPath="url(#wine-bowl)">
-        <rect x="50" y={level} width="100" height={170 - level} fill="url(#wine-liquid)" className="transition-all duration-700" style={{ transitionProperty: "y, height" }} />
+        <g className={cn(hoverPour && "transition-[translate] delay-300 duration-[1400ms] ease-out group-hover/pour:-translate-y-[18px]")}>
+        <rect x="50" y={level} width="100" height={200 - level} fill="url(#wine-liquid)" className="transition-all duration-700" style={{ transitionProperty: "y, height" }} />
         <path className="wine-wave" d={`M20 ${level} q 10 -3 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 V ${level + 6} H 20 Z`} fill="#fbf7d2" opacity="0.8" />
         {p > 0.05 &&
           [72, 88, 101, 114, 126].map((x, i) => <circle key={x} className="wine-bubble" cx={x} cy={160} r={1.2 + (i % 2) * 0.6} fill="#fff" opacity="0.7" style={{ animationDelay: `${i * 0.55}s` }} />)}
+        </g>
       </g>
 
       {/* Glass */}

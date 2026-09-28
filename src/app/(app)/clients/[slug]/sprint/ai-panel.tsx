@@ -16,6 +16,7 @@ import { ASSETS, METRICS, successLine } from "@/lib/sprints/tests"
 import { cn } from "@/lib/utils"
 import { approveRecommendation, rejectRecommendation, reviewRecommendation } from "./ai-actions"
 import type { Owner } from "./plan-test-form"
+import { WinePour } from "@/components/fx/wine-pour"
 import { PourOverlay } from "./pour-overlay"
 
 export type AiRun = { id: string; status: "generating" | "ready" | "failed"; created_at: string; market_summary: string | null; news: NewsItem[]; error: string | null }
@@ -99,36 +100,52 @@ export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady
   // Keep a selection that's still in this tab; otherwise the top of the list.
   const selected = list.find((r) => r.id === picked) ?? list[0] ?? null
   const reviewed = lists.open.filter((r) => r.status === "reviewed").length
+  const overlay = runId && (
+    <PourOverlay
+      runId={runId}
+      onDone={(ok, message) => {
+        setRunId(null)
+        setTab("open")
+        setPicked(null)
+        if (!ok) setError(message ?? "The pour spilled. Try again.")
+        router.refresh()
+      }}
+    />
+  )
+  const failed = error ?? (props.run?.status === "failed" && !runId ? `The last pour spilled: ${props.run?.error ?? "something went wrong"}. Try again.` : null)
+
+  if (props.recs.length === 0) {
+    return (
+      <>
+        <PourHero canGenerate={props.canGenerate && !props.closed} aiReady={props.aiReady} busy={starting || Boolean(runId)} onPour={pour} error={failed} />
+        {overlay}
+      </>
+    )
+  }
 
   return (
     <section className="surface overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b px-5 py-4">
         <div className="min-w-0">
-          <p className="eyebrow">Claude · sprint sommelier</p>
-          <h2 className="text-2xl">Pour me a sprint</h2>
+          <h2 className="text-2xl">Your suggested sprints</h2>
           <p className="text-sm text-muted-foreground">
             {props.run?.status === "ready" ? `Poured ${shortDate(props.run.created_at)} from 12 weeks of data, past tests and this week's paid media news.` : "Suggested tests from 12 weeks of data, past tests and the latest paid media news."}
           </p>
         </div>
         {props.canGenerate && !props.closed && (
           <div className="flex flex-col items-end gap-1">
-            <Sparkle>
-              <Button onClick={pour} disabled={starting || Boolean(runId) || !props.aiReady} title={props.aiReady ? undefined : "Add ANTHROPIC_API_KEY to .env.local"}>
-                🥂 {starting ? "Uncorking…" : props.recs.length ? "Pour another" : "Pour me a sprint"}
-              </Button>
-            </Sparkle>
+            <PourButton onClick={pour} disabled={starting || Boolean(runId) || !props.aiReady} size="sm">
+              {starting ? "Uncorking…" : "Pour another"}
+            </PourButton>
             {!props.aiReady && <p className="text-[11px] text-muted-foreground">Add ANTHROPIC_API_KEY to .env.local to switch this on.</p>}
           </div>
         )}
       </div>
 
-      {(error || (props.run?.status === "failed" && !runId)) && <p className="border-b px-5 py-2.5 text-sm text-rag-red">{error ?? `The last pour spilled: ${props.run?.error ?? "something went wrong"}. Try again.`}</p>}
+      {failed && <p className="border-b px-5 py-2.5 text-sm text-rag-red">{failed}</p>}
       {props.run?.market_summary && <MarketNotes run={props.run} />}
 
-      {props.recs.length === 0 ? (
-        !runId && <p className="px-5 py-10 text-center text-sm text-muted-foreground">No suggestions yet for this sprint.</p>
-      ) : (
-        <>
+      <>
           {/* Queue tabs and progress */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-2.5">
             <div role="tablist" className="flex gap-1 text-sm">
@@ -180,22 +197,84 @@ export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady
               )}
             </div>
           )}
-        </>
-      )}
-
-      {runId && (
-        <PourOverlay
-          runId={runId}
-          onDone={(ok, message) => {
-            setRunId(null)
-            setTab("open")
-            setPicked(null)
-            if (!ok) setError(message ?? "The pour spilled. Try again.")
-            router.refresh()
-          }}
-        />
-      )}
+      </>
+      {overlay}
     </section>
+  )
+}
+
+/** Before the first pour: a small banner that invites the click. Hovering it pours the glass. */
+function PourHero({ canGenerate, aiReady, busy, onPour, error }: { canGenerate: boolean; aiReady: boolean; busy: boolean; onPour: () => void; error: string | null }) {
+  return (
+    <section className="group/pour relative isolate overflow-hidden rounded-xl p-px">
+      {/* Travelling glow border */}
+      <div aria-hidden className="pour-border absolute top-1/2 left-1/2 -z-10 size-[250%] -translate-x-1/2 -translate-y-1/2 opacity-60 transition-opacity duration-500 group-hover/pour:opacity-100" />
+      <div className="relative overflow-hidden rounded-[11px] bg-card">
+        <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-lime/10 blur-3xl transition-colors duration-700 group-hover/pour:bg-lime/20" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 size-64 rounded-full bg-violet-400/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:gap-6 sm:px-7">
+          <WinePour progress={0.35} pouring={false} hoverPour className="hidden h-32 w-24 shrink-0 text-foreground sm:block" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <h2 className="text-3xl leading-tight">
+              Pour me a <span className="text-lime">sprint</span>
+            </h2>
+            <p className="max-w-xl text-sm text-muted-foreground">Up to five data-backed tests for this sprint, ranked by impact. You review every one before it goes on the board.</p>
+            <ul className="flex flex-wrap gap-1.5 pt-1 text-[11px] text-muted-foreground">
+              {["12 weeks of Windsor data", "Every past test", "This week\u2019s platform news"].map((t) => (
+                <li key={t} className="inline-flex items-center gap-1.5 rounded-full border border-foreground/10 bg-background/40 px-2.5 py-1">
+                  <span className="size-1 rounded-full bg-lime" /> {t}
+                </li>
+              ))}
+            </ul>
+          </div>
+          {canGenerate && (
+            <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
+              <PourButton onClick={onPour} disabled={busy || !aiReady}>
+                {busy ? "Uncorking…" : "Pour me a sprint"}
+              </PourButton>
+              <p className="text-[11px] text-muted-foreground">{aiReady ? "About 2 minutes. Go pour yourself one." : "Add ANTHROPIC_API_KEY to .env.local to switch this on."}</p>
+            </div>
+          )}
+        </div>
+        {error && <p className="relative border-t px-7 py-2.5 text-sm text-rag-red">{error}</p>}
+      </div>
+    </section>
+  )
+}
+
+/** Lime button that fills with wine from the bottom on hover, with sparkles around it. */
+function PourButton({ children, onClick, disabled, size = "lg" }: { children: React.ReactNode; onClick: () => void; disabled?: boolean; size?: "sm" | "lg" }) {
+  return (
+    <Sparkle>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={cn(
+          "group/btn relative isolate inline-flex items-center gap-2 overflow-hidden rounded-full bg-lime font-medium text-[#0a0a0a] transition-[box-shadow,transform] duration-300 hover:shadow-[0_0_32px_-6px_rgba(228,255,26,0.7)] focus-visible:ring-2 focus-visible:ring-lime/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50",
+          size === "lg" ? "h-11 px-6 text-sm" : "h-9 px-4 text-sm",
+        )}
+      >
+        {/* The wine rising */}
+        <span aria-hidden className="absolute inset-x-0 bottom-0 -z-10 h-0 bg-[#f6f0b4] transition-[height] duration-700 ease-out group-hover/btn:h-[140%]">
+          <svg viewBox="0 0 80 8" preserveAspectRatio="none" className="wine-wave absolute -top-1.5 left-0 h-2 w-[200%] fill-[#f6f0b4]">
+            <path d="M0 8 V4 Q5 0 10 4 T20 4 T30 4 T40 4 T50 4 T60 4 T70 4 T80 4 V8 Z" />
+          </svg>
+        </span>
+        <GlassIcon className="size-4 transition-transform duration-500 group-hover/btn:-rotate-[18deg]" />
+        {children}
+      </button>
+    </Sparkle>
+  )
+}
+
+function GlassIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" className={className} aria-hidden>
+      <path d="M4.5 1.5h7c0 3.6-1.3 6-3.5 6s-3.5-2.4-3.5-6Z" />
+      <path d="M5 4.2h6" strokeOpacity="0.5" />
+      <path d="M8 7.5v5.5M5.5 14.5h5" />
+    </svg>
   )
 }
 
