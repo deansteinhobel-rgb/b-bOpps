@@ -138,7 +138,7 @@ export function ChangeLog(props: {
           <ol className="relative space-y-3 border-l pl-5">
             {logged.map((c) => (
               <li key={c.id} className="relative text-sm">
-                <span className="absolute top-1.5 -left-[25px] size-2.5 rounded-full border-2 border-card bg-ink" aria-hidden />
+                <span className="absolute top-1.5 -left-[25px] size-2.5 rounded-full border-2 border-card bg-foreground" aria-hidden />
                 <p className="text-xs text-muted-foreground">
                   {shortDate(c.changed_on)} · {CHANGE_TYPES[c.type] ?? c.type}
                   {c.platform && ` · ${PLATFORM_LABEL[c.platform]}`}

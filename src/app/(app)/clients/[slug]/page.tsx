@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import { AdThumb, ViewAdLink } from "@/components/ad-thumb"
+import { PlatformLabel } from "@/components/brand"
 import { StatusBadge } from "@/components/status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -44,7 +45,7 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
           {o.pacing.map((p) => (
             <Card key={p.platform}>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base font-bold">{PLATFORM_LABEL[p.platform]}</CardTitle>
+                <CardTitle className="text-sm font-medium"><PlatformLabel platform={p.platform} /></CardTitle>
                 <StatusBadge status={p.status} />
               </CardHeader>
               <CardContent className="space-y-1 text-sm">
@@ -96,7 +97,7 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
             </Card>
           ))}
         </div>
-        <Table className="mt-4 rounded-lg bg-card">
+        <Table className="surface mt-4">
           <TableHeader>
             <TableRow>
               <TableHead>Platform</TableHead>
@@ -111,7 +112,7 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
           <TableBody>
             {o.byPlatform.map((p) => (
               <TableRow key={p.platform}>
-                <TableCell>{PLATFORM_LABEL[p.platform]}</TableCell>
+                <TableCell><PlatformLabel platform={p.platform} /></TableCell>
                 <TableCell className="text-right tabular-nums">{money(p.last7.spend, cur)}</TableCell>
                 <TableCell className="text-right tabular-nums">{oneDp(p.last7.results)}</TableCell>
                 <TableCell className="text-right tabular-nums">{money(p.last7.costPerResult, cur)}</TableCell>
@@ -134,7 +135,7 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
           {o.rankings.map((r) => (
             <Card key={r.platform}>
               <CardHeader>
-                <CardTitle className="text-base font-bold">{PLATFORM_LABEL[r.platform]}</CardTitle>
+                <CardTitle className="text-sm font-medium"><PlatformLabel platform={r.platform} /></CardTitle>
                 <p className="text-xs text-muted-foreground">
                   By {r.basis === "cost_per_result" ? "cost per result" : "CTR"} · {r.eligible} eligible ad{r.eligible === 1 ? "" : "s"}
                 </p>
@@ -158,7 +159,7 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
         {o.fatigued.length === 0 ? (
           <p className="mt-4 text-sm">No fatigued ads.</p>
         ) : (
-          <Table className="mt-4 rounded-lg bg-card">
+          <Table className="surface mt-4">
             <TableHeader>
               <TableRow>
                 <TableHead>Ad</TableHead>
@@ -183,7 +184,7 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>{PLATFORM_LABEL[a.platform]}</TableCell>
+                  <TableCell><PlatformLabel platform={a.platform} className="text-muted-foreground" /></TableCell>
                   <TableCell>{a.firstSeenCapped ? `${longDate(a.first_seen)} or earlier` : longDate(a.first_seen)}</TableCell>
                   <TableCell className="text-right tabular-nums">{a.firstSeenCapped ? `${a.ageDays}+` : a.ageDays} days</TableCell>
                   <TableCell className="text-right tabular-nums">{money(a.recent_spend, cur)}</TableCell>

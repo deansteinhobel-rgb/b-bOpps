@@ -34,6 +34,8 @@ const ClientInput = z.object({
   currency: z.string().trim().length(3).toUpperCase(),
   monthly_kpi_target: optionalNumber,
   slack_channel: z.string().trim().optional().transform((v) => v || null),
+  website: z.string().trim().max(200).optional().transform((v) => (v ? v.replace(/^https?:\/\//, "").replace(/\/$/, "") : null)),
+  logo_url: z.string().trim().max(1000).optional().transform((v) => v || undefined).refine((v) => !v || /^https:\/\//.test(v), "Logo URL must start with https://"),
   active: z.boolean(),
 })
 
@@ -47,10 +49,14 @@ export async function saveClient(_prev: FormState, form: FormData): Promise<Form
     currency: form.get("currency") || "USD",
     monthly_kpi_target: form.get("monthly_kpi_target"),
     slack_channel: form.get("slack_channel") ?? "",
+    website: form.get("website") ?? "",
+    logo_url: form.get("logo_url") ?? "",
     active: form.get("active") === "on",
   })
   if (!parsed.success) return fail(parsed.error.issues[0].message)
-  const { id, ...values } = parsed.data
+  // A blank logo field keeps the current logo (e.g. the one fetched from the website).
+  const { id, logo_url, ...rest } = parsed.data
+  const values = logo_url ? { ...rest, logo_url } : rest
   const supabase = await createClient()
   const { data: saved, error } = id
     ? await supabase.from("clients").update(values).eq("id", id).select("id").single()

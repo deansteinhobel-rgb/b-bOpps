@@ -17,7 +17,8 @@
     "test": "vitest run",
     "sync:notion": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-notion.ts",
     "sync:creatives": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-creatives.ts",
-    "seed:history": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/seed-history.ts"
+    "seed:history": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/seed-history.ts",
+    "fetch:logos": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/fetch-logos.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

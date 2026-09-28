@@ -1,5 +1,4 @@
-import { AppHeader } from "@/components/app-header"
-import { Card, CardContent } from "@/components/ui/card"
+import { AppMark } from "@/components/brand"
 import { LoginForm } from "./login-form"
 
 const ERRORS: Record<string, string> = {
@@ -10,17 +9,21 @@ const ERRORS: Record<string, string> = {
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { next, error } = await searchParams
   return (
-    <>
-      <AppHeader />
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-16">
-        <p className="eyebrow">Account Ops</p>
-        <h1 className="mt-2 mb-6 text-4xl">Sign in</h1>
-        <Card>
-          <CardContent>
-            <LoginForm next={typeof next === "string" ? next : undefined} error={typeof error === "string" ? ERRORS[error] : undefined} />
-          </CardContent>
-        </Card>
-      </main>
-    </>
+    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4">
+      {/* Soft lime glow, echoing the website's hero */}
+      <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 size-[640px] -translate-x-1/2 rounded-full bg-lime/10 blur-3xl" />
+      <div className="relative w-full max-w-sm space-y-8">
+        <AppMark />
+        <div className="space-y-2">
+          <h1 className="text-4xl leading-tight">
+            Every client. <span className="text-lime">Every sprint.</span>
+          </h1>
+          <p className="text-sm text-muted-foreground">Paid media performance, weekly QA and test sprints, in one place.</p>
+        </div>
+        <div className="surface p-5">
+          <LoginForm next={typeof next === "string" ? next : undefined} error={typeof error === "string" ? ERRORS[error] : undefined} />
+        </div>
+      </div>
+    </main>
   )
 }

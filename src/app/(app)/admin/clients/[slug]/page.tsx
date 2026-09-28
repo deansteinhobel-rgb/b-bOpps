@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { AdminForm, fieldClass } from "@/components/admin-form"
+import { PlatformLabel } from "@/components/brand"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { londonToday } from "@/lib/checks/periods"
@@ -116,7 +117,7 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
             <AdminForm key={a.id} action={updateAccount} className="rounded-lg border bg-card p-4">
               <input type="hidden" name="id" value={a.id} />
               <p className="font-bold">
-                {PLATFORM_LABEL[a.platform as Platform]} · {a.account_name ?? a.external_account_id}{" "}
+                <PlatformLabel platform={a.platform as Platform} /> · {a.account_name ?? a.external_account_id}{" "}
                 <span className="font-normal text-muted-foreground">({a.external_account_id})</span>
               </p>
               <div className="grid gap-3 sm:grid-cols-3">

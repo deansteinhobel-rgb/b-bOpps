@@ -74,7 +74,7 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline }: {
         <legend className="text-sm">What to brief in</legend>
         <div className="flex flex-wrap gap-2">
           {Object.entries(ASSETS).map(([k, v]) => (
-            <label key={k} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-ink has-checked:bg-ink has-checked:text-white">
+            <label key={k} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-lime has-checked:bg-lime has-checked:text-ink">
               <input type="checkbox" className="sr-only" checked={f.assets.includes(k)} onChange={() => toggleAsset(k)} />
               {v}
             </label>

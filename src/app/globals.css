@@ -10,6 +10,8 @@
   --font-heading: var(--font-heading);
   --color-ink: var(--ink);
   --color-paper: var(--paper);
+  --color-elevated: var(--elevated);
+  --color-subtle-foreground: var(--subtle-foreground);
   --color-lime: var(--lime);
   --color-violet: var(--violet);
   --color-rag-green: var(--rag-green);
@@ -58,64 +60,65 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Brand tokens from bordeauxandburgundy.com (see CLAUDE.md "Look and feel").
+/* Sauvignon Blanc by Bordeaux & Burgundy: dark, like bordeauxandburgundy.com.
+   Near-black surfaces, warm off-white text, the lime brand accent, serif page titles.
    Lime is the brand accent only. It never means "green" status; RAG colours are separate. */
 :root {
+  color-scheme: dark;
   --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-heading: "MADE Avenue", Georgia, serif;
 
-  --ink: #111111;
-  --ink-2: #1a1a1a;
-  --paper: #f0eeea;
-  --paper-2: #e8e6e0;
+  --ink: #0a0a0a;
   --lime: #e4ff1a;
   --lavender: #b8bae8;
-  --violet: #6a6db8;
+  --violet: #8b8ee0;
+  --paper: #f0eeea;
 
-  --background: var(--paper);
-  --foreground: var(--ink);
-  --card: #ffffff;
-  --card-foreground: var(--ink);
-  --popover: #ffffff;
-  --popover-foreground: var(--ink);
-  --primary: var(--ink);
-  --primary-foreground: #ffffff;
-  --secondary: var(--paper-2);
-  --secondary-foreground: var(--ink);
-  --muted: var(--paper-2);
-  --muted-foreground: #555555;
-  --accent: var(--paper-2);
-  --accent-foreground: var(--ink);
-  --destructive: #c62828;
-  --border: #dcd9d1;
-  --input: #d3d0c7;
-  --ring: var(--violet);
-  --chart-1: #6a6db8;
-  --chart-2: #e0359a;
-  --chart-3: #9496d0;
+  --background: #0a0a0a;
+  --foreground: #f2f1ed;
+  --card: #121212;
+  --card-foreground: #f2f1ed;
+  --popover: #171717;
+  --popover-foreground: #f2f1ed;
+  --elevated: #1a1a1a;
+  --primary: var(--lime);
+  --primary-foreground: #0a0a0a;
+  --secondary: #1c1c1c;
+  --secondary-foreground: #f2f1ed;
+  --muted: #1c1c1c;
+  --muted-foreground: #9b9a94;
+  --subtle-foreground: #6f6e69;
+  --accent: #202020;
+  --accent-foreground: #f2f1ed;
+  --destructive: #f87171;
+  --border: #242424;
+  --input: #2c2c2c;
+  --ring: var(--lime);
+  --chart-1: #8b8ee0;
+  --chart-2: #e84fcf;
+  --chart-3: #b8bae8;
   --chart-4: #cc50e8;
-  --chart-5: #2e2e2e;
-  --radius: 0.5rem;
+  --chart-5: #5a5a5a;
+  --radius: 0.625rem;
 
-  /* Header / nav: black with lime accents */
-  --sidebar: var(--ink);
-  --sidebar-foreground: #ffffff;
+  --sidebar: #0d0d0d;
+  --sidebar-foreground: #f2f1ed;
   --sidebar-primary: var(--lime);
-  --sidebar-primary-foreground: var(--ink);
-  --sidebar-accent: #2e2e2e;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #1a1a1a;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #2e2e2e;
+  --sidebar-border: #1f1f1f;
   --sidebar-ring: var(--lime);
 
-  /* Check status (RAG). Deliberately not lime. */
-  --rag-green: #1f7a45;
-  --rag-green-bg: #e3f1e8;
-  --rag-amber: #a15c00;
-  --rag-amber-bg: #fbeed6;
-  --rag-red: #b3261e;
-  --rag-red-bg: #f9e1df;
-  --rag-na: #6b6b6b;
-  --rag-na-bg: #ecebe7;
+  /* Status (RAG), tuned for dark. Deliberately not lime. */
+  --rag-green: #4ade80;
+  --rag-green-bg: rgb(74 222 128 / 0.12);
+  --rag-amber: #fbbf24;
+  --rag-amber-bg: rgb(251 191 36 / 0.12);
+  --rag-red: #f87171;
+  --rag-red-bg: rgb(248 113 113 / 0.12);
+  --rag-na: #a3a3a3;
+  --rag-na-bg: rgb(163 163 163 / 0.12);
 }
 
 @layer base {
@@ -131,17 +134,32 @@
 }
 
 @layer base {
-  h1, h2, h3 {
+  /* Serif for page and section titles; the rest of the UI stays in Helvetica. */
+  h1, h2 {
     font-family: var(--font-heading);
     font-weight: 400;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
+  }
+  h3 {
+    font-weight: 600;
+  }
+  ::selection {
+    background: var(--lime);
+    color: var(--ink);
   }
 }
 
 /* Small uppercase labels, as on the website */
 @utility eyebrow {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.14em;
   color: var(--muted-foreground);
+}
+
+/* A quiet surface for grouped content (cards, lists). */
+@utility surface {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }

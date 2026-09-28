@@ -135,7 +135,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
         </div>
         {isCurrent && (
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary" aria-hidden>
-            <div className="h-full bg-ink" style={{ width: `${(day / SPRINT_DAYS) * 100}%` }} />
+            <div className="h-full bg-lime" style={{ width: `${(day / SPRINT_DAYS) * 100}%` }} />
           </div>
         )}
         {isCurrent && previous && !previous.closed_at && (
@@ -211,17 +211,17 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
           <h2 className="text-2xl">Sprint review</h2>
           <p className="text-sm text-muted-foreground">Built from the tests. Add the key takeaway, then close the sprint.</p>
         </div>
-        <div className="space-y-4 rounded-xl bg-ink p-4 text-white sm:p-6">
+        <div className="space-y-4 rounded-xl border border-lime/25 bg-card p-4 sm:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="font-heading text-2xl">Sprint {period.number} review</p>
-            <p className="text-xs text-white/60">
+            <p className="text-xs text-muted-foreground">
               {tests.filter((t) => t.outcome === "proven").length} proven · {tests.filter((t) => t.outcome === "disproven").length} disproven ·{" "}
               {tests.filter((t) => t.outcome === "inconclusive").length} inconclusive · {tests.filter((t) => t.outcome === "carried").length} carried over
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
             <span className="shrink-0 rounded-full bg-lime px-3 py-1 text-xs font-bold text-ink">Key takeaway</span>
-            <div className="flex-1 text-ink [&_p]:text-white">
+            <div className="flex-1">
               <EditableText sprintId={sprint.id} field="key_takeaway" initial={sprint.key_takeaway} placeholder="The single most important learning from this sprint…" rows={2} readOnly={closed} label="Key takeaway" />
             </div>
           </div>
@@ -266,7 +266,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
               </ul>
             </Box>
           </div>
-          <div className="rounded-md bg-card p-3 text-ink">
+          <div className="rounded-md border bg-background/60 p-3">
             {!closed && withoutOutcome > 0 && (
               <p className="mb-2 text-sm text-rag-amber">
                 {withoutOutcome} test{withoutOutcome === 1 ? " has" : "s have"} no outcome yet. Call each one (proven, disproven, inconclusive) or carry it over before closing.
@@ -375,8 +375,8 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
 
 function Box({ title, accent, children }: { title: string; accent?: boolean; children: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-lg bg-card text-sm text-foreground">
-      <p className={cn("px-4 py-2 font-bold", accent ? "bg-lime text-ink" : "bg-secondary")}>{title}</p>
+    <div className="overflow-hidden rounded-lg border bg-background/60 text-sm text-foreground">
+      <p className={cn("border-b px-4 py-2.5 text-xs font-medium tracking-wide uppercase", accent ? "border-lime/30 text-lime" : "text-muted-foreground")}>{title}</p>
       <div className="p-4">{children}</div>
     </div>
   )
@@ -419,7 +419,7 @@ function Trend({ trend, current, currency }: { trend: { number: number; costPerR
       <div className="mt-2 flex h-16 items-end gap-1.5" role="img" aria-label={trend.map((t) => `Sprint ${t.number}: ${t.costPerResult === null ? "no results" : money(t.costPerResult, currency)}`).join(", ")}>
         {trend.map((t) => (
           <div key={t.number} className="flex flex-1 flex-col items-center gap-1" title={`Sprint ${t.number}: ${t.costPerResult === null ? "no results" : money(t.costPerResult, currency)}`}>
-            <div className={cn("w-full rounded-sm", t.number === current ? "bg-ink" : "bg-violet/60")} style={{ height: `${t.costPerResult ? Math.max((t.costPerResult / max) * 48, 3) : 2}px` }} />
+            <div className={cn("w-full rounded-sm", t.number === current ? "bg-lime" : "bg-violet/50")} style={{ height: `${t.costPerResult ? Math.max((t.costPerResult / max) * 48, 3) : 2}px` }} />
             <span className="text-[10px] text-muted-foreground">{t.number}</span>
           </div>
         ))}

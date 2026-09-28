@@ -104,7 +104,7 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
               </p>
             </div>
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary" aria-hidden>
-              <div className="h-full bg-ink" style={{ width: `${pct}%` }} />
+              <div className="h-full bg-lime" style={{ width: `${pct}%` }} />
             </div>
             <div className="mt-6 space-y-4">
               {items.map(({ definition, result, redNotActioned }) => (

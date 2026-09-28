@@ -1,4 +1,4 @@
-# B&B Account Ops
+# Sauvignon Blanc (B&B Account Ops)
 
 An internal web app for Bordeaux & Burgundy. For each client it shows paid media performance (from Windsor.ai), runs the weekly and monthly QA checks, and shows and creates action points in Notion. Notion stays the system of record.
 
@@ -91,12 +91,14 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Accounts on the key: LinkedIn (Filevine, DNSFilter, Camber), Google Ads (DNSFilter, Camber), Facebook (Filevine, "DNSFilter X", Camber). Everything is in USD so far.
 - Supabase uses the new keys: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`. The legacy anon and service_role keys are deprecated by the end of 2026.
 
-## Look and feel (from bordeauxandburgundy.com)
-- Fonts: **MADE Avenue** (serif) for headings, falling back to Georgia. **Helvetica Neue** (400/700) for UI and body text, falling back to Helvetica and Arial. Small uppercase labels use letter-spacing of 0.1–0.2em.
-- The MADE Avenue and Helvetica Neue files are licensed fonts. Get them, and confirm the licence covers this app, from the B&B web team. Until then, use the fallbacks.
-- Colours: ink `#111111` / `#1a1a1a`, white, warm off-white surfaces `#f0eeea` / `#e8e6e0`, signature lime accent `#e4ff1a` (buttons, highlights). Secondary palette: pinks and purples `#e84fcf` `#e0359a` `#cc50e8` and lavenders `#b8bae8` `#9496d0` `#6a6db8`.
-- The site is black with lime. The app is dense with data, so use a black header/nav with lime accents, and warm off-white content areas for tables (pending confirmation).
-- Never use lime to mean "green" status. RAG colours must stay clearly separate from the brand accent.
+## Look and feel: "Sauvignon Blanc" by Bordeaux & Burgundy (2026-09-28)
+- The app is called **Sauvignon Blanc**, endorsed "by Bordeaux & Burgundy" (`AppMark` in `src/components/brand.tsx`). It's **dark, like bordeauxandburgundy.com**: background #0a0a0a, cards #121212, borders #242424, warm off-white text, **lime #e4ff1a as the primary accent** (primary buttons are lime with ink text), secondary pinks, purples and lavenders.
+- Fonts: MADE Avenue (serif, falling back to Georgia) for h1/h2 page and section titles only. Everything else uses Helvetica Neue (falling back to Arial). h3 is sans semibold. The font files are licensed: get them from the B&B web team.
+- Modern SaaS layout: a **left sidebar** (app mark, Clients, Learnings, Admin, the client list with logos, the profile) that becomes a top bar with a menu under `lg`. Pages use `PageHeader` / `SectionHeader`. Prefer one `surface` container with `divide-y` rows over boxes inside boxes. Put detail behind expandable rows (see /learnings).
+- Branding components: `ClientLogo` (clients.logo_url, initials otherwise; `pnpm fetch:logos` saves website icons to the public "brand" bucket, and Admin can set a logo URL), `PlatformIcon` / `PlatformLabel` (LinkedIn, Google Ads, Meta marks). Use them wherever a client or platform is named.
+- Creatives: `AdThumb` shows a large hover preview (base-ui preview card, in a portal so tables don't clip it).
+- RAG colours are tuned for dark (#4ade80 / #fbbf24 / #f87171 with 12% backgrounds) and never use lime.
+- `/design` is a **development-only** preview with sample data, used to check the look without signing in. It 404s in production.
 
 ## Conventions
 - Small steps, one commit per working step, clear messages.

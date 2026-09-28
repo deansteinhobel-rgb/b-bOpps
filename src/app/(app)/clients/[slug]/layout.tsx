@@ -1,25 +1,40 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { ClientLogo } from "@/components/brand"
+import { PageHeader } from "@/components/page-header"
 import { createClient } from "@/lib/supabase/server"
 import { ClientTabs } from "./client-tabs"
+
+export async function generateMetadata({ params }: LayoutProps<"/clients/[slug]">) {
+  const { slug } = await params
+  const supabase = await createClient()
+  const { data } = await supabase.from("clients").select("name").eq("slug", slug).maybeSingle()
+  return { title: data?.name ?? "Client" }
+}
 
 export default async function ClientLayout({ children, params }: LayoutProps<"/clients/[slug]">) {
   const { slug } = await params
   const supabase = await createClient()
   // RLS: a client you aren't assigned to simply isn't found.
-  const { data: client } = await supabase.from("clients").select("id, name").eq("slug", slug).maybeSingle()
+  const { data: client } = await supabase.from("clients").select("id, name, logo_url, website").eq("slug", slug).maybeSingle()
   if (!client) notFound()
 
   return (
-    <>
-      <Link href="/clients" className="eyebrow hover:text-foreground">
-        ← Clients
-      </Link>
-      <h1 className="mt-2 text-4xl">{client.name}</h1>
-      <div className="mt-6 border-b">
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow={
+          <Link href="/clients" className="hover:text-foreground">
+            ← Clients
+          </Link>
+        }
+        lead={<ClientLogo name={client.name} logoUrl={client.logo_url} size="lg" className="size-12" />}
+        title={client.name}
+        description={client.website ?? undefined}
+      />
+      <div className="border-b">
         <ClientTabs slug={slug} />
       </div>
-      <div className="pt-6">{children}</div>
-    </>
+      <div>{children}</div>
+    </div>
   )
 }

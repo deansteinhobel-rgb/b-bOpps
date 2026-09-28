@@ -5,11 +5,14 @@ import { isRedNotActioned } from "@/lib/checks/runs"
 import { cachedPacing } from "@/lib/metrics/cached"
 import type { PlatformPacing } from "@/lib/metrics/overview"
 import { CLOSED_STATUSES, PROP } from "@/lib/notion/config"
+import { sprintOf } from "@/lib/sprints/periods"
 
 export type ClientCard = {
   id: string
   name: string
   slug: string
+  logo_url: string | null
+  sprint: { number: number; tests: number; live: number; called: number }
   pacing: PlatformPacing[]
   worstPacing: PlatformPacing["status"] | null
   dataThrough: string | null
@@ -23,11 +26,12 @@ const SEVERITY = { red: 3, amber: 2, green: 1, no_budget: 0 } as const
 
 /** One card per client the user can see (RLS). "Mine" = clients the user is on the team of. */
 export async function clientCards(supabase: SupabaseClient, opts: { profileId: string; onlyMine: boolean }): Promise<ClientCard[]> {
-  const { weekly } = currentPeriods()
+  const { weekly, today } = currentPeriods()
+  const sprintPeriod = sprintOf(today)
   const [{ data: clients }, { data: mine }] = await Promise.all([
     supabase
       .from("clients")
-      .select("id, name, slug, client_team(profile_id, removed_at, profiles(full_name, email)), client_team_invites(email, removed_at, team_invites(full_name))")
+      .select("id, name, slug, logo_url, client_team(profile_id, removed_at, profiles(full_name, email)), client_team_invites(email, removed_at, team_invites(full_name))")
       .eq("active", true)
       .is("client_team.removed_at", null)
       .is("client_team_invites.removed_at", null)
@@ -39,11 +43,12 @@ export async function clientCards(supabase: SupabaseClient, opts: { profileId: s
 
   return Promise.all(
     list.map(async (c) => {
-      const [pacing, { data: run }, { data: actions }, { data: reds }] = await Promise.all([
+      const [pacing, { data: run }, { data: actions }, { data: reds }, { data: tests }] = await Promise.all([
         cachedPacing(c.id), // clients list came through RLS
         supabase.from("check_runs").select("id, check_results(status)").eq("client_id", c.id).eq("cadence", "weekly").eq("period_start", weekly.start).maybeSingle(),
         supabase.from("notion_pages_mirror").select("properties").eq("client_id", c.id).eq("page_type", "action").eq("in_trash", false),
         supabase.from("check_results").select("status, notion_action_page_id, checked_at").eq("client_id", c.id).eq("status", "red").is("notion_action_page_id", null),
+        supabase.from("sprint_tests").select("status, outcome, sprints!inner(start_date)").eq("client_id", c.id).eq("sprints.start_date", sprintPeriod.start),
       ])
       const results = ((run?.check_results ?? []) as { status: string | null }[])
       const worst = pacing?.pacing.reduce<PlatformPacing["status"] | null>((w, p) => (w === null || SEVERITY[p.status] > SEVERITY[w] ? p.status : w), null) ?? null
@@ -55,6 +60,13 @@ export async function clientCards(supabase: SupabaseClient, opts: { profileId: s
         id: c.id,
         name: c.name,
         slug: c.slug,
+        logo_url: (c.logo_url as string | null) ?? null,
+        sprint: {
+          number: sprintPeriod.number,
+          tests: (tests ?? []).length,
+          live: (tests ?? []).filter((t) => t.status === "live" && !t.outcome).length,
+          called: (tests ?? []).filter((t) => t.outcome).length,
+        },
         pacing: pacing?.pacing ?? [],
         worstPacing: worst,
         dataThrough: pacing?.dataThrough ?? null,

@@ -4,8 +4,8 @@ import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "B&B Account Ops",
-  description: "Client performance, weekly QA checks and Notion actions for Bordeaux & Burgundy.",
+  title: { default: "Sauvignon Blanc", template: "%s · Sauvignon Blanc" },
+  description: "Sauvignon Blanc by Bordeaux & Burgundy: paid media performance, weekly QA and test sprints per client.",
 }
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -2,13 +2,13 @@
 
 import { useState, useTransition } from "react"
 import { fieldClass } from "@/components/admin-form"
+import { PlatformLabel } from "@/components/brand"
 import { StatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { longDate, money, oneDp } from "@/lib/format"
-import { PLATFORM_LABEL } from "@/lib/metrics/types"
 import type { BriefInfo, Campaign } from "@/lib/sprints/board"
 import type { SprintTest } from "@/lib/sprints/data"
 import { ASSETS, CARRY_REASONS, evaluate, METRICS, successLine, type Stage, type TestTotals } from "@/lib/sprints/tests"
@@ -51,7 +51,7 @@ export function TestCard(props: {
     <article id={`test-${t.id}`} className="scroll-mt-6 space-y-3 rounded-lg border bg-card p-4 text-sm">
       <header className="space-y-1">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-foreground">{t.platform ? PLATFORM_LABEL[t.platform] : "Several platforms"}</span>
+          <PlatformLabel platform={t.platform} className="text-foreground" />
           {t.carried_from_test_id && <span>Carried from last sprint</span>}
         </div>
         <h3 className="text-base leading-snug font-bold">{t.title}</h3>

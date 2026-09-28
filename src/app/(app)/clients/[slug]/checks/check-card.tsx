@@ -15,10 +15,10 @@ import { saveCheckResult } from "./actions"
 
 type Status = "green" | "amber" | "red" | "na"
 const STATUSES: { value: Status; label: string; className: string }[] = [
-  { value: "green", label: "Green", className: "data-[on=true]:bg-rag-green data-[on=true]:text-white" },
-  { value: "amber", label: "Amber", className: "data-[on=true]:bg-rag-amber data-[on=true]:text-white" },
-  { value: "red", label: "Red", className: "data-[on=true]:bg-rag-red data-[on=true]:text-white" },
-  { value: "na", label: "N/A", className: "data-[on=true]:bg-rag-na data-[on=true]:text-white" },
+  { value: "green", label: "Green", className: "data-[on=true]:border-rag-green data-[on=true]:bg-rag-green-bg data-[on=true]:text-rag-green" },
+  { value: "amber", label: "Amber", className: "data-[on=true]:border-rag-amber data-[on=true]:bg-rag-amber-bg data-[on=true]:text-rag-amber" },
+  { value: "red", label: "Red", className: "data-[on=true]:border-rag-red data-[on=true]:bg-rag-red-bg data-[on=true]:text-rag-red" },
+  { value: "na", label: "N/A", className: "data-[on=true]:border-rag-na data-[on=true]:bg-rag-na-bg data-[on=true]:text-rag-na" },
 ]
 const OWNER: Record<CheckDefinition["owner_role"], string> = { specialist: "Paid media specialist", am: "Account manager", gtm_lead: "GTM lead" }
 

@@ -26,7 +26,7 @@ export function ClientTabs({ slug }: { slug: string }) {
             aria-current={active ? "page" : undefined}
             className={cn(
               "border-b-2 pb-3 text-sm whitespace-nowrap transition-colors",
-              active ? "border-ink font-bold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+              active ? "border-lime font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
             )}
           >
             {t.label}

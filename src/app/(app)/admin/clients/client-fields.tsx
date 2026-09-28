@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label"
 export type ClientValues = {
   id?: string
   name: string
+  website?: string | null
+  logo_url?: string | null
   slug: string
   notion_client_option: string
   currency: string
@@ -50,6 +52,14 @@ export function ClientFields({ values, notionOptions, taken }: { values?: Client
       <div className="space-y-1">
         <Label htmlFor="slack_channel">Slack channel (on hold)</Label>
         <Input id="slack_channel" name="slack_channel" defaultValue={v?.slack_channel ?? ""} placeholder="#client-camber" />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="website">Website</Label>
+        <Input id="website" name="website" defaultValue={v?.website ?? ""} placeholder="dnsfilter.com" />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="logo_url">Logo URL (optional)</Label>
+        <Input id="logo_url" name="logo_url" defaultValue={v?.logo_url?.includes("/brand/") ? "" : (v?.logo_url ?? "")} placeholder="Leave blank to use the website's icon" />
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="active" defaultChecked={v?.active ?? true} /> Active
