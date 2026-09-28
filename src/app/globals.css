@@ -1,0 +1,147 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-lime: var(--lime);
+  --color-violet: var(--violet);
+  --color-rag-green: var(--rag-green);
+  --color-rag-green-bg: var(--rag-green-bg);
+  --color-rag-amber: var(--rag-amber);
+  --color-rag-amber-bg: var(--rag-amber-bg);
+  --color-rag-red: var(--rag-red);
+  --color-rag-red-bg: var(--rag-red-bg);
+  --color-rag-na: var(--rag-na);
+  --color-rag-na-bg: var(--rag-na-bg);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Brand tokens from bordeauxandburgundy.com (see CLAUDE.md "Look and feel").
+   Lime is the brand accent only. It never means "green" status; RAG colours are separate. */
+:root {
+  --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-heading: "MADE Avenue", Georgia, serif;
+
+  --ink: #111111;
+  --ink-2: #1a1a1a;
+  --paper: #f0eeea;
+  --paper-2: #e8e6e0;
+  --lime: #e4ff1a;
+  --lavender: #b8bae8;
+  --violet: #6a6db8;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: #ffffff;
+  --card-foreground: var(--ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: #ffffff;
+  --secondary: var(--paper-2);
+  --secondary-foreground: var(--ink);
+  --muted: var(--paper-2);
+  --muted-foreground: #555555;
+  --accent: var(--paper-2);
+  --accent-foreground: var(--ink);
+  --destructive: #c62828;
+  --border: #dcd9d1;
+  --input: #d3d0c7;
+  --ring: var(--violet);
+  --chart-1: #6a6db8;
+  --chart-2: #e0359a;
+  --chart-3: #9496d0;
+  --chart-4: #cc50e8;
+  --chart-5: #2e2e2e;
+  --radius: 0.5rem;
+
+  /* Header / nav: black with lime accents */
+  --sidebar: var(--ink);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--lime);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: #2e2e2e;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #2e2e2e;
+  --sidebar-ring: var(--lime);
+
+  /* Check status (RAG). Deliberately not lime. */
+  --rag-green: #1f7a45;
+  --rag-green-bg: #e3f1e8;
+  --rag-amber: #a15c00;
+  --rag-amber-bg: #fbeed6;
+  --rag-red: #b3261e;
+  --rag-red-bg: #f9e1df;
+  --rag-na: #6b6b6b;
+  --rag-na-bg: #ecebe7;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@layer base {
+  h1, h2, h3 {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Small uppercase labels, as on the website */
+@utility eyebrow {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--muted-foreground);
+}
