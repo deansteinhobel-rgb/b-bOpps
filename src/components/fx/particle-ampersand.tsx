@@ -31,6 +31,9 @@ export function ParticleAmpersand({ className, density = 1, glyph = "&" }: { cla
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       w = box.clientWidth
       h = box.clientHeight
+      particles = []
+      // Hidden or not laid out yet (e.g. display:none on small screens): nothing to draw.
+      if (w === 0 || h === 0) return
       canvas.width = w * dpr
       canvas.height = h * dpr
       canvas.style.width = `${w}px`

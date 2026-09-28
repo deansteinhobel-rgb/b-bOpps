@@ -37,7 +37,8 @@ export function PacingPanel(props: { platforms: PlatformPacing[]; campaigns: Cam
   const [mode, setMode] = useState<"platform" | "campaign">("platform")
   const [filter, setFilter] = useState<Platform | "all">("all")
   const [showAll, setShowAll] = useState(false)
-  const monthLabel = new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(new Date(props.month))
+  const monthDate = new Date(props.month)
+  const monthLabel = Number.isNaN(monthDate.getTime()) ? "this month" : new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(monthDate)
   const share = (p: { daysElapsed: number; daysInMonth: number }) => p.daysElapsed / p.daysInMonth
 
   const platformRows: Row[] = props.platforms.map((p) => ({
@@ -53,7 +54,7 @@ export function PacingPanel(props: { platforms: PlatformPacing[]; campaigns: Cam
     expectedShare: share(p),
     budgetNote: p.budgetSource === "month" ? `${monthLabel} budget` : p.budgetSource === "default" ? "Default monthly budget" : undefined,
   }))
-  const campaignRows: Row[] = props.campaigns
+  const campaignRows: Row[] = (props.campaigns ?? [])
     .filter((c) => filter === "all" || c.platform === filter)
     .map((c) => ({
       key: `${c.platform}|${c.campaignId}`,
@@ -73,7 +74,7 @@ export function PacingPanel(props: { platforms: PlatformPacing[]; campaigns: Cam
       expectedShare: share(c),
     }))
   const rows = mode === "platform" ? platformRows : showAll ? campaignRows : campaignRows.slice(0, 12)
-  const platformsHere = [...new Set(props.campaigns.map((c) => c.platform))]
+  const platformsHere = [...new Set((props.campaigns ?? []).map((c) => c.platform))]
 
   return (
     <div className="surface overflow-hidden">
