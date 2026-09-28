@@ -1,5 +1,7 @@
 import { AppSidebar } from "@/components/app-sidebar"
 import { Starfield } from "@/components/fx/starfield"
+import { NewsChat } from "@/components/news-chat"
+import { aiConfigured } from "@/lib/ai/claude"
 import { getProfile, isAdmin, ROLE_LABEL } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 
@@ -34,6 +36,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           )}
         </div>
       </main>
+      {profile.role && aiConfigured() && <NewsChat />}
     </div>
   )
 }

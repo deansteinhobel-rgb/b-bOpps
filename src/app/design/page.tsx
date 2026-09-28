@@ -10,6 +10,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { CheckDeck } from "../(app)/clients/[slug]/checks/check-deck"
 import { FatiguePanel } from "../(app)/clients/[slug]/fatigue-panel"
 import { PacingPanel } from "../(app)/clients/[slug]/pacing-panel"
+import { AiPanel } from "../(app)/clients/[slug]/sprint/ai-panel"
+import { WinePour } from "@/components/fx/wine-pour"
 import { adHealth, type FatigueInput } from "@/lib/metrics/ads"
 import type { CheckDefinition, CheckResult } from "@/lib/checks/runs"
 import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
@@ -157,6 +159,29 @@ export default async function DesignPreview() {
           <section className="space-y-4">
             <SectionHeader title="Budget pacing" description="Sliders with the today marker." />
             <PacingPanel platforms={samplePacing} campaigns={sampleCampaigns} currency="USD" month="2026-09-01" canEdit clientSlug="dnsfilter" />
+          </section>
+
+          <section className="space-y-4">
+            <SectionHeader title="Pour me a sprint" description="The wine glass at 10%, 45%, 80% and served." />
+            <div className="flex flex-wrap items-end gap-8">
+              {[0.1, 0.45, 0.8, 1].map((p) => (
+                <WinePour key={p} progress={p} pouring={p < 1} className="h-56 w-48 text-foreground" />
+              ))}
+            </div>
+            <AiPanel
+              sprintId="sample"
+              canGenerate
+              aiReady
+              closed={false}
+              run={{ id: "r", status: "ready", created_at: "2026-09-28T10:00:00Z", error: null, market_summary: "LinkedIn is pushing Thought Leader Ads and conversation ads for B2B, while Google keeps folding search into AI Max. Practitioners on r/PPC report CPC inflation on generic security terms.", news: [{ platform: "LinkedIn", headline: "Thought Leader Ads open to all advertisers", detail: "Sponsor any member's post from the Campaign Manager.", date: "2026-09-10", url: "https://example.com/li" }] }}
+              recs={[
+                { id: "a", status: "draft", platform: "linkedin", title: "Thought Leader Ads from the CTO vs brand posts", hypothesis: "If we sponsor the CTO's posts, CTR rises because people trust people over logos.", assets: ["ad_copy"], brief_notes: null, success_metric: "ctr", success_target: 0.8, success_text: null, why_data: "LinkedIn CTR has slid from 1.10% (w/e 2 Aug) to 0.46% (w/e 27 Sep).", why_market: "Thought Leader Ads are now open to all advertisers.", sources: [{ title: "LinkedIn blog", url: "https://example.com/li" }], confidence: "medium", effort: "low", reject_reason: null, sprint_test_id: null },
+                { id: "b", status: "reviewed", platform: "reddit", title: "Ungated AI Security report on Reddit, retarget readers", hypothesis: "Ungating lowers cost per engaged reader; retargeting converts them.", assets: ["landing_page", "ad_creative"], brief_notes: null, success_metric: null, success_target: null, success_text: "Retargeted readers start trials at under $300 each", why_data: "Sprint 0: gated report leads were very expensive and didn't start trials.", why_market: null, sources: [], confidence: "low", effort: "medium", reject_reason: null, sprint_test_id: null },
+              ]}
+              owners={[{ id: "u1", name: "Andrea Restrepo", onTeam: true }]}
+              defaultDeadline="2026-10-02"
+              currency="USD"
+            />
           </section>
 
           <section className="space-y-4">

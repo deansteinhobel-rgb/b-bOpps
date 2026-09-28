@@ -12,6 +12,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Supabase: Postgres, Auth (magic link, `@bordeauxandburgundy.co.uk` only) and RLS on every table. Migrations live in the repo (`supabase/migrations`).
 - `@notionhq/client` v5 with `notionVersion: "2026-03-11"`. A database contains data sources. Query `dataSources.query`, not databases. Use `iterateAllDataSourceRows` for full reads (plain pagination stops at 10k rows).
 - Windsor.ai REST only (`connectors.windsor.ai/{linkedin|google_ads|facebook}`). Never call the LinkedIn, Google Ads or Meta APIs directly.
+- Claude (Anthropic API, `@anthropic-ai/sdk`, key `ANTHROPIC_API_KEY`, server-side only): sprint suggestions use `claude-opus-5-5`, the news chat uses `claude-sonnet-5`, both with the web search and web fetch server tools. See "Claude in the app" below.
 - HubSpot: stubbed. Slack: on hold. Build the post function, but it does nothing unless `SLACK_WEBHOOK_URL` is set.
 - Vercel (Hobby for now) for hosting.
 - All third-party keys stay server-side. Nothing secret goes in a `NEXT_PUBLIC_` variable.
@@ -150,3 +151,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - **Ad fatigue** is a grid of compact tiles (`fatigue-panel.tsx`): platform logo, ad preview, first seen, first vs last 14 days (name on hover and in the detail). Click one to expand the detail (both windows, change, preview).
 - **Briefs** are grouped into stages by Master Status (In production, With the client, Approved, Not started, On hold, Done), with a summary strip, status pills, type chips, lead avatars, relative due dates (overdue in red) and expandable sub-items.
 - **Easter eggs from the website hero** (`src/components/fx`): `ParticleAmpersand` (lime dot "&" that scatters from the cursor: login, the clients header, "all checks done"), `Starfield` (faint background), `Sparkle` (specks around primary buttons on hover). All pause when hidden and respect reduced motion. Keep them subtle and rare.
+
+## Claude in the app (Dean, 2026-09-28)
+- **"Pour me a sprint"** (Sprint tab, `sprint/ai-panel.tsx`): Claude suggests 3–5 tests for the sprint. It reads a compact brief (`src/lib/ai/context.ts`: 12 weeks of weekly numbers per platform, pacing, top campaigns, best/worst ads, fatigue, every past test with outcome and findings, this sprint's plan, logged changes, earlier approved/rejected suggestions with reasons), then researches B2B paid media trends and platform news (Google, Bing, LinkedIn, Meta, Reddit, ChatGPT Ads, X) with web search, and submits through a `submit_sprint_plan` tool (`src/lib/ai/generate.ts`).
+- Runs in the background (`POST /api/sprint-ai` + `after()`, maxDuration 300s). Progress is stored on `sprint_ai_runs` and fills the wine glass (`WinePour`); the page polls `GET /api/sprint-ai?run=`.
+- **Review → approve** (Dean): suggestions start as Draft; Review (edit) marks them Reviewed; Approve (owner + deadline) creates a Planned `sprint_test`; Reject needs a reason, which Claude reads next time. **GTM leads and admins only** (RLS `is_admin()`); the client's team can read. Nothing goes to Notion until "Brief the team" on the planned test (still dry-run gated). No deletes.
+- Any platform may be suggested; Reddit, Bing, X and ChatGPT Ads aren't connected (Dean: they may be considered, but won't be connected for now). Approved ones are planned as "Several platforms" with the platform in the title and "track by hand" in the brief.
+- **The news cellar** (`src/components/news-chat.tsx`, `POST /api/news-chat`): floating chat, bottom right on every page, for anyone with a role. Streams answers with cited sources. Stores nothing and sends no client data.
+- Client performance data goes to Anthropic's API (Dean confirmed that's fine, 2026-09-28). Web content is treated as untrusted data in every prompt. Usage (tokens, searches) is saved on each run.

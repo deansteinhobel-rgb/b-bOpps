@@ -2,6 +2,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ActionForm } from "@/components/action-form"
 import { StatusBadge } from "@/components/status-badge"
+import { aiConfigured } from "@/lib/ai/claude"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { longDate, money, oneDp, signedPct } from "@/lib/format"
@@ -17,6 +18,7 @@ import { sprintByNumber, sprintDay, sprintOf, SPRINT_DAYS } from "@/lib/sprints/
 import { CARRY_REASONS, STAGES, stageOf, type Stage } from "@/lib/sprints/tests"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
+import { AiPanel, type AiRun, type Recommendation } from "./ai-panel"
 import { ChangeLog } from "./change-log"
 import { CloseSprint } from "./close-sprint"
 import { EditableText } from "./editable-text"
@@ -55,7 +57,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
     )
   }
 
-  const [details, numbers, { data: runs }, actions, owners] = await Promise.all([
+  const [details, numbers, { data: runs }, actions, owners, { data: aiRuns }, { data: aiRecs }] = await Promise.all([
     loadSprintDetails(supabase, sprint),
     cachedSprintNumbers(client.id, period), // access confirmed: sprint loaded through RLS
     supabase
@@ -67,6 +69,8 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
       .lte("period_start", period.end),
     mirrorItems(supabase, client.id, "action"),
     peopleForClient(supabase, client.id),
+    supabase.from("sprint_ai_runs").select("id, status, created_at, market_summary, news, error").eq("sprint_id", sprint.id).order("created_at", { ascending: false }).limit(1),
+    supabase.from("sprint_recommendations").select("*").eq("sprint_id", sprint.id).order("created_at", { ascending: false }).order("position"),
   ])
   const { changes, history, previous, tests } = details
   const board = await testBoardData(supabase, client.id, tests)
@@ -169,6 +173,19 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
           <Trend trend={shown.trend} current={period.number} currency={cur} />
         </div>
       </section>
+
+      {/* Claude: suggested tests, reviewed then approved into the plan */}
+      <AiPanel
+        sprintId={sprint.id}
+        canGenerate={isAdmin(me)}
+        aiReady={aiConfigured()}
+        closed={closed}
+        run={(aiRuns?.[0] as AiRun | undefined) ?? null}
+        recs={((aiRecs ?? []) as Recommendation[]).map((r) => ({ ...r, success_target: r.success_target === null ? null : Number(r.success_target) }))}
+        owners={ownerOptions}
+        defaultDeadline={addDays(period.start, 4)}
+        currency={cur}
+      />
 
       {/* Tests board */}
       <section className="space-y-4">

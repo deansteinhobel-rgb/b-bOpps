@@ -187,5 +187,34 @@
   animation: deck-in 0.35s ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
-  .deck-out, .deck-in, .sparkle-float { animation: none; }
+  .deck-out, .deck-in, .sparkle-float, .wine-float, .wine-wave, .wine-stream, .wine-bubble, .pour-in { animation: none; }
+}
+
+/* "Pour me a sprint": the floating wine glass (src/components/fx/wine-pour.tsx). */
+@keyframes wine-float {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+.wine-float { animation: wine-float 4.5s ease-in-out infinite; transform-origin: 50% 80%; }
+@keyframes wine-wave {
+  from { transform: translateX(0); }
+  to { transform: translateX(-40px); }
+}
+.wine-wave { animation: wine-wave 1.6s linear infinite; }
+@keyframes wine-stream {
+  to { stroke-dashoffset: -32; }
+}
+.wine-stream { animation: wine-stream 0.45s linear infinite; }
+@keyframes wine-bubble {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 0.8; }
+  100% { transform: translateY(-60px); opacity: 0; }
+}
+.wine-bubble { animation: wine-bubble 2.6s ease-in infinite; }
+@keyframes pour-in {
+  from { transform: translateY(10px); opacity: 0; }
+}
+.pour-in { animation: pour-in 0.5s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .wine-float, .wine-wave, .wine-stream, .wine-bubble, .pour-in { animation: none; }
 }

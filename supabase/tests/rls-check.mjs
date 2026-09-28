@@ -92,3 +92,19 @@ const danny = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select i
 console.log(danny.length === 0 ? "danny (dnsfilter) can't see camber tests: OK" : "FAIL: cross-client test visible")
 const delTest = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.sprint_tests returning id"))
 console.log(delTest.length === 0 ? "tests can't be deleted: OK" : "FAIL: test deleted")
+
+// Claude's sprint suggestions: the team reads, only GTM leads / admins create and decide, no deletes.
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}')`)); console.log("FAIL: specialist started a run") } catch { console.log("specialist can't start a sprint run: OK") }
+const aiRun = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}') returning id`))
+console.log(aiRun.length === 1 ? "admin starts a sprint run: OK" : "FAIL: admin run not created")
+await db.exec(`insert into public.sprint_recommendations (run_id, client_id, sprint_id, platform, title) values ('${aiRun[0].id}', '11111111-1111-1111-1111-111111111111', '${sp[0].id}', 'reddit', 'Try Reddit conversation ads')`)
+const seen = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select id from public.sprint_recommendations"))
+console.log(seen.length === 1 ? "andrea reads camber suggestions: OK" : "FAIL: andrea can't read suggestions")
+const unseen = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select id from public.sprint_recommendations"))
+console.log(unseen.length === 0 ? "danny (dnsfilter) can't see camber suggestions: OK" : "FAIL: cross-client suggestion visible")
+const andreaApproves = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.sprint_recommendations set status = 'approved' returning id"))
+console.log(andreaApproves.length === 0 ? "specialist can't approve: OK" : "FAIL: specialist approved")
+const deanApproves = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("update public.sprint_recommendations set status = 'approved' returning id"))
+console.log(deanApproves.length === 1 ? "admin approves: OK" : "FAIL: admin couldn't approve")
+const delRec = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.sprint_recommendations returning id"))
+console.log(delRec.length === 0 ? "suggestions can't be deleted: OK" : "FAIL: suggestion deleted")
