@@ -28,7 +28,8 @@ export function LoginForm({ next, error }: { next?: string; error?: string }) {
       <input type="hidden" name="next" value={next ?? "/clients"} />
       <div className="space-y-2">
         <Label htmlFor="email">Work email</Label>
-        <Input id="email" name="email" type="email" autoComplete="email" required placeholder="name@bordeauxandburgundy.co.uk" defaultValue={state.email} />
+        {/* key: remount with the submitted email after an error, instead of changing defaultValue */}
+        <Input key={state.email ?? ""} id="email" name="email" type="email" autoComplete="email" required placeholder="name@bordeauxandburgundy.co.uk" defaultValue={state.email} />
       </div>
       {state.status === "error" && (
         <p className="text-sm text-rag-red" role="alert">
