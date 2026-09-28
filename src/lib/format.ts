@@ -15,3 +15,8 @@ export const signedPct = (pct: number | null) => (pct === null ? "–" : `${pct 
 export function longDate(iso: string) {
   return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(iso))
 }
+
+/** "19 Sept", for dates in the current year. */
+export function shortDate(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(iso))
+}

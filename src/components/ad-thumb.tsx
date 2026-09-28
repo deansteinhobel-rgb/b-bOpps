@@ -4,7 +4,8 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/h
 import type { Preview, TextAd } from "@/lib/previews"
 import { cn } from "@/lib/utils"
 
-const SIZE = { sm: "size-10", md: "size-16", lg: "size-28" } as const
+// "card" fills its container as a square (creative galleries); the rest are fixed thumbnails.
+const SIZE = { sm: "size-10", md: "size-16", lg: "size-28", card: "aspect-square w-full" } as const
 
 /**
  * Saved preview image, a mock Google result for search ads, or a tile naming the ad type. Hovering
@@ -13,6 +14,7 @@ const SIZE = { sm: "size-10", md: "size-16", lg: "size-28" } as const
 export function AdThumb({ preview, alt, size = "md", className }: { preview?: Preview; alt: string; size?: keyof typeof SIZE; className?: string }) {
   const tile = cn("shrink-0 overflow-hidden rounded-md border bg-elevated", SIZE[size], className)
   if (!preview?.src && preview?.textAd) return <SearchAdThumb ad={preview.textAd} alt={alt} className={cn(tile, "border-transparent")} size={size} />
+  if (!preview?.src && size === "card") return <CardPlaceholder kind={preview?.textOnly ? "Text ad" : (preview?.kind ?? null)} alt={alt} className={tile} />
   if (!preview?.src) {
     const label = preview?.textOnly ? "Text ad" : (preview?.kind ?? "No preview")
     return (
@@ -21,12 +23,21 @@ export function AdThumb({ preview, alt, size = "md", className }: { preview?: Pr
       </span>
     )
   }
-  const image = <img src={preview.src} alt={alt} loading="lazy" className={cn(tile, "object-cover transition-opacity hover:opacity-90")} />
+  const image =
+    size === "card" ? (
+      // The whole creative, uncropped, over a blurred copy of itself so any aspect ratio fills the square.
+      <span className={cn(tile, "relative block")}>
+        <img src={preview.src} alt="" aria-hidden loading="lazy" className="absolute inset-0 size-full scale-110 object-cover opacity-40 blur-xl" />
+        <img src={preview.src} alt={alt} loading="lazy" className="relative size-full object-contain transition-transform duration-300 group-hover/card:scale-[1.02]" />
+      </span>
+    ) : (
+      <img src={preview.src} alt={alt} loading="lazy" className={cn(tile, "object-cover transition-opacity hover:opacity-90")} />
+    )
   return (
     <HoverCard>
       <HoverCardTrigger
         delay={150}
-        render={preview.link ? <a href={preview.link} target="_blank" rel="noreferrer" className="shrink-0" aria-label={`${alt}: view the ad in Meta`} /> : <span className="shrink-0" tabIndex={0} />}
+        render={preview.link ? <a href={preview.link} target="_blank" rel="noreferrer" className={cn("shrink-0", size === "card" && "block")} aria-label={`${alt}: view the ad in Meta`} /> : <span className={cn("shrink-0", size === "card" && "block")} tabIndex={0} />}
       >
         {image}
       </HoverCardTrigger>
@@ -74,11 +85,12 @@ function SearchAdThumb({ ad, alt, className, size }: { ad: TextAd; alt: string; 
   const a = arrange(ad)
   return (
     <HoverCard>
-      <HoverCardTrigger delay={150} render={<span className="shrink-0" tabIndex={0} aria-label={`${alt}: search ad mock`} />}>
-        {/* A tiny Google result: Sponsored, then the blue headline. */}
-        <span className={cn(className, "flex flex-col gap-0.5 bg-white p-1 text-left", size === "lg" && "p-2")}>
-          <span className={cn("font-bold text-[#202124]", size === "lg" ? "text-[9px]" : "text-[6px]")}>Sponsored</span>
-          <span className={cn("font-medium leading-tight text-[#1a0dab]", size === "lg" ? "line-clamp-4 text-[11px]" : size === "md" ? "line-clamp-4 text-[8px]" : "line-clamp-3 text-[6px]")}>{a.headlines.join(" | ")}</span>
+      <HoverCardTrigger delay={150} render={<span className={cn("shrink-0", size === "card" && "block")} tabIndex={0} aria-label={`${alt}: search ad mock`} />}>
+        {/* A tiny Google result: Sponsored, then the blue headline (and the description on cards). */}
+        <span className={cn(className, "flex flex-col gap-0.5 bg-white p-1 text-left", size === "lg" && "p-2", size === "card" && "justify-center gap-1.5 p-4")}>
+          <span className={cn("font-bold text-[#202124]", size === "card" ? "text-[11px]" : size === "lg" ? "text-[9px]" : "text-[6px]")}>Sponsored</span>
+          <span className={cn("font-medium leading-tight text-[#1a0dab]", size === "card" ? "line-clamp-4 text-[15px]" : size === "lg" ? "line-clamp-4 text-[11px]" : size === "md" ? "line-clamp-4 text-[8px]" : "line-clamp-3 text-[6px]")}>{a.headlines.join(" | ")}</span>
+          {size === "card" && <span className="line-clamp-3 text-[11px] leading-snug text-[#4d5156]">{a.descriptions.join(" ")}</span>}
         </span>
       </HoverCardTrigger>
       <HoverCardContent side="right" className="w-[min(420px,85vw)] border-border bg-popover p-2">
@@ -109,5 +121,23 @@ export function SearchAdMock({ ad, className }: { ad: TextAd; className?: string
       <p className="mt-2 text-[20px] leading-snug text-[#1a0dab]">{a.headlines.join(" | ")}</p>
       <p className="mt-1 text-[14px] leading-snug text-[#4d5156]">{a.descriptions.join(" ")}</p>
     </div>
+  )
+}
+
+/** Card-size tile for ads Windsor has no image for: a document-style cover with the ad type. */
+function CardPlaceholder({ kind, alt, className }: { kind: string | null; alt: string; className: string }) {
+  return (
+    <span
+      className={cn(className, "flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-elevated to-card text-muted-foreground")}
+      role="img"
+      aria-label={`${alt}: ${kind ?? "no preview"}`}
+      title={kind ? "Windsor has no image for this ad type" : undefined}
+    >
+      <svg viewBox="0 0 40 48" className="h-14 w-12 text-foreground/35" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+        <path d="M4 2h22l10 10v34H4z" />
+        <path d="M26 2v10h10M10 22h20M10 28h20M10 34h13" />
+      </svg>
+      <span className="text-[11px] uppercase tracking-wider">{kind ?? "No preview"}</span>
+    </span>
   )
 }

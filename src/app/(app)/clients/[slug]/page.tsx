@@ -1,18 +1,19 @@
 import { notFound } from "next/navigation"
 import { AdThumb, ViewAdLink } from "@/components/ad-thumb"
-import { PlatformLabel } from "@/components/brand"
+import { PlatformIcon, PlatformLabel } from "@/components/brand"
 import { SectionHeader } from "@/components/page-header"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { StatusBadge } from "@/components/status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { longDate, money, oneDp, percent, signedPct, whole } from "@/lib/format"
+import { longDate, money, shortDate, oneDp, percent, signedPct, whole } from "@/lib/format"
 import type { RankedAd } from "@/lib/metrics/ads"
 import { AD_OLD_DAYS, pctChange } from "@/lib/metrics/ads"
 import { cachedOverview } from "@/lib/metrics/cached"
 import { PLATFORM_LABEL } from "@/lib/metrics/types"
 import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
+import { cn } from "@/lib/utils"
 import { FatiguePanel } from "./fatigue-panel"
 import { PacingPanel } from "./pacing-panel"
 
@@ -155,14 +156,20 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
                 .join(" · ")}
         </p>
         {newest.length > 0 && (
-          <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+          <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {newest.map((a) => (
-              <li key={adKey(a)} className="space-y-1 text-xs">
-                <AdThumb preview={previews[adKey(a)]} alt={a.ad_name ?? a.ad_id} size="lg" className="w-full" />
-                <p className="line-clamp-2" title={a.ad_name ?? a.ad_id}>{a.ad_name ?? a.ad_id}</p>
-                <p className="text-muted-foreground">
-                  {PLATFORM_LABEL[a.platform]} · first seen {longDate(a.first_seen)}
-                </p>
+              <li key={adKey(a)} className="group/card surface overflow-hidden transition-colors hover:border-foreground/20">
+                <AdThumb preview={previews[adKey(a)]} alt={a.ad_name ?? a.ad_id} size="card" className="rounded-none border-0 border-b" />
+                <div className="space-y-1.5 p-3">
+                  <p className="line-clamp-2 min-h-[2lh] text-xs font-medium leading-snug" title={a.ad_name ?? a.ad_id}>
+                    {a.ad_name ?? a.ad_id}
+                  </p>
+                  <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <PlatformIcon platform={a.platform} className="size-3.5" />
+                    <span className="min-w-0 flex-1 truncate">First seen {shortDate(a.first_seen)}</span>
+                    <span className={cn("size-1.5 shrink-0 rounded-full", a.live ? "bg-rag-green" : "bg-rag-na")} title={a.live ? "Live" : "Not live"} aria-label={a.live ? "Live" : "Not live"} />
+                  </p>
+                </div>
               </li>
             ))}
           </ul>

@@ -160,6 +160,22 @@ export default async function DesignPreview() {
           </section>
 
           <section className="space-y-4">
+            <SectionHeader title="Creative cards" description="New creatives this month." />
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+              {[
+                { name: "Intuitive Query Log for Precise Filtering", p: { src: sampleImg, link: null, textOnly: false } },
+                { name: "A clearer shadow AI conversation for client reviews", p: { src: null, link: null, textOnly: false, kind: "Document ad" } },
+                { name: "DNS Filtering Service", p: { src: null, link: null, textOnly: true, textAd: { headlines: [{ text: "DNS Filtering Service", pinned: null }, { text: "Start Your Free 14-Day Trial", pinned: null }], descriptions: [{ text: "Block malware and phishing at the DNS layer.", pinned: null }], path1: null, path2: null, finalUrl: "https://www.dnsfilter.com/" } } },
+              ].map((c) => (
+                <li key={c.name} className="group/card surface overflow-hidden">
+                  <AdThumb preview={c.p} alt={c.name} size="card" className="rounded-none border-0 border-b" />
+                  <p className="line-clamp-2 p-3 text-xs font-medium">{c.name}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="space-y-4">
             <SectionHeader title="Ad fatigue" description="Compact tiles; click one to expand." />
             <FatiguePanel ads={sampleAds} previews={{ "meta|1|b": { src: sampleImg, link: null, textOnly: false }, "google_ads|1|a": { src: null, link: null, textOnly: true, textAd: { headlines: [{ text: "DNS Filtering Service", pinned: "HEADLINE_1" }, { text: "Start Your Free 14-Day Trial", pinned: null }, { text: "AI-Powered Threat Blocking", pinned: null }, { text: "Up to 6 Months Free", pinned: null }], descriptions: [{ text: "Block malware, phishing and ransomware at the DNS layer.", pinned: null }, { text: "Deploy in minutes. 24/7 support.", pinned: null }], path1: "dns", path2: "filtering", finalUrl: "https://www.dnsfilter.com/dns-filtering" } }, "linkedin|1|c": { src: null, link: null, textOnly: false, kind: "Document ad" } }} currency="USD" />
           </section>
