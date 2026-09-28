@@ -36,7 +36,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Red not actioned: 24 hours after `checked_at` with no `notion_action_page_id`. Flag-to records the person and appears in their "Flagged to me" list. Slack notifications come later.
 - Scheduling: Vercel Hobby cron only runs once a day. Proposal: Supabase Cron (pg_cron + pg_net) calls the sync routes, with `CRON_SECRET`. Pending confirmation.
 
-## Windsor field mapping (from windsor-inspect, 2026-09-28, pending confirmation)
+## Windsor field mapping (from windsor-inspect, 2026-09-28. Numbers confirmed against the platforms by Dean)
 | ours | linkedin | google_ads | facebook |
 |---|---|---|---|
 | campaign_id / name | `campaign_id` / `campaign` (an Ad Set in the LinkedIn UI) | `campaign_id` / `campaign` | `campaign_id` / `campaign` |
