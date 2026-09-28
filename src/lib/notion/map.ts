@@ -44,7 +44,9 @@ export function simplifyProperty(p: AnyProp): SimpleValue {
     case "last_edited_by":
       return p[p.type] ? [{ id: p[p.type].id, name: p[p.type].name ?? null }] : null
     case "files":
-      return (p.files ?? []).map((f: { name: string }) => f.name)
+      // External links keep their URL (so "what we created" can link to it). Notion-hosted files
+      // only keep their name: their URLs expire within an hour.
+      return (p.files ?? []).map((f: { type: string; name: string; external?: { url: string } }) => (f.type === "external" && f.external?.url ? f.external.url : f.name))
     case "formula":
       return p.formula ? (p.formula[p.formula.type] ?? null) : null
     default:

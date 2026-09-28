@@ -84,3 +84,11 @@ try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("insert into publ
 try { await db.exec(`insert into public.sprint_items (sprint_id, client_id, kind, text) values ('${sp[0].id}', '22222222-2222-2222-2222-222222222222', 'learning', 'x')`); console.log("FAIL: mismatched sprint item") } catch { console.log("sprint item client guard: OK") }
 const delSprint = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.sprints returning id"))
 console.log(delSprint.length === 0 ? "sprints can't be deleted, even by admin: OK" : "FAIL: sprint deleted")
+
+// Sprint tests: team-scoped, client guard, no deletes.
+const t1 = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_tests (sprint_id, client_id, title) values ('${sp[0].id}', '11111111-1111-1111-1111-111111111111', 'Test') returning id`))
+console.log(t1.length === 1 ? "andrea plans a camber test: OK" : "FAIL: test not created")
+const danny = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select id from public.sprint_tests"))
+console.log(danny.length === 0 ? "danny (dnsfilter) can't see camber tests: OK" : "FAIL: cross-client test visible")
+const delTest = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.sprint_tests returning id"))
+console.log(delTest.length === 0 ? "tests can't be deleted: OK" : "FAIL: test deleted")

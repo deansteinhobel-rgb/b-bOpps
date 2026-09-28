@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { getProfile, isAdmin } from "@/lib/auth"
-import { carryForward, cachedSprintNumbers, type Sprint } from "@/lib/sprints/data"
+import { carryForward, carryTests, cachedSprintNumbers, type Sprint } from "@/lib/sprints/data"
 import { sprintByNumber } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
 
@@ -131,15 +131,20 @@ export async function closeSprint(sprintId: string): Promise<Result> {
   if (!sprint) return fail(error!)
   const { data: full } = await supabase.from("sprints").select("*").eq("id", sprintId).single()
   if (!(full as Sprint).key_takeaway?.trim()) return fail("Add the key takeaway before closing the sprint.")
+  const { count: open } = await supabase.from("sprint_tests").select("id", { count: "exact", head: true }).eq("sprint_id", sprintId).is("outcome", null)
+  if (open) return fail(`${open} test${open === 1 ? " has" : "s have"} no outcome. Call each one or carry it over first.`)
   const period = sprintByNumber(sprint.number)
   const { summary } = await cachedSprintNumbers(sprint.client_id, period) // access confirmed by openSprint (RLS)
   const { error: e } = await supabase.from("sprints").update({ summary, closed_at: new Date().toISOString(), closed_by_profile_id: me.id }).eq("id", sprintId)
   if (e) return fail("Couldn't close the sprint.")
   const next = sprintByNumber(sprint.number + 1)
   const { data: nextSprint } = await supabase.from("sprints").select("id, client_id").eq("client_id", sprint.client_id).eq("start_date", next.start).maybeSingle()
-  if (nextSprint) await carryForward(supabase, { id: sprint.id, number: sprint.number }, nextSprint)
+  if (nextSprint) {
+    await carryForward(supabase, { id: sprint.id, number: sprint.number }, nextSprint)
+    await carryTests(supabase, sprint.id, nextSprint)
+  }
   refresh(sprint.clients.slug)
-  return { ok: true, message: "Sprint closed. Chosen items carry into the next sprint." }
+  return { ok: true, message: "Sprint closed. Carried-over tests move into the next sprint." }
 }
 
 export async function reopenSprint(sprintId: string): Promise<Result> {

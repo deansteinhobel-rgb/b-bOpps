@@ -166,6 +166,29 @@ describe("createNotionAction: live write (mocked Notion)", () => {
     expect(calls[1].args[0]).toMatchObject({ success: false, response: { error: "validation_error" } })
   })
 
+  it("briefs a sprint test: logs it as create_test_brief and links the page to the test, not a check", async () => {
+    const { db, calls } = fakeDb()
+    const notion = fakeNotion()
+    const res = await createNotionAction(
+      { db, notion, env: env({ writesEnabled: true, dryRun: false }) },
+      { ...input, checkResultId: null, sprintTestId: "test-1", appLink: "/clients/camber/sprint#test-test-1" },
+    )
+    expect(res.status).toBe("created")
+    expect(calls[0].args[0]).toMatchObject({ operation: "create_test_brief", sprint_test_id: "test-1", check_result_id: null })
+    expect(calls.map((c) => `${c.table}.${c.op}`)).toEqual(["notion_write_log.insert", "notion_write_log.update", "notion_pages_mirror.upsert", "sprint_tests.update"])
+    expect(calls[3].args).toEqual([expect.objectContaining({ notion_page_id: "page-1", status: "briefed" }), "id", "test-1"])
+    const sent = (notion.pages.create.mock.calls[0] as unknown[])[0] as { properties: Record<string, unknown> }
+    expect(sent.properties["QA Document"]).toEqual({ url: "http://localhost:3000/clients/camber/sprint#test-test-1" })
+  })
+
+  it("a test brief in dry run changes nothing on the test", async () => {
+    const { db, calls } = fakeDb()
+    const res = await createNotionAction({ db, notion: fakeNotion(), env: env() }, { ...input, checkResultId: null, sprintTestId: "test-1" })
+    expect(res.status).toBe("dry_run")
+    expect(calls.map((c) => `${c.table}.${c.op}`)).toEqual(["notion_write_log.insert", "notion_write_log.update"])
+    expect(calls[0].args[0]).toMatchObject({ operation: "create_test_brief", dry_run: true })
+  })
+
   it("still reports success if Slack fails", async () => {
     const { db } = fakeDb()
     const res = await createNotionAction(

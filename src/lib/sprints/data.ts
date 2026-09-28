@@ -60,17 +60,29 @@ const SPRINT_COLS = "id, client_id, number, start_date, end_date, goal, key_take
  * team). A new sprint pulls in the items the previous sprint chose to carry forward.
  */
 export async function ensureSprint(supabase: SupabaseClient, clientId: string, period: SprintPeriod): Promise<Sprint> {
-  const find = () => supabase.from("sprints").select(SPRINT_COLS).eq("client_id", clientId).eq("start_date", period.start).maybeSingle()
-  let { data: sprint } = await find()
+  const find = async () => {
+    const { data, error } = await supabase.from("sprints").select(SPRINT_COLS).eq("client_id", clientId).eq("start_date", period.start).maybeSingle()
+    if (error) console.error("sprint lookup failed", error)
+    return data as Sprint | null
+  }
+  let sprint = await find()
   if (!sprint) {
-    await supabase
+    const { error: insertError } = await supabase
       .from("sprints")
       .upsert({ client_id: clientId, number: period.number, start_date: period.start, end_date: period.end }, { onConflict: "client_id,start_date", ignoreDuplicates: true })
-    ;({ data: sprint } = await find())
-    if (!sprint) throw new Error("Could not create the sprint")
+    if (insertError) console.error("sprint create failed", insertError)
+    // Two page loads can create it at the same moment; give the other one a beat.
+    for (let attempt = 0; !sprint && attempt < 3; attempt++) {
+      sprint = await find()
+      if (!sprint) await new Promise((r) => setTimeout(r, 200))
+    }
+    if (!sprint) throw new Error(`Could not create the sprint${insertError ? `: ${insertError.message}` : ""}`)
     const prev = sprintByNumber(period.number - 1)
     const { data: previous } = await supabase.from("sprints").select("id, number").eq("client_id", clientId).eq("start_date", prev.start).maybeSingle()
-    if (previous) await carryForward(supabase, previous as { id: string; number: number }, sprint as Sprint)
+    if (previous) {
+      await carryForward(supabase, previous as { id: string; number: number }, sprint as Sprint)
+      await carryTests(supabase, (previous as { id: string }).id, sprint as Sprint)
+    }
   }
   return sprint as Sprint
 }
@@ -101,8 +113,79 @@ export async function carryForward(supabase: SupabaseClient, from: { id: string;
   return rows.length
 }
 
+/**
+ * Copies tests marked "carried" in one sprint into the next, keeping their progress (Notion brief,
+ * live date, campaigns) so the work continues. Safe to repeat: already-carried tests are skipped.
+ */
+export async function carryTests(supabase: SupabaseClient, fromSprintId: string, to: Pick<Sprint, "id" | "client_id">) {
+  const [{ data: carried }, { data: already }] = await Promise.all([
+    supabase.from("sprint_tests").select("*").eq("sprint_id", fromSprintId).eq("outcome", "carried"),
+    supabase.from("sprint_tests").select("carried_from_test_id").eq("sprint_id", to.id).not("carried_from_test_id", "is", null),
+  ])
+  const done = new Set((already ?? []).map((a) => a.carried_from_test_id))
+  const rows = (carried ?? [])
+    .filter((t) => !done.has(t.id))
+    .map((t) => ({
+      sprint_id: to.id,
+      client_id: to.client_id,
+      platform: t.platform,
+      title: t.title,
+      hypothesis: t.hypothesis,
+      assets: t.assets,
+      brief_notes: t.brief_notes,
+      success_metric: t.success_metric,
+      success_target: t.success_target,
+      success_text: t.success_text,
+      owner_notion_user_id: t.owner_notion_user_id,
+      owner_name: t.owner_name,
+      deadline: t.deadline,
+      status: t.status === "review" ? "live" : t.status,
+      notion_page_id: t.notion_page_id,
+      briefed_at: t.briefed_at,
+      ready_at: t.ready_at,
+      live_on: t.live_on,
+      campaign_ids: t.campaign_ids,
+      campaign_names: t.campaign_names,
+      carried_from_test_id: t.id,
+      created_by_profile_id: t.created_by_profile_id,
+    }))
+  if (rows.length) {
+    const { error } = await supabase.from("sprint_tests").insert(rows)
+    if (error) throw new Error(`Carrying tests forward: ${error.message}`)
+  }
+  return rows.length
+}
+
+export type SprintTest = {
+  id: string
+  platform: Platform | null
+  title: string
+  hypothesis: string | null
+  assets: string[]
+  brief_notes: string | null
+  success_metric: string | null
+  success_target: number | null
+  success_text: string | null
+  owner_notion_user_id: string | null
+  owner_name: string | null
+  deadline: string | null
+  status: "planned" | "briefed" | "ready" | "live" | "review" | "closed"
+  notion_page_id: string | null
+  live_on: string | null
+  campaign_ids: string[]
+  campaign_names: string[]
+  findings_worked: string | null
+  findings_blockers: string | null
+  findings_notes: string | null
+  outcome: "proven" | "disproven" | "inconclusive" | "carried" | null
+  carry_reason: string | null
+  carry_note: string | null
+  carried_from_test_id: string | null
+  created_at: string
+}
+
 export async function loadSprintDetails(supabase: SupabaseClient, sprint: Sprint) {
-  const [{ data: items }, { data: changes }, { data: history }, { data: previous }] = await Promise.all([
+  const [{ data: items }, { data: changes }, { data: history }, { data: previous }, { data: tests }] = await Promise.all([
     supabase.from("sprint_items").select("*").eq("sprint_id", sprint.id).order("created_at"),
     supabase
       .from("sprint_changes")
@@ -112,12 +195,14 @@ export async function loadSprintDetails(supabase: SupabaseClient, sprint: Sprint
       .order("created_at", { ascending: false }),
     supabase.from("sprints").select("id, number, start_date, end_date, key_takeaway, closed_at, summary").eq("client_id", sprint.client_id).order("start_date", { ascending: false }).limit(30),
     supabase.from("sprints").select("id, number, closed_at").eq("client_id", sprint.client_id).eq("start_date", sprintByNumber(sprint.number - 1).start).maybeSingle(),
+    supabase.from("sprint_tests").select("*").eq("sprint_id", sprint.id).order("created_at"),
   ])
   return {
     items: (items ?? []) as SprintItem[],
     changes: (changes ?? []) as unknown as SprintChange[],
     history: (history ?? []) as Pick<Sprint, "id" | "number" | "start_date" | "end_date" | "key_takeaway" | "closed_at" | "summary">[],
     previous: previous as { id: string; number: number; closed_at: string | null } | null,
+    tests: ((tests ?? []) as SprintTest[]).map((t) => ({ ...t, success_target: t.success_target === null ? null : Number(t.success_target) })),
   }
 }
 

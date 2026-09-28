@@ -19,7 +19,7 @@ export function CloseSprint({ sprintId, closed, isAdmin, carryCount }: { sprintI
       <Button
         disabled={pending}
         onClick={() => {
-          if (!confirm(`Close this sprint? ${carryCount} item${carryCount === 1 ? "" : "s"} will carry into the next sprint. The review becomes read-only.`)) return
+          if (!confirm(`Close this sprint? ${carryCount} carried-over test${carryCount === 1 ? "" : "s"} will move into the next sprint, and the sprint becomes read-only.`)) return
           start(async () => {
             const r = await closeSprint(sprintId)
             setMessage({ ok: r.ok, text: r.message ?? (r.ok ? "Closed." : "Couldn't close.") })
@@ -28,7 +28,7 @@ export function CloseSprint({ sprintId, closed, isAdmin, carryCount }: { sprintI
       >
         {pending ? "Closing…" : "Close sprint and carry forward"}
       </Button>
-      <span className="text-xs text-muted-foreground">{carryCount} item{carryCount === 1 ? "" : "s"} set to carry forward</span>
+      <span className="text-xs text-muted-foreground">{carryCount} test{carryCount === 1 ? "" : "s"} carrying over</span>
       {message && <span className={message.ok ? "text-sm text-rag-green" : "text-sm text-rag-red"}>{message.text}</span>}
     </div>
   )

@@ -1,7 +1,9 @@
 /**
  * THE ONLY PLACE THE APP WRITES TO NOTION (CLAUDE.md "Notion write-side rules").
  *
- * v1 does exactly one thing: create an action page on the Master Production board.
+ * It only ever CREATES pages on the Master Production board, of two kinds:
+ *   - an action (from a red check or the New action form), and
+ *   - a sprint test brief (briefing the team on a planned test; Dean, 2026-09-28).
  * No updates, no deletes, no edits to pages the app didn't create.
  *
  * Every call: 1) logs to notion_write_log first, 2) calls Notion only if BOTH
@@ -19,8 +21,14 @@ export type ActionInput = {
   dueDate: string | null
   description: string
   checkResultId?: string | null
+  /** Set for a sprint test brief: the test the page briefs. */
+  sprintTestId?: string | null
+  /** Overrides the "QA Document" link back into the app (a path like /clients/x/sprint, or a full URL). */
+  appLink?: string
   createdBy: { id: string; full_name: string | null; email: string }
 }
+
+export type WriteOperation = "create_action" | "create_test_brief"
 
 /** Only what createNotionAction needs from Supabase (the admin client in production, a fake in tests). */
 export type WriteDb = {
@@ -55,8 +63,9 @@ function richText(s: string) {
   return chunks
 }
 
-export function appLinkFor(input: Pick<ActionInput, "client" | "checkResultId">, appUrl: string) {
+export function appLinkFor(input: Pick<ActionInput, "client" | "checkResultId" | "appLink">, appUrl: string) {
   const base = appUrl.replace(/\/$/, "")
+  if (input.appLink) return input.appLink.startsWith("http") ? input.appLink : `${base}${input.appLink}`
   return input.checkResultId ? `${base}/clients/${input.client.slug}/checks?result=${input.checkResultId}` : `${base}/clients/${input.client.slug}/actions`
 }
 
@@ -92,6 +101,7 @@ export async function createNotionAction(deps: WriteDeps, input: ActionInput): P
 
   const live = deps.env.writesEnabled && !deps.env.dryRun
   const payload = buildActionPayload(input, deps.env)
+  const operation: WriteOperation = input.sprintTestId ? "create_test_brief" : "create_action"
 
   // 1. Log first. No log, no write.
   const { data: log, error: logError } = await deps.db
@@ -100,7 +110,8 @@ export async function createNotionAction(deps: WriteDeps, input: ActionInput): P
       profile_id: input.createdBy.id,
       client_id: input.client.id,
       check_result_id: input.checkResultId ?? null,
-      operation: "create_action",
+      sprint_test_id: input.sprintTestId ?? null,
+      operation,
       endpoint: "POST /v1/pages",
       payload,
       dry_run: !live,
@@ -132,6 +143,9 @@ export async function createNotionAction(deps: WriteDeps, input: ActionInput): P
   const clientIdByOption = new Map([[input.client.notion_client_option, input.client.id]])
   await deps.db.from("notion_pages_mirror").upsert(toMirrorRow(page, deps.env.dataSourceId, clientIdByOption), { onConflict: "notion_page_id" })
   if (input.checkResultId) await deps.db.from("check_results").update({ notion_action_page_id: page.id }).eq("id", input.checkResultId)
+  if (input.sprintTestId) {
+    await deps.db.from("sprint_tests").update({ notion_page_id: page.id, status: "briefed", briefed_at: new Date().toISOString() }).eq("id", input.sprintTestId)
+  }
 
   if (deps.notifySlack) {
     await deps

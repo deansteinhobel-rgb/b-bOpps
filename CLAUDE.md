@@ -24,7 +24,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Deletes are never allowed in any environment. There is no delete code path.
 
 ## Notion write-side rules (strict)
-- The app writes to Notion in one way only: **creating an action page** with the mapped properties. Updating status on pages the app created is **off in v1** (pending confirmation, because the team changes statuses by hand once work is verified).
+- The app only ever **creates** Master Production pages, of two kinds: **an action** (from a red check or the New action form) and **a sprint test brief** (one row per test, Dean 2026-09-28). Both use the same properties and existing options. Updating status on pages the app created is **off in v1** (pending confirmation, because the team changes statuses by hand once work is verified).
 - No deletes, ever. No edits to pages the app didn't create.
 - Every write goes through one server-side function. It logs to `notion_write_log` first, calls Notion, updates the log with the result, then upserts `notion_pages_mirror`.
 - `NOTION_DRY_RUN=true` means log only. It defaults to true in development.
@@ -127,13 +127,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Removing someone from a team sets `removed_at` (soft). RLS and sign-up ignore removed rows. There are still no DELETE policies.
 
 ## Sprints: the main loop of the app (Dean, 2026-09-28)
-- Two-week sprints, **the same fortnight for every client**, on alternate Mondays from **Sprint 1 = Mon 28 Sep 2026** (`src/lib/sprints/periods.ts`). One sprint per client. Kept **in the app only**: no Notion writes.
-- The Sprint tab (it replaced Actions; `/actions` redirects there) runs top to bottom:
-  1. **Plan**: goal, hypotheses, items carried from last sprint.
-  2. **Change log**: manual entries plus **Windsor-detected suggestions** (new ads, stopped ads, ≥30% week-on-week platform spend shifts) to log or dismiss.
-  3. **Actions**: reds from the sprint's weekly checks, sprint to-dos, open Notion actions, and the New action form.
-  4. **Review board**, after Dean's "Sprint Review Highlights" slide: key takeaway, highlights (auto numbers + text), top learnings, challenge & hypotheses why, mitigation plan, progress made.
-- **Close sprint** needs a key takeaway. It snapshots the numbers into `sprints.summary`, makes the sprint read-only (admins can reopen), and copies items marked `carry_forward` (learnings and mitigations by default) into the next sprint as `carried` items. The next sprint also pulls them in when it's first created.
-- Numbers compare against the previous sprint over the **same number of days**. A trend shows cost per result for the last 6 sprints. The numbers are cached like the Overview (tag `windsor:<client>`).
-- `/learnings` is the library of learnings and tested hypotheses across all sprints and clients the user can see.
-- No deletes: items are "dropped", changes "dismissed". Tables: `sprints`, `sprint_items`, `sprint_changes` (RLS by client team).
+- Two-week sprints, **the same fortnight for every client**, on alternate Mondays from **Sprint 1 = Mon 28 Sep 2026** (`src/lib/sprints/periods.ts`). One sprint per client.
+- **The unit is a test** (`sprint_tests`). The flow, shown as a board on the Sprint tab:
+  1. **Planned** on the sprint's first Monday: platform, what we're testing, assets to brief in, what success looks like (metric + target and/or words), owner, deadline.
+  2. **Brief the team**: creates ONE Master Production row via `createNotionAction` (operation `create_test_brief`, Production Type "Paid Media", status "New", Project Lead = owner, due = deadline, the full plan in Description, QA Document = link to the test). Dry run by default like every Notion write.
+  3. **Ready to launch** happens automatically when the brief's Master Status is **"Client Approved" or "Production Complete"** (`READY_STATUSES`). The card shows "what we created" from the brief's links (Figma Board, Campaign Folder, Brief Uploads / Links, Useful Links, Proposal Deck). In test mode, or for a brief made outside the app, "Mark ready" does it by hand.
+  4. **Mark live**: live date plus the campaigns it runs in (picked from Windsor), so results vs the success target are measured automatically (`campaign_totals`).
+  5. **Findings**: what worked, the blocker, notes.
+  6. **Outcome**: proven / disproven / inconclusive, or **carried over** with a reason (deadline, setup time, too short live, awaiting approval, other). Carried tests are copied, with their progress, into the next sprint (`carryTests`).
+- The **sprint review fills itself in from the tests** (highlights = live tests + numbers, top learnings = "what worked", challenges = blockers, mitigation = carry-overs, progress = counts). The team only writes the key takeaway. Closing needs a key takeaway, and every test called or carried.
+- The change log (with Windsor-detected suggestions) and the red checks / Notion actions sit in collapsed sections below. `/learnings` = every called test with its findings, across sprints and clients.
+- The old sprint_items (goal, hypotheses, learnings, mitigations) are still in the schema but no longer in the UI.
+- No deletes anywhere. Tables `sprints`, `sprint_tests`, `sprint_changes`, `sprint_items` (RLS by client team).
