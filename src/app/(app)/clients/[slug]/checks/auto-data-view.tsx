@@ -1,8 +1,11 @@
+import { AdThumb } from "@/components/ad-thumb"
 import { StatusBadge } from "@/components/status-badge"
 import type { AutoData } from "@/lib/checks/auto-data"
 import { longDate } from "@/lib/format"
+import type { PreviewMap } from "@/lib/previews"
 
-export function AutoDataView({ data, label }: { data: AutoData; label: string }) {
+export function AutoDataView({ data, label, previews }: { data: AutoData; label: string; previews?: PreviewMap }) {
+  const withThumbs = Boolean(data.adKeys?.some(Boolean) && previews)
   return (
     <div className="rounded-md border bg-secondary/50 p-3 text-sm">
       <p className="eyebrow">
@@ -27,6 +30,7 @@ export function AutoDataView({ data, label }: { data: AutoData; label: string })
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="text-muted-foreground">
+                {withThumbs && <th className="w-12 py-1 pr-2 font-normal" aria-label="Preview" />}
                 {data.table.columns.map((c) => (
                   <th key={c} className="py-1 pr-3 font-normal">
                     {c}
@@ -37,6 +41,11 @@ export function AutoDataView({ data, label }: { data: AutoData; label: string })
             <tbody>
               {data.table.rows.map((row, i) => (
                 <tr key={i} className="border-t border-border/60">
+                  {withThumbs && (
+                    <td className="py-1 pr-2">
+                      {data.adKeys?.[i] ? <AdThumb preview={previews?.[data.adKeys[i]!]} alt="Ad preview" size="sm" /> : null}
+                    </td>
+                  )}
                   {row.map((cell, j) => (
                     <td key={j} className={j === 0 ? "max-w-64 truncate py-1 pr-3" : "py-1 pr-3 tabular-nums"} title={String(cell)}>
                       {cell}

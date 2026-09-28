@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { AdThumb, ViewAdLink } from "@/components/ad-thumb"
 import { StatusBadge } from "@/components/status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -7,6 +8,7 @@ import type { RankedAd } from "@/lib/metrics/ads"
 import { pctChange } from "@/lib/metrics/ads"
 import { getOverview } from "@/lib/metrics/overview"
 import { PLATFORM_LABEL } from "@/lib/metrics/types"
+import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
 
 export default async function OverviewPage({ params }: PageProps<"/clients/[slug]">) {
@@ -19,6 +21,12 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
 
   if (!o) return <p className="text-muted-foreground">No ad data yet. An admin can run a Windsor backfill for this client.</p>
+  const newest = o.newCreatives.slice(0, 12)
+  const previews = await previewsFor(supabase, client.id, [
+    ...o.rankings.flatMap((r) => [r.best, r.worst]).filter((a) => a !== null),
+    ...o.fatigued.slice(0, 20),
+    ...newest,
+  ])
 
   return (
     <div className="space-y-10">
@@ -132,8 +140,8 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
                 </p>
               </CardHeader>
               <CardContent className="space-y-4 text-sm">
-                <AdLine label="Best" ad={r.best} basis={r.basis} currency={cur} />
-                <AdLine label="Worst" ad={r.worst} basis={r.basis} currency={cur} />
+                <AdLine label="Best" ad={r.best} basis={r.basis} currency={cur} previews={previews} />
+                <AdLine label="Worst" ad={r.worst} basis={r.basis} currency={cur} previews={previews} />
               </CardContent>
             </Card>
           ))}
@@ -166,9 +174,14 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
             <TableBody>
               {o.fatigued.slice(0, 20).map((a) => (
                 <TableRow key={`${a.platform}-${a.ad_id}`}>
-                  <TableCell className="max-w-72">
-                    <span className="line-clamp-1" title={a.ad_name ?? a.ad_id}>{a.ad_name ?? a.ad_id}</span>
-                    <span className="line-clamp-1 text-xs text-muted-foreground">{a.campaign_name}</span>
+                  <TableCell className="max-w-80">
+                    <div className="flex items-center gap-3">
+                      <AdThumb preview={previews[adKey(a)]} alt={a.ad_name ?? a.ad_id} size="sm" />
+                      <div className="min-w-0">
+                        <span className="line-clamp-1" title={a.ad_name ?? a.ad_id}>{a.ad_name ?? a.ad_id}</span>
+                        <span className="line-clamp-1 text-xs text-muted-foreground">{a.campaign_name}</span>
+                      </div>
+                    </div>
                   </TableCell>
                   <TableCell>{PLATFORM_LABEL[a.platform]}</TableCell>
                   <TableCell>{a.firstSeenCapped ? `${longDate(a.first_seen)} or earlier` : longDate(a.first_seen)}</TableCell>
@@ -198,6 +211,19 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
                 .map(([p, list]) => `${PLATFORM_LABEL[p]}: ${list.length} (${list.filter((a) => a.live).length} still live)`)
                 .join(" · ")}
         </p>
+        {newest.length > 0 && (
+          <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+            {newest.map((a) => (
+              <li key={adKey(a)} className="space-y-1 text-xs">
+                <AdThumb preview={previews[adKey(a)]} alt={a.ad_name ?? a.ad_id} size="lg" className="w-full" />
+                <p className="line-clamp-2" title={a.ad_name ?? a.ad_id}>{a.ad_name ?? a.ad_id}</p>
+                <p className="text-muted-foreground">
+                  {PLATFORM_LABEL[a.platform]} · first seen {longDate(a.first_seen)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   )
@@ -215,10 +241,13 @@ function Metric({ label, value, change, lowerIsBetter, status }: { label: string
   )
 }
 
-function AdLine({ label, ad, basis, currency }: { label: string; ad: RankedAd | null; basis: "cost_per_result" | "ctr"; currency: string }) {
+function AdLine({ label, ad, basis, currency, previews }: { label: string; ad: RankedAd | null; basis: "cost_per_result" | "ctr"; currency: string; previews: PreviewMap }) {
   if (!ad) return <p className="text-muted-foreground">{label}: not enough eligible ads</p>
+  const preview = previews[adKey(ad)]
   return (
-    <div>
+    <div className="flex gap-3">
+      <AdThumb preview={preview} alt={ad.ad_name ?? ad.ad_id} />
+      <div className="min-w-0">
       <p className="eyebrow">{label}</p>
       <p className="line-clamp-2 font-bold" title={ad.ad_name ?? ad.ad_id}>{ad.ad_name ?? ad.ad_id}</p>
       <p className="line-clamp-1 text-xs text-muted-foreground">{ad.campaign_name}</p>
@@ -226,6 +255,8 @@ function AdLine({ label, ad, basis, currency }: { label: string; ad: RankedAd | 
         {basis === "cost_per_result" ? `${money(ad.costPerResult, currency)} per result` : `${percent(ad.ctr, 2)} CTR`} · {money(ad.spend, currency)} spend ·{" "}
         {oneDp(ad.results)} results · {whole(ad.clicks)} clicks
       </p>
+      <ViewAdLink preview={preview} />
+      </div>
     </div>
   )
 }

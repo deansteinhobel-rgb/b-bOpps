@@ -207,7 +207,7 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
 
       <section>
         <h2 className="text-2xl">Windsor backfill</h2>
-        <p className="mt-1 mb-3 text-sm text-muted-foreground">Reloads the last 90 days for every active account, 30 days at a time. Takes a few minutes. Keep this page open.</p>
+        <p className="mt-1 mb-3 text-sm text-muted-foreground">Reloads the last 90 days of numbers for every active account (30 days at a time), then ad previews for the last 14 days. Takes a few minutes. Keep this page open.</p>
         <BackfillButton
           accounts={(accounts ?? []).filter((a) => a.active).map((a) => ({ id: a.id, label: `${PLATFORM_LABEL[a.platform as Platform]} ${a.account_name ?? a.external_account_id}` }))}
         />

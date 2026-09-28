@@ -113,8 +113,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## Backlog (agreed, not yet built)
-- **Ad previews** (Dean, 2026-09-28: option 2, after the Notion step). Windsor gives Meta `thumbnail_url` / `image_url` / `ad_preview_shareable_link`, LinkedIn `creative_thumbnail`, and Google image/display/Demand Gen image fields (search ads are text only, so show headlines). Meta and LinkedIn image URLs expire after about a week, so **copy each image into Supabase Storage** the first time it's seen. Show previews on best/worst ad, ad fatigue, new creatives and the matching check pre-loads, plus a Meta "View ad" link.
+## Ad previews (built 2026-09-28)
+- `ad_creatives` holds each ad's latest Windsor image URL, Meta preview link and ad type. Images are copied once into the private `ad-previews` bucket at `<client_id>/<platform>/<ad_id>.<ext>`. Meta and LinkedIn URLs expire after about a week, so we always show our copy, via signed URLs (1 hour) under storage RLS.
+- Fields: LinkedIn `creative_thumbnail`; Meta `image_url`/`thumbnail_url` + `ad_preview_shareable_link`; Google `ad_image_ad_image_url`, `ad_responsive_display_ad_marketing_images_1`, `ad_multi_asset_ad_marketing_images_1`. Google search ads are text only ("Text ad" tile).
+- Windsor's LinkedIn preview lookups are slow (~3 min for 90 days on DNSFilter). Daily: `/api/cron/creatives` (last 3 days, max 40 new images). Admin backfill: previews for the last 14 days in 7-day windows. First fill: `pnpm sync:creatives --days 90`.
+- Check snapshots store ad keys (`auto_data.adKeys`), never image URLs, so they don't go stale.
 
 ## Admin (/admin)
 - /admin/clients: client list, new client, **unmapped Notion pages** grouped by Client option. /admin/clients/[slug]: details, team, ad accounts (picked from the Windsor key's account list), conversion/lead fields per account, budgets by month (this month and next), chunked backfill.

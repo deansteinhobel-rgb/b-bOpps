@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import type { AutoData } from "@/lib/checks/auto-data"
 import type { CheckDefinition, CheckResult } from "@/lib/checks/runs"
+import type { PreviewMap } from "@/lib/previews"
 import { cn } from "@/lib/utils"
 import { AutoDataView } from "./auto-data-view"
 import { saveCheckResult } from "./actions"
@@ -32,6 +33,7 @@ export function CheckCard(props: {
   flaggedToName: string | null
   /** Worked out on the server: red, no Notion action, checked more than 24 hours ago. */
   redNotActioned: boolean
+  previews: PreviewMap
   /** For "Create action in Notion" on reds. */
   action: { clientSlug: string; live: boolean; owners: OwnerOption[]; defaultOwnerNotionId: string | null; defaultDue: string; notionUrl: string | null }
 }) {
@@ -93,9 +95,9 @@ export function CheckCard(props: {
 
       <div className="mt-3">
         {r.status && savedData ? (
-          <AutoDataView data={savedData} label="Numbers when checked" />
+          <AutoDataView data={savedData} label="Numbers when checked" previews={props.previews} />
         ) : props.liveData ? (
-          <AutoDataView data={props.liveData} label="Pre-loaded" />
+          <AutoDataView data={props.liveData} label="Pre-loaded" previews={props.previews} />
         ) : d.pre_loaded ? (
           <p className="text-xs text-muted-foreground">No pre-loaded numbers for this check. Look it up in the platform.</p>
         ) : null}

@@ -2,10 +2,13 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { backfillChunk } from "../../actions"
+import { backfillChunk, creativesChunk } from "../../actions"
 
 const DAYS = 90
 const WINDOW = 30 // days per request, to stay under Vercel's time limit
+// Previews: live ads all appear in recent data, so 14 days in 7-day windows is enough.
+const PREVIEW_DAYS = 14
+const PREVIEW_WINDOW = 7
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const daysAgo = (n: number) => iso(new Date(Date.now() - n * 864e5))
@@ -25,6 +28,15 @@ export function BackfillButton({ accounts }: { accounts: { id: string; label: st
         setLog((l) => [...l, `${a.label}: ${from} to ${to}…`])
         const r = await backfillChunk(a.id, from, to).catch((e: Error) => ({ ok: false, rows: 0, error: e.message }))
         setLog((l) => [...l.slice(0, -1), `${a.label}: ${from} to ${to}: ${r.ok ? `${r.rows} rows` : `failed (${r.error})`}`])
+      }
+    }
+    for (const a of accounts) {
+      for (let end = 1; end < PREVIEW_DAYS; end += PREVIEW_WINDOW) {
+        const from = daysAgo(Math.min(end + PREVIEW_WINDOW - 1, PREVIEW_DAYS))
+        const to = daysAgo(end)
+        setLog((l) => [...l, `${a.label}: ad previews ${from} to ${to}…`])
+        const r = await creativesChunk(a.id, from, to).catch((e: Error) => ({ ok: false, ads: 0, copied: 0, error: e.message }))
+        setLog((l) => [...l.slice(0, -1), `${a.label}: ad previews ${from} to ${to}: ${r.ok ? `${r.ads} ads, ${r.copied} new images` : `failed (${r.error})`}`])
       }
     }
     setLog((l) => [...l, "Done."])

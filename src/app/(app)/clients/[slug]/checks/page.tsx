@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { buildAutoData } from "@/lib/checks/auto-data"
+import { buildAutoData, type AutoData } from "@/lib/checks/auto-data"
 import { londonToday } from "@/lib/checks/periods"
 import { ensureCurrentRuns, loadRun, pastRuns } from "@/lib/checks/runs"
 import { longDate } from "@/lib/format"
@@ -8,6 +8,7 @@ import { addDays } from "@/lib/metrics/ads"
 import { getOverview } from "@/lib/metrics/overview"
 import { notionWritesLive } from "@/lib/notion/server"
 import { peopleForClient } from "@/lib/people"
+import { previewsFor } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
 import { CheckCard, type Person } from "./check-card"
 
@@ -41,8 +42,28 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
     : { data: [] as { notion_page_id: string; url: string }[] }
   const actionUrl = new Map((actionPages ?? []).map((p) => [p.notion_page_id, p.url]))
   const notionIdByProfile = new Map((profiles ?? []).map((p) => [p.id, p.notion_user_id as string | null]))
+  const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
   const live = notionWritesLive()
   const defaultDue = addDays(londonToday(), 7)
+
+  // Pre-loaded numbers (live and saved) for every check shown, and the ad previews they mention.
+  const liveData = new Map<string, AutoData | null>()
+  const keys = new Set<string>()
+  for (const loaded of runs) {
+    for (const { definition, result } of loaded?.items ?? []) {
+      const d = overview ? buildAutoData(definition.key, overview, { currency: client.currency, target, weekStart: loaded!.run.period_start }) : null
+      liveData.set(result.id, d)
+      for (const k of [...(d?.adKeys ?? []), ...(((result.auto_data as AutoData | null)?.adKeys) ?? [])]) if (k) keys.add(k)
+    }
+  }
+  const previews = await previewsFor(
+    supabase,
+    client.id,
+    [...keys].map((k) => {
+      const [platform, external_account_id, ...rest] = k.split("|")
+      return { platform, external_account_id, ad_id: rest.join("|") }
+    }),
+  )
   const history = await pastRuns(supabase, client.id, [current.weekly.id, current.monthly.id])
 
   const teamIds = new Set((team ?? []).map((t) => t.profile_id))
@@ -50,7 +71,6 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
   const people: Person[] = (profiles ?? [])
     .map((p) => ({ id: p.id, name: p.full_name ?? p.email, onTeam: teamIds.has(p.id) }))
     .sort((a, b) => Number(b.onTeam) - Number(a.onTeam) || a.name.localeCompare(b.name))
-  const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
 
   return (
     <div className="space-y-12">
@@ -96,7 +116,8 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
                     defaultDue,
                     notionUrl: result.notion_action_page_id ? (actionUrl.get(result.notion_action_page_id) ?? null) : null,
                   }}
-                  liveData={overview ? buildAutoData(definition.key, overview, { currency: client.currency, target, weekStart: run.period_start }) : null}
+                  liveData={liveData.get(result.id) ?? null}
+                  previews={previews}
                   people={people}
                   checkedByName={result.checked_by_profile_id ? (names.get(result.checked_by_profile_id) ?? null) : null}
                   flaggedToName={result.flagged_to_profile_id ? (names.get(result.flagged_to_profile_id) ?? null) : null}

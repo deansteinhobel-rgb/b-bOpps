@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { CONNECTORS, DEFAULT_FIELDS } from "@/lib/windsor/accounts"
+import { syncCreatives } from "@/lib/windsor/creatives"
 import { syncWindsor } from "@/lib/windsor/sync"
 
 // Every action here: admin check in code, and RLS admin policies in the database. No deletes:
@@ -168,6 +169,13 @@ export async function backfillChunk(accountId: string, dateFrom: string, dateTo:
   const [result] = await syncWindsor({ accountId, dateFrom, dateTo, kind: "backfill" })
   revalidatePath("/clients", "layout")
   return result ? { ok: !result.error, rows: result.rows, error: result.error } : { ok: false, rows: 0, error: "Account not found or inactive" }
+}
+
+/** Ad previews for one account and date window (kept short: LinkedIn previews are slow in Windsor). */
+export async function creativesChunk(accountId: string, dateFrom: string, dateTo: string) {
+  await requireAdmin()
+  const [r] = await syncCreatives({ accountId, dateFrom, dateTo, maxCopies: 60 })
+  return r ? { ok: !r.error, ads: r.ads, copied: r.copied, error: r.error } : { ok: false, ads: 0, copied: 0, error: "Account not found or inactive" }
 }
 
 // ── People ─────────────────────────────────────────────────────────────────

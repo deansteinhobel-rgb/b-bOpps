@@ -6,12 +6,16 @@
 import { money, oneDp, percent, whole } from "@/lib/format"
 import { addDays, totals } from "@/lib/metrics/ads"
 import type { Overview } from "@/lib/metrics/overview"
+
+const keyOf = (a: { platform: string; external_account_id: string; ad_id: string }) => `${a.platform}|${a.external_account_id}|${a.ad_id}`
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 
 export type AutoData = {
   dataThrough: string
   note?: string
   table?: { columns: string[]; rows: (string | number)[][] }
+  /** Per table row: the ad's preview key (platform|account|ad_id), resolved to an image when shown. */
+  adKeys?: (string | null)[]
   facts?: { label: string; value: string; status?: "green" | "amber" | "red" | "no_budget" }[]
 }
 
@@ -68,6 +72,7 @@ export function buildAutoData(key: string, o: Overview, ctx: { currency: string;
             a.firstSeenCapped ? "–" : percent(a.earlyCtr, 2),
           ]),
         },
+        adKeys: o.fatigued.slice(0, 10).map(keyOf),
       }
 
     case "naming_spot_check": {
@@ -81,6 +86,7 @@ export function buildAutoData(key: string, o: Overview, ctx: { currency: string;
           columns: ["Platform", "Campaign", "Ad", "First seen"],
           rows: thisWeek.slice(0, 15).map((a) => [PLATFORM_LABEL[a.platform], a.campaign_name ?? "", a.ad_name ?? a.ad_id, a.first_seen]),
         },
+        adKeys: thisWeek.slice(0, 15).map(keyOf),
       }
     }
 
@@ -99,6 +105,7 @@ export function buildAutoData(key: string, o: Overview, ctx: { currency: string;
               : [PLATFORM_LABEL[r.platform], "Not enough eligible ads", "", "", "", "", ""]
           }),
         },
+        adKeys: o.rankings.map((r) => (r[which] ? keyOf(r[which]!) : null)),
       }
     }
 
