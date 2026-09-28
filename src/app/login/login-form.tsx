@@ -1,6 +1,7 @@
 "use client"
 
 import { useActionState } from "react"
+import { Sparkle } from "@/components/fx/sparkle"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -36,9 +37,11 @@ export function LoginForm({ next, error }: { next?: string; error?: string }) {
           {state.message}
         </p>
       )}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Sending…" : "Email me a sign-in link"}
-      </Button>
+      <Sparkle className="w-full">
+        <Button type="submit" className="w-full" disabled={pending}>
+          {pending ? "Sending…" : "Email me a sign-in link"}
+        </Button>
+      </Sparkle>
     </form>
   )
 }

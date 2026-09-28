@@ -142,3 +142,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - The old sprint_items (goal, hypotheses, learnings, mitigations) are still in the schema but no longer in the UI.
 - History before the app lives in a closed **Sprint 0** per client (`seed/history.json`, `pnpm seed:history`, safe to re-run). DNSFilter entries are real (Dean). **Camber entries are MOCK, titles "Mock:"**, to be replaced with real findings from Esa.
 - No deletes anywhere. Tables `sprints`, `sprint_tests`, `sprint_changes`, `sprint_items` (RLS by client team).
+
+## UX patterns (2026-09-28)
+- **Status is colour only** (Dean): green/amber/red render as a coloured dot (`StatusBadge` with no label, or `StatusDot`). The colour name is kept for screen readers and tooltips. Words only when they add meaning ("Proven", "On target", "N/A", "No budget").
+- **Checks are a stacked deck** (`checks/check-deck.tsx`): the current check in front with the next two peeking behind it. Saving slides it away and brings the next forward, "Skip for now" moves it to the back, the done pile can be reopened, and there's a List view as a fallback.
+- **Budget pacing panel** on the Overview (`pacing-panel.tsx`): sliders show spend against the month's budget, a marker for where spend should be today, and a 100% marker. By platform, or by campaign (filterable by platform). **Edit / Set budget** writes this month's `client_budgets` row (platform: campaign_id ''; campaign: its id). Admins and GTM leads only (RLS), and it invalidates the cached numbers.
+- **Briefs** are grouped into stages by Master Status (In production, With the client, Approved, Not started, On hold, Done), with a summary strip, status pills, type chips, lead avatars, relative due dates (overdue in red) and expandable sub-items.
+- **Easter eggs from the website hero** (`src/components/fx`): `ParticleAmpersand` (lime dot "&" that scatters from the cursor: login, the clients header, "all checks done"), `Starfield` (faint background), `Sparkle` (specks around primary buttons on hover). All pause when hidden and respect reduced motion. Keep them subtle and rare.

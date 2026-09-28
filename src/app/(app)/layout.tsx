@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar"
+import { Starfield } from "@/components/fx/starfield"
 import { getProfile, isAdmin, ROLE_LABEL } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 
@@ -10,6 +11,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
+      <Starfield />
       <AppSidebar
         clients={clients ?? []}
         name={profile.full_name ?? profile.email}

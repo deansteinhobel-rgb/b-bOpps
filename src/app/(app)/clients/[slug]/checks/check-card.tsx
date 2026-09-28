@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { ActionForm, type OwnerOption } from "@/components/action-form"
+import { Sparkle } from "@/components/fx/sparkle"
 import { StatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -20,6 +21,7 @@ const STATUSES: { value: Status; label: string; className: string }[] = [
   { value: "red", label: "Red", className: "data-[on=true]:border-rag-red data-[on=true]:bg-rag-red-bg data-[on=true]:text-rag-red" },
   { value: "na", label: "N/A", className: "data-[on=true]:border-rag-na data-[on=true]:bg-rag-na-bg data-[on=true]:text-rag-na" },
 ]
+const DOT: Record<Status, string> = { green: "bg-rag-green", amber: "bg-rag-amber", red: "bg-rag-red", na: "bg-rag-na" }
 const OWNER: Record<CheckDefinition["owner_role"], string> = { specialist: "Paid media specialist", am: "Account manager", gtm_lead: "GTM lead" }
 
 export type Person = { id: string; name: string; onTeam: boolean }
@@ -34,6 +36,10 @@ export function CheckCard(props: {
   /** Worked out on the server: red, no Notion action, checked more than 24 hours ago. */
   redNotActioned: boolean
   previews: PreviewMap
+  /** Called after a successful save (the deck uses it to bring the next check forward). */
+  onSaved?: () => void
+  /** Extra controls shown next to Save (e.g. "Skip for now" in the deck). */
+  extraActions?: React.ReactNode
   /** For "Create action in Notion" on reds. */
   action: { clientSlug: string; live: boolean; owners: OwnerOption[]; defaultOwnerNotionId: string | null; defaultDue: string; notionUrl: string | null }
 }) {
@@ -53,10 +59,11 @@ export function CheckCard(props: {
       if (!status) return setMessage({ ok: false, text: "Pick a status before saving." })
       const res = await saveCheckResult({ resultId: r.id, status, findings, flaggedTo: flaggedTo || null })
       setMessage(res.ok ? { ok: true, text: "Saved" } : { ok: false, text: res.message ?? "Couldn't save." })
+      if (res.ok) props.onSaved?.()
     })
 
   return (
-    <article id={`check-${r.id}`} className={cn("scroll-mt-6 rounded-lg border bg-card p-5", r.status === "red" && "border-rag-red/40")}>
+    <article id={`check-${r.id}`} className={cn("scroll-mt-6 rounded-xl border bg-card p-5 shadow-[0_1px_0_0_rgb(255_255_255/0.04)_inset]", r.status === "red" && "border-rag-red/40")}>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-xl">{d.name}</h3>
@@ -113,11 +120,13 @@ export function CheckCard(props: {
                 type="button"
                 role="radio"
                 aria-checked={status === s.value}
+                aria-label={s.label}
+                title={s.label}
                 data-on={status === s.value}
                 onClick={() => setStatus(s.value)}
-                className={cn("rounded-full border px-4 py-1 text-sm transition-colors hover:bg-secondary", s.className)}
+                className={cn("flex h-9 min-w-9 items-center justify-center rounded-full border px-3 text-sm transition-colors hover:bg-accent", s.className)}
               >
-                {s.label}
+                {s.value === "na" ? "N/A" : <span aria-hidden className={cn("size-3 rounded-full", DOT[s.value])} />}
               </button>
             ))}
           </div>
@@ -149,9 +158,12 @@ export function CheckCard(props: {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={save} disabled={pending || !dirty}>
-            {pending ? "Saving…" : "Save"}
-          </Button>
+          <Sparkle>
+            <Button onClick={save} disabled={pending || !dirty}>
+              {pending ? "Saving…" : "Save"}
+            </Button>
+          </Sparkle>
+          {props.extraActions}
           {r.status === "red" && !r.notion_action_page_id && (
             <Button variant="outline" onClick={() => setActionOpen((o) => !o)} aria-expanded={actionOpen}>
               {actionOpen ? "Close" : "Create action in Notion"}

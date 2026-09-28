@@ -10,7 +10,8 @@ import { notionWritesLive } from "@/lib/notion/server"
 import { peopleForClient } from "@/lib/people"
 import { previewsFor } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
-import { CheckCard, type Person } from "./check-card"
+import { type Person } from "./check-card"
+import { CheckDeck } from "./check-deck"
 
 export default async function ChecksPage({ params, searchParams }: PageProps<"/clients/[slug]/checks">) {
   const { slug } = await params
@@ -86,50 +87,35 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
       )}
       {runs.map((loaded) => {
         if (!loaded) return <p key="missing">That check run wasn&apos;t found.</p>
-        const { run, items, done, total } = loaded
-        const pct = total ? Math.round((done / total) * 100) : 0
+        const { run, items } = loaded
         return (
-          <section key={run.id}>
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="eyebrow">{run.cadence === "weekly" ? "Weekly checks" : "Monthly checks"}</p>
-                <h2 className="mt-1 text-2xl">
-                  {run.cadence === "weekly"
-                    ? `Week of ${longDate(run.period_start)} – ${longDate(run.period_end)}`
-                    : new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(run.period_start))}
-                </h2>
-              </div>
-              <p className="text-sm">
-                <span className="font-heading text-2xl">{pct}%</span> done · {done} of {total}
-              </p>
-            </div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-secondary" aria-hidden>
-              <div className="h-full bg-lime" style={{ width: `${pct}%` }} />
-            </div>
-            <div className="mt-6 space-y-4">
-              {items.map(({ definition, result, redNotActioned }) => (
-                <CheckCard
-                  key={result.id}
-                  definition={definition}
-                  result={result}
-                  redNotActioned={redNotActioned}
-                  action={{
-                    clientSlug: slug,
-                    live,
-                    owners: owners.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam })),
-                    defaultOwnerNotionId: result.flagged_to_profile_id ? (notionIdByProfile.get(result.flagged_to_profile_id) ?? null) : null,
-                    defaultDue,
-                    notionUrl: result.notion_action_page_id ? (actionUrl.get(result.notion_action_page_id) ?? null) : null,
-                  }}
-                  liveData={liveData.get(result.id) ?? null}
-                  previews={previews}
-                  people={people}
-                  checkedByName={result.checked_by_profile_id ? (names.get(result.checked_by_profile_id) ?? null) : null}
-                  flaggedToName={result.flagged_to_profile_id ? (names.get(result.flagged_to_profile_id) ?? null) : null}
-                />
-              ))}
-            </div>
-          </section>
+          <CheckDeck
+            key={run.id}
+            subtitle={run.cadence === "weekly" ? "Weekly checks" : "Monthly checks"}
+            title={
+              run.cadence === "weekly"
+                ? `Week of ${longDate(run.period_start)} – ${longDate(run.period_end)}`
+                : new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(run.period_start))
+            }
+            items={items.map(({ definition, result, redNotActioned }) => ({
+              definition,
+              result,
+              redNotActioned,
+              action: {
+                clientSlug: slug,
+                live,
+                owners: owners.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam })),
+                defaultOwnerNotionId: result.flagged_to_profile_id ? (notionIdByProfile.get(result.flagged_to_profile_id) ?? null) : null,
+                defaultDue,
+                notionUrl: result.notion_action_page_id ? (actionUrl.get(result.notion_action_page_id) ?? null) : null,
+              },
+              liveData: liveData.get(result.id) ?? null,
+              previews,
+              people,
+              checkedByName: result.checked_by_profile_id ? (names.get(result.checked_by_profile_id) ?? null) : null,
+              flaggedToName: result.flagged_to_profile_id ? (names.get(result.flagged_to_profile_id) ?? null) : null,
+            }))}
+          />
         )
       })}
 
@@ -138,10 +124,10 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
         {history.length === 0 ? (
           <p className="mt-2 text-sm text-muted-foreground">No earlier runs yet.</p>
         ) : (
-          <ul className="mt-3 divide-y rounded-lg border bg-card">
+          <ul className="surface mt-3 divide-y overflow-hidden">
             {history.map((h) => (
               <li key={h.id}>
-                <Link href={`/clients/${slug}/checks?run=${h.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-secondary/50">
+                <Link href={`/clients/${slug}/checks?run=${h.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-accent/50">
                   <span>
                     {h.cadence === "weekly" ? "Week of" : "Month of"} {longDate(h.period_start)}
                   </span>

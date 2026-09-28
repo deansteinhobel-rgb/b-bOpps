@@ -47,7 +47,7 @@ export function buildAutoData(key: string, o: Overview, ctx: { currency: string;
           columns: ["Platform", "Status", "Spent MTD", "Expected", "Budget", "Pace"],
           rows: o.pacing.map((p) => [
             PLATFORM_LABEL[p.platform],
-            p.status === "no_budget" ? "No budget" : p.status.toUpperCase(),
+            p.status === "no_budget" ? "No budget" : `rag:${p.status}`,
             money(p.spendMtd, cur),
             p.budget ? money(p.expected, cur) : "–",
             money(p.budget, cur),

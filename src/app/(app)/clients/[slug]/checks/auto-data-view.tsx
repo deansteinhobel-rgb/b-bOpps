@@ -1,5 +1,5 @@
 import { AdThumb } from "@/components/ad-thumb"
-import { StatusBadge } from "@/components/status-badge"
+import { StatusBadge, StatusDot } from "@/components/status-badge"
 import type { AutoData } from "@/lib/checks/auto-data"
 import { longDate } from "@/lib/format"
 import type { PreviewMap } from "@/lib/previews"
@@ -47,8 +47,8 @@ export function AutoDataView({ data, label, previews }: { data: AutoData; label:
                     </td>
                   )}
                   {row.map((cell, j) => (
-                    <td key={j} className={j === 0 ? "max-w-64 truncate py-1 pr-3" : "py-1 pr-3 tabular-nums"} title={String(cell)}>
-                      {cell}
+                    <td key={j} className={j === 0 ? "max-w-64 truncate py-1 pr-3" : "py-1 pr-3 tabular-nums"} title={typeof cell === "string" && cell.startsWith("rag:") ? cell.slice(4) : String(cell)}>
+                      {typeof cell === "string" && cell.startsWith("rag:") ? <StatusDot status={cell.slice(4) as "green"} /> : cell}
                     </td>
                   ))}
                 </tr>

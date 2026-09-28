@@ -7,6 +7,37 @@ import { StatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { CheckDeck } from "../(app)/clients/[slug]/checks/check-deck"
+import { PacingPanel } from "../(app)/clients/[slug]/pacing-panel"
+import type { CheckDefinition, CheckResult } from "@/lib/checks/runs"
+import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
+
+const def = (key: string, name: string): CheckDefinition => ({ id: key, key, name, cadence: "weekly", owner_role: "specialist", pre_loaded: null, instructions: "Sample instructions for the design preview.", what_to_record: "What you found", not_applicable_when: null, flag_immediately_when: null, guide: "Green = fine. Amber = watch. Red = act now.", sort_order: 1 })
+const res = (id: string, status: CheckResult["status"]): CheckResult => ({ id, check_definition_id: id, status, findings: status ? "Sample findings" : null, flagged_to_profile_id: null, flagged_at: null, checked_by_profile_id: null, checked_at: status ? "2026-09-28T10:00:00Z" : null, notion_action_page_id: null, auto_data: null })
+const deckItems = [
+  ["budget_pacing", "Budget pacing", "green"],
+  ["leads_in_crm", "Leads in CRM", null],
+  ["landing_pages", "Landing pages, tags and forms", null],
+  ["ad_fatigue", "Ad fatigue", null],
+].map(([k, n, st]) => ({
+  definition: def(k as string, n as string),
+  result: res(`sample-${k}`, st as CheckResult["status"]),
+  liveData: null,
+  previews: {},
+  people: [],
+  checkedByName: st ? "Andrea Restrepo" : null,
+  flaggedToName: null,
+  redNotActioned: false,
+  action: { clientSlug: "dnsfilter", live: false, owners: [], defaultOwnerNotionId: null, defaultDue: "2026-10-05", notionUrl: null },
+}))
+const pp = (platform: PlatformPacing["platform"], spend: number, budget: number, status: PlatformPacing["status"]): PlatformPacing => ({
+  platform, spendMtd: spend, budget, budgetSource: "default", dataThrough: "2026-09-27", status, month: "2026-09", daysElapsed: 27, daysInMonth: 30, expected: (budget * 27) / 30, ratio: spend / ((budget * 27) / 30), variancePct: 0, reasons: [],
+})
+const samplePacing = [pp("linkedin", 24235, 20000, "red"), pp("google_ads", 80015, 70000, "red"), pp("meta", 5518, 15000, "amber")]
+const sampleCampaigns: CampaignPacing[] = [
+  { ...pp("google_ads", 18700, 20000, "green"), campaignId: "1", campaignName: "DG | Search | Non-Brand Core" },
+  { ...pp("google_ads", 9842, 0, "no_budget"), budget: null, ratio: null, campaignId: "2", campaignName: "DG | Search | Brand" },
+]
 
 /**
  * DEVELOPMENT ONLY: a preview of the design system with sample data, so the look can be checked
@@ -108,6 +139,13 @@ export default async function DesignPreview() {
               })}
             </ul>
           </section>
+
+          <section className="space-y-4">
+            <SectionHeader title="Budget pacing" description="Sliders with the today marker." />
+            <PacingPanel platforms={samplePacing} campaigns={sampleCampaigns} currency="USD" month="2026-09-01" canEdit clientSlug="dnsfilter" />
+          </section>
+
+          <CheckDeck title="Week of 28 Sept 2026 – 4 Oct 2026" subtitle="Weekly checks (sample)" items={deckItems} />
 
           <section className="space-y-4">
             <SectionHeader title="Status and creatives" description="Hover the image to enlarge it." />

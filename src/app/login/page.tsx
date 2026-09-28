@@ -1,4 +1,6 @@
 import { AppMark } from "@/components/brand"
+import { ParticleAmpersand } from "@/components/fx/particle-ampersand"
+import { Starfield } from "@/components/fx/starfield"
 import { LoginForm } from "./login-form"
 
 const ERRORS: Record<string, string> = {
@@ -9,10 +11,11 @@ const ERRORS: Record<string, string> = {
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { next, error } = await searchParams
   return (
-    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4">
+    <main className="relative flex min-h-dvh items-center justify-center gap-16 overflow-hidden px-4">
+      <Starfield count={110} />
       {/* Soft lime glow, echoing the website's hero */}
       <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 size-[640px] -translate-x-1/2 rounded-full bg-lime/10 blur-3xl" />
-      <div className="relative w-full max-w-sm space-y-8">
+      <div className="relative w-full max-w-sm shrink-0 space-y-8">
         <AppMark />
         <div className="space-y-2">
           <h1 className="text-4xl leading-tight">
@@ -24,6 +27,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <LoginForm next={typeof next === "string" ? next : undefined} error={typeof error === "string" ? ERRORS[error] : undefined} />
         </div>
       </div>
+      <ParticleAmpersand className="hidden h-[480px] w-[420px] shrink-0 lg:block" />
     </main>
   )
 }

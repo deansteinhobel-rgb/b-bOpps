@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { ClientLogo, PlatformIcon } from "@/components/brand"
+import { ParticleAmpersand } from "@/components/fx/particle-ampersand"
 import { PageHeader } from "@/components/page-header"
 import { StatusBadge } from "@/components/status-badge"
 import { getProfile, isAdmin } from "@/lib/auth"
@@ -22,7 +23,8 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
   const first = (profile.full_name ?? "").split(" ")[0]
 
   return (
-    <div className="space-y-8">
+    <div className="relative space-y-8">
+      <ParticleAmpersand className="pointer-events-none absolute -top-6 right-0 hidden h-40 w-36 opacity-60 xl:block" density={0.8} />
       <PageHeader
         eyebrow={showAll ? "All clients" : "My clients"}
         title={first ? `Good to see you, ${first}` : "Clients"}
@@ -59,7 +61,7 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
                     <span className="text-xs text-muted-foreground">{c.team.slice(0, 3).join(", ") || "No team yet"}</span>
                   </span>
                 </span>
-                {c.worstPacing && c.worstPacing !== "no_budget" && <StatusBadge status={c.worstPacing} label={`Pacing ${c.worstPacing}`} />}
+                {c.worstPacing && c.worstPacing !== "no_budget" && <StatusBadge status={c.worstPacing} label="Pacing" />}
               </div>
 
               {/* Pacing per platform */}

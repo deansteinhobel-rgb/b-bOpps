@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation"
 import { AdThumb, ViewAdLink } from "@/components/ad-thumb"
 import { PlatformLabel } from "@/components/brand"
+import { SectionHeader } from "@/components/page-header"
+import { getProfile, isAdmin } from "@/lib/auth"
 import { StatusBadge } from "@/components/status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -11,10 +13,12 @@ import { cachedOverview } from "@/lib/metrics/cached"
 import { PLATFORM_LABEL } from "@/lib/metrics/types"
 import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
+import { PacingPanel } from "./pacing-panel"
 
 export default async function OverviewPage({ params }: PageProps<"/clients/[slug]">) {
   const { slug } = await params
   const supabase = await createClient()
+  const me = await getProfile()
   const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target").eq("slug", slug).maybeSingle()
   if (!client) notFound()
   const o = await cachedOverview(client.id) // access confirmed above (client loaded through RLS)
@@ -36,34 +40,12 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
       </p>
 
       {/* Pacing */}
-      <section>
-        <h2 className="text-2xl">Budget pacing</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Spend this month against budget × days elapsed. Amber outside ±10%; red over 20% above, or no spend for the last 2 days.
-        </p>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {o.pacing.map((p) => (
-            <Card key={p.platform}>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-sm font-medium"><PlatformLabel platform={p.platform} /></CardTitle>
-                <StatusBadge status={p.status} />
-              </CardHeader>
-              <CardContent className="space-y-1 text-sm">
-                <p className="font-heading text-3xl">{p.ratio === null ? "–" : `${Math.round(p.ratio * 100)}%`}</p>
-                <p className="text-muted-foreground">of expected spend by day {p.daysElapsed} of {p.daysInMonth}</p>
-                <dl className="mt-3 grid grid-cols-2 gap-y-1">
-                  <dt className="text-muted-foreground">Spent</dt>
-                  <dd className="text-right tabular-nums">{money(p.spendMtd, cur)}</dd>
-                  <dt className="text-muted-foreground">Expected</dt>
-                  <dd className="text-right tabular-nums">{p.budget ? money(p.expected, cur) : "–"}</dd>
-                  <dt className="text-muted-foreground">Monthly budget</dt>
-                  <dd className="text-right tabular-nums">{money(p.budget, cur)}</dd>
-                </dl>
-                {p.reasons.length > 0 && <p className="pt-2 text-xs text-muted-foreground">{p.reasons.join(" · ")}</p>}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      <section className="space-y-4">
+        <SectionHeader
+          title="Budget pacing"
+          description="Spend this month against budget. Amber outside ±10% of pace; red over 20% above, or no spend for the last 2 days."
+        />
+        <PacingPanel platforms={o.pacing} campaigns={o.campaignPacing} currency={cur} month={o.month} canEdit={isAdmin(me)} clientSlug={slug} />
       </section>
 
       {/* Performance */}

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react"
 import { fieldClass } from "@/components/admin-form"
 import { PlatformLabel } from "@/components/brand"
+import { Sparkle } from "@/components/fx/sparkle"
 import { StatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -84,6 +85,7 @@ export function TestCard(props: {
           )}
           {!props.readOnly && (
             <div className="flex flex-wrap gap-2">
+              <Sparkle>
               <Button
                 size="sm"
                 disabled={pending}
@@ -97,6 +99,7 @@ export function TestCard(props: {
               >
                 {pending ? "Working…" : props.writesLive ? "Brief the team in Notion" : "Test: preview the Notion brief"}
               </Button>
+              </Sparkle>
               {!props.writesLive && (
                 <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => markReadyManually(t.id))} title="Test mode: skip Notion and treat the assets as ready">
                   Mark ready (test mode)
@@ -291,9 +294,11 @@ function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns
         </ul>
       </div>
       <div className="flex gap-2">
-        <Button size="sm" disabled={pending} onClick={() => onSubmit(liveOn, campaigns.filter((c) => chosen.includes(c.campaign_id)).map((c) => ({ id: c.campaign_id, name: c.campaign_name })))}>
-          It&apos;s live
-        </Button>
+        <Sparkle>
+          <Button size="sm" disabled={pending} onClick={() => onSubmit(liveOn, campaigns.filter((c) => chosen.includes(c.campaign_id)).map((c) => ({ id: c.campaign_id, name: c.campaign_name })))}>
+            It&apos;s live
+          </Button>
+        </Sparkle>
         <Button size="sm" variant="ghost" onClick={onCancel}>
           Cancel
         </Button>

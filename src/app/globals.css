@@ -74,25 +74,25 @@
   --violet: #8b8ee0;
   --paper: #f0eeea;
 
-  --background: #0a0a0a;
+  --background: #080808;
   --foreground: #f2f1ed;
-  --card: #121212;
+  --card: #131313;
   --card-foreground: #f2f1ed;
-  --popover: #171717;
+  --popover: #181818;
   --popover-foreground: #f2f1ed;
-  --elevated: #1a1a1a;
+  --elevated: #1d1d1d;
   --primary: var(--lime);
   --primary-foreground: #0a0a0a;
-  --secondary: #1c1c1c;
+  --secondary: #1e1e1e;
   --secondary-foreground: #f2f1ed;
-  --muted: #1c1c1c;
-  --muted-foreground: #9b9a94;
+  --muted: #1e1e1e;
+  --muted-foreground: #a3a29c;
   --subtle-foreground: #6f6e69;
-  --accent: #202020;
+  --accent: #222222;
   --accent-foreground: #f2f1ed;
   --destructive: #f87171;
-  --border: #242424;
-  --input: #2c2c2c;
+  --border: #2b2b2b;
+  --input: #343434;
   --ring: var(--lime);
   --chart-1: #8b8ee0;
   --chart-2: #e84fcf;
@@ -162,4 +162,30 @@
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+}
+
+/* Easter eggs from the website hero (see src/components/fx). */
+@keyframes sparkle-float {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.2; }
+  50% { transform: translate(calc(-50% + 3px), calc(-50% - 4px)) scale(1); opacity: 1; }
+}
+.sparkle-float {
+  animation: sparkle-float 2.4s ease-in-out infinite;
+}
+
+/* The check deck: a card leaving the front of the stack. */
+@keyframes deck-out {
+  to { transform: translateX(60px) rotate(4deg); opacity: 0; }
+}
+.deck-out {
+  animation: deck-out 0.35s ease-in forwards;
+}
+@keyframes deck-in {
+  from { transform: translateY(14px) scale(0.97); opacity: 0.6; }
+}
+.deck-in {
+  animation: deck-in 0.35s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .deck-out, .deck-in, .sparkle-float { animation: none; }
 }

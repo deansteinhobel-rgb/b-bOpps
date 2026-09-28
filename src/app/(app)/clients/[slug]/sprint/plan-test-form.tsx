@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { fieldClass } from "@/components/admin-form"
+import { Sparkle } from "@/components/fx/sparkle"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,9 +23,9 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline }: {
 
   if (!open) {
     return (
-      <Button onClick={() => setOpen(true)} className="w-full sm:w-auto">
-        + Plan a test
-      </Button>
+      <Sparkle>
+        <Button onClick={() => setOpen(true)}>+ Plan a test</Button>
+      </Sparkle>
     )
   }
   const submit = () =>
