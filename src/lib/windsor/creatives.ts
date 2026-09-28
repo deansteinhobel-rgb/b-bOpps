@@ -1,5 +1,6 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
+import type { TextAd } from "@/lib/previews"
 import type { Platform } from "./client"
 
 /**
@@ -8,7 +9,7 @@ import type { Platform } from "./client"
  * see an image we copy it into the private "ad-previews" bucket and keep our copy.
  */
 const PREVIEW: Record<string, { id: string; images: string[]; link?: string; type?: string }> = {
-  linkedin: { id: "creative_id", images: ["creative_thumbnail"] },
+  linkedin: { id: "creative_id", images: ["creative_thumbnail"], type: "creative_content_data_share_ad_context_ad_type" },
   facebook: { id: "ad_id", images: ["image_url", "thumbnail_url"], link: "ad_preview_shareable_link" },
   google_ads: { id: "ad_id", images: ["ad_image_ad_image_url", "ad_responsive_display_ad_marketing_images_1", "ad_multi_asset_ad_marketing_images_1"], type: "ad_type" },
 }
@@ -18,10 +19,10 @@ const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "
 
 type Account = { id: string; client_id: string; platform: Platform; windsor_connector: string; external_account_id: string }
 
-async function fetchPreviews(account: Account, dateFrom: string, dateTo: string) {
-  const cfg = PREVIEW[account.windsor_connector]
-  if (!cfg) return []
-  const fields = [cfg.id, ...cfg.images, ...(cfg.link ? [cfg.link] : []), ...(cfg.type ? [cfg.type] : [])]
+/** Responsive search ad copy, in its own request (Google refuses some field combinations). */
+const TEXT_FIELDS = ["ad_id", "ad_responsive_search_ad_headlines", "ad_responsive_search_ad_descriptions", "ad_responsive_search_ad_path1", "ad_responsive_search_ad_path2", "ad_final_urls"]
+
+async function windsorRows(account: Account, dateFrom: string, dateTo: string, fields: string[]) {
   const params = new URLSearchParams({
     api_key: process.env.WINDSOR_API_KEY ?? "",
     date_from: dateFrom,
@@ -32,8 +33,47 @@ async function fetchPreviews(account: Account, dateFrom: string, dateTo: string)
   const res = await fetch(`https://connectors.windsor.ai/${account.windsor_connector}?${params}`, { cache: "no-store" })
   const body = (await res.json().catch(() => null)) as { data?: Record<string, unknown>[]; error?: string } | null
   if (!res.ok || !Array.isArray(body?.data)) throw new Error(`Windsor previews ${account.windsor_connector}: HTTP ${res.status} ${body?.error ?? ""}`)
-  const byAd = new Map<string, { ad_id: string; source_url: string | null; preview_link: string | null; ad_type: string | null }>()
-  for (const r of body.data) {
+  return body.data
+}
+
+/** Windsor returns asset lists as JSON strings: [{ text, pinnedField }, ...]; final URLs as a JSON list or a plain string. */
+function parseList(v: unknown): unknown[] {
+  if (Array.isArray(v)) return v
+  if (typeof v !== "string" || !v.trim()) return []
+  try {
+    const parsed = JSON.parse(v)
+    return Array.isArray(parsed) ? parsed : [parsed]
+  } catch {
+    return [v]
+  }
+}
+const assets = (v: unknown) =>
+  parseList(v)
+    .map((x) => (typeof x === "string" ? { text: x, pinned: null } : { text: String((x as { text?: unknown }).text ?? ""), pinned: ((x as { pinnedField?: unknown }).pinnedField as string) ?? null }))
+    .filter((x) => x.text)
+const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
+
+export function toTextAd(r: Record<string, unknown>): TextAd | null {
+  const headlines = assets(r.ad_responsive_search_ad_headlines)
+  if (!headlines.length) return null
+  const url = parseList(r.ad_final_urls).find((u) => typeof u === "string" && u.startsWith("http")) as string | undefined
+  return { headlines, descriptions: assets(r.ad_responsive_search_ad_descriptions), path1: str(r.ad_responsive_search_ad_path1), path2: str(r.ad_responsive_search_ad_path2), finalUrl: url ?? null }
+}
+
+async function fetchPreviews(account: Account, dateFrom: string, dateTo: string) {
+  const cfg = PREVIEW[account.windsor_connector]
+  if (!cfg) return []
+  const fields = [cfg.id, ...cfg.images, ...(cfg.link ? [cfg.link] : []), ...(cfg.type ? [cfg.type] : [])]
+  const rows = await windsorRows(account, dateFrom, dateTo, fields)
+  const textAds = new Map<string, TextAd>()
+  if (account.windsor_connector === "google_ads") {
+    for (const r of await windsorRows(account, dateFrom, dateTo, TEXT_FIELDS)) {
+      const t = toTextAd(r)
+      if (t) textAds.set(String(r.ad_id ?? "").trim(), t)
+    }
+  }
+  const byAd = new Map<string, { ad_id: string; source_url: string | null; preview_link: string | null; ad_type: string | null; text_ad?: TextAd | null }>()
+  for (const r of rows) {
     const adId = String(r[cfg.id] ?? "").trim()
     if (!adId) continue
     const img = cfg.images.map((f) => r[f]).find((v) => typeof v === "string" && v.startsWith("http")) as string | undefined
@@ -43,6 +83,8 @@ async function fetchPreviews(account: Account, dateFrom: string, dateTo: string)
       source_url: img ?? prev?.source_url ?? null,
       preview_link: (cfg.link && typeof r[cfg.link] === "string" ? (r[cfg.link] as string) : null) ?? prev?.preview_link ?? null,
       ad_type: (cfg.type && typeof r[cfg.type] === "string" ? (r[cfg.type] as string) : null) ?? prev?.ad_type ?? null,
+      // Only Google rows carry text_ad, so an upsert for other platforms never touches the column.
+      ...(account.windsor_connector === "google_ads" ? { text_ad: textAds.get(adId) ?? prev?.text_ad ?? null } : {}),
     })
   }
   return [...byAd.values()]

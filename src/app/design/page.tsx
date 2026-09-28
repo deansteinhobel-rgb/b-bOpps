@@ -161,7 +161,7 @@ export default async function DesignPreview() {
 
           <section className="space-y-4">
             <SectionHeader title="Ad fatigue" description="Compact tiles; click one to expand." />
-            <FatiguePanel ads={sampleAds} previews={{ "meta|1|b": { src: sampleImg, link: null, textOnly: false }, "google_ads|1|a": { src: null, link: null, textOnly: true } }} currency="USD" />
+            <FatiguePanel ads={sampleAds} previews={{ "meta|1|b": { src: sampleImg, link: null, textOnly: false }, "google_ads|1|a": { src: null, link: null, textOnly: true, textAd: { headlines: [{ text: "DNS Filtering Service", pinned: "HEADLINE_1" }, { text: "Start Your Free 14-Day Trial", pinned: null }, { text: "AI-Powered Threat Blocking", pinned: null }, { text: "Up to 6 Months Free", pinned: null }], descriptions: [{ text: "Block malware, phishing and ransomware at the DNS layer.", pinned: null }, { text: "Deploy in minutes. 24/7 support.", pinned: null }], path1: "dns", path2: "filtering", finalUrl: "https://www.dnsfilter.com/dns-filtering" } }, "linkedin|1|c": { src: null, link: null, textOnly: false, kind: "Document ad" } }} currency="USD" />
           </section>
 
           <CheckDeck title="Week of 28 Sept 2026 – 4 Oct 2026" subtitle="Weekly checks (sample)" items={deckItems} />

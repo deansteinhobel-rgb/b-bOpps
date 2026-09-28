@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { ChevronDown } from "lucide-react"
-import { AdThumb, ViewAdLink } from "@/components/ad-thumb"
+import { AdThumb, SearchAdMock, ViewAdLink } from "@/components/ad-thumb"
 import { PlatformIcon } from "@/components/brand"
 import { longDate, money, percent, signedPct, whole } from "@/lib/format"
 import { AD_OLD_DAYS, type FatiguedAd } from "@/lib/metrics/ads"
@@ -109,7 +109,7 @@ function Tile({ ad: a, mode, preview, currency, open, onToggle }: { ad: Fatigued
       {open && (
         <div className="grid gap-4 border-t p-4 md:grid-cols-[auto_1fr]">
           <div className="space-y-2">
-            <AdThumb preview={preview} alt={name} size="lg" />
+            {preview?.textAd && !preview.src ? <SearchAdMock ad={preview.textAd} className="w-80 max-w-full" /> : <AdThumb preview={preview} alt={name} size="lg" />}
             <ViewAdLink preview={preview} />
           </div>
           <div className="min-w-0 space-y-3">

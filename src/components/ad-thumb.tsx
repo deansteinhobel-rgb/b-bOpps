@@ -1,21 +1,23 @@
 "use client"
 /* eslint-disable @next/next/no-img-element -- signed, short-lived Supabase Storage URLs; next/image adds nothing here */
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
-import type { Preview } from "@/lib/previews"
+import type { Preview, TextAd } from "@/lib/previews"
 import { cn } from "@/lib/utils"
 
 const SIZE = { sm: "size-10", md: "size-16", lg: "size-28" } as const
 
 /**
- * Saved preview image, a "Text ad" tile for search ads, or an empty tile. Hovering an image shows
- * it large; Meta ads also link to Meta's real preview.
+ * Saved preview image, a mock Google result for search ads, or a tile naming the ad type. Hovering
+ * an image or search ad shows it large; Meta ads also link to Meta's real preview.
  */
 export function AdThumb({ preview, alt, size = "md", className }: { preview?: Preview; alt: string; size?: keyof typeof SIZE; className?: string }) {
   const tile = cn("shrink-0 overflow-hidden rounded-md border bg-elevated", SIZE[size], className)
+  if (!preview?.src && preview?.textAd) return <SearchAdThumb ad={preview.textAd} alt={alt} className={cn(tile, "border-transparent")} size={size} />
   if (!preview?.src) {
+    const label = preview?.textOnly ? "Text ad" : (preview?.kind ?? "No preview")
     return (
-      <span className={cn(tile, "flex items-center justify-center p-1 text-center text-[10px] leading-tight text-muted-foreground")} aria-label={preview?.textOnly ? "Text ad, no image" : "No preview"}>
-        {preview?.textOnly ? "Text ad" : "No preview"}
+      <span className={cn(tile, "flex items-center justify-center p-1 text-center text-[10px] leading-tight text-muted-foreground")} aria-label={preview?.kind ? `${label}, no image from Windsor` : label} title={preview?.kind ? "Windsor has no image for this ad type" : undefined}>
+        {label}
       </span>
     )
   }
@@ -43,5 +45,69 @@ export function ViewAdLink({ preview }: { preview?: Preview }) {
     <a href={preview.link} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground underline hover:text-foreground">
       View ad
     </a>
+  )
+}
+
+/** One combination Google could show: pinned headlines in their slots, the rest in order. */
+function arrange(ad: TextAd) {
+  const pick = (list: TextAd["headlines"], slots: string[], n: number) => {
+    const out: string[] = []
+    const rest = list.filter((x) => !x.pinned).map((x) => x.text)
+    for (let i = 0; i < n; i++) {
+      const pinned = list.find((x) => x.pinned === slots[i])
+      const next = pinned?.text ?? rest.shift()
+      if (next) out.push(next)
+    }
+    return out
+  }
+  const headlines = pick(ad.headlines, ["HEADLINE_1", "HEADLINE_2", "HEADLINE_3"], 3)
+  const descriptions = pick(ad.descriptions, ["DESCRIPTION_1", "DESCRIPTION_2"], 2)
+  let domain = ""
+  try {
+    domain = ad.finalUrl ? new URL(ad.finalUrl).hostname.replace(/^www\./, "") : ""
+  } catch {}
+  const path = [domain || "example.com", ad.path1, ad.path2].filter(Boolean).join(" › ")
+  return { headlines, descriptions, domain, path }
+}
+
+function SearchAdThumb({ ad, alt, className, size }: { ad: TextAd; alt: string; className: string; size: keyof typeof SIZE }) {
+  const a = arrange(ad)
+  return (
+    <HoverCard>
+      <HoverCardTrigger delay={150} render={<span className="shrink-0" tabIndex={0} aria-label={`${alt}: search ad mock`} />}>
+        {/* A tiny Google result: Sponsored, then the blue headline. */}
+        <span className={cn(className, "flex flex-col gap-0.5 bg-white p-1 text-left", size === "lg" && "p-2")}>
+          <span className={cn("font-bold text-[#202124]", size === "lg" ? "text-[9px]" : "text-[6px]")}>Sponsored</span>
+          <span className={cn("font-medium leading-tight text-[#1a0dab]", size === "lg" ? "line-clamp-4 text-[11px]" : size === "md" ? "line-clamp-4 text-[8px]" : "line-clamp-3 text-[6px]")}>{a.headlines.join(" | ")}</span>
+        </span>
+      </HoverCardTrigger>
+      <HoverCardContent side="right" className="w-[min(420px,85vw)] border-border bg-popover p-2">
+        <SearchAdMock ad={ad} />
+        <p className="mt-2 px-1 text-xs text-muted-foreground">
+          A mock of one way it can show. Google mixes {ad.headlines.length} headlines and {ad.descriptions.length} descriptions.
+        </p>
+      </HoverCardContent>
+    </HoverCard>
+  )
+}
+
+/** Mock of a Google search ad, drawn from the ad's copy (Windsor has no image for search ads). */
+export function SearchAdMock({ ad, className }: { ad: TextAd; className?: string }) {
+  const a = arrange(ad)
+  return (
+    <div className={cn("rounded-md bg-white p-4 font-[Arial,sans-serif] text-left", className)}>
+      <p className="text-[13px] font-bold text-[#202124]">Sponsored</p>
+      <div className="mt-2 flex items-center gap-2.5">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-[#dadce0] bg-[#f1f3f4] text-[11px] font-bold uppercase text-[#5f6368]">
+          {(a.domain || "?").slice(0, 1)}
+        </span>
+        <span className="min-w-0 leading-tight">
+          <span className="block truncate text-[14px] text-[#202124]">{a.domain || "Website"}</span>
+          <span className="block truncate text-[12px] text-[#4d5156]">{a.path}</span>
+        </span>
+      </div>
+      <p className="mt-2 text-[20px] leading-snug text-[#1a0dab]">{a.headlines.join(" | ")}</p>
+      <p className="mt-1 text-[14px] leading-snug text-[#4d5156]">{a.descriptions.join(" ")}</p>
+    </div>
   )
 }
