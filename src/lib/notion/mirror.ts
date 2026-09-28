@@ -1,6 +1,6 @@
 import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
-import { CLOSED_STATUSES, PROP } from "./config"
+import { CLOSED_STATUSES, PAID_PRODUCTION_TYPES, PROP } from "./config"
 import type { SimpleValue } from "./map"
 
 export type MirrorItem = {
@@ -15,6 +15,8 @@ export type MirrorItem = {
   parentId: string | null
   createdByApp: boolean
   closed: boolean
+  /** Paid media work: a paid Production Type, or Status Paid set (not N/A). */
+  paid: boolean
   lastEdited: string
 }
 
@@ -37,6 +39,7 @@ function toItem(row: { notion_page_id: string; title: string | null; url: string
     parentId: row.parent_page_id,
     createdByApp: row.created_by_app,
     closed: status !== null && CLOSED_STATUSES.includes(status),
+    paid: PAID_PRODUCTION_TYPES.includes(str(p[PROP.productionType]) ?? "") || ![null, "", "N/A"].includes(str(p[PROP.statusPaid])),
     lastEdited: row.last_edited_time,
   }
 }

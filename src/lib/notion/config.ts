@@ -16,7 +16,14 @@ export const PROP = {
   appLink: "QA Document", // url
   parent: "Parent item", // relation
   priority: "Priority", // select
+  statusPaid: "Status Paid", // select
 } as const
+
+/**
+ * Briefs tab shows paid media work only (Dean): Production Type is one of these, or "Status Paid"
+ * is set to anything but N/A. Sub-items of a matching parent are shown too.
+ */
+export const PAID_PRODUCTION_TYPES = ["Paid Media", "Google Ad Campaign"]
 
 /** Values the app writes when it creates an action. */
 export const ACTION_DEFAULTS = {

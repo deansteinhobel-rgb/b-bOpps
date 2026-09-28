@@ -75,3 +75,12 @@ const afterRemoval = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("s
 console.log(afterRemoval.length === 0 ? "removed member loses access: OK" : "FAIL: removed member still sees clients")
 const stillThere = await q("select count(*)::int as n from public.client_team where profile_id = 'aaaaaaaa-0000-0000-0000-000000000002'")
 console.log(stillThere[0].n === 1 ? "removed row kept for history: OK" : "FAIL: row missing")
+
+// Sprints: team members work on their own client's sprints only; nothing can be deleted.
+await db.exec(`update public.client_team set removed_at = null`)
+const sp = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("insert into public.sprints (client_id, number, start_date, end_date) values ('11111111-1111-1111-1111-111111111111', 1, '2026-09-28', '2026-10-11') returning id"))
+console.log(sp.length === 1 ? "andrea creates camber sprint: OK" : "FAIL: sprint not created")
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("insert into public.sprints (client_id, number, start_date, end_date) values ('22222222-2222-2222-2222-222222222222', 1, '2026-09-28', '2026-10-11')")); console.log("FAIL: andrea created dnsfilter sprint") } catch { console.log("andrea blocked from dnsfilter sprint: OK") }
+try { await db.exec(`insert into public.sprint_items (sprint_id, client_id, kind, text) values ('${sp[0].id}', '22222222-2222-2222-2222-222222222222', 'learning', 'x')`); console.log("FAIL: mismatched sprint item") } catch { console.log("sprint item client guard: OK") }
+const delSprint = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.sprints returning id"))
+console.log(delSprint.length === 0 ? "sprints can't be deleted, even by admin: OK" : "FAIL: sprint deleted")
