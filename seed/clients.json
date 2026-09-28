@@ -1,5 +1,37 @@
 {
-  "_readme": "Starting data for the app: clients, their team and their ad accounts. Budgets are monthly, in the client's currency. main_kpi cost_per_result = spend / (conversions + leads).",
+  "_readme": "Starting data for the app: people (app role + Notion user), clients, their team and ad accounts. Budgets are default monthly amounts in the client's currency. main_kpi cost_per_result = spend / (conversions + leads). Dean is admin (first admin); GTM leads have admin rights.",
+  "people": [
+    {
+      "email": "dean.steinhobel@bordeauxandburgundy.co.uk",
+      "full_name": "Dean Steinhobel",
+      "role": "admin",
+      "notion_user_id": "a69b6f71-295f-473e-b9f8-c167985579f1"
+    },
+    {
+      "email": "esa.burki@bordeauxandburgundy.co.uk",
+      "full_name": "Esa Burki",
+      "role": "gtm_lead",
+      "notion_user_id": "28d87630-776f-4e32-9f13-62947461c487"
+    },
+    {
+      "email": "andrea.restrepo@bordeauxandburgundy.co.uk",
+      "full_name": "Andrea Restrepo",
+      "role": "specialist",
+      "notion_user_id": "382d872b-594c-81c6-af1a-0002c3e13985"
+    },
+    {
+      "email": "danny.thompson@bordeauxandburgundy.co.uk",
+      "full_name": "Danny Thompson",
+      "role": "am",
+      "notion_user_id": "65044348-f8b9-4bd1-ba3b-675051ccaec3"
+    },
+    {
+      "email": "kieran.carmon@bordeauxandburgundy.co.uk",
+      "full_name": "Kieran Carmon",
+      "role": "am",
+      "notion_user_id": "319d872b-594c-819f-91ea-0002b9a22f07"
+    }
+  ],
   "clients": [
     {
       "name": "Camber",
