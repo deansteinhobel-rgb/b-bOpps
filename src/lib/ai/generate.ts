@@ -103,7 +103,12 @@ type Update = { stage?: string; stage_note?: string | null; progress?: number }
  */
 export async function generateSprintPlan(runId: string) {
   const db = createAdminClient()
-  const set = (u: Update & Record<string, unknown>) => db.from("sprint_ai_runs").update(u).eq("id", runId)
+  const set = async (u: Update & Record<string, unknown>) => {
+    await db.from("sprint_ai_runs").update(u).eq("id", runId)
+  }
+  // Progress from stream events: fire and forget, but the query must be started (Supabase queries
+  // only run when awaited or .then()'d).
+  const nudge = (u: Update) => void set(u).catch(() => {})
   const { data: run } = await db.from("sprint_ai_runs").select("id, client_id, sprint_id").eq("id", runId).single()
   if (!run) return
   const usage = { input_tokens: 0, output_tokens: 0, web_searches: 0, web_fetches: 0 }
@@ -128,11 +133,11 @@ export async function generateSprintPlan(runId: string) {
         if (block.type === "server_tool_use") {
           const input = block.input as { query?: string; url?: string }
           progress = Math.min(progress + 0.06, 0.72)
-          void set({ stage: "researching", stage_note: input.query ? `Searching: ${input.query}` : input.url ? `Reading: ${input.url}` : "Researching", progress })
+          nudge({ stage: "researching", stage_note: input.query ? `Searching: ${input.query}` : input.url ? `Reading: ${input.url}` : "Researching", progress })
         }
       })
       stream.on("streamEvent", (event) => {
-        if (event.type === "content_block_start" && event.content_block.type === "tool_use") void set({ stage: "drafting", stage_note: "Writing up your tests", progress: Math.max(progress, 0.82) })
+        if (event.type === "content_block_start" && event.content_block.type === "tool_use") nudge({ stage: "drafting", stage_note: "Writing up your tests", progress: Math.max(progress, 0.82) })
       })
       const msg = await stream.finalMessage()
       usage.input_tokens += msg.usage.input_tokens
