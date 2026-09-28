@@ -168,7 +168,10 @@ export default async function DesignPreview() {
                 <WinePour key={p} progress={p} pouring={p < 1} className="h-56 w-48 text-foreground" />
               ))}
             </div>
-            <AiPanel sprintId="empty" canGenerate aiReady closed={false} run={null} recs={[]} owners={[]} defaultDeadline="2026-10-02" currency="USD" />
+            <div className="space-y-10">
+              <AiPanel sprintId="empty" canGenerate aiReady closed={false} run={null} recs={[]} owners={[]} defaultDeadline="2026-10-02" currency="USD" />
+              <h2 className="text-2xl">Tests this sprint</h2>
+            </div>
             <AiPanel
               sprintId="sample"
               canGenerate

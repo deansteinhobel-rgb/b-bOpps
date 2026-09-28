@@ -216,7 +216,7 @@
 }
 .pour-in { animation: pour-in 0.5s ease-out both; }
 @media (prefers-reduced-motion: reduce) {
-  .wine-float, .wine-wave, .wine-stream, .wine-bubble, .pour-in, .pour-border { animation: none; }
+  .wine-float, .wine-wave, .wine-stream, .wine-bubble, .pour-in, .pour-border, .wine-fall, .wine-hang { animation: none; }
 }
 /* The "Pour me a sprint" banner's slowly travelling glow border. */
 @keyframes pour-border {
@@ -226,3 +226,18 @@
   background: conic-gradient(from 0deg, transparent 0 55%, #e4ff1a 68%, #c4b5fd 78%, #f9a8d4 86%, transparent 94%);
   animation: pour-border 7s linear infinite;
 }
+
+/* Wine dripping off the "Pour me a sprint" banner onto the heading below. */
+@keyframes wine-fall {
+  0% { transform: translateY(0) scaleY(0.5); opacity: 0; }
+  12% { opacity: 1; }
+  82% { transform: translateY(var(--fall, 44px)) scaleY(1.25); opacity: 1; }
+  100% { transform: translateY(var(--fall, 44px)) scaleY(0.3); opacity: 0; }
+}
+.wine-fall { animation: wine-fall 1.15s cubic-bezier(0.55, 0, 0.9, 0.4) infinite; transform-origin: 50% 0; }
+@keyframes wine-hang {
+  0%, 100% { transform: scaleY(0.7); }
+  55% { transform: scaleY(1.35); }
+  70% { transform: scaleY(0.6); }
+}
+.wine-hang { animation: wine-hang 1.15s ease-in-out infinite; transform-origin: 50% 0; }

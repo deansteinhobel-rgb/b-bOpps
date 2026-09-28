@@ -6,10 +6,14 @@ import { cn } from "@/lib/utils"
  * `hoverPour`: resting glass; when a parent with `group/pour` is hovered, the bottle tips in and
  * pours a little more.
  */
-export function WinePour({ progress, pouring = true, hoverPour = false, className }: { progress: number; pouring?: boolean; hoverPour?: boolean; className?: string }) {
+export function WinePour({ progress, pouring = true, hoverPour = false, overflow, className }: { progress: number; pouring?: boolean; hoverPour?: boolean; overflow?: number; className?: string }) {
   const p = Math.max(0, Math.min(1, progress))
-  // The bowl's inside runs from y=162 (bottom) to y=78 (rim); a glass is served about two-thirds full.
-  const level = 162 - p * 62
+  // `overflow` (0..1): the glass is brimming and wine runs down the outside to a puddle at the base.
+  // When it's set, the caller drives the level (no CSS hover rise).
+  const o = overflow === undefined ? 0 : Math.max(0, Math.min(1, overflow))
+  const driven = overflow !== undefined
+  // The bowl's inside runs from y=162 (bottom) to y=72 (rim); a glass is served about two-thirds full.
+  const level = o > 0 ? 72 : 162 - p * (driven ? 90 : 62)
   return (
     <svg viewBox="0 -75 240 335" className={cn("wine-float overflow-visible", className)} role="img" aria-label={`Glass ${Math.round(p * 100)}% poured`}>
       <defs>
@@ -61,13 +65,23 @@ export function WinePour({ progress, pouring = true, hoverPour = false, classNam
 
       {/* Wine */}
       <g clipPath="url(#wine-bowl)">
-        <g className={cn(hoverPour && "transition-[translate] delay-300 duration-[1400ms] ease-out group-hover/pour:-translate-y-[18px]")}>
+        <g className={cn(hoverPour && !driven && "transition-[translate] delay-300 duration-[1400ms] ease-out group-hover/pour:-translate-y-[18px]")}>
         <rect x="50" y={level} width="100" height={200 - level} fill="url(#wine-liquid)" className="transition-all duration-700" style={{ transitionProperty: "y, height" }} />
         <path className="wine-wave" d={`M20 ${level} q 10 -3 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 t 20 0 V ${level + 6} H 20 Z`} fill="#fbf7d2" opacity="0.8" />
         {p > 0.05 &&
           [72, 88, 101, 114, 126].map((x, i) => <circle key={x} className="wine-bubble" cx={x} cy={160} r={1.2 + (i % 2) * 0.6} fill="#fff" opacity="0.7" style={{ animationDelay: `${i * 0.55}s` }} />)}
         </g>
       </g>
+
+      {/* Spilling over: a brimming cap, runs down both sides of the bowl and the stem, a puddle */}
+      {o > 0 && (
+        <g fill="none" stroke="#efe59a" strokeLinecap="round" opacity="0.95">
+          <ellipse cx="100" cy="72" rx={34 + 5 * o} ry={1.5 + 2.5 * o} fill="#f6f0b4" stroke="none" />
+          <path d="M138 72 C143 102 141 134 129 152 C121 161 109 166 102 168 L101 229" pathLength={1} strokeDasharray="1" strokeDashoffset={1 - o} strokeWidth="3.5" />
+          <path d="M62 72 C57 104 60 132 70 148" pathLength={1} strokeDasharray="1" strokeDashoffset={1 - Math.min(1, o * 1.4)} strokeWidth="3" />
+          <ellipse cx="100" cy="231" rx={6 + 34 * o} ry={1.5 + 3 * o} fill="#efe59a" stroke="none" opacity={Math.min(1, o * 1.6)} />
+        </g>
+      )}
 
       {/* Glass */}
       <path d="M62 72 C62 132 76 160 100 164 C124 160 138 132 138 72 Z" fill="url(#wine-glass)" stroke="currentColor" strokeOpacity="0.55" strokeWidth="1.5" />

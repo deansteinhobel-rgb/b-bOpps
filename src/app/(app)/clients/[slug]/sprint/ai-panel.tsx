@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown } from "lucide-react"
 import { fieldClass } from "@/components/admin-form"
@@ -203,9 +203,20 @@ export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady
   )
 }
 
-/** Before the first pour: a small banner that invites the click. Hovering it pours the glass. */
+/**
+ * Before the first pour: a small banner that invites the click. Hovering it pours the glass; keep
+ * hovering and it fills to the brim, spills down the glass, then drips off the banner onto the
+ * heading below. Moving away drains it.
+ */
 function PourHero({ canGenerate, aiReady, busy, onPour, error }: { canGenerate: boolean; aiReady: boolean; busy: boolean; onPour: () => void; error: string | null }) {
+  const hover = useHoverSeconds()
+  const t = hover.secs
+  // 0.5s for the bottle to tip in, full by ~2.3s, brimming over by ~3.8s, dripping after that.
+  const fill = 0.35 + Math.min(1, Math.max(0, (t - 0.5) / 1.8)) * 0.65
+  const overflow = Math.min(1, Math.max(0, (t - 2.3) / 1.5))
+  const dripping = t > 3.4
   return (
+    <div className="relative" onMouseEnter={hover.enter} onMouseLeave={hover.leave}>
     <section className="group/pour relative isolate overflow-hidden rounded-xl p-px">
       {/* Travelling glow border */}
       <div aria-hidden className="pour-border absolute top-1/2 left-1/2 -z-10 size-[250%] -translate-x-1/2 -translate-y-1/2 opacity-60 transition-opacity duration-500 group-hover/pour:opacity-100" />
@@ -213,7 +224,7 @@ function PourHero({ canGenerate, aiReady, busy, onPour, error }: { canGenerate: 
         <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-lime/10 blur-3xl transition-colors duration-700 group-hover/pour:bg-lime/20" />
         <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 size-64 rounded-full bg-violet-400/10 blur-3xl" />
         <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:gap-6 sm:px-7">
-          <WinePour progress={0.35} pouring={false} hoverPour className="hidden h-32 w-24 shrink-0 text-foreground sm:block" />
+          <WinePour progress={fill} pouring={false} hoverPour overflow={overflow} className="hidden h-32 w-24 shrink-0 text-foreground sm:block" />
           <div className="min-w-0 flex-1 space-y-2">
             <h2 className="text-3xl leading-tight">
               Pour me a <span className="text-lime">sprint</span>
@@ -239,6 +250,67 @@ function PourHero({ canGenerate, aiReady, busy, onPour, error }: { canGenerate: 
         {error && <p className="relative border-t px-7 py-2.5 text-sm text-rag-red">{error}</p>}
       </div>
     </section>
+    <Drips active={dripping} />
+    </div>
+  )
+}
+
+/** Seconds the pointer has been over the element, counting back down (faster) once it leaves. */
+function useHoverSeconds() {
+  const [secs, setSecs] = useState(0)
+  const value = useRef(0)
+  const hovered = useRef(false)
+  const raf = useRef(0)
+  useEffect(() => () => cancelAnimationFrame(raf.current), [])
+  const run = () => {
+    cancelAnimationFrame(raf.current)
+    let last = performance.now()
+    const step = (now: number) => {
+      const dt = Math.min(0.1, (now - last) / 1000)
+      last = now
+      value.current = hovered.current ? Math.min(8, value.current + dt) : Math.max(0, value.current - dt * 2.5)
+      setSecs(value.current)
+      if (hovered.current || value.current > 0) raf.current = requestAnimationFrame(step)
+    }
+    raf.current = requestAnimationFrame(step)
+  }
+  return {
+    secs,
+    enter: () => {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+      hovered.current = true
+      run()
+    },
+    leave: () => {
+      hovered.current = false
+      run()
+    },
+  }
+}
+
+/**
+ * Wine hanging off the banner's bottom edge, drops falling, and a puddle on the heading below.
+ * Sized for the Sprint page's 40px gap (space-y-10) between the banner and "Tests this sprint".
+ */
+function Drips({ active }: { active: boolean }) {
+  return (
+    <div aria-hidden className={cn("pointer-events-none absolute top-full left-[4.75rem] z-10 hidden h-10 w-12 -translate-x-1/2 transition-opacity duration-500 sm:block", active ? "opacity-100" : "opacity-0")}>
+      {/* The drop hanging from the edge */}
+      <svg viewBox="0 0 12 14" className={cn("absolute -top-px left-1/2 h-3.5 w-3 -translate-x-1/2", active && "wine-hang")}>
+        <path d="M0 0 H12 C9 3 8.5 6 8.5 8.5 A2.5 2.5 0 0 1 3.5 8.5 C3.5 6 3 3 0 0Z" fill="#efe59a" />
+      </svg>
+      {/* Falling drops */}
+      {[0, 0.38, 0.77].map((d, i) => (
+        <svg key={d} viewBox="0 0 8 11" className={cn("absolute top-2 h-2.5 w-2", active && "wine-fall")} style={{ left: `calc(50% - 4px + ${(i - 1) * 3}px)`, animationDelay: `${d}s`, ["--fall" as string]: `${27 + i * 3}px` }}>
+          <path d="M4 0 C4 3 7.5 5 7.5 7.3 A3.5 3.5 0 0 1 0.5 7.3 C0.5 5 4 3 4 0Z" fill="#efe59a" />
+        </svg>
+      ))}
+      {/* The puddle on the heading */}
+      <svg viewBox="0 0 48 10" className={cn("absolute -bottom-2 left-1/2 h-2.5 w-12 -translate-x-1/2 origin-center transition-transform duration-[1800ms] ease-out", active ? "scale-100" : "scale-0")}>
+        <path d="M3 6 C3 2.5 10 1.5 17 2.6 C22 1 31 1.2 36 2.8 C42 2.2 46 4 45 6.4 C44 8.6 36 8.8 30 8.2 C24 9.4 12 9.2 7 8.4 C4 8 3 7.4 3 6Z" fill="#efe59a" opacity="0.9" />
+        <ellipse cx="14" cy="4" rx="4" ry="1" fill="#fff" opacity="0.35" />
+      </svg>
+    </div>
   )
 }
 
