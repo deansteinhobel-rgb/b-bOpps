@@ -33,6 +33,9 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 ## Decisions from Phase 0 answers (2026-09-28)
 - First admin: dean.steinhobel@bordeauxandburgundy.co.uk. Other new users get a profile with no role until an admin assigns one.
 - Notion: a single "Master Production" board, grouped by a `Client` select. See "Notion mapping" below.
+- **Data model change: `client_team` (client_id, profile_id, role) replaces `clients.am_profile_id` / `pm_profile_id` / `specialist_profile_id`.** Reason: DNSFilter and Camber each have two AMs (Danny and Kieran). RLS scopes by membership of `client_team`. Roles: `admin | gtm_lead | am | specialist` (whether `gtm_lead` = the brief's PM, which owns the PM checks, is pending Dean).
+- Team: DNSFilter: Dean (GTM lead), Andrea (specialist), Danny and Kieran (AM). Camber: Esa (GTM lead), Andrea, Danny and Kieran. Details are in `seed/clients.json`.
+- KPI: `cost_per_result` = spend / (conversions + leads). Targets: DNSFilter $300, Camber $200. Budgets are in the seed file.
 - Conversions: Google Ads uses conversions. LinkedIn and Meta use conversions plus leads.
 - Currency: one per client. A mapped ad account must be in the client's currency.
 - Metrics unique key: `(platform, external_account_id, date, ad_id)`. Rows with no ad use `ad_id = ''`.
