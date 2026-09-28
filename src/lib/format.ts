@@ -1,6 +1,6 @@
 export function money(value: number | null | undefined, currency = "USD", digits = 0) {
   if (value === null || value === undefined) return "–"
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency, currencyDisplay: "narrowSymbol", maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
 }
 
 export const whole = (v: number | null | undefined) => (v === null || v === undefined ? "–" : new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 }).format(v))

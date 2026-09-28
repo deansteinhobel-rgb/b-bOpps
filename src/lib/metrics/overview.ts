@@ -102,6 +102,9 @@ export async function getOverview(supabase: SupabaseClient, clientId: string) {
   return {
     dataThrough,
     dataFrom: ranges.map((r) => r.data_from as string).sort()[0],
+    daily,
+    /** Every ad's first-seen date and recent activity (inputs to fatigue / new creatives). */
+    adLifetimes: fatigueRows,
     pacing,
     periods,
     byPlatform,

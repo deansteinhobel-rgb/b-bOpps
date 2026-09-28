@@ -44,7 +44,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Best/worst ad: rank by cost per conversion when at least 2 eligible ads have 3 or more conversions, otherwise by CTR. Eligible means spend strictly above the account's median ad spend over the last 7 days.
 - Ad fatigue: "live" means impressions in the last 2 available days. First seen is capped at the backfill window (90 days) and shown as "90+".
 - Periods: weeks run Monday to Sunday, Europe/London. Months are calendar months. A scheduled job creates check runs; one is also created on first open if missing.
-- Red not actioned: 24 hours after `checked_at` with no `notion_action_page_id`. Flag-to records the person and appears in their "Flagged to me" list. Slack notifications come later.
+- Red not actioned: 24 hours after `checked_at` with no `notion_action_page_id`. A red can't be saved without findings (they pre-fill the Notion action). Saving snapshots the pre-loaded numbers into `auto_data`, recomputed on the server; saved checks show that snapshot, unsaved ones show live numbers. Flag-to records the person and appears in their "Flagged to me" list. Slack notifications come later.
 - Scheduling: Vercel Hobby cron only runs once a day. Proposal: Supabase Cron (pg_cron + pg_net) calls the sync routes, with `CRON_SECRET`. Pending confirmation.
 
 ## Notion mapping (from notion-inspect, 2026-09-28. Confirmed by Dean)
