@@ -12,7 +12,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Supabase: Postgres, Auth (magic link, `@bordeauxandburgundy.co.uk` only) and RLS on every table. Migrations live in the repo (`supabase/migrations`).
 - `@notionhq/client` v5 with `notionVersion: "2026-03-11"`. A database contains data sources. Query `dataSources.query`, not databases. Use `iterateAllDataSourceRows` for full reads (plain pagination stops at 10k rows).
 - Windsor.ai REST only (`connectors.windsor.ai/{linkedin|google_ads|facebook}`). Never call the LinkedIn, Google Ads or Meta APIs directly.
-- Claude (Anthropic API, `@anthropic-ai/sdk`, key `ANTHROPIC_API_KEY`, server-side only): sprint suggestions use `claude-opus-5-5`, the news chat uses `claude-sonnet-5`, both with the web search and web fetch server tools. See "Claude in the app" below.
+- Claude (Anthropic API, `@anthropic-ai/sdk`, key `ANTHROPIC_API_KEY`, plus `ANTHROPIC_WORKSPACE_ID` when the key isn't scoped to a workspace, sent as the `anthropic-workspace-id` header; server-side only): sprint suggestions use `claude-opus-5-5`, the news chat uses `claude-sonnet-5`, both with the web search and web fetch server tools. See "Claude in the app" below.
 - HubSpot: stubbed. Slack: on hold. Build the post function, but it does nothing unless `SLACK_WEBHOOK_URL` is set.
 - Vercel (Hobby for now) for hosting.
 - All third-party keys stay server-side. Nothing secret goes in a `NEXT_PUBLIC_` variable.

@@ -1,7 +1,7 @@
 import "server-only"
 import Anthropic from "@anthropic-ai/sdk"
 
-/** Claude for the sprint suggestions and the news chat. The key stays server-side (ANTHROPIC_API_KEY). */
+/** Claude for the sprint suggestions and the news chat. The key stays server-side (ANTHROPIC_API_KEY, plus ANTHROPIC_WORKSPACE_ID for keys not scoped to a workspace). */
 export const MODEL = "claude-opus-5-5"
 
 export const aiConfigured = () => Boolean(process.env.ANTHROPIC_API_KEY)
@@ -9,7 +9,9 @@ export const aiConfigured = () => Boolean(process.env.ANTHROPIC_API_KEY)
 let client: Anthropic | null = null
 export function claude() {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY isn't set in .env.local.")
-  client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  // A key that isn't scoped to one workspace needs the workspace named on every request.
+  const workspace = process.env.ANTHROPIC_WORKSPACE_ID
+  client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, defaultHeaders: workspace ? { "anthropic-workspace-id": workspace } : undefined })
   return client
 }
 
