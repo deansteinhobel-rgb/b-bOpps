@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "inspect:notion": "tsx --env-file=.env.local scripts/notion-inspect.ts",
     "inspect:windsor": "tsx --env-file=.env.local scripts/windsor-inspect.ts",
-    "scan:conversions": "tsx --env-file=.env.local scripts/windsor-conversion-scan.ts"
+    "scan:conversions": "tsx --env-file=.env.local scripts/windsor-conversion-scan.ts",
+    "test:db": "node supabase/tests/rls-check.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -30,6 +31,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24",
     "@types/react": "^19",
