@@ -13,7 +13,7 @@ export type SyncResult = { client_id: string; account: string; rows: number; err
  * Pulls Windsor data for the active accounts (all clients, or one) into windsor_daily_metrics.
  * Upserts only; re-running a range replaces it with fresh numbers (catches late conversions).
  */
-export async function syncWindsor(opts: { clientId?: string; dateFrom: string; dateTo: string; kind: "daily" | "backfill" }) {
+export async function syncWindsor(opts: { clientId?: string; accountId?: string; dateFrom: string; dateTo: string; kind: "daily" | "backfill" }) {
   const db = createAdminClient()
   let q = db
     .from("client_platform_accounts")
@@ -21,6 +21,7 @@ export async function syncWindsor(opts: { clientId?: string; dateFrom: string; d
     .eq("active", true)
     .eq("clients.active", true)
   if (opts.clientId) q = q.eq("client_id", opts.clientId)
+  if (opts.accountId) q = q.eq("id", opts.accountId)
   const { data: accounts, error } = await q
   if (error) throw new Error(`Loading accounts: ${error.message}`)
 

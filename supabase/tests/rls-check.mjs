@@ -63,3 +63,10 @@ try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("insert into publ
 try { await db.exec(`insert into public.check_results (check_run_id, client_id, check_definition_id) select '${run[0].id}', '22222222-2222-2222-2222-222222222222', id from public.check_definitions`); console.log("FAIL: mismatched client") } catch (e) { console.log("mismatched result client blocked:", e.message) }
 const defs = await as("aaaaaaaa-0000-0000-0000-000000000004", () => q("select key from public.check_definitions"))
 console.log("no-role user sees definitions:", defs.length)
+
+// Soft removal (removed_at) takes away access without deleting anything.
+await db.exec(`update public.client_team set removed_at = now() where profile_id = 'aaaaaaaa-0000-0000-0000-000000000002'`)
+const afterRemoval = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select slug from public.clients"))
+console.log(afterRemoval.length === 0 ? "removed member loses access: OK" : "FAIL: removed member still sees clients")
+const stillThere = await q("select count(*)::int as n from public.client_team where profile_id = 'aaaaaaaa-0000-0000-0000-000000000002'")
+console.log(stillThere[0].n === 1 ? "removed row kept for history: OK" : "FAIL: row missing")

@@ -25,3 +25,10 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   am: "Account manager",
   specialist: "Paid media specialist",
 }
+
+/** For admin pages and actions: admins and GTM leads only. */
+export async function requireAdmin(): Promise<Profile> {
+  const p = await getProfile()
+  if (!isAdmin(p)) throw new Error("Admins only")
+  return p
+}

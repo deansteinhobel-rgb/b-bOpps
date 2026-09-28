@@ -18,8 +18,8 @@ export async function peopleForClient(supabase: SupabaseClient, clientId: string
   const [{ data: profiles }, { data: invites }, { data: team }, { data: teamInvites }] = await Promise.all([
     supabase.from("profiles").select("id, email, full_name, notion_user_id").not("role", "is", null),
     supabase.from("team_invites").select("email, full_name, notion_user_id"),
-    supabase.from("client_team").select("profile_id").eq("client_id", clientId),
-    supabase.from("client_team_invites").select("email").eq("client_id", clientId),
+    supabase.from("client_team").select("profile_id").eq("client_id", clientId).is("removed_at", null),
+    supabase.from("client_team_invites").select("email").eq("client_id", clientId).is("removed_at", null),
   ])
   const teamProfiles = new Set((team ?? []).map((t) => t.profile_id))
   const teamEmails = new Set((teamInvites ?? []).map((t) => t.email))

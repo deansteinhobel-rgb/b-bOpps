@@ -23,14 +23,18 @@ const SEVERITY = { red: 3, amber: 2, green: 1, no_budget: 0 } as const
 /** One card per client the user can see (RLS). "Mine" = clients the user is on the team of. */
 export async function clientCards(supabase: SupabaseClient, opts: { profileId: string; onlyMine: boolean }): Promise<ClientCard[]> {
   const { weekly } = currentPeriods()
-  let q = supabase
-    .from("clients")
-    .select("id, name, slug, client_team(profile_id, profiles(full_name, email)), client_team_invites(email, team_invites(full_name))")
-    .eq("active", true)
-    .order("name")
-  if (opts.onlyMine) q = q.eq("client_team.profile_id", opts.profileId)
-  const { data: clients } = await q
-  const list = (clients ?? []).filter((c) => !opts.onlyMine || (c.client_team as unknown[]).length > 0)
+  const [{ data: clients }, { data: mine }] = await Promise.all([
+    supabase
+      .from("clients")
+      .select("id, name, slug, client_team(profile_id, removed_at, profiles(full_name, email)), client_team_invites(email, removed_at, team_invites(full_name))")
+      .eq("active", true)
+      .is("client_team.removed_at", null)
+      .is("client_team_invites.removed_at", null)
+      .order("name"),
+    supabase.from("client_team").select("client_id").eq("profile_id", opts.profileId).is("removed_at", null),
+  ])
+  const mineIds = new Set((mine ?? []).map((m) => m.client_id))
+  const list = (clients ?? []).filter((c) => !opts.onlyMine || mineIds.has(c.id))
 
   return Promise.all(
     list.map(async (c) => {

@@ -31,7 +31,7 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
   const [runs, overview, { data: team }, { data: profiles }, owners] = await Promise.all([
     Promise.all(runIds.map((id) => loadRun(supabase, id))),
     getOverview(supabase, client.id),
-    supabase.from("client_team").select("profile_id").eq("client_id", client.id),
+    supabase.from("client_team").select("profile_id").eq("client_id", client.id).is("removed_at", null),
     supabase.from("profiles").select("id, full_name, email, notion_user_id").not("role", "is", null).order("full_name"),
     peopleForClient(supabase, client.id),
   ])
