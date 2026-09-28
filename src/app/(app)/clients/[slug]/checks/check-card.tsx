@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { ActionForm, type OwnerOption } from "@/components/action-form"
 import { StatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -31,6 +32,8 @@ export function CheckCard(props: {
   flaggedToName: string | null
   /** Worked out on the server: red, no Notion action, checked more than 24 hours ago. */
   redNotActioned: boolean
+  /** For "Create action in Notion" on reds. */
+  action: { clientSlug: string; live: boolean; owners: OwnerOption[]; defaultOwnerNotionId: string | null; defaultDue: string; notionUrl: string | null }
 }) {
   const { definition: d, result: r } = props
   const [status, setStatus] = useState<Status | null>(r.status)
@@ -38,6 +41,7 @@ export function CheckCard(props: {
   const [flaggedTo, setFlaggedTo] = useState<string>(r.flagged_to_profile_id ?? "")
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   const [pending, start] = useTransition()
+  const [actionOpen, setActionOpen] = useState(false)
 
   const dirty = status !== r.status || findings !== (r.findings ?? "") || flaggedTo !== (r.flagged_to_profile_id ?? "")
   const savedData = r.auto_data as AutoData | null
@@ -50,7 +54,7 @@ export function CheckCard(props: {
     })
 
   return (
-    <article className={cn("rounded-lg border bg-card p-5", r.status === "red" && "border-rag-red/40")}>
+    <article id={`check-${r.id}`} className={cn("scroll-mt-6 rounded-lg border bg-card p-5", r.status === "red" && "border-rag-red/40")}>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-xl">{d.name}</h3>
@@ -147,9 +151,14 @@ export function CheckCard(props: {
             {pending ? "Saving…" : "Save"}
           </Button>
           {r.status === "red" && !r.notion_action_page_id && (
-            <Button variant="outline" disabled title="Comes in the Notion step. Notion writes are off while testing.">
-              Create action in Notion
+            <Button variant="outline" onClick={() => setActionOpen((o) => !o)} aria-expanded={actionOpen}>
+              {actionOpen ? "Close" : "Create action in Notion"}
             </Button>
+          )}
+          {r.notion_action_page_id && props.action.notionUrl && (
+            <a href={props.action.notionUrl} target="_blank" rel="noreferrer" className="text-sm underline">
+              Notion action
+            </a>
           )}
           {message && (
             <span className={cn("text-sm", message.ok ? "text-rag-green" : "text-rag-red")} role="status">
@@ -157,6 +166,20 @@ export function CheckCard(props: {
             </span>
           )}
         </div>
+        {actionOpen && r.status === "red" && !r.notion_action_page_id && (
+          <ActionForm
+            clientSlug={props.action.clientSlug}
+            live={props.action.live}
+            owners={props.action.owners}
+            checkResultId={r.id}
+            defaults={{
+              title: `${d.name}: ${(r.findings ?? "").split("\n")[0].slice(0, 120)}`,
+              ownerId: props.action.defaultOwnerNotionId,
+              dueDate: props.action.defaultDue,
+              description: r.findings ?? "",
+            }}
+          />
+        )}
       </div>
     </article>
   )

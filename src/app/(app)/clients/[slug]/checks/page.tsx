@@ -1,28 +1,48 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { buildAutoData } from "@/lib/checks/auto-data"
+import { londonToday } from "@/lib/checks/periods"
 import { ensureCurrentRuns, loadRun, pastRuns } from "@/lib/checks/runs"
 import { longDate } from "@/lib/format"
+import { addDays } from "@/lib/metrics/ads"
 import { getOverview } from "@/lib/metrics/overview"
+import { notionWritesLive } from "@/lib/notion/server"
+import { peopleForClient } from "@/lib/people"
 import { createClient } from "@/lib/supabase/server"
 import { CheckCard, type Person } from "./check-card"
 
 export default async function ChecksPage({ params, searchParams }: PageProps<"/clients/[slug]/checks">) {
   const { slug } = await params
-  const { run: runParam } = await searchParams
+  const { run: runParam, result: resultParam } = await searchParams
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target").eq("slug", slug).maybeSingle()
   if (!client) notFound()
 
   const current = await ensureCurrentRuns(supabase, client.id)
-  const runIds = typeof runParam === "string" ? [runParam] : [current.weekly.id, current.monthly.id]
+  // ?result=<id> (the link Notion's "QA Document" points to) opens the run that result belongs to.
+  let focusRun = typeof runParam === "string" ? runParam : null
+  if (!focusRun && typeof resultParam === "string") {
+    const { data: r } = await supabase.from("check_results").select("check_run_id").eq("id", resultParam).eq("client_id", client.id).maybeSingle()
+    focusRun = r?.check_run_id ?? null
+  }
+  const isCurrent = !focusRun || focusRun === current.weekly.id || focusRun === current.monthly.id
+  const runIds = isCurrent ? [current.weekly.id, current.monthly.id] : [focusRun!]
 
-  const [runs, overview, { data: team }, { data: profiles }] = await Promise.all([
+  const [runs, overview, { data: team }, { data: profiles }, owners] = await Promise.all([
     Promise.all(runIds.map((id) => loadRun(supabase, id))),
     getOverview(supabase, client.id),
     supabase.from("client_team").select("profile_id").eq("client_id", client.id),
-    supabase.from("profiles").select("id, full_name, email").not("role", "is", null).order("full_name"),
+    supabase.from("profiles").select("id, full_name, email, notion_user_id").not("role", "is", null).order("full_name"),
+    peopleForClient(supabase, client.id),
   ])
+  const actionIds = runs.flatMap((r) => r?.items.map((i) => i.result.notion_action_page_id).filter(Boolean) ?? []) as string[]
+  const { data: actionPages } = actionIds.length
+    ? await supabase.from("notion_pages_mirror").select("notion_page_id, url").in("notion_page_id", actionIds)
+    : { data: [] as { notion_page_id: string; url: string }[] }
+  const actionUrl = new Map((actionPages ?? []).map((p) => [p.notion_page_id, p.url]))
+  const notionIdByProfile = new Map((profiles ?? []).map((p) => [p.id, p.notion_user_id as string | null]))
+  const live = notionWritesLive()
+  const defaultDue = addDays(londonToday(), 7)
   const history = await pastRuns(supabase, client.id, [current.weekly.id, current.monthly.id])
 
   const teamIds = new Set((team ?? []).map((t) => t.profile_id))
@@ -34,7 +54,7 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
 
   return (
     <div className="space-y-12">
-      {typeof runParam === "string" && (
+      {!isCurrent && (
         <Link href={`/clients/${slug}/checks`} className="text-sm underline">
           ← Back to this week
         </Link>
@@ -68,6 +88,14 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
                   definition={definition}
                   result={result}
                   redNotActioned={redNotActioned}
+                  action={{
+                    clientSlug: slug,
+                    live,
+                    owners: owners.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam })),
+                    defaultOwnerNotionId: result.flagged_to_profile_id ? (notionIdByProfile.get(result.flagged_to_profile_id) ?? null) : null,
+                    defaultDue,
+                    notionUrl: result.notion_action_page_id ? (actionUrl.get(result.notion_action_page_id) ?? null) : null,
+                  }}
                   liveData={overview ? buildAutoData(definition.key, overview, { currency: client.currency, target, weekStart: run.period_start }) : null}
                   people={people}
                   checkedByName={result.checked_by_profile_id ? (names.get(result.checked_by_profile_id) ?? null) : null}
