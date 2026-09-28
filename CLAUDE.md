@@ -38,7 +38,8 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - KPI: `cost_per_result` = spend / (conversions + leads). Targets: DNSFilter $300, Camber $200. Budgets are in the seed file.
 - Conversions: Google Ads uses conversions. LinkedIn and Meta use conversions plus leads.
 - Currency: one per client. A mapped ad account must be in the client's currency.
-- Metrics unique key: `(platform, external_account_id, date, ad_id)`. Rows with no ad use `ad_id = ''`.
+- Metrics unique key: `(platform, external_account_id, date, campaign_id, ad_id)`. Rows with no ad use `ad_id = ''`; campaign_id is included so campaign-level rows don't collide.
+- Schema: `supabase/migrations`. Test RLS offline with `pnpm test:db` (in-memory Postgres; never touches the real project). Team roles come from `team_invites` / `client_team_invites` on first sign-in, so nobody creates accounts for others.
 - Budgets: **per month** (`client_budgets`: client_id, platform, campaign_id nullable, month, amount). Budgets vary month to month (e.g. leftover Q3 budget spent in September). A new month copies the previous month's figures until someone edits them. Optional per-campaign budgets; pacing uses the campaign budget where one is set. The seed file's budgets are the default monthly amounts. September 2026 pacing (DNSFilter LinkedIn 135%, Google 127%; Camber Meta 133%) is intentional, per Dean.
 - Best/worst ad: rank by cost per conversion when at least 2 eligible ads have 3 or more conversions, otherwise by CTR. Eligible means spend strictly above the account's median ad spend over the last 7 days.
 - Ad fatigue: "live" means impressions in the last 2 available days. First seen is capped at the backfill window (90 days) and shown as "90+".
