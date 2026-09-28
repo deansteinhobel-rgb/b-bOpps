@@ -54,6 +54,7 @@ export function TestCard(props: {
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <PlatformLabel platform={t.platform} className="text-foreground" />
           {t.carried_from_test_id && <span>Carried from last sprint</span>}
+          {t.recommendation_id && <PourTag />}
         </div>
         <h3 className="text-base leading-snug font-bold">{t.title}</h3>
         <p className="text-xs text-muted-foreground">
@@ -411,5 +412,18 @@ function CarryOver({ pending, onSubmit, onCancel }: { pending: boolean; onSubmit
         </Button>
       </div>
     </div>
+  )
+}
+
+/** Green tag for tests that came from an approved "Pour a Sprint" suggestion. */
+export function PourTag({ className }: { className?: string }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full border border-rag-green/35 bg-rag-green/10 px-2 py-0.5 text-[11px] font-medium text-rag-green", className)} title="Suggested by Pour a Sprint and approved by the team">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="size-3" aria-hidden>
+        <path d="M4.5 1.5h7c0 3.6-1.3 6-3.5 6s-3.5-2.4-3.5-6Z" />
+        <path d="M8 7.5v5.5M5.5 14.5h5" />
+      </svg>
+      Pour a Sprint suggestion
+    </span>
   )
 }

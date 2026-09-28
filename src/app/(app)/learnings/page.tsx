@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
+import { PourTag } from "../clients/[slug]/sprint/test-card"
 
 export const metadata = { title: "Learnings" }
 
@@ -20,6 +21,7 @@ type Row = {
   findings_worked: string | null
   findings_blockers: string | null
   findings_notes: string | null
+  recommendation_id: string | null
   sprints: { number: number; start_date: string } | null
   clients: { name: string; slug: string; logo_url: string | null } | null
 }
@@ -37,12 +39,13 @@ export default async function LearningsPage({ searchParams }: PageProps<"/learni
   const q = typeof sp.q === "string" ? sp.q.trim() : ""
   const clientSlug = typeof sp.client === "string" ? sp.client : ""
   const outcome = typeof sp.outcome === "string" ? (sp.outcome as Outcome) : ""
+  const fromPour = sp.from === "pour"
   const supabase = await createClient()
   const [{ data: clients }, { data: rows }] = await Promise.all([
     supabase.from("clients").select("id, name, slug").eq("active", true).order("name"),
     supabase
       .from("sprint_tests")
-      .select("id, platform, title, hypothesis, outcome, success_text, findings_worked, findings_blockers, findings_notes, sprints(number, start_date), clients(name, slug, logo_url)")
+      .select("id, platform, title, hypothesis, outcome, success_text, findings_worked, findings_blockers, findings_notes, recommendation_id, sprints(number, start_date), clients(name, slug, logo_url)")
       .in("outcome", ["proven", "disproven", "inconclusive"])
       .order("updated_at", { ascending: false })
       .limit(500),
@@ -50,14 +53,15 @@ export default async function LearningsPage({ searchParams }: PageProps<"/learni
   const all = (rows ?? []) as unknown as Row[]
   const needle = q.toLowerCase()
   const scoped = all.filter(
-    (r) => (!clientSlug || r.clients?.slug === clientSlug) && (!needle || [r.title, r.hypothesis, r.findings_worked, r.findings_blockers, r.findings_notes].some((s) => s?.toLowerCase().includes(needle))),
+    (r) => (!clientSlug || r.clients?.slug === clientSlug) && (!fromPour || r.recommendation_id) && (!needle || [r.title, r.hypothesis, r.findings_worked, r.findings_blockers, r.findings_notes].some((s) => s?.toLowerCase().includes(needle))),
   )
   const visible = scoped.filter((r) => !outcome || r.outcome === outcome)
-  const href = (o: string) => {
+  const href = (o: string, pour = fromPour) => {
     const p = new URLSearchParams()
     if (q) p.set("q", q)
     if (clientSlug) p.set("client", clientSlug)
     if (o) p.set("outcome", o)
+    if (pour) p.set("from", "pour")
     return `/learnings${p.size ? `?${p}` : ""}`
   }
 
@@ -72,9 +76,22 @@ export default async function LearningsPage({ searchParams }: PageProps<"/learni
           {OUTCOMES.map((o) => (
             <FilterPill key={o.key} href={href(o.key)} active={outcome === o.key} label={o.label} count={scoped.filter((r) => r.outcome === o.key).length} dot={o.dot} />
           ))}
+          <span className="mx-1 hidden w-px self-stretch bg-border sm:block" aria-hidden />
+          <Link
+            href={href(outcome, !fromPour)}
+            aria-current={fromPour ? "page" : undefined}
+            className={cn(
+              "inline-flex h-8 items-center gap-2 rounded-full border px-3 text-sm transition-colors",
+              fromPour ? "border-rag-green/40 bg-rag-green/10 text-rag-green" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+            )}
+          >
+            Pour a Sprint only
+            <span className="text-xs tabular-nums opacity-70">{all.filter((r) => r.recommendation_id && (!clientSlug || r.clients?.slug === clientSlug)).length}</span>
+          </Link>
         </nav>
         <form className="flex gap-2" action="/learnings">
           {outcome && <input type="hidden" name="outcome" value={outcome} />}
+          {fromPour && <input type="hidden" name="from" value="pour" />}
           <Input name="q" defaultValue={q} placeholder="Search tests and findings" className="h-9 w-64 bg-card" aria-label="Search" />
           <select name="client" defaultValue={clientSlug} className={cn(fieldClass, "w-40")} aria-label="Client">
             <option value="">All clients</option>
@@ -105,6 +122,7 @@ export default async function LearningsPage({ searchParams }: PageProps<"/learni
                     <span className="block truncate text-sm font-medium">{r.title}</span>
                     <span className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                       <span className={meta[r.outcome].text}>{meta[r.outcome].label}</span>
+                      {r.recommendation_id && <PourTag />}
                       {(r.findings_worked || r.findings_blockers) && <span className="hidden truncate sm:inline">· {r.findings_worked ?? r.findings_blockers}</span>}
                     </span>
                   </span>

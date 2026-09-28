@@ -85,6 +85,7 @@ export async function approveRecommendation(id: string, raw: { owner_notion_user
       owner_name: owner?.name ?? null,
       deadline: raw.deadline,
       created_by_profile_id: l.me.id,
+      recommendation_id: r.id,
     })
     .select("id")
     .single()
