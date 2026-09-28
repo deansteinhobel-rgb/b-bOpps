@@ -25,7 +25,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 
 ## Decisions from Phase 0 answers (2026-09-28)
 - First admin: dean.steinhobel@bordeauxandburgundy.co.uk. Other new users get a profile with no role until an admin assigns one.
-- Notion: a single "master production board", split by client, not separate Clients/Actions/Briefs databases. The mapping is pending `notion-inspect.ts`. The Source, created-by and check-link properties don't exist yet.
+- Notion: a single "master production board", not separate Clients/Actions/Briefs databases. Board views are *grouped* by a `Client` property, so a group is not a separate database. Visible properties: Project (title), Production Type (e.g. Landing Page, Campaign, Paid Media, Email, Blog), Client, Priority, Date of Brief, Project Lead (people), Vertical. The rows look like briefs/projects. Where action points live is still open. The mapping is pending `notion-inspect.ts`. The Source, created-by and check-link properties don't exist yet.
 - Conversions: Google Ads uses conversions. LinkedIn and Meta use conversions plus leads.
 - Currency: one per client. A mapped ad account must be in the client's currency.
 - Metrics unique key: `(platform, external_account_id, date, ad_id)`. Rows with no ad use `ad_id = ''`.
@@ -35,6 +35,13 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Periods: weeks run Monday to Sunday, Europe/London. Months are calendar months. A scheduled job creates check runs; one is also created on first open if missing.
 - Red not actioned: 24 hours after `checked_at` with no `notion_action_page_id`. Flag-to records the person and appears in their "Flagged to me" list. Slack notifications come later.
 - Scheduling: Vercel Hobby cron only runs once a day. Proposal: Supabase Cron (pg_cron + pg_net) calls the sync routes, with `CRON_SECRET`. Pending confirmation.
+
+## Look and feel (from bordeauxandburgundy.com)
+- Fonts: **MADE Avenue** (serif) for headings, falling back to Georgia. **Helvetica Neue** (400/700) for UI and body text, falling back to Helvetica and Arial. Small uppercase labels use letter-spacing of 0.1–0.2em.
+- The MADE Avenue and Helvetica Neue files are licensed fonts. Get them, and confirm the licence covers this app, from the B&B web team. Until then, use the fallbacks.
+- Colours: ink `#111111` / `#1a1a1a`, white, warm off-white surfaces `#f0eeea` / `#e8e6e0`, signature lime accent `#e4ff1a` (buttons, highlights). Secondary palette: pinks and purples `#e84fcf` `#e0359a` `#cc50e8` and lavenders `#b8bae8` `#9496d0` `#6a6db8`.
+- The site is black with lime. The app is dense with data, so use a black header/nav with lime accents, and warm off-white content areas for tables (pending confirmation).
+- Never use lime to mean "green" status. RAG colours must stay clearly separate from the brand accent.
 
 ## Conventions
 - Small steps, one commit per working step, clear messages.
