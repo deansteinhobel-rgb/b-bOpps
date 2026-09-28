@@ -138,4 +138,5 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - The **sprint review fills itself in from the tests** (highlights = live tests + numbers, top learnings = "what worked", challenges = blockers, mitigation = carry-overs, progress = counts). The team only writes the key takeaway. Closing needs a key takeaway, and every test called or carried.
 - The change log (with Windsor-detected suggestions) and the red checks / Notion actions sit in collapsed sections below. `/learnings` = every called test with its findings, across sprints and clients.
 - The old sprint_items (goal, hypotheses, learnings, mitigations) are still in the schema but no longer in the UI.
+- History before the app lives in a closed **Sprint 0** per client (`seed/history.json`, `pnpm seed:history`, safe to re-run). DNSFilter entries are real (Dean). **Camber entries are MOCK, titles "Mock:"**, to be replaced with real findings from Esa.
 - No deletes anywhere. Tables `sprints`, `sprint_tests`, `sprint_changes`, `sprint_items` (RLS by client team).

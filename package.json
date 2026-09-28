@@ -16,7 +16,8 @@
     "sync:windsor": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-windsor.ts",
     "test": "vitest run",
     "sync:notion": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-notion.ts",
-    "sync:creatives": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-creatives.ts"
+    "sync:creatives": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-creatives.ts",
+    "seed:history": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/seed-history.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

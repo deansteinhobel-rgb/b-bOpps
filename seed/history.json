@@ -1,0 +1,182 @@
+{
+  "_readme": "Past tests and next tests per client, loaded by `pnpm seed:history` (safe to re-run: tests are matched by title). Past tests go into a closed 'Sprint 0: history before the app', because exact dates weren't recorded. Planned tests go into the current sprint. Camber entries are MOCK data (titles start with 'Mock:'). Replace them with real findings from Esa.",
+  "clients": [
+    {
+      "slug": "dnsfilter",
+      "history_takeaway": "History before the app: retargeting and competitive takeout are our most reliable lead sources. Cold free-trial pushes and industry-specific search don't work. Brand search scales only up to ~$1,500/day.",
+      "past": [
+        {
+          "platform": null,
+          "title": "Hard push on free trials to a cold audience on all platforms",
+          "outcome": "disproven",
+          "success_metric": "results",
+          "success_text": "Activated free trials from cold audiences",
+          "findings_worked": null,
+          "findings_blockers": "Bad quality traffic and a low number of activated free trials."
+        },
+        {
+          "platform": "google_ads",
+          "title": "Increase budget on the Google Search brand campaign",
+          "outcome": "proven",
+          "success_metric": "cost_per_result",
+          "success_text": "More conversions without raising cost per conversion",
+          "findings_worked": "A good increase in total conversions and a lower cost per conversion.",
+          "findings_blockers": "There's a ceiling: above ~$1,500/day on the brand campaign, conversions stay flat and cost per conversion rises."
+        },
+        {
+          "platform": "google_ads",
+          "title": "Dedicated industry free trials on paid search",
+          "outcome": "disproven",
+          "success_text": "Industry-specific searches converting to free trials",
+          "findings_worked": null,
+          "findings_blockers": "People don't search by industry (e.g. \"dns filtering for education sector\"). They search generic keywords and look for a solution."
+        },
+        {
+          "platform": null,
+          "title": "Promote the AI Security report on LinkedIn and Reddit",
+          "outcome": "disproven",
+          "success_metric": "cost_per_result",
+          "success_text": "Affordable report leads that go on to start a trial",
+          "findings_worked": null,
+          "findings_blockers": "Cost per lead form submission is very high, and people don't start a trial after downloading the report.",
+          "findings_notes": "Next: consider making the report free (ungated) and remarketing to people who downloaded it."
+        },
+        {
+          "platform": null,
+          "title": "Bing Ads push for MSP",
+          "outcome": "disproven",
+          "success_text": "More MSP leads from Bing",
+          "findings_worked": "Generic campaigns perform better.",
+          "findings_blockers": "Several MSP-specific campaigns on Bing didn't reach the lead numbers we wanted."
+        },
+        {
+          "platform": null,
+          "title": "Competitive takeout campaigns",
+          "outcome": "proven",
+          "success_text": "High-quality leads that turn into deals",
+          "findings_worked": "They perform well: on the more expensive side, but they generate high-quality leads with deals attached.",
+          "findings_blockers": "Higher cost per lead than other campaigns."
+        },
+        {
+          "platform": null,
+          "title": "Retargeting on all platforms",
+          "outcome": "proven",
+          "success_metric": "cost_per_result",
+          "success_text": "Good lead volume at a low cost per lead",
+          "findings_worked": "A really positive response: a good number of leads at a low cost per lead."
+        }
+      ],
+      "planned": [
+        {
+          "platform": null,
+          "title": "CTA on creatives: \"Free Trial\" vs \"Book a demo\" and \"Contact us\"",
+          "hypothesis": "Demo and contact CTAs attract higher-intent leads than free trials, which bring low-quality traffic.",
+          "assets": ["ad_creative", "ad_copy"],
+          "success_metric": "cost_per_result",
+          "success_target": 300,
+          "success_text": "Lead quality at least as good as competitive takeout"
+        },
+        {
+          "platform": "linkedin",
+          "title": "LinkedIn conversation ads with the AI Security report and Book a demo / Free Trial CTAs",
+          "hypothesis": "A conversational format gets report interest to the next step (demo or trial), which the gated download didn't.",
+          "assets": ["ad_copy", "lead_form"],
+          "success_metric": "cost_per_result",
+          "success_target": 300,
+          "success_text": "Report engagers booking demos or starting trials"
+        },
+        {
+          "platform": null,
+          "title": "Bing Performance Max, with a landing page that only accepts business emails",
+          "hypothesis": "Filtering out personal emails at the form keeps Bing's reach while fixing lead quality.",
+          "assets": ["ad_creative", "ad_copy", "landing_page"],
+          "success_text": "Business-email leads at or below $300 each"
+        }
+      ]
+    },
+    {
+      "slug": "camber",
+      "history_takeaway": "MOCK (replace with Esa): SMB converts best on high-intent Google terms and Meta instant forms. ABX on LinkedIn builds engagement with named accounts but needs longer than a sprint to show pipeline.",
+      "past": [
+        {
+          "platform": "linkedin",
+          "title": "Mock: SMB Revenue Diagnostics Calculator as the LinkedIn lead magnet",
+          "outcome": "proven",
+          "success_metric": "cost_per_result",
+          "success_text": "SMB clinic leads at or below $200",
+          "findings_worked": "MOCK: the calculator out-converted the guide download for SMB clinic owners. The interactive offer suits the audience.",
+          "findings_blockers": "MOCK: leads needed a follow-up call to qualify."
+        },
+        {
+          "platform": "meta",
+          "title": "Mock: SMB lead gen: Meta instant forms vs landing page",
+          "outcome": "inconclusive",
+          "success_metric": "cost_per_result",
+          "success_text": "Cheaper leads without losing quality",
+          "findings_worked": "MOCK: instant forms roughly halved cost per lead.",
+          "findings_blockers": "MOCK: lead quality from instant forms was mixed. Too few leads reached sales to judge quality within the sprint."
+        },
+        {
+          "platform": "google_ads",
+          "title": "Mock: SMB Google: ABA billing high-intent terms vs broad RCM terms",
+          "outcome": "proven",
+          "success_metric": "cost_per_result",
+          "success_text": "Lower cost per result on high-intent terms",
+          "findings_worked": "MOCK: ABA-billing-specific terms converted at a much lower cost than broad revenue-cycle terms.",
+          "findings_blockers": "MOCK: search volume on the specific terms is limited, so budget can't scale far."
+        },
+        {
+          "platform": "linkedin",
+          "title": "Mock: ABX: personalised ads to named enterprise accounts (\"Hi Rasmus\" style)",
+          "outcome": "proven",
+          "success_metric": "ctr",
+          "success_target": 0.8,
+          "success_text": "Higher engagement from named accounts",
+          "findings_worked": "MOCK: personalised ads roughly doubled CTR among target accounts versus generic enterprise ads."
+        },
+        {
+          "platform": "linkedin",
+          "title": "Mock: ABX: thought leadership document ads to the Enterprise contact target list",
+          "outcome": "inconclusive",
+          "success_text": "Target accounts engaging and moving to meetings",
+          "findings_worked": "MOCK: good document opens from target accounts.",
+          "findings_blockers": "MOCK: no meetings within the sprint. The enterprise cycle is longer than two weeks, so this needs pipeline tracking in HubSpot."
+        },
+        {
+          "platform": "meta",
+          "title": "Mock: SMB retargeting of website visitors on Meta",
+          "outcome": "disproven",
+          "success_metric": "cost_per_result",
+          "success_text": "Cheap leads from warm visitors",
+          "findings_blockers": "MOCK: the retargeting audience was too small to spend the budget, and frequency climbed fast."
+        }
+      ],
+      "planned": [
+        {
+          "platform": "google_ads",
+          "title": "Mock: SMB Google competitor terms campaign",
+          "hypothesis": "MOCK: clinics comparing billing providers are close to switching.",
+          "assets": ["ad_copy", "landing_page"],
+          "success_metric": "cost_per_result",
+          "success_target": 200,
+          "success_text": "Comparison-page leads at or below target"
+        },
+        {
+          "platform": "meta",
+          "title": "Mock: SMB Meta video testimonial vs single image",
+          "hypothesis": "MOCK: a clinic owner testimonial builds trust faster than a static benefit image.",
+          "assets": ["video", "ad_copy"],
+          "success_metric": "cost_per_result",
+          "success_target": 200
+        },
+        {
+          "platform": "linkedin",
+          "title": "Mock: ABX LinkedIn conversation ads offering the enterprise case study",
+          "hypothesis": "MOCK: a direct conversation with a case study offer turns engaged target accounts into meetings.",
+          "assets": ["ad_copy"],
+          "success_text": "At least 3 meetings booked from target accounts"
+        }
+      ]
+    }
+  ]
+}
