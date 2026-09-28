@@ -20,3 +20,16 @@ export function longDate(iso: string) {
 export function shortDate(iso: string) {
   return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(iso))
 }
+
+/** "$", "£", "€" for a currency code (Dean: show symbols, never "USD" or "GBP"). */
+export function currencySymbol(code: string) {
+  const part = new Intl.NumberFormat("en-GB", { style: "currency", currency: code, currencyDisplay: "narrowSymbol" }).formatToParts(0).find((p) => p.type === "currency")
+  return part?.value ?? code
+}
+
+/** Swaps currency codes in free text for symbols: "USD 1,200" / "1,200 USD" → "$1,200". */
+export function withSymbols(text: string) {
+  return text
+    .replace(/\b(USD|GBP|EUR|AUD|CAD|ZAR)\s?(-?[\d.,]+[kKmM]?)/g, (_, code: string, n: string) => `${currencySymbol(code)}${n}`)
+    .replace(/(-?[\d.,]+[kKmM]?)\s?(USD|GBP|EUR|AUD|CAD|ZAR)\b/g, (_, n: string, code: string) => `${currencySymbol(code)}${n}`)
+}

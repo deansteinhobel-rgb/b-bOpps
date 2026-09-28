@@ -7,7 +7,7 @@ import { Sparkle } from "@/components/fx/sparkle"
 import { StatusDot } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { money } from "@/lib/format"
+import { currencySymbol, money } from "@/lib/format"
 import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { cn } from "@/lib/utils"
@@ -187,7 +187,7 @@ function PacingRow({ row: r, currency, canEdit, clientSlug, month, monthLabel }:
       {editing && (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border bg-background/60 p-3 md:ml-[15rem]">
           <label htmlFor={`b-${r.key}`} className="text-xs text-muted-foreground">
-            {monthLabel} budget ({currency})
+            {monthLabel} budget ({currencySymbol(currency)})
           </label>
           <Input id={`b-${r.key}`} type="number" min="0" step="100" value={value} onChange={(e) => setValue(e.target.value)} className="h-8 w-36" />
           <Sparkle>

@@ -37,10 +37,20 @@ const SUBMIT: Anthropic.Tool = {
         maxItems: 5,
         items: {
           type: "object",
-          required: ["platform", "title", "hypothesis", "assets", "why_data", "confidence", "effort"],
+          required: ["platform", "title", "summary", "impact", "expected_impact", "evidence", "hypothesis", "assets", "why_data", "confidence", "effort"],
           properties: {
             platform: { type: "string", enum: [...REC_PLATFORMS] },
-            title: { type: "string", description: "What we're testing, in under 12 words." },
+            title: { type: "string", description: "What we're testing, in under 10 words. Starts with a verb." },
+            summary: { type: "string", description: "The one-line reason to do this, under 20 words, e.g. 'Meta is at 41% of pace while retargeting costs $92 per result.'" },
+            impact: { type: "string", enum: ["low", "medium", "high"], description: "Likely effect on the client's main KPI if it works." },
+            expected_impact: { type: "string", description: "What we'd gain, under 10 words, e.g. '+40 results at ~$150 each' or 'Cut ~$3.4k of wasted spend'." },
+            evidence: {
+              type: "array",
+              minItems: 2,
+              maxItems: 3,
+              description: "The 2-3 numbers that make the case, as short label/value pairs.",
+              items: { type: "object", required: ["label", "value"], properties: { label: { type: "string", description: "Under 5 words, e.g. 'Meta pace'" }, value: { type: "string", description: "Under 12 characters, e.g. '41%', '$92', '7.5% → 3.6%'" } } },
+            },
             hypothesis: { type: "string", description: "If we do X, then Y, because Z." },
             assets: { type: "array", items: { type: "string", enum: Object.keys(ASSETS) }, description: "What needs briefing in." },
             brief_notes: { type: "string", description: "What the team should brief: formats, angles, audiences, setup." },
@@ -76,6 +86,10 @@ type Submitted = {
     sources?: { title: string; url: string }[]
     confidence: string
     effort: string
+    summary?: string
+    impact?: string
+    expected_impact?: string
+    evidence?: { label: string; value: string }[]
   }[]
 }
 
@@ -92,7 +106,7 @@ Research first. Use web search to check (a) the latest B2B paid media trends and
 The client runs LinkedIn, Google Ads and Meta through our data. Other platforms can be suggested if it makes sense, but say they aren't connected yet, so results would be tracked by hand.
 
 ${WEB_SAFETY} Never invent numbers, news or sources. If you're unsure, say so.
-Write in plain UK English, short and specific. When you're done, call submit_sprint_plan once.`
+Write in plain UK English, short and specific. Always write money with the currency symbol ($, £, €), never "USD" or "GBP". Put the most important suggestion first. When you're done, call submit_sprint_plan once.`
 
 type Update = { stage?: string; stage_note?: string | null; progress?: number }
 
@@ -172,6 +186,10 @@ export async function generateSprintPlan(runId: string) {
       sources: (r.sources ?? []).filter((s) => /^https?:\/\//.test(s.url)).slice(0, 8),
       confidence: ["low", "medium", "high"].includes(r.confidence) ? r.confidence : null,
       effort: ["low", "medium", "high"].includes(r.effort) ? r.effort : null,
+      summary: r.summary?.slice(0, 300) || null,
+      impact: r.impact && ["low", "medium", "high"].includes(r.impact) ? r.impact : null,
+      expected_impact: r.expected_impact?.slice(0, 120) || null,
+      evidence: (r.evidence ?? []).filter((e) => e?.label && e?.value).slice(0, 3).map((e) => ({ label: String(e.label).slice(0, 40), value: String(e.value).slice(0, 24) })),
     }))
     const { error } = await db.from("sprint_recommendations").insert(recs)
     if (error) throw new Error(error.message)
