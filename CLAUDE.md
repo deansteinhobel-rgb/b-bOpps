@@ -19,7 +19,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 ## NO WRITES TO NOTION WHILE TESTING. NOTHING GETS DELETED. (Dean, 2026-09-28)
 - Nothing may write to the real Notion workspace during development or testing. That covers scripts, dev servers, tests and one-off checks.
 - Scripts use `scripts/notion-readonly.ts`, which throws on any create, update, append, delete, move, comment or upload call. Never use `new Client()` directly.
-- In the app, a real write needs `NOTION_WRITES_ENABLED=true` **and** `NOTION_DRY_RUN=false`. Both default to the safe value. Dean alone decides when to switch them. Never change them yourself, and never set them in `.env.local`.
+- In the app, a real write needs `NOTION_WRITES_ENABLED=true` **and** `NOTION_DRY_RUN=false`. Both default to the safe value. Dean alone decides when to switch them. Never change them from the safe values yourself, in `.env.local` or anywhere else.
 - Tests use a mocked Notion client only.
 - Deletes are never allowed in any environment. There is no delete code path.
 
