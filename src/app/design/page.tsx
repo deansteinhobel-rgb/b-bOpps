@@ -161,7 +161,7 @@ export default async function DesignPreview() {
 
           <section className="space-y-4">
             <SectionHeader title="Ad fatigue" description="Compact tiles; click one to expand." />
-            <FatiguePanel ads={sampleAds} previews={{}} currency="USD" />
+            <FatiguePanel ads={sampleAds} previews={{ "meta|1|b": { src: sampleImg, link: null, textOnly: false }, "google_ads|1|a": { src: null, link: null, textOnly: true } }} currency="USD" />
           </section>
 
           <CheckDeck title="Week of 28 Sept 2026 – 4 Oct 2026" subtitle="Weekly checks (sample)" items={deckItems} />

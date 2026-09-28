@@ -15,7 +15,7 @@ const SHOW = 24
 const keyOf = (a: FatiguedAd) => `${a.platform}|${a.external_account_id}|${a.ad_id}`
 
 /**
- * Ad fatigue as compact tiles: platform, first seen (red when older than 30 days), and the ad's
+ * Ad fatigue as compact tiles: platform, ad preview, first seen (red when older than 30 days), and the ad's
  * first 14 days against its last 14 days (red when worse). Toggle CTR or cost per result; click a
  * tile for the detail.
  */
@@ -82,28 +82,29 @@ function Tile({ ad: a, mode, preview, currency, open, onToggle }: { ad: Fatigued
 
   return (
     <li className={cn("surface overflow-hidden transition-colors", open ? "col-span-full border-foreground/20" : "hover:border-foreground/20")}>
-      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-3 p-3 text-left">
-        <PlatformIcon platform={a.platform} className="mt-0.5 size-4 shrink-0" />
-        <span className="min-w-0 flex-1 space-y-2">
-          <span className="block truncate text-sm font-medium" title={name}>
-            {name}
-          </span>
-          <span className="block text-xs text-muted-foreground">
-            First seen <span className={cn("tabular-nums", a.old ? "text-rag-red" : "text-foreground")}>{firstSeen}</span>
-          </span>
-          <span className="grid grid-cols-2 gap-2 text-xs">
-            <span>
-              <span className="block text-[11px] text-muted-foreground">First 14 days</span>
-              <span className="tabular-nums">{a.comparable ? first : "–"}</span>
+      {/* The preview sits outside the toggle button: it has its own hover card and Meta link. */}
+      <div className="flex items-center gap-3 p-3">
+        <PlatformIcon platform={a.platform} className="size-4 shrink-0 self-start" />
+        <AdThumb preview={preview} alt={name} size="md" />
+        <button type="button" onClick={onToggle} aria-expanded={open} aria-label={`${name}: ${open ? "hide" : "show"} details`} title={name} className="flex min-w-0 flex-1 items-start gap-2 self-stretch text-left">
+          <span className="min-w-0 flex-1 space-y-2">
+            <span className="block text-xs text-muted-foreground">
+              First seen <span className={cn("block tabular-nums", a.old ? "text-rag-red" : "text-foreground")}>{firstSeen}</span>
             </span>
-            <span>
-              <span className="block text-[11px] text-muted-foreground">Last 14 days</span>
-              <span className={cn("tabular-nums", worse && "text-rag-red")}>{last}</span>
+            <span className="grid grid-cols-2 gap-2 text-xs">
+              <span>
+                <span className="block text-[11px] text-muted-foreground">First 14 days</span>
+                <span className="tabular-nums">{a.comparable ? first : "–"}</span>
+              </span>
+              <span>
+                <span className="block text-[11px] text-muted-foreground">Last 14 days</span>
+                <span className={cn("tabular-nums", worse && "text-rag-red")}>{last}</span>
+              </span>
             </span>
           </span>
-        </span>
-        <ChevronDown className={cn("mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} aria-hidden />
-      </button>
+          <ChevronDown className={cn("mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} aria-hidden />
+        </button>
+      </div>
 
       {open && (
         <div className="grid gap-4 border-t p-4 md:grid-cols-[auto_1fr]">
