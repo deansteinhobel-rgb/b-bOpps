@@ -125,3 +125,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - /admin/people: app roles for signed-in people, and invites (role + Notion user) for people who haven't signed in yet.
 - Saving a client re-links mirrored Notion pages with that Client option straight away. This is our database only; Notion isn't touched.
 - Removing someone from a team sets `removed_at` (soft). RLS and sign-up ignore removed rows. There are still no DELETE policies.
+
+## Sprints: the main loop of the app (Dean, 2026-09-28)
+- Two-week sprints, **the same fortnight for every client**, on alternate Mondays from **Sprint 1 = Mon 28 Sep 2026** (`src/lib/sprints/periods.ts`). One sprint per client. Kept **in the app only**: no Notion writes.
+- The Sprint tab (it replaced Actions; `/actions` redirects there) runs top to bottom:
+  1. **Plan**: goal, hypotheses, items carried from last sprint.
+  2. **Change log**: manual entries plus **Windsor-detected suggestions** (new ads, stopped ads, ≥30% week-on-week platform spend shifts) to log or dismiss.
+  3. **Actions**: reds from the sprint's weekly checks, sprint to-dos, open Notion actions, and the New action form.
+  4. **Review board**, after Dean's "Sprint Review Highlights" slide: key takeaway, highlights (auto numbers + text), top learnings, challenge & hypotheses why, mitigation plan, progress made.
+- **Close sprint** needs a key takeaway. It snapshots the numbers into `sprints.summary`, makes the sprint read-only (admins can reopen), and copies items marked `carry_forward` (learnings and mitigations by default) into the next sprint as `carried` items. The next sprint also pulls them in when it's first created.
+- Numbers compare against the previous sprint over the **same number of days**. A trend shows cost per result for the last 6 sprints. The numbers are cached like the Overview (tag `windsor:<client>`).
+- `/learnings` is the library of learnings and tested hypotheses across all sprints and clients the user can see.
+- No deletes: items are "dropped", changes "dismissed". Tables: `sprints`, `sprint_items`, `sprint_changes` (RLS by client team).

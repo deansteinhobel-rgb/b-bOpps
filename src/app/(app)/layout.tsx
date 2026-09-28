@@ -14,6 +14,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             <Link href="/clients" className="hover:text-lime">
               Clients
             </Link>
+            <Link href="/learnings" className="hover:text-lime">
+              Learnings
+            </Link>
             {isAdmin(profile) && (
               <Link href="/admin/clients" className="hover:text-lime">
                 Admin
