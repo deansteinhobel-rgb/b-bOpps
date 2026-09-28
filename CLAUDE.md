@@ -32,7 +32,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 
 ## Decisions from Phase 0 answers (2026-09-28)
 - First admin: dean.steinhobel@bordeauxandburgundy.co.uk. Other new users get a profile with no role until an admin assigns one.
-- Notion: a single "master production board", not separate Clients/Actions/Briefs databases. Board views are *grouped* by a `Client` property, so a group is not a separate database. Visible properties: Project (title), Production Type (e.g. Landing Page, Campaign, Paid Media, Email, Blog), Client, Priority, Date of Brief, Project Lead (people), Vertical. The rows look like briefs/projects. Where action points live is still open. The mapping is pending `notion-inspect.ts`. The Source, created-by and check-link properties don't exist yet.
+- Notion: a single "Master Production" board, grouped by a `Client` select. See "Notion mapping" below.
 - Conversions: Google Ads uses conversions. LinkedIn and Meta use conversions plus leads.
 - Currency: one per client. A mapped ad account must be in the client's currency.
 - Metrics unique key: `(platform, external_account_id, date, ad_id)`. Rows with no ad use `ad_id = ''`.
@@ -43,13 +43,28 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Red not actioned: 24 hours after `checked_at` with no `notion_action_page_id`. Flag-to records the person and appears in their "Flagged to me" list. Slack notifications come later.
 - Scheduling: Vercel Hobby cron only runs once a day. Proposal: Supabase Cron (pg_cron + pg_net) calls the sync routes, with `CRON_SECRET`. Pending confirmation.
 
-## Notion mapping (from notion-inspect, 2026-09-28, PROPOSED, pending confirmation)
+## Notion mapping (from notion-inspect, 2026-09-28. Confirmed by Dean)
 - Source: data source **Master Production** `2716e9bb-1958-81b0-a4e2-000bf0330ac3` (database page `2716e9bb19588036bc5fe7bc7c46b71e`). The only other shared data source is "From Camber Internal Notion" (slide content). Ignore it.
 - **Client is a `select` property ("Client"), not a relation.** So `clients.notion_client_option` (the exact option name, e.g. "Camber") replaces `clients.notion_page_id`. Mirrored rows resolve `client_id` by matching that name. Rows whose name has no match go to the admin "unmapped" list.
 - Rows are briefs/projects, which drive the Briefs tab: title `Project`, `Production Type`, `Master Status` (status), `Priority`, `Project Lead`, `Date of Brief - Completion of Project`, `Description of Request`, parent/child via `Parent item` / `Child Item`.
 - `Master Status` puts every option in the "To-do" group, so status groups can't mean open/closed. "Open" needs an explicit list of statuses.
 - Relations pointing to databases that aren't shared (e.g. "Camber HQ", "DNS HQ") show up in rows but not in the schema. Ignore them.
-- Actions created by the app would be new rows on this board (proposal). The field mapping for them is pending: see the open questions in chat.
+- **No new properties or select options, ever.** They would disrupt B&B's Notion automations. Use existing properties only.
+- Actions created by the app are new rows on this board:
+  | app | Notion property | value |
+  |---|---|---|
+  | title | `Project` (title) | e.g. "Camber: LinkedIn overspend 24%" |
+  | client | `Client` (select) | the client's exact option name |
+  | owner | `Project Lead` (people) | the chosen profile's notion_user_id |
+  | due date | `Date of Brief - Completion of Project` (date) | |
+  | status on create | `Master Status` (status) | "New" |
+  | type | `Production Type` (select) | "Paid Media" (existing option; no new options allowed) |
+  | created-by | `Brief Submitted by` (text) | "B&B Ops app · {full name}" (this prefix marks app-created rows) |
+  | findings | `Description of Request` (text) | the check's findings |
+  | link back | `QA Document` (url) | the check result's URL in the app |
+- Closed = `Master Status` "Production Complete". Every other status counts as open.
+- Briefs tab: the client's rows, sub-items nested under `Parent item`, sorted by due date. "Production Complete" is hidden behind a "Show completed" toggle.
+- v1 clients: **Camber** and **DNSFilter**.
 
 ## Windsor field mapping (from windsor-inspect, 2026-09-28. Numbers confirmed against the platforms by Dean)
 | ours | linkedin | google_ads | facebook |
@@ -58,10 +73,12 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 | ad_id / ad_name | `creative_id` / `sponsored_creative_content_title` (`ad_name` is deprecated) | `ad_id` / `ad_name` | `ad_id` / `ad_name` |
 | spend | `spend` | `spend` | `spend` |
 | impressions, clicks | `impressions`, `clicks` | `impressions`, `clicks` | `impressions`, `clicks` (`link_clicks` also available) |
-| conversions | `externalwebsiteconversions` (? vs `conversions`) | `conversions` | no single field. Custom events differ per client |
-| leads | `oneclickleads` | n/a | `actions_lead` (or `actions_leadgen_grouped` / `actions_onsite_conversion_lead_grouped`) |
+| conversions | `externalwebsiteconversions` | `conversions` (primary actions; `all_conversions` includes secondary) | per client: DNSFilter `conversions_offsite_conversion_fb_pixel_custom_marketingqualifiedlead`; Camber none (pending) |
+| leads | `oneclickleads` (not `oneclickleadformopens`) | n/a (search = conversions only) | `actions_lead` |
 - Responses are `{ data: [...] }` with numbers as numbers. Filter with `select_accounts=<id>`. The account IDs come from `onboard.windsor.ai/api/common/ds-accounts?datasource=...`.
 - LinkedIn form fields (e.g. `lead_type`) can't be requested together with metrics. Windsor returns HTTP 400.
+- Rule (Dean): use the conversion field that has data over the last 14 days. See `pnpm scan:conversions`. 14-day scan (to 2026-09-27): LinkedIn externalwebsiteconversions Camber 1 / DNSF 32, oneclickleads 4 / 7; Google conversions 1 / 151.08; Meta actions_lead 14 / 25, DNSF MQL custom event 24. Meta `custom_conversion_action_count` (2232 / 3904) is implausibly high. Excluded, pending Dean.
+- Google Ads refuses some field combinations in one request (HTTP 400). Request segment-type conversion fields separately.
 - Plan: store the conversion and lead field IDs **per `client_platform_accounts` row** (`conversion_fields`, `lead_fields` text[]), with the defaults above. Meta needs this.
 - Accounts on the key: LinkedIn (Filevine, DNSFilter, Camber), Google Ads (DNSFilter, Camber), Facebook (Filevine, "DNSFilter X", Camber). Everything is in USD so far.
 - Supabase uses the new keys: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`. The legacy anon and service_role keys are deprecated by the end of 2026.

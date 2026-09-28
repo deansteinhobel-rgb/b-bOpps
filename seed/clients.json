@@ -1,0 +1,85 @@
+{
+  "_readme": "Starting data for the app. Values found in Windsor and Notion are filled in. Anything marked null still needs an answer from Dean.",
+  "clients": [
+    {
+      "name": "Camber",
+      "slug": "camber",
+      "notion_client_option": "Camber",
+      "currency": "USD",
+      "am_email": null,
+      "pm_email": null,
+      "specialist_email": null,
+      "main_kpi": null,
+      "monthly_kpi_target": null,
+      "platform_accounts": [
+        {
+          "platform": "linkedin",
+          "windsor_connector": "linkedin",
+          "external_account_id": "516487368",
+          "account_name": "Camber",
+          "monthly_budget": null,
+          "conversion_fields": ["externalwebsiteconversions"],
+          "lead_fields": ["oneclickleads"]
+        },
+        {
+          "platform": "google_ads",
+          "windsor_connector": "google_ads",
+          "external_account_id": "713-163-5019",
+          "account_name": "Camber",
+          "monthly_budget": null,
+          "conversion_fields": ["conversions"],
+          "lead_fields": []
+        },
+        {
+          "platform": "meta",
+          "windsor_connector": "facebook",
+          "external_account_id": "1660366428678279",
+          "account_name": "Camber",
+          "monthly_budget": null,
+          "conversion_fields": [],
+          "lead_fields": ["actions_lead"]
+        }
+      ]
+    },
+    {
+      "name": "DNSFilter",
+      "slug": "dnsfilter",
+      "notion_client_option": "DNSFilter",
+      "currency": "USD",
+      "am_email": null,
+      "pm_email": null,
+      "specialist_email": null,
+      "main_kpi": null,
+      "monthly_kpi_target": null,
+      "platform_accounts": [
+        {
+          "platform": "linkedin",
+          "windsor_connector": "linkedin",
+          "external_account_id": "506013746",
+          "account_name": "DNSFilter",
+          "monthly_budget": null,
+          "conversion_fields": ["externalwebsiteconversions"],
+          "lead_fields": ["oneclickleads"]
+        },
+        {
+          "platform": "google_ads",
+          "windsor_connector": "google_ads",
+          "external_account_id": "304-054-6900",
+          "account_name": "DNSFilter",
+          "monthly_budget": null,
+          "conversion_fields": ["conversions"],
+          "lead_fields": []
+        },
+        {
+          "platform": "meta",
+          "windsor_connector": "facebook",
+          "external_account_id": "216540795750851",
+          "account_name": "DNSFilter X",
+          "monthly_budget": null,
+          "conversion_fields": ["conversions_offsite_conversion_fb_pixel_custom_marketingqualifiedlead"],
+          "lead_fields": ["actions_lead"]
+        }
+      ]
+    }
+  ]
+}

@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "inspect:notion": "tsx --env-file=.env.local scripts/notion-inspect.ts",
-    "inspect:windsor": "tsx --env-file=.env.local scripts/windsor-inspect.ts"
+    "inspect:windsor": "tsx --env-file=.env.local scripts/windsor-inspect.ts",
+    "scan:conversions": "tsx --env-file=.env.local scripts/windsor-conversion-scan.ts"
   },
   "dependencies": {
     "@notionhq/client": "^5.26.0"
