@@ -9,6 +9,66 @@ const PLATFORMS: Platform[] = ["linkedin", "google_ads", "meta"]
 
 export type PlatformPacing = PacingResult & { platform: Platform; spendMtd: number; budget: number | null; dataThrough: string }
 
+type Range = { platform: string; external_account_id: string; data_from: string; data_through: string }
+type AccountBudget = { platform: string; monthly_budget: number | string | null }
+type MonthBudget = { platform: string; month: string; amount: number | string }
+
+const budgetsQuery = (supabase: SupabaseClient, clientId: string) =>
+  supabase.from("client_budgets").select("platform, month, amount").eq("client_id", clientId).eq("campaign_id", "")
+
+function toDaily(raw: unknown): DailyRow[] {
+  return ((raw as Record<string, unknown>[] | null) ?? []).map((r) => ({
+    platform: r.platform as Platform,
+    date: r.date as string,
+    spend: n(r.spend),
+    impressions: n(r.impressions),
+    clicks: n(r.clicks),
+    conversions: n(r.conversions),
+    leads: n(r.leads),
+  }))
+}
+
+/**
+ * Pacing per platform, each against its own data-through date and that month's budget
+ * (client_budgets for the month, else the accounts' default monthly budgets).
+ */
+function pacingFor(ranges: Range[], accounts: AccountBudget[], budgets: MonthBudget[], daily: DailyRow[]): PlatformPacing[] {
+  const out: PlatformPacing[] = []
+  for (const platform of PLATFORMS) {
+    const platformRanges = ranges.filter((r) => r.platform === platform)
+    if (!platformRanges.length) continue
+    const through = platformRanges.map((r) => r.data_through).sort().at(-1)!
+    const monthStart = through.slice(0, 8) + "01"
+    const monthBudget = budgets.find((b) => b.platform === platform && b.month === monthStart)
+    const accountBudget = accounts.filter((a) => a.platform === platform).reduce((s, a) => s + n(a.monthly_budget), 0)
+    const budget = monthBudget ? n(monthBudget.amount) : accountBudget || null
+    const spendOn = (d: string) => daily.filter((r) => r.platform === platform && r.date === d).reduce((s, r) => s + r.spend, 0)
+    const spendMtd = totals(daily, monthStart, through, platform).spend
+    out.push({
+      platform,
+      spendMtd,
+      budget,
+      dataThrough: through,
+      ...calculatePacing({ spendMtd, budget, dataThrough: through, lastTwoDaysSpend: [spendOn(through), spendOn(addDays(through, -1))] }),
+    })
+  }
+  return out
+}
+
+/** Pacing only: the lighter query set used by the client list cards. */
+export async function getPacing(supabase: SupabaseClient, clientId: string): Promise<{ dataThrough: string; pacing: PlatformPacing[] } | null> {
+  const [{ data: ranges }, { data: accounts }, { data: budgets }] = await Promise.all([
+    supabase.from("account_data_range").select("platform, external_account_id, data_from, data_through").eq("client_id", clientId),
+    supabase.from("client_platform_accounts").select("platform, monthly_budget").eq("client_id", clientId).eq("active", true),
+    budgetsQuery(supabase, clientId),
+  ])
+  if (!ranges?.length) return null
+  const dataThrough = ranges.map((r) => r.data_through as string).sort().at(-1)!
+  const from = addDays(ranges.map((r) => (r.data_through as string).slice(0, 8) + "01").sort()[0], -1)
+  const { data: dailyRaw } = await supabase.rpc("platform_daily", { p_client: clientId, p_from: from, p_to: dataThrough })
+  return { dataThrough, pacing: pacingFor(ranges as Range[], accounts ?? [], budgets ?? [], toDaily(dailyRaw)) }
+}
+
 /**
  * Everything the Overview tab shows for one client. Uses the caller's Supabase client, so RLS
  * decides what they can see. Reads only our cache, never Windsor.
@@ -19,6 +79,7 @@ export async function getOverview(supabase: SupabaseClient, clientId: string) {
     supabase.from("client_platform_accounts").select("platform, external_account_id, monthly_budget").eq("client_id", clientId).eq("active", true),
   ])
   if (!ranges?.length) return null
+  const typedRanges = ranges as Range[]
 
   const dataThrough = ranges.map((r) => r.data_through as string).sort().at(-1)!
   const from60 = addDays(dataThrough, -59)
@@ -27,44 +88,11 @@ export async function getOverview(supabase: SupabaseClient, clientId: string) {
     supabase.rpc("platform_daily", { p_client: clientId, p_from: from60, p_to: dataThrough }),
     supabase.rpc("ad_stats", { p_client: clientId, p_from: addDays(dataThrough, -6), p_to: dataThrough }),
     supabase.rpc("ad_fatigue_inputs", { p_client: clientId }),
-    supabase
-      .from("client_budgets")
-      .select("platform, campaign_id, month, amount")
-      .eq("client_id", clientId)
-      .eq("campaign_id", "")
-      .eq("month", dataThrough.slice(0, 8) + "01"),
+    budgetsQuery(supabase, clientId),
   ])
 
-  const daily: DailyRow[] = (dailyRaw ?? []).map((r: Record<string, unknown>) => ({
-    platform: r.platform as Platform,
-    date: r.date as string,
-    spend: n(r.spend),
-    impressions: n(r.impressions),
-    clicks: n(r.clicks),
-    conversions: n(r.conversions),
-    leads: n(r.leads),
-  }))
-
-  // Pacing per platform, each against its own data-through date.
-  const pacing: PlatformPacing[] = []
-  for (const platform of PLATFORMS) {
-    const platformRanges = ranges.filter((r) => r.platform === platform)
-    if (!platformRanges.length) continue
-    const through = platformRanges.map((r) => r.data_through as string).sort().at(-1)!
-    const monthStart = through.slice(0, 8) + "01"
-    const monthBudget = budgets?.find((b) => b.platform === platform)
-    const accountBudget = (accounts ?? []).filter((a) => a.platform === platform).reduce((s, a) => s + n(a.monthly_budget), 0)
-    const budget = monthBudget ? n(monthBudget.amount) : accountBudget || null
-    const spendOn = (d: string) => daily.filter((r) => r.platform === platform && r.date === d).reduce((s, r) => s + r.spend, 0)
-    const spendMtd = totals(daily, monthStart, through, platform).spend
-    pacing.push({
-      platform,
-      spendMtd,
-      budget,
-      dataThrough: through,
-      ...calculatePacing({ spendMtd, budget, dataThrough: through, lastTwoDaysSpend: [spendOn(through), spendOn(addDays(through, -1))] }),
-    })
-  }
+  const daily = toDaily(dailyRaw)
+  const pacing = pacingFor(typedRanges, accounts ?? [], budgets ?? [], daily)
 
   const periods = {
     last7: totals(daily, addDays(dataThrough, -6), dataThrough),
