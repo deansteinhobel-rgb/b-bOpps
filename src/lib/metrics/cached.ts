@@ -2,6 +2,8 @@ import "server-only"
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getOverview, getPacing } from "./overview"
+import { getPerformance } from "./performance"
+import type { Platform } from "./types"
 
 /**
  * Cached Windsor-derived numbers. They only change when Windsor syncs (daily) or an admin edits
@@ -21,3 +23,9 @@ export const cachedOverview = (clientId: string) =>
 
 export const cachedPacing = (clientId: string) =>
   unstable_cache(() => getPacing(createAdminClient(), clientId), ["pacing", SHAPE, clientId], { tags: ["windsor", windsorTag(clientId)], revalidate: TTL })()
+
+export const cachedPerformance = (clientId: string, days: number, platform: Platform | null, campaignId: string | null = null) =>
+  unstable_cache(() => getPerformance(createAdminClient(), clientId, { days, platform, campaignId }), ["performance", SHAPE, clientId, String(days), platform ?? "all", campaignId ?? ""], {
+    tags: ["windsor", windsorTag(clientId)],
+    revalidate: TTL,
+  })()

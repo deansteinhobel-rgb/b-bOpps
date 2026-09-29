@@ -12,6 +12,8 @@ import { FatiguePanel } from "../(app)/clients/[slug]/fatigue-panel"
 import { PacingPanel } from "../(app)/clients/[slug]/pacing-panel"
 import { AiPanel } from "../(app)/clients/[slug]/sprint/ai-panel"
 import { WinePour } from "@/components/fx/wine-pour"
+import { CampaignTable, Investigator, PlatformSplit, TrendPanel } from "../(app)/clients/[slug]/performance/charts"
+import { derive } from "@/lib/metrics/performance"
 import { adHealth, type FatigueInput } from "@/lib/metrics/ads"
 import type { CheckDefinition, CheckResult } from "@/lib/checks/runs"
 import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
@@ -49,6 +51,18 @@ const sampleAds = adHealth([
   fi("d", "Single Image #1 - The AI Arms Race", "meta", "2026-09-21", 500, 679, 2),
   fi("e", "Brand | DNSFilter", "google_ads", "2026-06-30", 700, 400, 0),
 ])
+// Synthetic performance data (no client numbers on this unauthenticated page).
+const wave = (i: number, base: number, amp: number) => Math.max(0, base + amp * Math.sin(i / 3) + ((i * 37) % 11) - 5)
+const perfDaily = Array.from({ length: 30 }, (_, i) => ({ date: `2026-09-${String(i + 1).padStart(2, "0")}`, ...derive({ spend: wave(i, 900, 250), impressions: wave(i, 30000, 9000), clicks: wave(i, 420, 120), conversions: wave(i, 6, 3), leads: wave(i, 3, 2) }) }))
+const perfPrev = perfDaily.map((d, i) => ({ ...d, date: `2026-08-${String(i + 1).padStart(2, "0")}`, ...derive({ spend: wave(i + 5, 780, 200), impressions: wave(i + 5, 22000, 7000), clicks: wave(i + 5, 380, 100), conversions: wave(i + 5, 5, 2), leads: wave(i + 5, 2, 1) }) }))
+const sumD = (list: typeof perfDaily) => derive(list.reduce((s, d) => ({ spend: s.spend + d.spend, impressions: s.impressions + d.impressions, clicks: s.clicks + d.clicks, conversions: s.conversions + d.conversions, leads: s.leads + d.leads }), { spend: 0, impressions: 0, clicks: 0, conversions: 0, leads: 0 }))
+const perfNow = sumD(perfDaily)
+const perfBefore = sumD(perfPrev)
+const perfCampaigns = [
+  { platform: "google_ads" as const, campaignId: "1", name: "DG | Search | Non-Brand Core", now: derive({ spend: 12400, impressions: 380000, clicks: 6100, conversions: 41, leads: 0 }), prev: derive({ spend: 10100, impressions: 300000, clicks: 5200, conversions: 38, leads: 0 }), daily: perfDaily.map((d) => ({ date: d.date, spend: d.spend * 0.5, results: d.results })), live: true },
+  { platform: "linkedin" as const, campaignId: "2", name: "LI | Cold | Buying committee | 3 months free", now: derive({ spend: 3800, impressions: 71000, clicks: 330, conversions: 2, leads: 5 }), prev: derive({ spend: 3200, impressions: 60000, clicks: 390, conversions: 4, leads: 6 }), daily: perfDaily.map((d) => ({ date: d.date, spend: d.spend * 0.2, results: d.results })), live: true },
+  { platform: "meta" as const, campaignId: "3", name: "Meta | Remarketing | Static", now: derive({ spend: 3967, impressions: 28900, clicks: 414, conversions: 20, leads: 23 }), prev: derive({ spend: 1552, impressions: 13900, clicks: 303, conversions: 2, leads: 4 }), daily: perfDaily.map((d) => ({ date: d.date, spend: d.spend * 0.15, results: d.results })), live: false },
+]
 const samplePacing = [pp("linkedin", 24235, 20000, "red"), pp("google_ads", 80015, 70000, "red"), pp("meta", 5518, 15000, "amber")]
 const sampleCampaigns: CampaignPacing[] = [
   { ...pp("google_ads", 18700, 20000, "green"), campaignId: "1", campaignName: "DG | Search | Non-Brand Core" },
@@ -159,6 +173,18 @@ export default async function DesignPreview() {
           <section className="space-y-4">
             <SectionHeader title="Budget pacing" description="Sliders with the today marker." />
             <PacingPanel platforms={samplePacing} campaigns={sampleCampaigns} currency="USD" month="2026-09-01" canEdit clientSlug="dnsfilter" />
+          </section>
+
+          <section className="space-y-4">
+            <SectionHeader title="Performance" description="Synthetic sample data." />
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+              <TrendPanel daily={perfDaily} prevDaily={perfPrev} currency="USD" />
+              <div className="space-y-6">
+                <Investigator now={perfNow} prev={perfBefore} currency="USD" />
+                <PlatformSplit platforms={perfCampaigns.map((c) => ({ platform: c.platform, now: c.now }))} currency="USD" />
+              </div>
+            </div>
+            <CampaignTable rows={perfCampaigns} currency="USD" slug="dnsfilter" query="" target={300} />
           </section>
 
           <section className="space-y-4">

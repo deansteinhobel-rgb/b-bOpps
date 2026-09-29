@@ -1,4 +1,5 @@
 import "server-only"
+import { rpcAll } from "@/lib/supabase/rpc-all"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { unstable_cache } from "next/cache"
 import { addDays, rankAds, totals, type AdStat, type DailyRow, type Totals } from "@/lib/metrics/ads"
@@ -228,7 +229,7 @@ export async function computeSprintNumbers(clientId: string, period: SprintPerio
     db.from("account_data_range").select("data_through").eq("client_id", clientId),
     db.rpc("platform_daily", { p_client: clientId, p_from: trendFrom, p_to: period.end }),
     db.rpc("ad_stats", { p_client: clientId, p_from: period.start, p_to: period.end }),
-    db.rpc("sprint_ad_events", { p_client: clientId, p_from: period.start, p_to: period.end }),
+    rpcAll(db, "sprint_ad_events", { p_client: clientId, p_from: period.start, p_to: period.end }).then((data) => ({ data })),
   ])
   const dataThrough = (ranges ?? []).map((r) => r.data_through as string).sort().at(-1) ?? null
   const daily: DailyRow[] = ((dailyRaw ?? []) as Record<string, unknown>[]).map((r) => ({

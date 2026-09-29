@@ -1,4 +1,5 @@
 import "server-only"
+import { rpcAll } from "@/lib/supabase/rpc-all"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { addDays, adHealth, fatiguedAds, newCreativesThisMonth, rankAds, totals, type AdStat, type DailyRow, type FatigueInput } from "./ads"
 import { calculatePacing, type PacingResult } from "./pacing"
@@ -105,7 +106,7 @@ export async function getOverview(supabase: SupabaseClient, clientId: string) {
   const [{ data: dailyRaw }, { data: adRaw }, { data: fatigueRaw }, { data: budgets }, { data: campaignRaw }, { data: campaignBudgets }] = await Promise.all([
     supabase.rpc("platform_daily", { p_client: clientId, p_from: from60, p_to: dataThrough }),
     supabase.rpc("ad_stats", { p_client: clientId, p_from: addDays(dataThrough, -6), p_to: dataThrough }),
-    supabase.rpc("ad_fatigue_inputs", { p_client: clientId }),
+    rpcAll(supabase, "ad_fatigue_inputs", { p_client: clientId }).then((data) => ({ data })),
     budgetsQuery(supabase, clientId),
     supabase.rpc("campaign_month", { p_client: clientId, p_from: monthStart, p_to: dataThrough }),
     supabase.from("client_budgets").select("platform, campaign_id, amount").eq("client_id", clientId).eq("month", monthStart).neq("campaign_id", ""),
