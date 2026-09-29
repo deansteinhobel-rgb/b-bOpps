@@ -7,3 +7,12 @@ project_id = "mazdffcxbgfspjemqhqx"
 site_url = "https://bbmopsapp.vercel.app"
 # /auth/confirm only (with its ?next= query), on production and while developing locally.
 additional_redirect_urls = ["https://bbmopsapp.vercel.app/auth/confirm**", "http://localhost:3000/auth/confirm**"]
+
+# Sign in with Google (Dean, 2026-09-29). Google Cloud OAuth client "Sauvignon Blanc" (consent screen
+# Internal: B&B Workspace accounts only). The secret is never stored here: it's read from the
+# SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET environment variable when pushing.
+[auth.external.google]
+enabled = true
+client_id = "331057899403-43qek70ocv68g8b42ql23oquvpkl21fr.apps.googleusercontent.com"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+skip_nonce_check = false
