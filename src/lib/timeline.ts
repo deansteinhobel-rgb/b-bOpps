@@ -115,7 +115,8 @@ export async function loadTimeline(supabase: SupabaseClient, admin: SupabaseClie
       detail: r.campaigns.size > 1 ? `Across ${r.campaigns.size} campaigns` : null,
       via: p.via,
       bulk: true,
-      campaigns: [...r.campaigns],
+      // Campaigns the platform has no name for (drafts, removed) show as "Campaign 123".
+      campaigns: [...r.campaigns].map((c) => (/^\d+$/.test(c) ? `Campaign ${c}` : c)),
     })
   }
   for (const p of single) {
@@ -131,7 +132,7 @@ export async function loadTimeline(supabase: SupabaseClient, admin: SupabaseClie
       detail: [p.object_name && p.object_name !== p.campaign_name ? p.object_name : null, p.detail].filter(Boolean).join(" · ") || null,
       via: p.via,
       bulk: Boolean(p.bulk),
-      campaigns: p.campaigns ?? [],
+      campaigns: (p.campaigns ?? []).map((c) => (/^\d+$/.test(c) ? `Campaign ${c}` : c)),
     })
   }
   for (const t of tests ?? []) {

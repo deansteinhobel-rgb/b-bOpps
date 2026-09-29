@@ -142,10 +142,11 @@ export async function syncGoogleChanges(a: Account, from: string, to: string) {
     "change_event_change_resource_name",
   ], from, to)
   const names = await campaignNames(a.client_id)
-  // Old or removed campaigns aren't in our data: ask Windsor for every campaign name this year.
+  // Old campaigns (e.g. ones a tool still edits but that haven't spent in years) aren't in our data:
+  // ask Windsor for every campaign name over the last three years.
   const missing = new Set(rows.map((r) => str(r.change_event_campaign).split("/").at(-1) ?? "").filter((id) => id && !names.has(`google_ads|${id}`)))
   if (missing.size) {
-    const list = await windsor("google_ads", a.external_account_id, ["campaign_id", "campaign"], `${to.slice(0, 4)}-01-01`, to).catch(() => [])
+    const list = await windsor("google_ads", a.external_account_id, ["campaign_id", "campaign", "campaign_status"], `${Number(to.slice(0, 4)) - 3}-01-01`, to).catch(() => [])
     for (const r of list) if (str(r.campaign_id) && str(r.campaign)) names.set(`google_ads|${str(r.campaign_id)}`, str(r.campaign))
   }
   // Group: same person, tool, kind of change and operation in the same hour.
