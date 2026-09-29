@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["dub1"],
+  "crons": [
+    { "path": "/api/cron/brain", "schedule": "0 0 * * *" },
+    { "path": "/api/cron/brain?slot=2", "schedule": "0 1 * * *" },
+    { "path": "/api/cron/breakdowns?linkedin=1", "schedule": "0 1 * * *" },
+    { "path": "/api/cron/breakdowns?linkedin=1&slot=2", "schedule": "0 2 * * *" },
+    { "path": "/api/cron/breakdowns?linkedin=1&slot=3", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/notion", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/windsor", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/breakdowns", "schedule": "0 5 * * *" },
+    { "path": "/api/cron/creatives", "schedule": "30 5 * * *" },
+    { "path": "/api/cron/insights", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/insights?slot=2", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/notion?slot=2", "schedule": "0 12 * * *" }
+  ]
+}
