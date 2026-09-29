@@ -9,7 +9,7 @@ export type AnyPlatform = Platform | "bing" | "reddit" | "x" | "chatgpt"
 const MARK: Partial<Record<AnyPlatform, { src: string; alt: string; tile?: boolean }>> = {
   linkedin: { src: "/platforms/linkedin.png", alt: "LinkedIn", tile: true },
   google_ads: { src: "/platforms/google_ads.png", alt: "Google Ads" },
-  meta: { src: "/platforms/meta.png", alt: "Meta" },
+  meta: { src: "/platforms/meta.png?v=2", alt: "Meta" },
   bing: { src: "/platforms/microsoft.png", alt: "Microsoft Ads" },
   reddit: { src: "/platforms/reddit.png", alt: "Reddit", tile: true },
   x: { src: "/platforms/x.png", alt: "X", tile: true },
