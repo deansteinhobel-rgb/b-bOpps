@@ -12,7 +12,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { loadTimeline } from "@/lib/timeline"
 import { cn } from "@/lib/utils"
+import { getProfile, isAdmin } from "@/lib/auth"
 import { CampaignSpend } from "./campaign-spend"
+import { GoalCard, type GoalView } from "./goal-card"
 import { Timeline } from "./timeline"
 
 export const metadata = { title: "Account" }
@@ -42,12 +44,37 @@ export default async function AccountPage({ params }: PageProps<"/clients/[slug]
   const period = sprintOf(today)
   const since = new Date(Date.parse(today) - 60 * 864e5).toISOString()
 
-  const [numbers, pacing, { data: sprints }, timeline] = await Promise.all([
+  // The client's main business goals (e.g. DNSFilter's Activated Free Trials), this month and last.
+  const month = `${today.slice(0, 7)}-01`
+  const lastMonth = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 2, 1)).toISOString().slice(0, 10)
+  const monthName = (m: string) => new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(new Date(m))
+  const [numbers, pacing, { data: sprints }, timeline, { data: goals }, me] = await Promise.all([
     getAccountNumbers(supabase, client.id),
     cachedPacing(client.id), // access confirmed above (client loaded through RLS)
     supabase.from("sprints").select("id, number, start_date, end_date, key_takeaway, closed_at").eq("client_id", client.id).in("start_date", [sprintByNumber(period.number - 1).start, period.start, sprintByNumber(period.number + 1).start]),
     loadTimeline(supabase, createAdminClient(), client, since), // admin only reads the Notion write log, after the RLS check
+    supabase.from("client_goals").select("id, name, monthly_target, client_goal_values(month, value, target, updated_at, profiles(full_name, email))").eq("client_id", client.id).eq("active", true).order("position"),
+    getProfile(),
   ])
+  const goalViews: GoalView[] = (goals ?? []).map((g) => {
+    const values = (g.client_goal_values ?? []) as unknown as { month: string; value: number | string; target: number | string | null; updated_at: string; profiles: { full_name: string | null; email: string } | null }[]
+    const cur = values.find((x) => x.month === month)
+    const prev = values.find((x) => x.month === lastMonth)
+    const who = cur?.profiles?.full_name ?? cur?.profiles?.email
+    return {
+      id: g.id,
+      name: g.name,
+      month,
+      monthLabel: monthName(month),
+      value: cur ? Number(cur.value) : null,
+      target: cur?.target != null ? Number(cur.target) : g.monthly_target != null ? Number(g.monthly_target) : null,
+      lastMonthLabel: monthName(lastMonth),
+      lastMonth: prev ? Number(prev.value) : null,
+      dayOfMonth: Number(today.slice(8, 10)),
+      daysInMonth: new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0)).getUTCDate(),
+      updated: cur ? `${shortDate(cur.updated_at.slice(0, 10))}${who ? ` by ${who}` : ""}` : null,
+    }
+  })
   const byNumber = new Map((sprints ?? []).map((s) => [s.number as number, s]))
   const current = byNumber.get(period.number)
   const next = byNumber.get(period.number + 1)
@@ -75,6 +102,11 @@ export default async function AccountPage({ params }: PageProps<"/clients/[slug]
           {numbers && ` This month to ${shortDate(numbers.dataThrough)} (day ${numbers.daysElapsed} of ${numbers.daysInMonth}), against the same days last month.`}
         </p>
       </div>
+
+      {/* The client's main goal(s), first (Dean: DNSFilter tracks Activated Free Trials weekly) */}
+      {goalViews.map((g) => (
+        <GoalCard key={g.id} slug={slug} goal={g} canEdit={isAdmin(me)} />
+      ))}
 
       {/* This month at a glance */}
       <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-4">
