@@ -81,8 +81,8 @@ writes off, dry run on); 12 daily scheduled jobs (`vercel.json`), checked end to
 
 ## After the first deploy
 
-- [ ] Header check: https://securityheaders.com and https://developer.mozilla.org/observatory
-      (aim for A or better).
+- [x] Header check: Mozilla Observatory **A+ (125, 12 of 12 tests)** on 2026-09-29
+      (https://developer.mozilla.org/en-US/observatory/analyze?host=bbmopsapp.vercel.app).
 - [ ] TLS check: https://www.ssllabs.com/ssltest
 - [ ] OWASP ZAP baseline scan against a preview deployment (only our own app).
 - [ ] `/security-review` in Claude Code on the whole codebase.
