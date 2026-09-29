@@ -796,3 +796,16 @@ export function applyActions(insights: Insight[], log: LoggedAction[], today: st
     })
     .sort((a, b) => priority(b) - priority(a))
 }
+
+/**
+ * Changes whenever the rules' code changes, so a cached feed from older rules is never shown (the
+ * cache key includes it; on Vercel the data cache outlives a deploy).
+ */
+export const RULES_FINGERPRINT = codeFingerprint(computeInsights, linkedinInsights, metaInsights, landingInsights, completeThrough, goalOf)
+
+/** A short hash of some functions' source code. */
+export function codeFingerprint(...fns: ((...args: never[]) => unknown)[]) {
+  let h = 5381
+  for (const ch of fns.map(String).join("\n")) h = ((h << 5) + h + ch.charCodeAt(0)) | 0
+  return (h >>> 0).toString(36)
+}

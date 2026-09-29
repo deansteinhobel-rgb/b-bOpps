@@ -9,7 +9,8 @@ import { adKey, previewsFor } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
 import { Delta, Investigator, Sparkline, TrendPanel } from "../../charts"
 import { CampaignDetailData } from "../../breakdowns"
-import { Controls, parseDays, parsePlatform } from "../../controls"
+import { Controls } from "../../controls"
+import { parseDays, parsePlatform } from "../../params"
 import { campaignBreakdowns } from "@/lib/metrics/breakdowns"
 import { LoadedInsightSummary } from "../../../insights/summary"
 
@@ -63,7 +64,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
           <h2 className="text-2xl">{campaign.name}</h2>
         </div>
       </div>
-      <Controls base={`/clients/${slug}/performance/${platform}/${encodeURIComponent(campaignId)}`} days={days} platform={null} from={perf.periods.from} to={perf.periods.to} />
+      <Controls base={`/clients/${slug}/performance/${platform}/${encodeURIComponent(campaignId)}`} days={days} platform={null} from={perf.periods.from} to={perf.periods.to} prevFrom={perf.periods.prevFrom} prevTo={perf.periods.prevTo} />
 
       <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-4 xl:grid-cols-7">
         {CARDS.map((k) => (

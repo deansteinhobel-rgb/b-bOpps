@@ -6,7 +6,8 @@ import type { Platform } from "@/lib/metrics/types"
 import { createClient } from "@/lib/supabase/server"
 import { CampaignTable, Delta, Investigator, PlatformSplit, Sparkline, TrendPanel } from "./charts"
 import { LandingPages } from "./breakdowns"
-import { Controls, parseDays, parsePlatform } from "./controls"
+import { Controls } from "./controls"
+import { parseDays, parsePlatform } from "./params"
 import { landingPages } from "@/lib/metrics/breakdowns"
 import { LoadedInsightSummary } from "../insights/summary"
 
@@ -36,7 +37,17 @@ export default async function PerformancePage({ params, searchParams }: PageProp
 
   return (
     <div className="space-y-6">
-      <Controls base={base} days={days} platform={platform} platforms={(all ?? perf).platforms.map((p) => p.platform as Platform)} from={perf.periods.from} to={perf.periods.to} />
+      <Controls
+        base={base}
+        days={days}
+        platform={platform}
+        platforms={(all ?? perf).platforms.map((p) => ({ platform: p.platform as Platform, spend: p.now.spend }))}
+        currency={cur}
+        from={perf.periods.from}
+        to={perf.periods.to}
+        prevFrom={perf.periods.prevFrom}
+        prevTo={perf.periods.prevTo}
+      />
 
       <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-4 xl:grid-cols-7">
         {CARDS.map((k) => (

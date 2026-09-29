@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { AdThumb } from "@/components/ad-thumb"
+import { FilterChip, Segmented } from "@/components/segmented"
 import { PlatformIcon } from "@/components/brand"
 import { fieldClass } from "@/components/field-class"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,7 @@ import { isOpportunity, RULES, type Category, type FeedInsight, type InsightPlat
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import type { PreviewMap } from "@/lib/previews"
 import { cn } from "@/lib/utils"
+import { PLATFORM_COLOR } from "../performance/charts"
 import { briefInsight, logInsight, testFromInsight } from "./actions"
 
 type Owner = { id: string | null; name: string; onTeam: boolean }
@@ -130,37 +132,28 @@ export function InsightFeed(props: {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 rounded-lg border bg-card p-1" role="tablist" aria-label="Insight status">
-          {VIEWS.map((v) => {
-            const n = props.insights.filter((i) => i.state === v.key).length
-            return (
-              <button
-                key={v.key}
-                type="button"
-                role="tab"
-                aria-selected={view === v.key}
-                onClick={() => setView(v.key)}
-                className={cn("rounded-md px-3 py-1.5 text-sm transition-colors", view === v.key ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
-              >
-                {v.label} <span className="ml-1 text-xs tabular-nums text-muted-foreground">{n}</span>
-              </button>
-            )
-          })}
-        </div>
+        <Segmented
+          label="Insight status"
+          tone="quiet"
+          size="md"
+          value={view}
+          onChange={setView}
+          options={VIEWS.map((v) => ({ value: v.key, label: v.label, count: props.insights.filter((i) => i.state === v.key).length }))}
+        />
         <div className="flex flex-wrap items-center gap-1.5">
-          <Chip active={!platform} onClick={() => setPlatform(null)}>
+          <FilterChip active={!platform} onClick={() => setPlatform(null)}>
             All platforms
-          </Chip>
+          </FilterChip>
           {platformsHere.map((p) => (
-            <Chip key={p} active={platform === p} onClick={() => setPlatform(platform === p ? null : p)}>
+            <FilterChip key={p} active={platform === p} color={p === "ga4" ? "#e37400" : PLATFORM_COLOR[p]} onClick={() => setPlatform(platform === p ? null : p)}>
               <Icon platform={p} className="size-3.5" />
               {platformName(p)}
-            </Chip>
+            </FilterChip>
           ))}
           {category && (
-            <Chip active onClick={() => setCategory(null)}>
+            <FilterChip active onClick={() => setCategory(null)}>
               {CATEGORY[category].label} ✕
-            </Chip>
+            </FilterChip>
           )}
         </div>
       </div>
@@ -217,18 +210,6 @@ function openStake(i: FeedInsight) {
   return i.atStake ?? 0
 }
 
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors", active ? "border-foreground/30 bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground")}
-    >
-      {children}
-    </button>
-  )
-}
 
 type RowProps = Parameters<typeof InsightFeed>[0] & { insight: FeedInsight; open: boolean; onToggle: () => void }
 

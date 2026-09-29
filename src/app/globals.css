@@ -241,3 +241,14 @@
   70% { transform: scaleY(0.6); }
 }
 .wine-hang { animation: wine-hang 1.15s ease-in-out infinite; transform-origin: 50% 0; }
+
+/* Performance toolbar: the loading bar while a new view loads (controls.tsx). */
+@keyframes toolbar-load {
+  0% { transform: scaleX(0); }
+  60% { transform: scaleX(0.7); }
+  100% { transform: scaleX(0.92); }
+}
+.animate-toolbar-load { animation: toolbar-load 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-toolbar-load { animation: none; transform: scaleX(1); }
+}

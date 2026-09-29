@@ -19,6 +19,8 @@ import { adHealth, type FatigueInput } from "@/lib/metrics/ads"
 import type { CheckDefinition, CheckResult } from "@/lib/checks/runs"
 import { applyActions, computeInsights, type InsightInputs } from "@/lib/insights/rules"
 import { InsightFeed } from "../(app)/clients/[slug]/insights/feed"
+import { Controls } from "../(app)/clients/[slug]/performance/controls"
+import { ClientTabs } from "../(app)/clients/[slug]/client-tabs"
 import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
 
 const def = (key: string, name: string): CheckDefinition => ({ id: key, key, name, cadence: "weekly", owner_role: "specialist", pre_loaded: null, instructions: "Sample instructions for the design preview.", what_to_record: "What you found", not_applicable_when: null, flag_immediately_when: null, guide: "Green = fine. Amber = watch. Red = act now.", sort_order: 1 })
@@ -255,6 +257,10 @@ export default async function DesignPreview() {
 
           <section className="space-y-4">
             <SectionHeader title="Performance" description="Synthetic sample data." />
+            <div className="border-b">
+              <ClientTabs slug="sample" />
+            </div>
+            <Controls base="/design" days={30} platform={null} platforms={[{ platform: "linkedin", spend: 3800 }, { platform: "google_ads", spend: 12400 }, { platform: "meta", spend: 3967 }]} currency="USD" from="2026-08-29" to="2026-09-27" prevFrom="2026-07-30" prevTo="2026-08-28" />
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
               <TrendPanel daily={perfDaily} prevDaily={perfPrev} currency="USD" />
               <div className="space-y-6">
