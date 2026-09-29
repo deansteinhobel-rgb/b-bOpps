@@ -12,7 +12,7 @@ import { sendMagicLink, signInWithGoogle, type LoginState } from "./actions"
 // Bot protection on sign-in, when switched on (docs/security.md). The site key is public by design.
 const TURNSTILE = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
-export function LoginForm({ next, error, google }: { next?: string; error?: string; google?: boolean }) {
+export function LoginForm({ next, error, google, email = true }: { next?: string; error?: string; google?: boolean; email?: boolean }) {
   const [state, action, pending] = useActionState<LoginState, FormData>(sendMagicLink, {
     status: error ? "error" : "idle",
     message: error,
@@ -37,13 +37,22 @@ export function LoginForm({ next, error, google }: { next?: string; error?: stri
             <input type="hidden" name="next" value={next ?? "/"} />
             <GoogleButton />
           </form>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden>
-            <span className="h-px flex-1 bg-border" />
-            or get a link by email
-            <span className="h-px flex-1 bg-border" />
-          </div>
+          {email && (
+            <div className="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden>
+              <span className="h-px flex-1 bg-border" />
+              or get a link by email
+              <span className="h-px flex-1 bg-border" />
+            </div>
+          )}
+          {!email && state.status === "error" && state.message && (
+            <p className="text-sm text-rag-red" role="alert">
+              {state.message}
+            </p>
+          )}
+          {!email && <p className="text-center text-xs text-muted-foreground">Use your Bordeaux &amp; Burgundy Google account.</p>}
         </>
       )}
+    {email && (
     <form action={action} className="space-y-4">
       <input type="hidden" name="next" value={next ?? "/"} />
       <div className="space-y-2">
@@ -69,6 +78,7 @@ export function LoginForm({ next, error, google }: { next?: string; error?: stri
         </Button>
       </Sparkle>
     </form>
+    )}
     </div>
   )
 }

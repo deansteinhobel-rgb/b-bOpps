@@ -11,6 +11,10 @@ export type LoginState = { status: "idle" | "sent" | "error"; message?: string; 
 const domain = (process.env.ALLOWED_EMAIL_DOMAIN ?? "bordeauxandburgundy.co.uk").toLowerCase()
 
 export async function sendMagicLink(_prev: LoginState, form: FormData): Promise<LoginState> {
+  // Hidden on the login page while Google is the way in (see page.tsx); refuse direct posts too.
+  if (process.env.GOOGLE_SIGNIN_ENABLED === "true" && process.env.EMAIL_SIGNIN_ENABLED !== "true") {
+    return { status: "error", message: "Sign in with your Bordeaux & Burgundy Google account." }
+  }
   const parsed = z.string().trim().toLowerCase().email().safeParse(form.get("email"))
   if (!parsed.success) return { status: "error", message: "Enter a valid email address." }
   const email = parsed.data

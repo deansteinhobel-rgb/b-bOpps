@@ -32,6 +32,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
             error={typeof error === "string" ? ERRORS[error] : undefined}
             // Shown once Google is set up in Supabase (GOOGLE_SIGNIN_ENABLED=true).
             google={process.env.GOOGLE_SIGNIN_ENABLED === "true"}
+            // Email links are off until there's a proper email sender (Supabase's built-in one allows a
+            // few an hour). EMAIL_SIGNIN_ENABLED=true brings them back.
+            email={process.env.EMAIL_SIGNIN_ENABLED === "true" || process.env.GOOGLE_SIGNIN_ENABLED !== "true"}
           />
         </div>
       </div>
