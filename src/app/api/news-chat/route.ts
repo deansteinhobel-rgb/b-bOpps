@@ -3,7 +3,9 @@ import { getProfile } from "@/lib/auth"
 import { aiConfigured, claude, SOURCE_GUIDE, WATCHED_PLATFORMS, WEB_SAFETY, webTools } from "@/lib/ai/claude"
 import { NEWS_CACHE_DAYS, NEWS_STARTERS } from "@/lib/ai/news-starters"
 import { londonToday } from "@/lib/checks/periods"
+import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 
 export const maxDuration = 120
 
@@ -39,6 +41,8 @@ export async function POST(request: Request) {
     .slice(-12)
     .map((m) => ({ role: m.role, content: m.content.slice(0, 6000) }))
   if (!history.length || history.at(-1)!.role !== "user") return new Response("Ask something first.", { status: 400 })
+  const limited = await rateLimit(await createClient(), "news_chat")
+  if (limited) return new Response(limited, { status: 429 })
 
   const question = history.at(-1)!.content.trim()
   const cacheKey = history.length === 1 && NEWS_STARTERS.includes(question) ? question : null

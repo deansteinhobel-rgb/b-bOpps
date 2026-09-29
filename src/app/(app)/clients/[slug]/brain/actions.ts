@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { FILE_BUCKET } from "@/lib/knowledge/brief"
 import { readHqPage } from "@/lib/knowledge/notion-hq"
+import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
@@ -55,6 +56,8 @@ export async function startUpload(slug: string, name: string, type: string, size
   if (size > 10 * 1024 * 1024) return fail("Files must be under 10 MB.")
   const { clientId } = await clientFor(slug)
   if (!clientId) return fail("This client isn't available to you.")
+  const limited = await rateLimit(await createClient(), "brain_upload")
+  if (limited) return fail(limited)
   const path = `${clientId}/${Date.now()}-${name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120)}`
   const { data, error } = await createAdminClient().storage.from(FILE_BUCKET).createSignedUploadUrl(path)
   if (error || !data) return fail("Couldn't start the upload.")

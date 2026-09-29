@@ -107,6 +107,13 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - RAG colours are tuned for dark (#4ade80 / #fbbf24 / #f87171 with 12% backgrounds) and never use lime.
 - `/design` is a **development-only** preview with sample data, used to check the look without signing in. It 404s in production.
 
+## Security (2026-09-29, before the first Vercel deploy)
+- Everything is in `docs/security.md`: what's in place and the settings to switch on (GitHub, Supabase, Vercel, Anthropic). Keep it current.
+- `src/proxy.ts`: login redirect for everything except `/login`, `/auth/*` and **`/api/cron/*` (they check `CRON_SECRET` themselves)**; a per-request **nonce CSP** (the root layout reads `headers()` so every page renders per request and gets the nonce). If a new feature loads anything from another origin (images, scripts, iframes, fetches), add it to the CSP there, or it will be blocked.
+- `next.config.ts`: HSTS, frame, nosniff, referrer, permissions and opener headers; no `X-Powered-By`.
+- **Rate limits** (`src/lib/rate-limit.ts`, `take_rate_limit()`): any new route that calls Claude or takes uploads gets a limit.
+- CI (`.github/workflows`): types, lint, tests, RLS tests and `pnpm audit`; CodeQL; Gitleaks over the full history (`.gitleaks.toml`); Dependabot weekly.
+
 ## Conventions
 - Small steps, one commit per working step, clear messages.
 - Tests only for the Notion write function (mocked) and pacing. Use Vitest.

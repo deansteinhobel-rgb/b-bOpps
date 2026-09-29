@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { aiConfigured } from "@/lib/ai/claude"
 import { runInsightReview, startInsightReview } from "@/lib/insights/review"
+import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 
 // A review takes about a minute and runs after the response (see `after`), within this limit.
@@ -21,6 +22,8 @@ export async function POST(request: Request) {
   const since = new Date(Date.now() - 10 * 60_000).toISOString()
   const { data: running } = await supabase.from("insight_reviews").select("id").eq("client_id", client.id).eq("status", "generating").gte("created_at", since).maybeSingle()
   if (running) return NextResponse.json({ reviewId: running.id })
+  const limited = await rateLimit(supabase, "insight_review")
+  if (limited) return NextResponse.json({ error: limited }, { status: 429 })
   const reviewId = await startInsightReview(client.id, me.id)
   after(() => runInsightReview(reviewId))
   return NextResponse.json({ reviewId })

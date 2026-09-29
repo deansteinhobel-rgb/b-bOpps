@@ -4,6 +4,7 @@ import { aiConfigured } from "@/lib/ai/claude"
 import { buildClientBrief } from "@/lib/knowledge/brief"
 import { discoverClientHq, readClientHq } from "@/lib/knowledge/notion-hq"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 
 // Each step stays well inside this; the brief (about a minute) runs after the response.
@@ -26,6 +27,9 @@ export async function POST(request: Request) {
 
   try {
     if (body.step === "discover") {
+      // A refresh starts with "discover" (then reads and a Claude brief), so that's what is counted.
+      const limited = await rateLimit(supabase, "brain_refresh")
+      if (limited) return NextResponse.json({ error: limited }, { status: 429 })
       if (!client.notion_hq_page_id) return NextResponse.json({ pages: 0, added: 0 })
       return NextResponse.json(await discoverClientHq(client.id, { full: Boolean(body.force) }))
     }

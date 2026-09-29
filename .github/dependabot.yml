@@ -1,0 +1,27 @@
+# Dependabot (security review, 2026-09-29): weekly checks for vulnerable or outdated packages and
+# GitHub Actions. Minor and patch updates come grouped in one pull request, so it stays quiet.
+# Security fixes arrive as soon as they're published, whatever the schedule. Turn on "Dependabot
+# alerts" and "Dependabot security updates" in the repository's Settings -> Code security.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Europe/London
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    labels: [dependencies]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    labels: [dependencies]

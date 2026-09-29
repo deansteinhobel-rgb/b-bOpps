@@ -5,6 +5,7 @@ import { londonToday } from "@/lib/checks/periods"
 import { buildCampaignContext } from "@/lib/insights/campaign-context"
 import { WEEKLY_READ } from "@/lib/insights/campaign-starters"
 import type { Platform } from "@/lib/metrics/types"
+import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
@@ -47,6 +48,8 @@ export async function POST(request: Request) {
     .slice(-12)
     .map((m) => ({ role: m.role, content: m.content.slice(0, 6000) }))
   if (!history.length || history.at(-1)!.role !== "user") return new Response("Ask something first.", { status: 400 })
+  const limited = await rateLimit(supabase, "campaign_chat")
+  if (limited) return new Response(limited, { status: 429 })
   const weekly = history.length === 1 && history[0].content.trim() === WEEKLY_READ
   const db = createAdminClient()
 

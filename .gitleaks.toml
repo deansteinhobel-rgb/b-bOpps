@@ -1,0 +1,28 @@
+# Gitleaks config: the default rules, plus the keys this app uses. Placeholders in .env.example are
+# allowed; real values only ever live in .env.local (git-ignored) and in Vercel.
+title = "Sauvignon Blanc secret scan"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "anthropic-api-key"
+description = "Anthropic API key"
+regex = '''sk-ant-(?:api|admin)\d{2}-[A-Za-z0-9_\-]{20,}'''
+keywords = ["sk-ant-"]
+
+[[rules]]
+id = "supabase-secret-key"
+description = "Supabase secret key"
+regex = '''sb_secret_[A-Za-z0-9_\-]{20,}'''
+keywords = ["sb_secret_"]
+
+[[rules]]
+id = "notion-token"
+description = "Notion integration token"
+regex = '''\b(?:ntn_|secret_)[A-Za-z0-9]{40,}\b'''
+keywords = ["ntn_", "secret_"]
+
+[allowlist]
+description = "Examples and lockfiles"
+paths = ['''\.env\.example$''', '''pnpm-lock\.yaml$''']

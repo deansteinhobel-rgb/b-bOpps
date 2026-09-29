@@ -142,3 +142,14 @@ const fbAdmin = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("update
 console.log(fbAndreaTriage.length === 0 && fbAdmin.length === 1 ? "only admins triage feedback: OK" : "FAIL: feedback triage")
 const fbDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.feedback returning id"))
 console.log(fbDel.length === 0 ? "feedback can't be deleted: OK" : "FAIL: feedback deleted")
+
+// Rate limits: per person and kind, capped; nobody signed in gets nothing; the events table is closed.
+const take = () => as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select public.take_rate_limit('test', 2, 3600) as ok"))
+const r1 = await take(), r2 = await take(), r3 = await take()
+console.log(r1[0].ok && r2[0].ok && !r3[0].ok ? "rate limit allows 2 then blocks: OK" : "FAIL: rate limit")
+const other = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select public.take_rate_limit('test', 2, 3600) as ok"))
+console.log(other[0].ok ? "limits are per person: OK" : "FAIL: limit shared between people")
+const anon = await as("", () => q("select public.take_rate_limit('test', 2, 3600) as ok"))
+console.log(!anon[0].ok ? "no session, no quota: OK" : "FAIL: anonymous quota")
+const peek = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("select id from public.rate_limit_events"))
+console.log(peek.length === 0 ? "rate limit events are private: OK" : "FAIL: events readable")

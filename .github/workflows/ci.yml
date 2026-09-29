@@ -1,0 +1,34 @@
+# Checks on every push and pull request: types, lint, unit tests, the offline database access tests
+# (in-memory Postgres; never touches the real project) and known vulnerabilities in the packages the
+# app ships. No secrets are needed or used.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - name: Database access tests (RLS)
+        run: pnpm test:db
+      - name: Known vulnerabilities (high and critical fail the build)
+        run: pnpm audit --prod --audit-level high

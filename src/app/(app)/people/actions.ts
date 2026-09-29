@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 
 // Profiles (Dean, 2026-09-29). People edit their own details; admins can edit anyone's. Role, email
@@ -52,6 +53,8 @@ export async function uploadAvatar(profileId: string, form: FormData): Promise<P
   const file = form.get("file")
   if (!(file instanceof File) || !file.size) return fail("Pick an image.")
   if (file.size > 900_000 || !["image/webp", "image/png", "image/jpeg"].includes(file.type)) return fail("Use a JPG, PNG or WebP image.")
+  const limited = await rateLimit(await createClient(), "avatar_upload")
+  if (limited) return fail(limited)
   const path = `${profileId}/${Date.now()}.${file.type === "image/png" ? "png" : file.type === "image/jpeg" ? "jpg" : "webp"}`
   const admin = createAdminClient()
   const { error } = await admin.storage.from("avatars").upload(path, file, { contentType: file.type, upsert: false })

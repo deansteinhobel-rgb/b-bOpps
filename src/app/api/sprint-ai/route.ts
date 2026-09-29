@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { aiConfigured } from "@/lib/ai/claude"
 import { generateSprintPlan } from "@/lib/ai/generate"
+import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 
 // A generation takes 1-3 minutes and runs after the response (see `after`), within this limit.
@@ -24,6 +25,8 @@ export async function POST(request: Request) {
   const since = new Date(Date.now() - 10 * 60_000).toISOString()
   const { data: running } = await supabase.from("sprint_ai_runs").select("id").eq("sprint_id", sprintId).eq("status", "generating").gte("created_at", since).maybeSingle()
   if (running) return NextResponse.json({ runId: running.id })
+  const limited = await rateLimit(supabase, "sprint_pour")
+  if (limited) return NextResponse.json({ error: limited }, { status: 429 })
 
   const { data: run, error } = await supabase
     .from("sprint_ai_runs")

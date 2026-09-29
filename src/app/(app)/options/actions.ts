@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { postToSlack } from "@/lib/slack"
+import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 
 export type OptionsResult = { ok: boolean; message?: string }
@@ -41,6 +42,8 @@ export async function sendFeedback(raw: z.input<typeof Feedback>): Promise<Optio
   if (!p.success) return fail(p.error.issues[0].message)
   const me = await getProfile()
   const supabase = await createClient()
+  const limited = await rateLimit(supabase, "feedback")
+  if (limited) return fail(limited)
   const { error } = await supabase.from("feedback").insert({ profile_id: me.id, kind: p.data.kind, title: p.data.title, details: p.data.details || null, page_url: p.data.page_url || null })
   if (error) return fail("Couldn't send it.")
   await postToSlack(`${p.data.kind === "bug" ? "Bug report" : "Feature idea"} from ${me.full_name ?? me.email}: ${p.data.title}`).catch(() => {})
