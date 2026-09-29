@@ -243,7 +243,6 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
   const ids = chosen.map((x) => x.id)
   const preview = p.previews[i.key]
   const rule = RULES[i.rule]
-  const proposed = rule.rule.startsWith("PROPOSED: ")
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>, success: string) =>
     start(async () => {
@@ -340,8 +339,7 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
       <details className="text-xs text-muted-foreground">
         <summary className="cursor-pointer select-none hover:text-foreground">Why am I seeing this?</summary>
         <p className="mt-1.5">
-          {proposed ? rule.rule.replace("PROPOSED: ", "") : rule.rule}
-          {proposed && <span className="ml-1 rounded bg-secondary px-1.5 py-0.5 text-[10px]">proposed threshold</span>}
+          {rule.rule}
           {i.campaignName && " The campaign's goal is read from its name; awareness campaigns aren't judged on cost per result."}
         </p>
       </details>

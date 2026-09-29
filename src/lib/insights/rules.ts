@@ -1,6 +1,6 @@
 /**
  * The "Optimise now" rules (Performance phase 3). Pure functions: no database or network access.
- * Thresholds confirmed by Dean (2026-09-29) unless marked PROPOSED. Each insight carries `items`
+ * Thresholds confirmed by Dean (2026-09-29), including the refinements added in phase 3. Each insight carries `items`
  * (search terms, companies, a week...) so that done / dismissed can hide what was handled while
  * anything new brings the insight back (see applyActions).
  */
@@ -51,19 +51,19 @@ export const RULES: Record<RuleKey, { label: string; rule: string }> = {
   rank_lost: { label: "Lost to rank", rule: "Search impression share lost to rank above 30% (last 14 days)." },
   no_spend: { label: "Stopped spending", rule: "No spend in the last 2 days on a campaign that spent in the week before." },
   ctr_up: { label: "CTR up", rule: "Ad CTR up 30% or more, last 7 days against the 7 before, with 1,000+ impressions in both." },
-  high_cpl: { label: "High cost per result", rule: "Campaign cost per result over the last 7 days above 1.5× target, or above 1.5× its own average for the 30 days before." },
+  high_cpl: { label: "High cost per result", rule: "Campaign cost per result over the last 7 days above 1.5× target (or no results after spending 1.5× target), or above 1.5× its own average for the 30 days before." },
   no_results: { label: "No results", rule: "No conversions or leads in the last 14 days after spending at least the target cost per result." },
   li_own_company: { label: "Own staff", rule: "The client's own company (or ours) among the companies LinkedIn showed the ads to (last 30 days)." },
   li_companies: { label: "Companies to check", rule: "Companies whose people clicked the ads in the last 30 days, to check against the ICP and exclude the ones that don't fit." },
-  li_weak_segments: { label: "Audiences to exclude", rule: "PROPOSED: job functions, industries or seniorities with 10%+ of a campaign's spend and under half its CTR (1,000+ impressions)." },
-  li_strong_segments: { label: "Audiences to include", rule: "PROPOSED: job functions, industries or seniorities with 1.5× a campaign's CTR or better (1,000+ impressions)." },
-  li_junior: { label: "Junior audience", rule: "PROPOSED: Entry, Training and Unpaid seniorities together take 10%+ of a campaign's impressions." },
+  li_weak_segments: { label: "Audiences to exclude", rule: "job functions, industries or seniorities with 10%+ of a campaign's spend and under half its CTR (1,000+ impressions)." },
+  li_strong_segments: { label: "Audiences to include", rule: "job functions, industries or seniorities with 1.5× a campaign's CTR or better (1,000+ impressions)." },
+  li_junior: { label: "Junior audience", rule: "Entry, Training and Unpaid seniorities together take 10%+ of a campaign's impressions." },
   meta_frequency: { label: "High frequency", rule: "Ad set frequency above 4 over the last 7 days." },
   meta_learning: { label: "Stuck in learning", rule: "Ad sets that are learning limited, or still learning every day for a week." },
   meta_placements: { label: "Placements", rule: "Placements that spent the target cost per result with no results while the campaign converts, or cost 2× the campaign's cost per result (last 30 days)." },
   meta_ages: { label: "Age groups", rule: "Age groups that spent the target cost per result with no results while the campaign converts, or cost 2× the campaign's cost per result (last 30 days)." },
-  meta_lookalike: { label: "Lookalike", rule: "PROPOSED: 100+ Meta results in the last 90 days, enough people to seed a lookalike audience." },
-  landing_pages: { label: "Landing pages", rule: "PROPOSED: paid search landing pages with 100+ sessions in 30 days and under half the average engagement rate, or no conversions where 2+ were expected." },
+  meta_lookalike: { label: "Lookalike", rule: "100+ Meta results in the last 90 days, enough people to seed a lookalike audience." },
+  landing_pages: { label: "Landing pages", rule: "paid search landing pages with 100+ sessions in 30 days and under half the average engagement rate, or no conversions where 2+ were expected." },
 }
 
 export type CampaignDays = { platform: Platform; campaignId: string; name: string; daily: ({ date: string } & Sums)[] }
@@ -286,23 +286,32 @@ export function computeInsights(input: InsightInputs): Insight[] {
     const before30 = span(c, addDays(through, -36), addDays(through, -7))
     const cost7 = cpr(last7)
     const cost30 = cpr(before30)
-    if (cost7 !== null && (cost7 > 1.5 * target || (cost30 !== null && cost7 > 1.5 * cost30))) {
-      const overTarget = cost7 > 1.5 * target
+    const last14 = span(c, addDays(through, -13), through)
+    const noResults14 = last14.results === 0 && last14.spend >= target
+    // A week with no results at all, after more than 1.5x target, is over target too (unless the
+    // 14-day "no results" insight below already covers it).
+    const emptyWeek = last7.results === 0 && last7.spend > 1.5 * target && !noResults14
+    if (emptyWeek || (cost7 !== null && (cost7 > 1.5 * target || (cost30 !== null && cost7 > 1.5 * cost30)))) {
+      const overTarget = emptyWeek || cost7! > 1.5 * target
+      const ratio = emptyWeek ? last7.spend / target : cost7! / target
       out.push({
         key: `high_cpl:${c.platform}:${c.campaignId}`,
         rule: "high_cpl",
         category: "problem",
-        severity: cost7 > 2 * target ? "high" : overTarget ? "medium" : "low",
+        severity: ratio > 2 ? "high" : overTarget ? "medium" : "low",
         platform: c.platform,
         campaignId: c.campaignId,
         campaignName: c.name,
-        title: `Cost per result ${money(cost7)} this week`,
-        why: overTarget
-          ? `${round1(cost7 / target)}× the ${money(target)} target over the last 7 days${cost30 !== null ? ` (${money(cost30)} over the 30 days before)` : ""}.`
-          : `${round1(cost7 / cost30!)}× its own ${money(cost30!)} average for the 30 days before, though still under the ${money(target)} target.`,
-        todo: "Use \"Why did it move?\" on the campaign: is it fewer conversions per click (landing page, audience) or dearer clicks (competition, CTR)?",
+        title: emptyWeek ? `No results this week after ${money(last7.spend)}` : `Cost per result ${money(cost7!)} this week`,
+        why: emptyWeek
+          ? `${round1(ratio)}× the ${money(target)} target spent in the last 7 days without a conversion or lead${cost30 !== null ? ` (${money(cost30)} per result over the 30 days before)` : ""}.`
+          : overTarget
+            ? `${round1(ratio)}× the ${money(target)} target over the last 7 days${cost30 !== null ? ` (${money(cost30)} over the 30 days before)` : ""}.`
+            : `${round1(cost7! / cost30!)}× its own ${money(cost30!)} average for the 30 days before, though still under the ${money(target)} target.`,
+        todo: "Use \"Why did it move?\" on the campaign: is it fewer conversions per click (landing page, audience, tracking) or dearer clicks (competition, CTR)?",
         numbers: [
-          { label: "Cost per result (7 days)", value: money(cost7), tone: "bad" },
+          { label: "Cost per result (7 days)", value: emptyWeek ? "no results" : money(cost7!), tone: "bad" },
+          { label: "Spend (7 days)", value: money(last7.spend) },
           { label: "30 days before", value: cost30 === null ? "–" : money(cost30) },
           { label: "Target", value: money(target) },
         ],
@@ -311,8 +320,7 @@ export function computeInsights(input: InsightInputs): Insight[] {
         atStake: last7.spend,
       })
     }
-    const last14 = span(c, addDays(through, -13), through)
-    if (last14.results === 0 && last14.spend >= target) {
+    if (noResults14) {
       out.push({
         key: `no_results:${c.platform}:${c.campaignId}`,
         rule: "no_results",
