@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import { AdThumb } from "@/components/ad-thumb"
 import { PlatformLabel } from "@/components/brand"
@@ -10,6 +11,7 @@ import { Delta, Investigator, Sparkline, TrendPanel } from "../../charts"
 import { CampaignDetailData } from "../../breakdowns"
 import { Controls, parseDays, parsePlatform } from "../../controls"
 import { campaignBreakdowns } from "@/lib/metrics/breakdowns"
+import { LoadedInsightSummary } from "../../../insights/summary"
 
 const CARDS: MetricKey[] = ["spend", "impressions", "clicks", "ctr", "cpc", "results", "cpr"]
 const AD_COLS: MetricKey[] = ["spend", "impressions", "ctr", "results", "cpr"]
@@ -79,6 +81,9 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <TrendPanel daily={perf.daily} prevDaily={perf.prevDaily} currency={cur} />
         <div className="space-y-6">
+          <Suspense fallback={null}>
+            <LoadedInsightSummary slug={slug} clientId={client.id} currency={cur} platform={platform} campaignId={campaignId} title="Optimise this campaign" />
+          </Suspense>
           <Investigator now={perf.now} prev={perf.prev} currency={cur} />
           {(tests ?? []).length > 0 && (
             <div className="surface space-y-2 p-5">

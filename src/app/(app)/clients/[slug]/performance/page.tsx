@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { Suspense } from "react"
 import { cachedPerformance } from "@/lib/metrics/cached"
 import { fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import type { Platform } from "@/lib/metrics/types"
@@ -7,12 +8,13 @@ import { CampaignTable, Delta, Investigator, PlatformSplit, Sparkline, TrendPane
 import { LandingPages } from "./breakdowns"
 import { Controls, parseDays, parsePlatform } from "./controls"
 import { landingPages } from "@/lib/metrics/breakdowns"
+import { LoadedInsightSummary } from "../insights/summary"
 
 export const metadata = { title: "Performance" }
 
 const CARDS: MetricKey[] = ["spend", "impressions", "clicks", "ctr", "cpc", "results", "cpr"]
 
-/** The Performance tab: the whole account, then each campaign. Insights come in a later phase. */
+/** The Performance tab: the whole account, then each campaign, with the top "Optimise now" insights. */
 export default async function PerformancePage({ params, searchParams }: PageProps<"/clients/[slug]/performance">) {
   const { slug } = await params
   const sp = await searchParams
@@ -52,6 +54,9 @@ export default async function PerformancePage({ params, searchParams }: PageProp
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <TrendPanel daily={perf.daily} prevDaily={perf.prevDaily} currency={cur} />
         <div className="space-y-6">
+          <Suspense fallback={null}>
+            <LoadedInsightSummary slug={slug} clientId={client.id} currency={cur} platform={platform} />
+          </Suspense>
           <Investigator now={perf.now} prev={perf.prev} currency={cur} />
           {!platform && <PlatformSplit platforms={perf.platforms} currency={cur} />}
         </div>

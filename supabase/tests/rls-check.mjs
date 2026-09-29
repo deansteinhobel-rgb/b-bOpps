@@ -108,3 +108,14 @@ const deanApproves = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("u
 console.log(deanApproves.length === 1 ? "admin approves: OK" : "FAIL: admin couldn't approve")
 const delRec = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.sprint_recommendations returning id"))
 console.log(delRec.length === 0 ? "suggestions can't be deleted: OK" : "FAIL: suggestion deleted")
+
+// Insight actions: the client's team logs what it did with an insight; append-only (no updates, no deletes).
+const ia = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.insight_actions (client_id, insight_key, rule, action, items) values ('11111111-1111-1111-1111-111111111111', 'negatives:google_ads:1', 'negatives', 'done', '{foo}') returning id, profile_id`))
+console.log(ia.length === 1 && ia[0].profile_id === "aaaaaaaa-0000-0000-0000-000000000002" ? "andrea logs a camber insight action: OK" : "FAIL: insight action not logged")
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.insight_actions (client_id, insight_key, rule, action) values ('22222222-2222-2222-2222-222222222222', 'x', 'x', 'done')`)); console.log("FAIL: andrea logged a dnsfilter insight") } catch { console.log("andrea blocked from dnsfilter insights: OK") }
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.insight_actions (client_id, insight_key, rule, action, profile_id) values ('11111111-1111-1111-1111-111111111111', 'x', 'x', 'done', 'aaaaaaaa-0000-0000-0000-000000000001')`)); console.log("FAIL: logged as someone else") } catch { console.log("can't log as someone else: OK") }
+const iaDanny = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select id from public.insight_actions"))
+console.log(iaDanny.length === 0 ? "danny (dnsfilter) can't see camber insight actions: OK" : "FAIL: cross-client insight action visible")
+const iaUpd = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("update public.insight_actions set action = 'dismissed' returning id"))
+const iaDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.insight_actions returning id"))
+console.log(iaUpd.length === 0 && iaDel.length === 0 ? "insight actions are append-only, even for admin: OK" : "FAIL: insight action changed")

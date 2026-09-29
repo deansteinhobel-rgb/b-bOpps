@@ -17,6 +17,8 @@ import { derive } from "@/lib/metrics/performance"
 import { CampaignDetailData, LandingPages } from "../(app)/clients/[slug]/performance/breakdowns"
 import { adHealth, type FatigueInput } from "@/lib/metrics/ads"
 import type { CheckDefinition, CheckResult } from "@/lib/checks/runs"
+import { applyActions, computeInsights, type InsightInputs } from "@/lib/insights/rules"
+import { InsightFeed } from "../(app)/clients/[slug]/insights/feed"
 import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
 
 const def = (key: string, name: string): CheckDefinition => ({ id: key, key, name, cadence: "weekly", owner_role: "specialist", pre_loaded: null, instructions: "Sample instructions for the design preview.", what_to_record: "What you found", not_applicable_when: null, flag_immediately_when: null, guide: "Green = fine. Amber = watch. Red = act now.", sort_order: 1 })
@@ -91,6 +93,57 @@ const sampleCampaigns: CampaignPacing[] = [
  * DEVELOPMENT ONLY: a preview of the design system with sample data, so the look can be checked
  * without signing in. Returns 404 in production. Reads only client names and public logo URLs.
  */
+
+// "Optimise now" on made-up numbers (never real client data), run through the real rules.
+const day = (n: number) => new Date(Date.parse("2026-09-27") - n * 864e5).toISOString().slice(0, 10)
+const days90 = (f: (n: number) => { spend: number; impressions: number; clicks: number; results: number }) => Array.from({ length: 90 }, (_, n) => ({ date: day(89 - n), ...f(89 - n) }))
+const sampleInputs: InsightInputs = {
+  clientName: "Sample Co",
+  currency: "USD",
+  target: 300,
+  dataThrough: { google_ads: day(0), linkedin: day(0), meta: day(0) },
+  campaigns: [
+    { platform: "google_ads", campaignId: "g1", name: "Sample | Search | Non-Brand", daily: days90((n) => ({ spend: 180, impressions: 900, clicks: 40, results: n < 7 ? 0.2 : 0.8 })) },
+    { platform: "google_ads", campaignId: "g2", name: "Sample | Search | Competitors", daily: days90((n) => ({ spend: n < 2 ? 0 : 90, impressions: n < 2 ? 0 : 400, clicks: n < 2 ? 0 : 12, results: n % 5 === 0 ? 1 : 0 })) },
+    { platform: "linkedin", campaignId: "l1", name: "Sample_Cold_JobTitles_LG", daily: days90(() => ({ spend: 60, impressions: 2500, clicks: 11, results: 0 })) },
+    { platform: "meta", campaignId: "m1", name: "Sample_Meta_Retargeting", daily: days90((n) => ({ spend: 70, impressions: 3000, clicks: 25, results: n % 3 === 0 ? 1 : 0 })) },
+  ],
+  ads: [
+    { platform: "meta", external_account_id: "a", campaignId: "m1", campaignName: "Sample_Meta_Retargeting", adId: "ad1", adName: "Sample: customer quote video", last7: { spend: 250, impressions: 9000, clicks: 120, results: 3 }, prev7: { spend: 240, impressions: 9500, clicks: 70, results: 2 } },
+  ],
+  terms: [
+    { campaignId: "g1", campaignName: "Sample | Search | Non-Brand", term: "free sample widgets", spend: 720, impressions: 3100, clicks: 140, results: 0, isKeyword: false },
+    { campaignId: "g1", campaignName: "Sample | Search | Non-Brand", term: "widget jobs", spend: 640, impressions: 2200, clicks: 96, results: 0, isKeyword: false },
+    { campaignId: "g1", campaignName: "Sample | Search | Non-Brand", term: "sample co login", spend: 900, impressions: 1500, clicks: 300, results: 0, isKeyword: false },
+    { campaignId: "g1", campaignName: "Sample | Search | Non-Brand", term: "widget platform for teams", spend: 410, impressions: 900, clicks: 51, results: 4, isKeyword: false },
+  ],
+  share: Array.from({ length: 14 }, (_, n) => ({ campaignId: "g1", campaignName: "Sample | Search | Non-Brand", date: day(n), lostBudget: 0.02, lostRank: 0.58 })),
+  metaAdsets: [{ campaignId: "m1", campaignName: "Sample_Meta_Retargeting", value: "as1", adsetName: "Sample: site visitors 30d", m: { spend: 490, impressions: 21000, clicks: 175, results: 2 }, reach: 3800, frequency: 5.5, learning: "FAIL" }],
+  metaLearningDays: [],
+  metaAges: [],
+  metaPlacements: [],
+  linkedin: {
+    li_company: {
+      asOf: day(0),
+      rows: [
+        { campaignId: "l1", campaignName: "Sample_Cold_JobTitles_LG", value: "Sample Co", m: { spend: 40, impressions: 800, clicks: 3, results: 0 } },
+        { campaignId: "l1", campaignName: "Sample_Cold_JobTitles_LG", value: "Widget Recruiters Ltd", m: { spend: 25, impressions: 300, clicks: 4, results: 0 } },
+        { campaignId: "l1", campaignName: "Sample_Cold_JobTitles_LG", value: "Example University", m: { spend: 18, impressions: 210, clicks: 2, results: 0 } },
+      ],
+    },
+    li_seniority: {
+      asOf: day(0),
+      rows: [
+        { campaignId: "l1", campaignName: "Sample_Cold_JobTitles_LG", value: "Director", m: { spend: 700, impressions: 30000, clicks: 150, results: 0 } },
+        { campaignId: "l1", campaignName: "Sample_Cold_JobTitles_LG", value: "Entry", m: { spend: 500, impressions: 22000, clicks: 30, results: 0 } },
+        { campaignId: "l1", campaignName: "Sample_Cold_JobTitles_LG", value: "Training", m: { spend: 150, impressions: 8000, clicks: 10, results: 0 } },
+      ],
+    },
+  },
+  landing: [],
+}
+const sampleFeed = applyActions(computeInsights(sampleInputs), [{ insight_key: "negatives:google_ads:g1", action: "done", items: ["widget jobs"], snooze_until: null, created_at: "2026-09-26T10:00:00Z", profile_name: "Sample Person" }], "2026-09-29")
+
 export default async function DesignPreview() {
   if (process.env.NODE_ENV !== "development") notFound()
   const { data: clients } = await createAdminClient().from("clients").select("slug, name, logo_url").order("name")
@@ -191,6 +244,11 @@ export default async function DesignPreview() {
           <section className="space-y-4">
             <SectionHeader title="Budget pacing" description="Sliders with the today marker." />
             <PacingPanel platforms={samplePacing} campaigns={sampleCampaigns} currency="USD" month="2026-09-01" canEdit clientSlug="dnsfilter" />
+          </section>
+
+          <section className="space-y-4">
+            <SectionHeader title="Optimise now" description="The real rules on made-up numbers." />
+            <InsightFeed slug="sample" clientName="Sample Co" currency="USD" target={300} insights={sampleFeed} dataThrough={day(0)} previews={{}} owners={[{ id: "00000000-0000-0000-0000-000000000000", name: "Sample Person", onTeam: true }]} live={false} defaultDue="2026-10-02" sprintNumber={1} openKey={null} />
           </section>
 
           <section className="space-y-4">

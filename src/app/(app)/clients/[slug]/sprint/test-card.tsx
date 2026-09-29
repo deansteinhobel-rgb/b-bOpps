@@ -55,6 +55,7 @@ export function TestCard(props: {
           <PlatformLabel platform={t.platform} className="text-foreground" />
           {t.carried_from_test_id && <span>Carried from last sprint</span>}
           {t.recommendation_id && <PourTag />}
+          {t.insight_key && <OptimiseTag />}
         </div>
         <h3 className="text-base leading-snug font-bold">{t.title}</h3>
         <p className="text-xs text-muted-foreground">
@@ -424,6 +425,18 @@ export function PourTag({ className }: { className?: string }) {
         <path d="M8 7.5v5.5M5.5 14.5h5" />
       </svg>
       Pour a Sprint suggestion
+    </span>
+  )
+}
+
+/** Tag for tests made from an "Optimise now" insight. */
+export function OptimiseTag({ className }: { className?: string }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full border border-violet/40 bg-violet/10 px-2 py-0.5 text-[11px] font-medium text-violet", className)} title="Made from an Optimise now insight">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden>
+        <path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8l1-5.5Z" />
+      </svg>
+      Optimise now
     </span>
   )
 }

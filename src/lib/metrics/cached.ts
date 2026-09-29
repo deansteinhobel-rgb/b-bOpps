@@ -1,6 +1,7 @@
 import "server-only"
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { getInsights } from "@/lib/insights/load"
 import { getOverview, getPacing } from "./overview"
 import { getPerformance } from "./performance"
 import type { Platform } from "./types"
@@ -29,3 +30,7 @@ export const cachedPerformance = (clientId: string, days: number, platform: Plat
     tags: ["windsor", windsorTag(clientId)],
     revalidate: TTL,
   })()
+
+/** The insight rules' output (Performance phase 3). The team's done / snooze / dismiss log is read live, not cached. */
+export const cachedInsights = (clientId: string) =>
+  unstable_cache(() => getInsights(createAdminClient(), clientId), ["insights", SHAPE, clientId], { tags: ["windsor", windsorTag(clientId)], revalidate: TTL })()

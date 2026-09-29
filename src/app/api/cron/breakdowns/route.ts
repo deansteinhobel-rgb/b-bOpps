@@ -1,12 +1,14 @@
+import { revalidateTag } from "next/cache"
 import { NextResponse, type NextRequest } from "next/server"
-import { syncDailyBreakdowns, syncNextLinkedInBreakdown } from "@/lib/windsor/breakdowns"
+import { syncDailyBreakdowns, syncMetaWeek, syncNextLinkedInBreakdown } from "@/lib/windsor/breakdowns"
 import { daysAgo } from "@/lib/windsor/sync"
 
 export const maxDuration = 300
 
 /**
  * Phase 2 breakdowns. Reads Windsor; writes our database only.
- *   GET /api/cron/breakdowns            daily: search terms, keywords, impression share, Meta, GA4 (last 3 days, ~1 minute)
+ *   GET /api/cron/breakdowns            daily: search terms, keywords, impression share, Meta, GA4 (last 3 days, ~1 minute),
+ *                                      plus Meta ad sets over the last 7 days (frequency)
  *   GET /api/cron/breakdowns?linkedin=1 one LinkedIn 30-day breakdown, the stalest first (2-4 minutes each; each one
  *                                      refreshes weekly, so run it every 30 minutes for a few hours overnight)
  * Requires `Authorization: Bearer $CRON_SECRET`.
@@ -18,8 +20,10 @@ export async function GET(request: NextRequest) {
   }
   if (request.nextUrl.searchParams.get("linkedin")) {
     const r = await syncNextLinkedInBreakdown(daysAgo(1))
+    if (r && !r.error) revalidateTag("windsor", { expire: 0 }) // the insights read these
     return NextResponse.json({ ok: !r?.error, result: r ?? "all LinkedIn breakdowns are up to date" })
   }
-  const results = await syncDailyBreakdowns({ from: daysAgo(3), to: daysAgo(1) })
+  const results = [...(await syncDailyBreakdowns({ from: daysAgo(3), to: daysAgo(1) })), ...(await syncMetaWeek(daysAgo(1)))]
+  revalidateTag("windsor", { expire: 0 }) // the insights read these
   return NextResponse.json({ ok: results.every((r) => !r.error), results })
 }

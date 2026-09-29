@@ -9,14 +9,14 @@ import { createAdminClient } from "@/lib/supabase/admin"
 export type Kind =
   | "search_term" | "keyword" | "impression_share"
   | "li_company" | "li_job_title" | "li_seniority" | "li_industry" | "li_job_function"
-  | "meta_age_gender" | "meta_placement" | "meta_adset"
+  | "meta_age_gender" | "meta_placement" | "meta_adset" | "meta_adset_7d"
   | "ga4_landing_page"
 
 type Account = { client_id: string; source: "google_ads" | "linkedin" | "meta" | "ga4"; connector: string; external_account_id: string; conversion_fields: string[]; lead_fields: string[] }
 
 type Spec = {
   connector: string
-  /** Daily rows, or one 30-day total per run (LinkedIn demographics: minutes per report). */
+  /** Daily rows, or one total per run (LinkedIn demographics over 30 days: minutes per report; Meta ad sets over 7 days). */
   daily: boolean
   fields: string[]
   group?: [string, string]
@@ -45,6 +45,8 @@ const SPECS: Record<Kind, Spec> = {
   meta_age_gender: { connector: "facebook", daily: true, fields: ["spend", "impressions", "clicks"], group: ["adset_id", "adset_name"], dims: ["age", "gender"], results: true },
   meta_placement: { connector: "facebook", daily: true, fields: ["spend", "impressions", "clicks"], dims: ["publisher_platform", "platform_position"], results: true },
   meta_adset: { connector: "facebook", daily: true, fields: ["spend", "impressions", "clicks"], group: ["adset_id", "adset_name"], dims: ["adset_id"], results: false, extra: ["reach", "frequency", "adset_learning_stage_info"] },
+  // Reach doesn't add up across days, so the 7-day frequency needs one report over the whole week.
+  meta_adset_7d: { connector: "facebook", daily: false, fields: ["spend", "impressions", "clicks"], group: ["adset_id", "adset_name"], dims: ["adset_id"], results: true, extra: ["reach", "frequency", "adset_learning_stage_info"] },
   ga4_landing_page: {
     connector: "googleanalytics4",
     daily: true,
@@ -55,7 +57,7 @@ const SPECS: Record<Kind, Spec> = {
   },
 }
 export const DAILY_KINDS = (Object.keys(SPECS) as Kind[]).filter((k) => SPECS[k].daily)
-export const LINKEDIN_KINDS = (Object.keys(SPECS) as Kind[]).filter((k) => !SPECS[k].daily)
+export const LINKEDIN_KINDS = (Object.keys(SPECS) as Kind[]).filter((k) => !SPECS[k].daily && SPECS[k].connector === "linkedin")
 const SOURCE_OF: Record<string, Account["source"]> = { google_ads: "google_ads", linkedin: "linkedin", facebook: "meta", googleanalytics4: "ga4" }
 
 const num = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0)
@@ -164,6 +166,20 @@ export async function syncDailyBreakdowns(opts: { from: string; to: string; clie
         await createAdminClient().from("breakdown_sync_state").upsert({ client_id: a.client_id, source: a.source, external_account_id: a.external_account_id, kind, error: (e as Error).message.slice(0, 300), synced_at: new Date().toISOString() })
         results.push({ kind, account: a.external_account_id, error: (e as Error).message })
       }
+    }
+  }
+  return results
+}
+
+/** Meta ad sets over the 7 days to `to`, as one total per ad set (for frequency). Fast, so it runs daily. */
+export async function syncMetaWeek(to: string) {
+  const from = new Date(Date.parse(to) - 6 * 864e5).toISOString().slice(0, 10)
+  const results: { kind: Kind; account: string; rows?: number; error?: string }[] = []
+  for (const a of await accountsFor("meta_adset_7d")) {
+    try {
+      results.push({ kind: "meta_adset_7d", account: a.external_account_id, rows: await syncBreakdown("meta_adset_7d", a, from, to) })
+    } catch (e) {
+      results.push({ kind: "meta_adset_7d", account: a.external_account_id, error: (e as Error).message })
     }
   }
   return results

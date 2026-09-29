@@ -150,6 +150,7 @@ export async function carryTests(supabase: SupabaseClient, fromSprintId: string,
       carried_from_test_id: t.id,
       created_by_profile_id: t.created_by_profile_id,
       recommendation_id: t.recommendation_id, // keeps the "Pour a Sprint" link
+      insight_key: t.insight_key, // and the "Optimise now" one
     }))
   if (rows.length) {
     const { error } = await supabase.from("sprint_tests").insert(rows)
@@ -162,6 +163,8 @@ export type SprintTest = {
   id: string
   /** Set when the test came from an approved "Pour a Sprint" suggestion. */
   recommendation_id: string | null
+  /** Set when the test was made from an "Optimise now" insight. */
+  insight_key: string | null
   platform: Platform | null
   title: string
   hypothesis: string | null
