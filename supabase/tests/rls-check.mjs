@@ -192,3 +192,21 @@ const dannySees = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("sele
 console.log(andreaSees.length === 1 && dannySees.length === 0 ? "goals are read by the client's team only: OK" : "FAIL: goal visibility")
 const goalDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.client_goal_values returning value"))
 console.log(goalDel.length === 0 ? "goal figures can't be deleted: OK" : "FAIL: goal figure deleted")
+
+// Report links: admins, GTM leads and the client's AMs create and turn off links; specialists and
+// viewers can't; other columns can't be changed; nothing is deleted.
+const tok = (c) => c.repeat(40)
+const adminLink = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.report_links (client_id, board, token, created_by_profile_id) values ('11111111-1111-1111-1111-111111111111', 'all', '${tok("a")}', 'aaaaaaaa-0000-0000-0000-000000000001') returning id`))
+const amLink = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`insert into public.report_links (client_id, board, token, created_by_profile_id) values ('22222222-2222-2222-2222-222222222222', 'linkedin', '${tok("b")}', 'aaaaaaaa-0000-0000-0000-000000000003') returning id`))
+console.log(adminLink.length === 1 && amLink.length === 1 ? "admin and the client's AM create report links: OK" : "FAIL: report link create")
+try { await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`insert into public.report_links (client_id, board, token, created_by_profile_id) values ('11111111-1111-1111-1111-111111111111', 'all', '${tok("c")}', 'aaaaaaaa-0000-0000-0000-000000000003')`)); console.log("FAIL: AM shared another client's report") } catch { console.log("AM can't share another client's report: OK") }
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.report_links (client_id, board, token, created_by_profile_id) values ('11111111-1111-1111-1111-111111111111', 'all', '${tok("d")}', 'aaaaaaaa-0000-0000-0000-000000000002')`)); console.log("FAIL: specialist created a link") } catch { console.log("specialist can't create report links: OK") }
+try { await as(vera, () => q(`insert into public.report_links (client_id, board, token, created_by_profile_id) values ('11111111-1111-1111-1111-111111111111', 'all', '${tok("e")}', '${vera}')`)); console.log("FAIL: viewer created a link") } catch { console.log("viewer can't create report links: OK") }
+const veraLinks = await as(vera, () => q("select id from public.report_links"))
+const dannyLinks = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select id from public.report_links"))
+console.log(veraLinks.length === 0 && dannyLinks.length === 1 ? "report links are read by the client's team only (not viewers): OK" : `FAIL: link visibility (viewer ${veraLinks.length}, AM ${dannyLinks.length})`)
+try { await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`update public.report_links set board = 'meta' where id = '${amLink[0].id}'`)); console.log("FAIL: AM changed a link's board") } catch { console.log("a link's board and client can't be changed: OK") }
+const off = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`update public.report_links set revoked_at = now(), revoked_by_profile_id = 'aaaaaaaa-0000-0000-0000-000000000003' where id = '${amLink[0].id}' returning id`))
+console.log(off.length === 1 ? "AM turns a link off: OK" : "FAIL: AM couldn't turn a link off")
+const linkDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.report_links returning id"))
+console.log(linkDel.length === 0 ? "report links can't be deleted: OK" : "FAIL: report link deleted")

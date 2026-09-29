@@ -10,7 +10,7 @@ import type { Platform } from "@/lib/metrics/types"
  * The report boards one at a time, like Databox's slides (Dean): tabs to jump, and ‹ 1 / 4 › to step
  * through. The boards are rendered on the server and passed in; this only picks which one shows.
  */
-export function BoardDeck({ boards }: { boards: { key: string; label: string; platform: Platform | null; node: React.ReactNode }[] }) {
+export function BoardDeck({ boards }: { boards: { key: string; label: string; platform: Platform | null; actions?: React.ReactNode; node: React.ReactNode }[] }) {
   const [i, setI] = useState(0)
   const step = (d: number) => setI((i + d + boards.length) % boards.length)
   if (boards.length === 0) return null
@@ -24,8 +24,8 @@ export function BoardDeck({ boards }: { boards: { key: string; label: string; pl
         if (e.key === "ArrowLeft") step(-1)
       }}
     >
-      {boards.length > 1 && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {boards.length > 1 ? (
           <Segmented
             label="Report"
             tone="quiet"
@@ -41,19 +41,26 @@ export function BoardDeck({ boards }: { boards: { key: string; label: string; pl
               ),
             }))}
           />
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <button type="button" onClick={() => step(-1)} className="rounded-md border p-1 hover:bg-secondary hover:text-foreground" aria-label="Previous report">
-              <ChevronLeft className="size-4" />
-            </button>
-            <span className="w-12 text-center tabular-nums" aria-live="polite">
-              {i + 1} / {boards.length}
-            </span>
-            <button type="button" onClick={() => step(1)} className="rounded-md border p-1 hover:bg-secondary hover:text-foreground" aria-label="Next report">
-              <ChevronRight className="size-4" />
-            </button>
-          </div>
+        ) : (
+          <span />
+        )}
+        <div className="flex items-center gap-2">
+          {current.actions}
+          {boards.length > 1 && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <button type="button" onClick={() => step(-1)} className="rounded-md border p-1 hover:bg-secondary hover:text-foreground" aria-label="Previous report">
+                <ChevronLeft className="size-4" />
+              </button>
+              <span className="w-12 text-center tabular-nums" aria-live="polite">
+                {i + 1} / {boards.length}
+              </span>
+              <button type="button" onClick={() => step(1)} className="rounded-md border p-1 hover:bg-secondary hover:text-foreground" aria-label="Next report">
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
       {current.node}
     </div>
   )

@@ -6,12 +6,11 @@ import { SectionNav } from "@/components/section-nav"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { landingPages } from "@/lib/metrics/breakdowns"
 import { longDate, money, percent, shortDate, whole } from "@/lib/format"
-import { AD_OLD_DAYS, rankAds, type AdStat, type RankedAd } from "@/lib/metrics/ads"
+import { AD_OLD_DAYS, rankAds, type RankedAd } from "@/lib/metrics/ads"
 import { cachedOverview, cachedPerformance } from "@/lib/metrics/cached"
 import { fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
-import { rpcAll } from "@/lib/supabase/rpc-all"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 import { FatiguePanel } from "../fatigue-panel"
@@ -21,7 +20,9 @@ import { LandingPages } from "./breakdowns"
 import { CampaignTable, Delta, Investigator, PlatformSplit, Sparkline, TrendPanel } from "./charts"
 import { Controls } from "./controls"
 import { parseDays, parsePlatform } from "./params"
-import { platformBoardTitle, ReportBoard, type Board } from "./report-board"
+import { adsForPeriod, boardAds, buildBoard, type BoardKey } from "./boards"
+import { EmbedButton, type EmbedLink } from "./embed-button"
+import { ReportBoard } from "./report-board"
 
 export const metadata = { title: "Reporting" }
 
@@ -33,7 +34,6 @@ const SECTIONS = [
   { id: "report", label: "Report" },
   { id: "deep-dive", label: "Deep dive" },
 ]
-const num = (v: unknown) => Number(v ?? 0)
 
 /**
  * Reporting (Dean, 2026-09-29; replaces the Overview and Performance tabs). One period and platform
@@ -62,50 +62,37 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   const { from, to, prevFrom, prevTo } = perf.periods
 
   // Ads over the period: best and worst per platform, and each board's top ads.
-  const [adRows, pages] = await Promise.all([
-    rpcAll(supabase, "ad_totals", { p_client: client.id, p_from: from, p_to: to }),
+  const [allAds, pages, { data: links }, { data: canShare }] = await Promise.all([
+    adsForPeriod(supabase, client.id, from, to),
     client.ga4_property_id ? landingPages(supabase, client.id, from, to) : null,
+    supabase.from("report_links").select("id, board, default_days, label, token, created_at, last_viewed_at, created_by_profile_id").eq("client_id", client.id).is("revoked_at", null).order("created_at", { ascending: false }),
+    supabase.rpc("can_share_reports", { cid: client.id }),
   ])
-  const ads: AdStat[] = adRows
-    .map((r) => ({
-      platform: r.platform as Platform,
-      external_account_id: String(r.external_account_id),
-      ad_id: String(r.ad_id),
-      ad_name: (r.ad_name as string | null) ?? null,
-      campaign_name: (r.campaign_name as string | null) ?? null,
-      spend: num(r.spend),
-      impressions: num(r.impressions),
-      clicks: num(r.clicks),
-      conversions: num(r.conversions),
-      leads: num(r.leads),
-    }))
-    .filter((a) => !platform || a.platform === platform)
+  const ads = allAds.filter((a) => !platform || a.platform === platform)
   const rankings = rankAds(ads)
-  const topFor = (p: Platform | null) =>
-    ads
-      .filter((a) => (!p || a.platform === p) && a.spend > 0 && a.conversions + a.leads > 0)
-      .sort((a, b) => b.conversions + b.leads - (a.conversions + a.leads) || a.spend - b.spend)
-      .slice(0, 5)
 
   // The boards: all platforms, then each platform (or just the one picked).
   const platformsShown = perf.platforms.filter((p) => p.now.spend > 0 || p.prev.spend > 0).sort((a, b) => b.now.spend - a.now.spend)
-  const boardOf = (p: Platform | null): Board => {
-    const scope = p ? perf.platforms.find((x) => x.platform === p) : null
-    return {
-      key: p ?? "all",
-      title: platformBoardTitle(p),
-      platform: p,
-      now: scope ? scope.now : perf.now,
-      prev: scope ? scope.prev : perf.prev,
-      campaigns: perf.campaigns.filter((c) => !p || c.platform === p).map((c) => ({ platform: c.platform, name: c.name, spend: c.now.spend, prevSpend: c.prev.spend, results: c.now.results })),
-      ads: topFor(p).map((a) => ({ key: adKey(a), platform: a.platform, name: a.ad_name ?? a.ad_id, campaign: a.campaign_name, results: a.conversions + a.leads, spend: a.spend, clicks: a.clicks, impressions: a.impressions })),
-    }
-  }
-  const boards = platform ? [boardOf(platform)] : [...(platformsShown.length > 1 ? [boardOf(null)] : []), ...platformsShown.map((p) => boardOf(p.platform))]
+  const boards = platform ? [buildBoard(perf, ads, platform)] : [...(platformsShown.length > 1 ? [buildBoard(perf, ads, null)] : []), ...platformsShown.map((p) => buildBoard(perf, ads, p.platform))]
+
+  // View-only links to the boards, for Notion.
+  const creators = [...new Set((links ?? []).map((l) => l.created_by_profile_id).filter(Boolean))] as string[]
+  const { data: people } = creators.length ? await supabase.from("profiles").select("id, full_name, email").in("id", creators) : { data: [] }
+  const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]))
+  const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")
+  const linkViews: EmbedLink[] = (links ?? []).map((l) => ({
+    id: l.id,
+    board: l.board,
+    days: l.default_days,
+    label: l.label,
+    url: `${appUrl}/embed/report/${l.token}`,
+    created: `${shortDate(l.created_at.slice(0, 10))}${nameOf.get(l.created_by_profile_id) ? ` by ${nameOf.get(l.created_by_profile_id)}` : ""}`,
+    lastViewed: l.last_viewed_at ? shortDate(l.last_viewed_at.slice(0, 10)) : null,
+  }))
 
   const liveAds = platform ? o.liveAds.filter((a) => a.platform === platform) : o.liveAds
   const newest = o.newCreatives.filter((a) => !platform || a.platform === platform).slice(0, 12)
-  const previews = await previewsFor(supabase, client.id, [...rankings.flatMap((r) => [r.best, r.worst]).filter((a) => a !== null), ...boards.flatMap((b) => b.ads.map((a) => ads.find((x) => adKey(x) === a.key)!)), ...liveAds, ...newest])
+  const previews = await previewsFor(supabase, client.id, [...rankings.flatMap((r) => [r.best, r.worst]).filter((a) => a !== null), ...boardAds(boards, ads), ...liveAds, ...newest])
 
   return (
     <div className="space-y-12">
@@ -241,12 +228,13 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
 
       {/* 4. The report: client-facing boards */}
       <section id="report" className="scroll-mt-28 space-y-4">
-        <SectionHeader title="Report" description="Written for the client, one board per platform, like our Databox reports. Use ‹ › or the arrow keys to step through them." />
+        <SectionHeader title="Report" description="Written for the client, one board per platform, like our Databox reports. Use ‹ › or the arrow keys to step through them, and “Embed in Notion” for a view-only link to a board." />
         <BoardDeck
           boards={boards.map((b) => ({
             key: b.key,
             label: b.platform ? PLATFORM_LABEL[b.platform] : "All platforms",
             platform: b.platform,
+            actions: <EmbedButton slug={slug} board={b.key as BoardKey} boardLabel={b.platform ? PLATFORM_LABEL[b.platform] : "All platforms"} days={days} links={linkViews.filter((l) => l.board === b.key)} canShare={Boolean(canShare)} />,
             node: <ReportBoard board={b} client={{ name: client.name, logoUrl: client.logo_url }} currency={cur} from={from} to={to} prevFrom={prevFrom} prevTo={prevTo} previews={previews} />,
           }))}
         />

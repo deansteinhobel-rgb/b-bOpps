@@ -3,7 +3,7 @@ import { AdThumb } from "@/components/ad-thumb"
 import { ClientLogo, PlatformIcon } from "@/components/brand"
 import { money, percent, shortDate, whole } from "@/lib/format"
 import { change, type Derived } from "@/lib/metrics/performance"
-import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
+import type { Platform } from "@/lib/metrics/types"
 import type { PreviewMap } from "@/lib/previews"
 import { cn } from "@/lib/utils"
 import { PLATFORM_COLOR } from "./charts"
@@ -230,6 +230,3 @@ function Chip({ now, prev, better }: { now: number | null; prev: number | null; 
     </span>
   )
 }
-
-/** A board's title: "LinkedIn overview", or "All platforms". */
-export const platformBoardTitle = (p: Platform | null) => (p ? `${PLATFORM_LABEL[p]} overview` : "All platforms")

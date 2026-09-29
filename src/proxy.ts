@@ -5,6 +5,10 @@ import { NextResponse, type NextRequest } from "next/server"
 const PUBLIC_PATHS = ["/login", "/auth/", ...(process.env.NODE_ENV === "development" ? ["/design"] : [])]
 // Scheduled jobs have no session: they check `Authorization: Bearer $CRON_SECRET` themselves.
 const CRON_PREFIX = "/api/cron/"
+// View-only report links for Notion embeds (Dean, 2026-09-29): no session; the secret token in the
+// URL is the key. Only Notion may frame them.
+const EMBED_PREFIX = "/embed/"
+const NOTION_FRAME_ANCESTORS = "https://notion.so https://www.notion.so https://*.notion.so https://*.notion.site"
 
 /**
  * Content-Security-Policy (security review, 2026-09-29): scripts only from this app with a fresh
@@ -13,7 +17,7 @@ const CRON_PREFIX = "/api/cron/"
  * favicons (source chips) from Google. Inline style attributes are allowed: the UI sets widths and
  * colours inline, and styles can't run code.
  */
-function contentSecurityPolicy(nonce: string) {
+function contentSecurityPolicy(nonce: string, frameAncestors = "'none'") {
   const dev = process.env.NODE_ENV === "development"
   const supabase = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).origin
   // Cloudflare Turnstile on the login page, once switched on.
@@ -31,7 +35,7 @@ function contentSecurityPolicy(nonce: string) {
     `object-src 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
-    `frame-ancestors 'none'`,
+    `frame-ancestors ${frameAncestors}`,
     ...(dev ? [] : ["upgrade-insecure-requests"]),
   ].join("; ")
 }
@@ -42,13 +46,20 @@ export async function proxy(request: NextRequest) {
   if (path.startsWith(CRON_PREFIX)) return NextResponse.next()
 
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64")
-  const csp = contentSecurityPolicy(nonce)
+  const embed = path.startsWith(EMBED_PREFIX)
+  const csp = contentSecurityPolicy(nonce, embed ? NOTION_FRAME_ANCESTORS : undefined)
   // Next reads the nonce from the request's CSP header when it renders the page.
   const next = () => {
     const headers = new Headers(request.headers)
     headers.set("x-nonce", nonce)
     headers.set("content-security-policy", csp)
     return NextResponse.next({ request: { headers } })
+  }
+  // Embeds skip the session entirely: no sign-in, and no cookies read or set.
+  if (embed) {
+    const response = next()
+    response.headers.set("Content-Security-Policy", csp)
+    return response
   }
   let response = next()
 
