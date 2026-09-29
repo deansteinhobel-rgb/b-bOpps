@@ -18,7 +18,7 @@ import { sprintByNumber, sprintDay, sprintOf, SPRINT_DAYS } from "@/lib/sprints/
 import { CARRY_REASONS, STAGES, stageOf, type Stage } from "@/lib/sprints/tests"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
-import { AiPanel, type AiRun, type Recommendation } from "./ai-panel"
+import { AiPanel, type AiRun, type PourHistoryRow, type Recommendation } from "./ai-panel"
 import { ChangeLog } from "./change-log"
 import { CloseSprint } from "./close-sprint"
 import { EditableText } from "./editable-text"
@@ -57,7 +57,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
     )
   }
 
-  const [details, numbers, { data: runs }, actions, owners, { data: aiRuns }, { data: aiRecs }] = await Promise.all([
+  const [details, numbers, { data: runs }, actions, owners, { data: aiRuns }, { data: aiRecs }, { data: pourRuns }, { data: pourRecs }] = await Promise.all([
     loadSprintDetails(supabase, sprint),
     cachedSprintNumbers(client.id, period), // access confirmed: sprint loaded through RLS
     supabase
@@ -72,7 +72,25 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
     supabase.from("sprint_ai_runs").select("id, status, created_at, market_summary, news, error").eq("sprint_id", sprint.id).is("archived_at", null).order("created_at", { ascending: false }).limit(1),
     // Archived runs' suggestions are hidden (kept in the database, never deleted).
     supabase.from("sprint_recommendations").select("*, sprint_ai_runs!inner(archived_at)").eq("sprint_id", sprint.id).is("sprint_ai_runs.archived_at", null).order("created_at", { ascending: false }).order("position"),
+    // Pour history: every (unarchived) pour for this client, across sprints.
+    supabase.from("sprint_ai_runs").select("id, status, created_at, sprint_id, sprints(number), profiles(full_name)").eq("client_id", client.id).is("archived_at", null).order("created_at", { ascending: false }).limit(30),
+    supabase.from("sprint_recommendations").select("run_id, status, sprint_ai_runs!inner(archived_at)").eq("client_id", client.id).is("sprint_ai_runs.archived_at", null),
   ])
+  const pourHistory: PourHistoryRow[] = (pourRuns ?? []).map((r) => {
+    const mine = (pourRecs ?? []).filter((x) => x.run_id === r.id)
+    return {
+      id: r.id,
+      status: r.status as PourHistoryRow["status"],
+      created_at: r.created_at,
+      sprintNumber: (r.sprints as unknown as { number: number } | null)?.number ?? 0,
+      thisSprint: r.sprint_id === sprint.id,
+      by: (r.profiles as unknown as { full_name: string | null } | null)?.full_name ?? null,
+      total: mine.length,
+      approved: mine.filter((x) => x.status === "approved").length,
+      rejected: mine.filter((x) => x.status === "rejected").length,
+      open: mine.filter((x) => x.status === "draft" || x.status === "reviewed").length,
+    }
+  })
   const { changes, history, previous, tests } = details
   const board = await testBoardData(supabase, client.id, tests)
   const { summary, events, detectionDaily } = numbers
@@ -183,6 +201,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
         closed={closed}
         run={(aiRuns?.[0] as AiRun | undefined) ?? null}
         recs={((aiRecs ?? []) as Recommendation[]).map((r) => ({ ...r, success_target: r.success_target === null ? null : Number(r.success_target) }))}
+        history={pourHistory}
         owners={ownerOptions}
         defaultDeadline={addDays(period.start, 4)}
         currency={cur}

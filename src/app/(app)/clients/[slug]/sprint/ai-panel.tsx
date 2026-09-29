@@ -20,6 +20,8 @@ import { WinePour } from "@/components/fx/wine-pour"
 import { PourOverlay } from "./pour-overlay"
 
 export type AiRun = { id: string; status: "generating" | "ready" | "failed"; created_at: string; market_summary: string | null; news: NewsItem[]; error: string | null }
+/** One pour in the client's history (every sprint), for the "Pour history" table. */
+export type PourHistoryRow = { id: string; status: AiRun["status"]; created_at: string; sprintNumber: number; thisSprint: boolean; by: string | null; total: number; approved: number; rejected: number; open: number }
 type NewsItem = { platform: string; headline: string; detail: string; date?: string; url: string }
 type Level = "low" | "medium" | "high"
 export type Recommendation = {
@@ -69,13 +71,18 @@ function tags(r: Recommendation, rank: number) {
  * "Pour me a sprint": Claude's suggested tests as a ranked review queue (list + detail, like
  * Linear's triage and Google Ads recommendations). GTM leads and admins review and approve.
  */
-export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady: boolean; closed: boolean; run: AiRun | null; recs: Recommendation[]; owners: Owner[]; defaultDeadline: string; currency: string }) {
+export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady: boolean; closed: boolean; run: AiRun | null; recs: Recommendation[]; history: PourHistoryRow[]; owners: Owner[]; defaultDeadline: string; currency: string }) {
   const router = useRouter()
   const [runId, setRunId] = useState<string | null>(props.run?.status === "generating" ? props.run.id : null)
   const [error, setError] = useState<string | null>(null)
   const [starting, setStarting] = useState(false)
   const [tab, setTab] = useState<Tab>("open")
   const [picked, setPicked] = useState<string | null>(null)
+  // Which pour the queue shows (null = every pour in this sprint), and whether the panel is open.
+  const [runFilter, setRunFilter] = useState<string | null>(null)
+  const undecided = props.recs.some((r) => r.status === "draft" || r.status === "reviewed")
+  const [expanded, setExpanded] = useState(undecided)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const pour = async () => {
     setError(null)
@@ -89,13 +96,13 @@ export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady
 
   const latestRun = props.run?.id
   const lists = useMemo(() => {
-    const ranked = [...props.recs].sort((a, b) => Number(b.run_id === latestRun) - Number(a.run_id === latestRun) || score(b) - score(a))
+    const ranked = props.recs.filter((r) => !runFilter || r.run_id === runFilter).sort((a, b) => Number(b.run_id === latestRun) - Number(a.run_id === latestRun) || score(b) - score(a))
     return {
       open: ranked.filter((r) => r.status === "draft" || r.status === "reviewed"),
       approved: ranked.filter((r) => r.status === "approved"),
       rejected: ranked.filter((r) => r.status === "rejected"),
     }
-  }, [props.recs, latestRun])
+  }, [props.recs, latestRun, runFilter])
   const list = lists[tab]
   // Keep a selection that's still in this tab; otherwise the top of the list.
   const selected = list.find((r) => r.id === picked) ?? list[0] ?? null
@@ -107,6 +114,8 @@ export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady
         setRunId(null)
         setTab("open")
         setPicked(null)
+        setRunFilter(null)
+        setExpanded(true)
         if (!ok) setError(message ?? "The pour spilled. Try again.")
         router.refresh()
       }}
@@ -114,34 +123,58 @@ export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady
   )
   const failed = error ?? (props.run?.status === "failed" && !runId ? `The last pour spilled: ${props.run?.error ?? "something went wrong"}. Try again.` : null)
 
-  if (props.recs.length === 0) {
-    return (
-      <>
-        <PourHero canGenerate={props.canGenerate && !props.closed} aiReady={props.aiReady} busy={starting || Boolean(runId)} onPour={pour} error={failed} />
-        {overlay}
-      </>
-    )
-  }
+  const last = props.history.find((h) => h.thisSprint && h.status === "ready")
+  const lastPoured = last?.created_at ?? props.run?.created_at
+  const heroNote = props.recs.length ? `${lastPoured ? `Last poured ${shortDate(lastPoured)} · ` : ""}${props.recs.length} suggestion${props.recs.length === 1 ? "" : "s"} this sprint · ${lists.approved.length} approved` : null
 
+  // The pour module always stays at the top (Dean); the suggestions sit below it.
   return (
+    <div className="space-y-10">
+      <PourHero canGenerate={props.canGenerate && !props.closed} aiReady={props.aiReady} busy={starting || Boolean(runId)} onPour={pour} error={failed} again={props.recs.length > 0} note={heroNote} />
+      {overlay}
+      {(props.recs.length > 0 || props.history.length > 0) && (
     <section className="surface overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b px-5 py-4">
-        <div className="min-w-0">
-          <h2 className="text-2xl">Your suggested sprints</h2>
-          <p className="text-sm text-muted-foreground">
-            {props.run?.status === "ready" ? `Poured ${shortDate(props.run.created_at)} from 12 weeks of data, past tests and this week's paid media news.` : "Suggested tests from 12 weeks of data, past tests and the latest paid media news."}
-          </p>
+        <button type="button" onClick={() => setExpanded(!expanded)} aria-expanded={expanded} className="group flex min-w-0 items-start gap-3 text-left">
+          <ChevronDown className={cn("mt-2 size-4 shrink-0 text-muted-foreground transition-transform duration-300 group-hover:text-foreground", !expanded && "-rotate-90")} />
+          <span className="min-w-0">
+            <h2 className="text-2xl">Your suggested sprints</h2>
+            <span className="block text-sm text-muted-foreground">
+              {lists.open.length ? `${lists.open.length} to review` : "All decided"} · {lists.approved.length} approved · {lists.rejected.length} rejected
+              {runFilter && props.history.find((h) => h.id === runFilter) ? ` · showing the pour of ${shortDate(props.history.find((h) => h.id === runFilter)!.created_at)}` : ""}
+            </span>
+          </span>
+        </button>
+        <div className="flex items-center gap-2">
+          {runFilter && (
+            <Button size="sm" variant="ghost" onClick={() => setRunFilter(null)}>
+              Show every pour
+            </Button>
+          )}
+          {props.history.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => { setHistoryOpen(!historyOpen); setExpanded(true) }} aria-expanded={historyOpen}>
+              Pour history <span className="ml-1 text-xs tabular-nums text-muted-foreground">{props.history.length}</span>
+            </Button>
+          )}
         </div>
-        {props.canGenerate && !props.closed && (
-          <div className="flex flex-col items-end gap-1">
-            <PourButton onClick={pour} disabled={starting || Boolean(runId) || !props.aiReady} size="sm">
-              {starting ? "Uncorking…" : "Pour another"}
-            </PourButton>
-            {!props.aiReady && <p className="text-[11px] text-muted-foreground">Add ANTHROPIC_API_KEY to .env.local to switch this on.</p>}
-          </div>
-        )}
       </div>
 
+      {expanded && historyOpen && (
+        <PourHistory
+          rows={props.history}
+          active={runFilter}
+          onPick={(id) => {
+            setRunFilter(id)
+            setTab("open")
+            setPicked(null)
+            setHistoryOpen(false)
+          }}
+          onOpenSprint={(n) => router.push(`?n=${n}`)}
+        />
+      )}
+
+      {expanded && (
+        <>
       {failed && <p className="border-b px-5 py-2.5 text-sm text-rag-red">{failed}</p>}
       {props.run?.market_summary && <MarketNotes run={props.run} />}
 
@@ -198,8 +231,11 @@ export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady
             </div>
           )}
       </>
-      {overlay}
+        </>
+      )}
     </section>
+      )}
+    </div>
   )
 }
 
@@ -208,7 +244,7 @@ export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady
  * hovering and it fills to the brim, spills down the glass, then drips off the banner onto the
  * heading below. Moving away drains it.
  */
-function PourHero({ canGenerate, aiReady, busy, onPour, error }: { canGenerate: boolean; aiReady: boolean; busy: boolean; onPour: () => void; error: string | null }) {
+function PourHero({ canGenerate, aiReady, busy, onPour, error, again, note }: { canGenerate: boolean; aiReady: boolean; busy: boolean; onPour: () => void; error: string | null; again: boolean; note: string | null }) {
   const hover = useHoverSeconds()
   const t = hover.secs
   // 0.5s for the bottle to tip in, full by ~2.3s, brimming over by ~3.8s, dripping after that.
@@ -230,6 +266,7 @@ function PourHero({ canGenerate, aiReady, busy, onPour, error }: { canGenerate: 
               Pour me a <span className="text-lime">sprint</span>
             </h2>
             <p className="max-w-xl text-sm text-muted-foreground">Up to five data-backed tests for this sprint, ranked by impact. You review every one before it goes on the board.</p>
+            {note && <p className="text-xs text-foreground/80">{note}</p>}
             <ul className="flex flex-wrap gap-1.5 pt-1 text-[11px] text-muted-foreground">
               {["12 weeks of Windsor data", "Every past test", "This week\u2019s platform news"].map((t) => (
                 <li key={t} className="inline-flex items-center gap-1.5 rounded-full border border-foreground/10 bg-background/40 px-2.5 py-1">
@@ -241,7 +278,7 @@ function PourHero({ canGenerate, aiReady, busy, onPour, error }: { canGenerate: 
           {canGenerate && (
             <div className="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
               <PourButton onClick={onPour} disabled={busy || !aiReady}>
-                {busy ? "Uncorking…" : "Pour me a sprint"}
+                {busy ? "Uncorking…" : again ? "Pour another" : "Pour me a sprint"}
               </PourButton>
               <p className="text-[11px] text-muted-foreground">{aiReady ? "About 2 minutes. Go pour yourself one." : "Add ANTHROPIC_API_KEY to .env.local to switch this on."}</p>
             </div>
@@ -256,6 +293,62 @@ function PourHero({ canGenerate, aiReady, busy, onPour, error }: { canGenerate: 
 }
 
 /** Seconds the pointer has been over the element, counting back down (faster) once it leaves. */
+/** Every pour for this client, newest first. This sprint's pours filter the queue; earlier ones open their sprint. */
+function PourHistory({ rows, active, onPick, onOpenSprint }: { rows: PourHistoryRow[]; active: string | null; onPick: (id: string) => void; onOpenSprint: (n: number) => void }) {
+  return (
+    <div className="overflow-x-auto border-b bg-background/40">
+      <table className="w-full min-w-[40rem] text-sm tabular-nums">
+        <thead className="text-xs text-muted-foreground">
+          <tr className="border-b">
+            <th className="px-5 py-2 text-left font-normal">Poured</th>
+            <th className="px-3 py-2 text-left font-normal">Sprint</th>
+            <th className="px-3 py-2 text-left font-normal">By</th>
+            <th className="px-3 py-2 text-right font-normal">Suggestions</th>
+            <th className="px-3 py-2 text-right font-normal">Approved</th>
+            <th className="px-3 py-2 text-right font-normal">Rejected</th>
+            <th className="px-5 py-2 text-right font-normal">To review</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {rows.map((h) => {
+            const cells = (
+              <>
+                <td className="px-5 py-2.5">
+                  <span className="flex items-center gap-2">
+                    {h.id === active && <span className="size-1.5 rounded-full bg-lime" aria-hidden />}
+                    {shortDate(h.created_at)}
+                    {h.status === "failed" && <span className="text-xs text-rag-red">spilled</span>}
+                    {h.status === "generating" && <span className="text-xs text-muted-foreground">pouring…</span>}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5">
+                  Sprint {h.sprintNumber}
+                  {h.thisSprint && <span className="ml-1.5 text-xs text-muted-foreground">(this one)</span>}
+                </td>
+                <td className="px-3 py-2.5 text-muted-foreground">{h.by ?? "–"}</td>
+                <td className="px-3 py-2.5 text-right">{h.total || "–"}</td>
+                <td className="px-3 py-2.5 text-right text-rag-green">{h.approved || "–"}</td>
+                <td className="px-3 py-2.5 text-right text-muted-foreground">{h.rejected || "–"}</td>
+                <td className="px-5 py-2.5 text-right">{h.open || "–"}</td>
+              </>
+            )
+            if (!h.total) return <tr key={h.id} className="text-muted-foreground">{cells}</tr>
+            return h.thisSprint ? (
+              <tr key={h.id} onClick={() => onPick(h.id)} className={cn("cursor-pointer transition-colors hover:bg-accent/40", h.id === active && "bg-accent/50")} title="Show this pour's suggestions">
+                {cells}
+              </tr>
+            ) : (
+              <tr key={h.id} onClick={() => onOpenSprint(h.sprintNumber)} className="cursor-pointer transition-colors hover:bg-accent/40" title={`Open Sprint ${h.sprintNumber}`}>
+                {cells}
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function useHoverSeconds() {
   const [secs, setSecs] = useState(0)
   const value = useRef(0)

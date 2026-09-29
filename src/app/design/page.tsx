@@ -148,6 +148,12 @@ const sampleInputs: InsightInputs = {
 }
 const sampleFeed = applyActions(computeInsights(sampleInputs), [{ insight_key: "negatives:google_ads:g1", action: "done", items: ["widget jobs"], snooze_until: null, created_at: "2026-09-26T10:00:00Z", profile_name: "Sample Person" }], "2026-09-29")
 
+const sampleHistory = [
+  { id: "r", status: "ready" as const, created_at: "2026-09-28T21:18:00Z", sprintNumber: 1, thisSprint: true, by: "Sample Person", total: 2, approved: 0, rejected: 0, open: 2 },
+  { id: "run-1", status: "failed" as const, created_at: "2026-09-28T21:09:00Z", sprintNumber: 1, thisSprint: true, by: "Sample Person", total: 0, approved: 0, rejected: 0, open: 0 },
+  { id: "run-0", status: "ready" as const, created_at: "2026-09-14T09:00:00Z", sprintNumber: 0, thisSprint: false, by: "Sample Person", total: 5, approved: 2, rejected: 3, open: 0 },
+]
+
 export default async function DesignPreview() {
   if (process.env.NODE_ENV !== "development") notFound()
   const { data: clients } = await createAdminClient().from("clients").select("slug, name, logo_url").order("name")
@@ -281,10 +287,11 @@ export default async function DesignPreview() {
               ))}
             </div>
             <div className="space-y-10">
-              <AiPanel sprintId="empty" canGenerate aiReady closed={false} run={null} recs={[]} owners={[]} defaultDeadline="2026-10-02" currency="USD" />
+              <AiPanel history={[]} sprintId="empty" canGenerate aiReady closed={false} run={null} recs={[]} owners={[]} defaultDeadline="2026-10-02" currency="USD" />
               <h2 className="text-2xl">Tests this sprint</h2>
             </div>
             <AiPanel
+              history={sampleHistory}
               sprintId="sample"
               canGenerate
               aiReady
