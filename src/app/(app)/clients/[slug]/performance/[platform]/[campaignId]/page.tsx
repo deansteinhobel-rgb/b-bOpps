@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
+import { getProfile } from "@/lib/auth"
 import { AdThumb } from "@/components/ad-thumb"
 import { PlatformLabel } from "@/components/brand"
 import { cachedPerformance } from "@/lib/metrics/cached"
@@ -26,7 +27,8 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
   const campaignId = decodeURIComponent(rawId)
   const platform = parsePlatform(rawPlatform)
   if (!platform) notFound()
-  const days = parseDays((await searchParams).days)
+  const defaultDays = (await getProfile()).preferences?.default_days ?? 30
+  const days = parseDays((await searchParams).days, defaultDays)
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target").eq("slug", slug).maybeSingle()
   if (!client) notFound()
@@ -53,7 +55,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
     prev: prevBy.get(String(r.ad_id)) ?? null,
   }))
   const previews = await previewsFor(supabase, client.id, ads)
-  const back = `/clients/${slug}/performance${days !== 30 ? `?days=${days}` : ""}`
+  const back = `/clients/${slug}/performance${days !== defaultDays ? `?days=${days}` : ""}`
 
   return (
     <div className="space-y-6">
@@ -66,7 +68,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
           <h2 className="text-2xl">{campaign.name}</h2>
         </div>
       </div>
-      <Controls base={`/clients/${slug}/performance/${platform}/${encodeURIComponent(campaignId)}`} days={days} platform={null} from={perf.periods.from} to={perf.periods.to} prevFrom={perf.periods.prevFrom} prevTo={perf.periods.prevTo} />
+      <Controls base={`/clients/${slug}/performance/${platform}/${encodeURIComponent(campaignId)}`} days={days} defaultDays={defaultDays} platform={null} from={perf.periods.from} to={perf.periods.to} prevFrom={perf.periods.prevFrom} prevTo={perf.periods.prevTo} />
 
       <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-4 xl:grid-cols-7">
         {CARDS.map((k) => (

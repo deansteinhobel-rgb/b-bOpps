@@ -77,6 +77,8 @@ export function InsightFeed(props: {
   lastReviewFailed: string | null
   canReview: boolean
   aiReady: boolean
+  /** From Options. */
+  defaultOrder?: "claude" | "priority"
 }) {
   const initial = props.openKey ? props.insights.find((i) => i.key === props.openKey) : undefined
   const [view, setView] = useState<View>(initial?.state ?? "open")
@@ -84,7 +86,7 @@ export function InsightFeed(props: {
   const [category, setCategory] = useState<Category | null>(null)
   const [openKey, setOpenKey] = useState<string | null>(props.openKey)
   // Claude's order when there's a review; otherwise (or by choice) the rules' priority.
-  const [order, setOrder] = useState<"claude" | "priority">(props.review ? "claude" : "priority")
+  const [order, setOrder] = useState<"claude" | "priority">(props.review ? (props.defaultOrder ?? "claude") : "priority")
   const openInsight = (key: string) => {
     const target = props.insights.find((i) => i.key === key)
     if (target) setView(target.state)

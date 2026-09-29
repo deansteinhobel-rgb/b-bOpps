@@ -33,3 +33,19 @@ export function withSymbols(text: string) {
     .replace(/\b(USD|GBP|EUR|AUD|CAD|ZAR)\s?(-?[\d.,]+[kKmM]?)/g, (_, code: string, n: string) => `${currencySymbol(code)}${n}`)
     .replace(/(-?[\d.,]+[kKmM]?)\s?(USD|GBP|EUR|AUD|CAD|ZAR)\b/g, (_, n: string, code: string) => `${currencySymbol(code)}${n}`)
 }
+
+/** "Active now", "Active 3 hours ago", "Last active 2 Oct", "Never signed in". */
+export function lastActive(iso: string | null | undefined, now = Date.now()) {
+  if (!iso) return "Never signed in"
+  const mins = Math.max(0, Math.round((now - Date.parse(iso)) / 60000))
+  if (mins < 10) return "Active now"
+  if (mins < 60) return `Active ${mins} minutes ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `Active ${hours} hour${hours === 1 ? "" : "s"} ago`
+  const days = Math.round(hours / 24)
+  if (days < 7) return `Active ${days} day${days === 1 ? "" : "s"} ago`
+  return `Last active ${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: days > 300 ? "numeric" : undefined, timeZone: "Europe/London" }).format(new Date(iso))}`
+}
+
+/** Used the app in the last 10 minutes. */
+export const isOnline = (iso: string | null | undefined) => Boolean(iso) && Date.now() - Date.parse(iso!) < 10 * 60000

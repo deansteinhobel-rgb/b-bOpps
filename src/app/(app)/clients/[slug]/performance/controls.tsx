@@ -22,7 +22,7 @@ const PLATFORM_KEYS: Record<string, Platform> = { l: "linkedin", g: "google_ads"
  * date range being compared, and "copy link". The URL holds the view; switching shows a loading bar
  * straight away. Keys: 1–4 pick the period, A / L / G / M the platform.
  */
-export function Controls({ base, days, platform, platforms, currency, from, to, prevFrom, prevTo }: { base: string; days: number; platform: Platform | null; platforms?: PlatformOption[]; currency?: string; from: string; to: string; prevFrom?: string; prevTo?: string }) {
+export function Controls({ base, days, defaultDays = 30, platform, platforms, currency, from, to, prevFrom, prevTo }: { base: string; days: number; defaultDays?: number; platform: Platform | null; platforms?: PlatformOption[]; currency?: string; from: string; to: string; prevFrom?: string; prevTo?: string }) {
   const router = useRouter()
   const pathname = usePathname()
   const [pending, start] = useTransition()
@@ -39,7 +39,7 @@ export function Controls({ base, days, platform, platforms, currency, from, to, 
     if (d === view.days && p === view.platform) return
     setView({ days: d, platform: p })
     const q = new URLSearchParams()
-    if (d !== 30) q.set("days", String(d))
+    if (d !== defaultDays) q.set("days", String(d))
     if (p) q.set("platform", p)
     start(() => router.push(`${base}${q.size ? `?${q}` : ""}`, { scroll: false }))
   }

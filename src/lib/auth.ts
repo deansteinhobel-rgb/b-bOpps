@@ -4,7 +4,17 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 
 export type AppRole = "admin" | "gtm_lead" | "am" | "specialist"
-export type Profile = { id: string; email: string; full_name: string | null; role: AppRole | null; notion_user_id: string | null }
+export type Preferences = {
+  /** Performance tab period when the URL doesn't say (7, 14, 30 or 90). */
+  default_days?: number
+  /** Optimise now: Claude's order or the rules' priority. */
+  optimise_order?: "claude" | "priority"
+  /** Where the app opens: "clients" (all clients) or a client slug. */
+  start_page?: string
+  /** Background effects and animations (starfield, pours, sliding highlights). */
+  animations?: boolean
+}
+export type Profile = { id: string; email: string; full_name: string | null; role: AppRole | null; notion_user_id: string | null; avatar_url: string | null; preferences: Preferences }
 
 /** The signed-in user's profile, or a redirect to /login. Cached per request. */
 export const getProfile = cache(async (): Promise<Profile> => {
@@ -12,7 +22,7 @@ export const getProfile = cache(async (): Promise<Profile> => {
   const { data: claims } = await supabase.auth.getClaims()
   const userId = claims?.claims?.sub
   if (!userId) redirect("/login")
-  const { data } = await supabase.from("profiles").select("id, email, full_name, role, notion_user_id").eq("id", userId).single()
+  const { data } = await supabase.from("profiles").select("id, email, full_name, role, notion_user_id, avatar_url, preferences").eq("id", userId).single()
   if (!data) redirect("/login")
   return data as Profile
 })

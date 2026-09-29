@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { getProfile } from "@/lib/auth"
 import { Suspense } from "react"
 import { cachedPerformance } from "@/lib/metrics/cached"
 import { fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
@@ -19,7 +20,9 @@ const CARDS: MetricKey[] = ["spend", "impressions", "clicks", "ctr", "cpc", "res
 export default async function PerformancePage({ params, searchParams }: PageProps<"/clients/[slug]/performance">) {
   const { slug } = await params
   const sp = await searchParams
-  const days = parseDays(sp.days)
+  const me = await getProfile()
+  const defaultDays = me.preferences?.default_days ?? 30
+  const days = parseDays(sp.days, defaultDays)
   const platform = parsePlatform(sp.platform)
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target, ga4_property_id").eq("slug", slug).maybeSingle()
@@ -31,7 +34,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   const cur = client.currency
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
   const base = `/clients/${slug}/performance`
-  const query = [days !== 30 && `days=${days}`, platform && `platform=${platform}`].filter(Boolean).join("&")
+  const query = [days !== defaultDays && `days=${days}`, platform && `platform=${platform}`].filter(Boolean).join("&")
   const last2 = perf.dataThrough.slice(0, 10)
   const twoDaysAgo = new Date(Date.parse(last2) - 864e5).toISOString().slice(0, 10)
 
@@ -40,6 +43,7 @@ export default async function PerformancePage({ params, searchParams }: PageProp
       <Controls
         base={base}
         days={days}
+        defaultDays={defaultDays}
         platform={platform}
         platforms={(all ?? perf).platforms.map((p) => ({ platform: p.platform as Platform, spend: p.now.spend }))}
         currency={cur}

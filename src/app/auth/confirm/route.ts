@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server"
  */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
-  const nextRaw = searchParams.get("next") ?? "/clients"
+  const nextRaw = searchParams.get("next") ?? "/" // "/" opens the start page from Options
   const next = nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/clients"
 
   const supabase = await createClient()

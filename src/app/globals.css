@@ -252,3 +252,10 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-toolbar-load { animation: none; transform: scaleX(1); }
 }
+
+/* Options → Animations off: stop motion across the app (like prefers-reduced-motion). */
+.reduce-fx *, .reduce-fx *::before, .reduce-fx *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}

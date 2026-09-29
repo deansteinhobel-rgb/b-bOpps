@@ -168,7 +168,7 @@ export default async function DesignPreview() {
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
-      <AppSidebar clients={clients ?? []} name="Dean Steinhobel" roleLabel="Admin" isAdmin hasRole />
+      <AppSidebar clients={clients ?? []} name="Dean Steinhobel" roleLabel="Admin" isAdmin hasRole profileId="sample" avatarUrl={null} />
       <main className="min-w-0 flex-1">
         <div className="mx-auto w-full max-w-7xl space-y-12 px-4 py-8 sm:px-8 lg:py-10">
           <PageHeader

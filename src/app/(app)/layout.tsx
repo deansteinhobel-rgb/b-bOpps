@@ -4,19 +4,25 @@ import { NewsChat } from "@/components/news-chat"
 import { aiConfigured } from "@/lib/ai/claude"
 import { getProfile, isAdmin, ROLE_LABEL } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
+import { cn } from "@/lib/utils"
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const profile = await getProfile()
   const supabase = await createClient()
+  // Last active (Dean): the database writes at most every 5 minutes.
+  await supabase.rpc("touch_last_seen")
+  const animations = profile.preferences?.animations !== false
   // Sidebar clients: the ones this person can see (RLS), with their logos.
   const { data: clients } = profile.role ? await supabase.from("clients").select("slug, name, logo_url").eq("active", true).order("name") : { data: [] }
 
   return (
-    <div className="flex min-h-dvh flex-col lg:flex-row">
-      <Starfield />
+    <div className={cn("flex min-h-dvh flex-col lg:flex-row", !animations && "reduce-fx")}>
+      {animations && <Starfield />}
       <AppSidebar
         clients={clients ?? []}
         name={profile.full_name ?? profile.email}
+        profileId={profile.id}
+        avatarUrl={profile.avatar_url}
         roleLabel={profile.role ? ROLE_LABEL[profile.role] : null}
         isAdmin={isAdmin(profile)}
         hasRole={Boolean(profile.role)}

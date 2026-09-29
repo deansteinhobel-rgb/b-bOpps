@@ -50,6 +50,7 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
       lastReviewFailed={feed.lastReviewFailed}
       canReview={isAdmin(me)}
       aiReady={aiConfigured()}
+      defaultOrder={me.preferences?.optimise_order}
     />
   )
 }

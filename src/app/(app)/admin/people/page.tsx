@@ -1,8 +1,11 @@
+import Link from "next/link"
 import { AdminForm } from "@/components/admin-form"
+import { Avatar } from "@/components/brand"
 import { fieldClass } from "@/components/field-class"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ROLE_LABEL, type AppRole } from "@/lib/auth"
+import { lastActive } from "@/lib/format"
 import { listNotionPeople } from "@/lib/notion/users"
 import { createClient } from "@/lib/supabase/server"
 import { saveInvite, setProfileRole } from "../actions"
@@ -12,7 +15,7 @@ const ROLES = Object.entries(ROLE_LABEL) as [AppRole, string][]
 export default async function PeoplePage() {
   const supabase = await createClient()
   const [{ data: profiles }, { data: invites }, notionPeople] = await Promise.all([
-    supabase.from("profiles").select("id, email, full_name, role, notion_user_id, created_at").order("full_name"),
+    supabase.from("profiles").select("id, email, full_name, role, notion_user_id, created_at, avatar_url, last_seen_at").order("full_name"),
     supabase.from("team_invites").select("email, full_name, role, notion_user_id").order("full_name"),
     listNotionPeople().catch(() => []),
   ])
@@ -29,10 +32,14 @@ export default async function PeoplePage() {
         <ul className="mt-4 divide-y rounded-lg border bg-card text-sm">
           {(profiles ?? []).map((p) => (
             <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-              <span>
-                <strong>{p.full_name ?? p.email}</strong> <span className="text-muted-foreground">{p.email}</span>
-                {!p.notion_user_id && <span className="ml-2 text-xs text-rag-amber">no Notion user</span>}
-              </span>
+              <Link href={`/people/${p.id}`} className="flex min-w-0 items-center gap-3 hover:underline">
+                <Avatar name={p.full_name ?? p.email} url={p.avatar_url} />
+                <span className="min-w-0">
+                  <strong>{p.full_name ?? p.email}</strong> <span className="text-muted-foreground">{p.email}</span>
+                  {!p.notion_user_id && <span className="ml-2 text-xs text-rag-amber">no Notion user</span>}
+                  <span className="block text-xs text-muted-foreground">{lastActive(p.last_seen_at)}</span>
+                </span>
+              </Link>
               <AdminForm action={setProfileRole} submitLabel="Set" className="flex items-center gap-2 space-y-0">
                 <input type="hidden" name="id" value={p.id} />
                 <select name="role" defaultValue={p.role ?? ""} className={`${fieldClass} w-52`} aria-label={`Role for ${p.full_name ?? p.email}`}>

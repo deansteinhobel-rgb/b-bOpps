@@ -44,7 +44,7 @@ console.log("client_team:", await q("select c.slug, p.email, t.role from public.
 try { await db.exec(`insert into auth.users values ('aaaaaaaa-0000-0000-0000-000000000009','hacker@gmail.com')`); console.log("FAIL: outside domain allowed") } catch (e) { console.log("outside domain blocked:", e.message) }
 
 // RLS as each user
-await db.exec(`grant usage on schema public to authenticated; grant select, insert, update, delete on all tables in schema public to authenticated;`)
+await db.exec(`grant usage on schema public to authenticated; grant usage on schema auth to authenticated; grant select, insert, update, delete on all tables in schema public to authenticated;`)
 async function as(uid, fn) {
   await db.exec(`set role authenticated; select set_config('request.uid', '${uid}', false);`)
   try { return await fn() } finally { await db.exec(`reset role`) }
@@ -119,3 +119,26 @@ console.log(iaDanny.length === 0 ? "danny (dnsfilter) can't see camber insight a
 const iaUpd = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("update public.insight_actions set action = 'dismissed' returning id"))
 const iaDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.insight_actions returning id"))
 console.log(iaUpd.length === 0 && iaDel.length === 0 ? "insight actions are append-only, even for admin: OK" : "FAIL: insight action changed")
+
+// Profiles: people edit their own details, never their role; admins can. Last seen is throttled.
+const ownEdit = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.profiles set job_title = 'Specialist', bio = 'Hi' where id = 'aaaaaaaa-0000-0000-0000-000000000002' returning id"))
+console.log(ownEdit.length === 1 ? "andrea edits her own profile: OK" : "FAIL: own profile not editable")
+const otherEdit = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.profiles set job_title = 'x' where id = 'aaaaaaaa-0000-0000-0000-000000000003' returning id"))
+console.log(otherEdit.length === 0 ? "andrea can't edit danny's profile: OK" : "FAIL: edited someone else")
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.profiles set role = 'admin' where id = 'aaaaaaaa-0000-0000-0000-000000000002'")); console.log("FAIL: self-promoted to admin") } catch { console.log("can't change own role: OK") }
+const adminRole = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("update public.profiles set role = 'specialist' where id = 'aaaaaaaa-0000-0000-0000-000000000002' returning id"))
+console.log(adminRole.length === 1 ? "admin changes a role: OK" : "FAIL: admin couldn't change role")
+await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select public.touch_last_seen()"))
+const lastSeen = await q("select last_seen_at from public.profiles where id = 'aaaaaaaa-0000-0000-0000-000000000002'")
+console.log(lastSeen[0].last_seen_at ? "last seen recorded: OK" : "FAIL: last seen not recorded")
+
+// Feedback: own or admin reads, anyone with a role sends, admins triage, no deletes.
+const fb = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("insert into public.feedback (kind, title) values ('bug', 'Broken button') returning id"))
+console.log(fb.length === 1 ? "andrea reports a bug: OK" : "FAIL: feedback not sent")
+const fbDanny = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select id from public.feedback"))
+console.log(fbDanny.length === 0 ? "danny can't read andrea's feedback: OK" : "FAIL: feedback visible to others")
+const fbAndreaTriage = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.feedback set status = 'done' returning id"))
+const fbAdmin = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("update public.feedback set status = 'planned' returning id"))
+console.log(fbAndreaTriage.length === 0 && fbAdmin.length === 1 ? "only admins triage feedback: OK" : "FAIL: feedback triage")
+const fbDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.feedback returning id"))
+console.log(fbDel.length === 0 ? "feedback can't be deleted: OK" : "FAIL: feedback deleted")

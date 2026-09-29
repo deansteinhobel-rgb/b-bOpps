@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown } from "lucide-react"
 import { fieldClass } from "@/components/field-class"
-import { PlatformIcon, PlatformLabel } from "@/components/brand"
+import { PlatformIcon, PlatformLabel, type AnyPlatform } from "@/components/brand"
 import { Sparkle } from "@/components/fx/sparkle"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -458,7 +458,7 @@ function QueueRow({ rec: r, rank, tab, active, earlier, onClick }: { rec: Recomm
         </span>
         <span className="min-w-0 flex-1 space-y-1">
           <span className="flex items-start gap-2">
-            <PlatformIcon platform={CONNECTED.includes(r.platform) ? (r.platform as Platform) : null} className="mt-0.5 size-3.5 shrink-0" />
+            <PlatformIcon platform={r.platform === "several" ? null : (r.platform as AnyPlatform)} className="mt-0.5 size-3.5 shrink-0" />
             <span className="line-clamp-2 text-sm font-medium leading-snug">{withSymbols(r.title)}</span>
           </span>
           <span className="line-clamp-1 text-xs text-muted-foreground">{summaryOf(r)}</span>
@@ -502,7 +502,8 @@ function Detail({ rec: r, rank, tab, canEdit, owners, defaultDeadline, currency 
             {connected || r.platform === "several" ? (
               <PlatformLabel platform={connected ? (r.platform as Platform) : null} className="text-muted-foreground" />
             ) : (
-              <span className="text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                <PlatformIcon platform={r.platform as AnyPlatform} />
                 {OTHER[r.platform] ?? r.platform} · not connected
               </span>
             )}
