@@ -69,8 +69,9 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
       .lte("period_start", period.end),
     mirrorItems(supabase, client.id, "action"),
     peopleForClient(supabase, client.id),
-    supabase.from("sprint_ai_runs").select("id, status, created_at, market_summary, news, error").eq("sprint_id", sprint.id).order("created_at", { ascending: false }).limit(1),
-    supabase.from("sprint_recommendations").select("*").eq("sprint_id", sprint.id).order("created_at", { ascending: false }).order("position"),
+    supabase.from("sprint_ai_runs").select("id, status, created_at, market_summary, news, error").eq("sprint_id", sprint.id).is("archived_at", null).order("created_at", { ascending: false }).limit(1),
+    // Archived runs' suggestions are hidden (kept in the database, never deleted).
+    supabase.from("sprint_recommendations").select("*, sprint_ai_runs!inner(archived_at)").eq("sprint_id", sprint.id).is("sprint_ai_runs.archived_at", null).order("created_at", { ascending: false }).order("position"),
   ])
   const { changes, history, previous, tests } = details
   const board = await testBoardData(supabase, client.id, tests)

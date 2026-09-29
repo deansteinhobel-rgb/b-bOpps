@@ -95,7 +95,7 @@ export async function buildSprintContext(db: SupabaseClient, clientId: string, s
       .eq("client_id", clientId)
       .order("created_at"),
     db.from("sprint_changes").select("changed_on, platform, campaign_name, type, description").eq("client_id", clientId).eq("status", "logged").order("changed_on", { ascending: false }).limit(25),
-    db.from("sprint_recommendations").select("title, platform, status, reject_reason").eq("client_id", clientId).in("status", ["approved", "rejected"]).order("decided_at", { ascending: false }).limit(20),
+    db.from("sprint_recommendations").select("title, platform, status, reject_reason, sprint_ai_runs!inner(archived_at)").eq("client_id", clientId).is("sprint_ai_runs.archived_at", null).in("status", ["approved", "rejected"]).order("decided_at", { ascending: false }).limit(20),
   ])
 
   const plat = (p: string | null) => (p ? (PLATFORM_LABEL[p as Platform] ?? p) : "Several platforms")
