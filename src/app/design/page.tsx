@@ -14,6 +14,7 @@ import { AiPanel } from "../(app)/clients/[slug]/sprint/ai-panel"
 import { WinePour } from "@/components/fx/wine-pour"
 import { CampaignTable, Investigator, PlatformSplit, TrendPanel } from "../(app)/clients/[slug]/performance/charts"
 import { derive } from "@/lib/metrics/performance"
+import { CampaignDetailData, LandingPages } from "../(app)/clients/[slug]/performance/breakdowns"
 import { adHealth, type FatigueInput } from "@/lib/metrics/ads"
 import type { CheckDefinition, CheckResult } from "@/lib/checks/runs"
 import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
@@ -62,6 +63,23 @@ const perfCampaigns = [
   { platform: "google_ads" as const, campaignId: "1", name: "DG | Search | Non-Brand Core", now: derive({ spend: 12400, impressions: 380000, clicks: 6100, conversions: 41, leads: 0 }), prev: derive({ spend: 10100, impressions: 300000, clicks: 5200, conversions: 38, leads: 0 }), daily: perfDaily.map((d) => ({ date: d.date, spend: d.spend * 0.5, results: d.results })), live: true },
   { platform: "linkedin" as const, campaignId: "2", name: "LI | Cold | Buying committee | 3 months free", now: derive({ spend: 3800, impressions: 71000, clicks: 330, conversions: 2, leads: 5 }), prev: derive({ spend: 3200, impressions: 60000, clicks: 390, conversions: 4, leads: 6 }), daily: perfDaily.map((d) => ({ date: d.date, spend: d.spend * 0.2, results: d.results })), live: true },
   { platform: "meta" as const, campaignId: "3", name: "Meta | Remarketing | Static", now: derive({ spend: 3967, impressions: 28900, clicks: 414, conversions: 20, leads: 23 }), prev: derive({ spend: 1552, impressions: 13900, clicks: 303, conversions: 2, leads: 4 }), daily: perfDaily.map((d) => ({ date: d.date, spend: d.spend * 0.15, results: d.results })), live: false },
+]
+const bd = (dim1: string, dim2: string, spend: number, impressions: number, clicks: number, conversions: number, extra: Record<string, unknown> | null = null) => ({ campaignId: "1", groupId: "g", groupName: "Ad group", dim1, dim2, days: 30, extra, m: derive({ spend, impressions, clicks, conversions, leads: 0 }) })
+const sampleGoogle = {
+  kind: "google" as const,
+  terms: [
+    { ...bd("dns filtering service", "EXACT", 1800, 9000, 520, 9), isKeyword: true },
+    { ...bd("free dns filter for home", "BROAD", 700, 5200, 210, 0), isKeyword: false },
+    { ...bd("best dns filter for msp", "PHRASE", 420, 1900, 95, 3), isKeyword: false },
+  ],
+  termsTotal: 3,
+  keywords: [bd("dns filtering", "PHRASE", 2600, 14000, 700, 11, { quality_score: 7 }), bd("cisco umbrella pricing", "BROAD", 165, 119, 3, 0, { quality_score: 3 })],
+  share: Array.from({ length: 20 }, (_, i) => ({ date: `2026-09-${String(i + 1).padStart(2, "0")}`, share: 0.25 + (i % 5) * 0.03, lostBudget: 0.05, lostRank: 0.7 - (i % 5) * 0.03, top: 0.16, absTop: 0.1 })),
+}
+const samplePages = [
+  { page: "/lp/for-clinics-aba", sourceMedium: "google / cpc", sessions: 420, engaged: 260, conversions: 9, avgDuration: 95 },
+  { page: "/", sourceMedium: "google / cpc", sessions: 310, engaged: 120, conversions: 2, avgDuration: 41 },
+  { page: "/demo", sourceMedium: "linkedin / paid-social", sessions: 150, engaged: 90, conversions: 6, avgDuration: 70 },
 ]
 const samplePacing = [pp("linkedin", 24235, 20000, "red"), pp("google_ads", 80015, 70000, "red"), pp("meta", 5518, 15000, "amber")]
 const sampleCampaigns: CampaignPacing[] = [
@@ -185,6 +203,8 @@ export default async function DesignPreview() {
               </div>
             </div>
             <CampaignTable rows={perfCampaigns} currency="USD" slug="dnsfilter" query="" target={300} />
+            <CampaignDetailData data={sampleGoogle} currency="USD" target={300} />
+            <LandingPages rows={samplePages} />
           </section>
 
           <section className="space-y-4">

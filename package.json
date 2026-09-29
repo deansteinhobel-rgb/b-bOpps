@@ -19,7 +19,8 @@
     "sync:creatives": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-creatives.ts",
     "seed:history": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/seed-history.ts",
     "fetch:logos": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/fetch-logos.ts",
-    "sync:hq": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-hq.ts"
+    "sync:hq": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-hq.ts",
+    "sync:breakdowns": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-breakdowns.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

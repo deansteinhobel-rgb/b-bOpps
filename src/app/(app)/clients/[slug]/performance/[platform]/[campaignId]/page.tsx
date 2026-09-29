@@ -7,7 +7,9 @@ import { derive, fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import { adKey, previewsFor } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
 import { Delta, Investigator, Sparkline, TrendPanel } from "../../charts"
+import { CampaignDetailData } from "../../breakdowns"
 import { Controls, parseDays, parsePlatform } from "../../controls"
+import { campaignBreakdowns } from "@/lib/metrics/breakdowns"
 
 const CARDS: MetricKey[] = ["spend", "impressions", "clicks", "ctr", "cpc", "results", "cpr"]
 const AD_COLS: MetricKey[] = ["spend", "impressions", "ctr", "results", "cpr"]
@@ -21,17 +23,19 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
   if (!platform) notFound()
   const days = parseDays((await searchParams).days)
   const supabase = await createClient()
-  const { data: client } = await supabase.from("clients").select("id, currency").eq("slug", slug).maybeSingle()
+  const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target").eq("slug", slug).maybeSingle()
   if (!client) notFound()
   const perf = await cachedPerformance(client.id, days, platform, campaignId) // access confirmed above
   const campaign = perf?.campaigns[0]
   if (!perf || !campaign) notFound()
   const cur = client.currency
 
-  const [{ data: nowAds }, { data: prevAds }, { data: tests }] = await Promise.all([
+  const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
+  const [{ data: nowAds }, { data: prevAds }, { data: tests }, detail] = await Promise.all([
     supabase.rpc("campaign_ads", { p_client: client.id, p_platform: platform, p_campaign_id: campaignId, p_from: perf.periods.from, p_to: perf.periods.to }),
     supabase.rpc("campaign_ads", { p_client: client.id, p_platform: platform, p_campaign_id: campaignId, p_from: perf.periods.prevFrom, p_to: perf.periods.prevTo }),
     supabase.from("sprint_tests").select("id, title, status, outcome, sprints(number)").eq("client_id", client.id).contains("campaign_ids", [campaignId]),
+    campaignBreakdowns(supabase, client.id, platform, campaignId, perf.periods.from, perf.periods.to),
   ])
   const sums = (r: Record<string, unknown>) => derive({ spend: num(r.spend), impressions: num(r.impressions), clicks: num(r.clicks), conversions: num(r.conversions), leads: num(r.leads) })
   const prevBy = new Map(((prevAds ?? []) as Record<string, unknown>[]).map((r) => [String(r.ad_id), sums(r)]))
@@ -147,9 +151,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
         </div>
       </div>
 
-      <p className="rounded-lg border border-dashed px-4 py-3 text-xs text-muted-foreground">
-        Coming next: search terms, keywords and impression share (Google), companies, job titles and seniority (LinkedIn), age, placement and frequency (Meta), GA4 landing pages, and an insights feed with what to change now.
-      </p>
+      <CampaignDetailData data={detail} currency={cur} target={target} />
     </div>
   )
 }

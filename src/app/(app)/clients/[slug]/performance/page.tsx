@@ -4,7 +4,9 @@ import { fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import type { Platform } from "@/lib/metrics/types"
 import { createClient } from "@/lib/supabase/server"
 import { CampaignTable, Delta, Investigator, PlatformSplit, Sparkline, TrendPanel } from "./charts"
+import { LandingPages } from "./breakdowns"
 import { Controls, parseDays, parsePlatform } from "./controls"
+import { landingPages } from "@/lib/metrics/breakdowns"
 
 export const metadata = { title: "Performance" }
 
@@ -17,10 +19,11 @@ export default async function PerformancePage({ params, searchParams }: PageProp
   const days = parseDays(sp.days)
   const platform = parsePlatform(sp.platform)
   const supabase = await createClient()
-  const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target").eq("slug", slug).maybeSingle()
+  const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target, ga4_property_id").eq("slug", slug).maybeSingle()
   if (!client) notFound()
   // Access confirmed above (client loaded through RLS), so the shared cache is safe to use.
   const [perf, all] = await Promise.all([cachedPerformance(client.id, days, platform), platform ? cachedPerformance(client.id, days, null) : null])
+  const pages = perf && client.ga4_property_id ? await landingPages(supabase, client.id, perf.periods.from, perf.periods.to) : null
   if (!perf) return <p className="text-muted-foreground">No ad data yet. An admin can run a Windsor backfill for this client.</p>
   const cur = client.currency
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
@@ -61,6 +64,8 @@ export default async function PerformancePage({ params, searchParams }: PageProp
         query={query ? `?${query}` : ""}
         rows={perf.campaigns.map((c) => ({ ...c, live: Boolean(c.lastSpendDate && c.lastSpendDate >= twoDaysAgo) }))}
       />
+
+      {pages && <LandingPages rows={pages} />}
     </div>
   )
 }
