@@ -1,5 +1,5 @@
 {
-  "_readme": "Starting data for the app: people (app role + Notion user), clients, their team and ad accounts. Budgets are default monthly amounts in the client's currency. main_kpi cost_per_result = spend / (conversions + leads). Dean is admin (first admin); GTM leads have admin rights.",
+  "_readme": "Starting data for the app: people (app role + Notion user), clients, their team and ad accounts. Budgets are default monthly amounts in the client's currency. main_kpi cost_per_result = spend / (conversions + leads). Dean, Esa and George are admins (Dean 2026-09-29); GTM leads also have admin rights.",
   "people": [
     {
       "email": "dean.steinhobel@bordeauxandburgundy.co.uk",
@@ -10,8 +10,14 @@
     {
       "email": "esa.burki@bordeauxandburgundy.co.uk",
       "full_name": "Esa Burki",
-      "role": "gtm_lead",
+      "role": "admin",
       "notion_user_id": "28d87630-776f-4e32-9f13-62947461c487"
+    },
+    {
+      "email": "george@bordeauxandburgundy.co.uk",
+      "full_name": "George Saunders",
+      "role": "admin",
+      "notion_user_id": "907a05e7-653d-41c7-94bd-8d66c51cc685"
     },
     {
       "email": "andrea.restrepo@bordeauxandburgundy.co.uk",

@@ -32,7 +32,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - The UI reads the mirror, never Notion live. Show "synced X minutes ago" and an "Open in Notion" link. Properties only, no page bodies.
 
 ## Decisions from Phase 0 answers (2026-09-28)
-- First admin: dean.steinhobel@bordeauxandburgundy.co.uk. Other new users get a profile with no role until an admin assigns one.
+- Admins: dean.steinhobel@, esa.burki@ and george@bordeauxandburgundy.co.uk (Esa and George added 2026-09-29, applied through `team_invites` on first sign-in). Esa is still GTM lead on Camber's team. Other new users get a profile with no role until an admin assigns one.
 - Notion: a single "Master Production" board, grouped by a `Client` select. See "Notion mapping" below.
 - **Data model change: `client_team` (client_id, profile_id, role) replaces `clients.am_profile_id` / `pm_profile_id` / `specialist_profile_id`.** Reason: DNSFilter and Camber each have two AMs (Danny and Kieran). RLS scopes by membership of `client_team`. Roles: `admin | gtm_lead | am | specialist`. **`gtm_lead` oversees all performance marketing and has admin rights**, seeing every client (Dean, 2026-09-28). The paid media specialist (Andrea) owns the checks by default. There is no PM role; each check's owner is set in `seed/checks.md`.
 - Team: DNSFilter: Dean (GTM lead), Andrea (specialist), Danny and Kieran (AM). Camber: Esa (GTM lead), Andrea, Danny and Kieran. Details are in `seed/clients.json`.
