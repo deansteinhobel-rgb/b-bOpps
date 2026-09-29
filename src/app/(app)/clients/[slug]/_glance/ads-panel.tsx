@@ -11,8 +11,8 @@ import { cn } from "@/lib/utils"
 const REFRESH_SHOW = 6
 
 /**
- * The Account tab's ads (Dean): which ads are working over the last 30 days, and which live ads are
- * tiring (their last two weeks worse than their first two). The full grid stays on the Overview.
+ * At a glance's ads (Dean): which ads are working over the last 30 days, and which live ads are
+ * tiring (their last two weeks worse than their first two). The full grid is in Reporting.
  */
 export function AdsPanel({ slug, currency, best, tiring, unknown, previews }: { slug: string; currency: string; best: ReturnType<typeof topAds>; tiring: FatiguedAd[]; unknown: number; previews: PreviewMap }) {
   return (
@@ -57,8 +57,8 @@ export function AdsPanel({ slug, currency, best, tiring, unknown, previews }: { 
               14.
             </Hint>
           </div>
-          <Link href={`/clients/${slug}#fatigue`} className="text-xs text-muted-foreground hover:text-foreground">
-            Every live ad on the Overview →
+          <Link href={`/clients/${slug}/reporting#fatigue`} className="text-xs text-muted-foreground hover:text-foreground">
+            Every live ad in Reporting →
           </Link>
         </div>
         {tiring.length === 0 ? (
@@ -74,7 +74,7 @@ export function AdsPanel({ slug, currency, best, tiring, unknown, previews }: { 
           </ul>
         )}
         <p className="text-xs text-muted-foreground">
-          {tiring.length > REFRESH_SHOW && `${tiring.length - REFRESH_SHOW} more on the Overview. `}
+          {tiring.length > REFRESH_SHOW && `${tiring.length - REFRESH_SHOW} more in Reporting. `}
           {unknown > 0 && `${unknown} live ad${unknown === 1 ? " was" : "s were"} already running when our data starts (90+ days), so we can't compare ${unknown === 1 ? "its" : "their"} first weeks.`}
         </p>
       </div>

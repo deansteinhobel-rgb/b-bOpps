@@ -300,7 +300,7 @@ export function CampaignTable({ rows, currency, slug, query, target }: { rows: C
               return (
                 <tr key={`${r.platform}|${r.campaignId}`} className="group hover:bg-accent/40">
                   <td className="max-w-80 px-4 py-2.5">
-                    <Link href={`/clients/${slug}/performance/${r.platform}/${encodeURIComponent(r.campaignId)}${query}`} className="flex items-center gap-2">
+                    <Link href={`/clients/${slug}/reporting/${r.platform}/${encodeURIComponent(r.campaignId)}${query}`} className="flex items-center gap-2">
                       <PlatformIcon platform={r.platform} className="size-3.5 shrink-0" />
                       <span className="truncate group-hover:underline" title={r.name}>
                         {r.name}

@@ -5,7 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils"
 
 /**
- * A small "i" that explains a term in plain words on hover or focus (Dean: the Account tab is for
+ * A small "i" that explains a term in plain words on hover or focus (Dean: At a glance is for
  * people without a paid media background).
  */
 export function Hint({ children, className, label = "What does this mean?" }: { children: React.ReactNode; className?: string; label?: string }) {

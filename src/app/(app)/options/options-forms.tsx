@@ -29,7 +29,7 @@ export function PreferencesForm({ clients, defaults }: { clients: { slug: string
           ))}
         </select>
       </Pref>
-      <Pref title="Performance period" hint="The period the Performance tab opens on.">
+      <Pref title="Reporting period" hint="The period the Reporting tab opens on.">
         <Segmented
           label="Default period"
           value={String(p.default_days) as "7" | "14" | "30" | "90"}

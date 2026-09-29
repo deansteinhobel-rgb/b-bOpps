@@ -47,7 +47,7 @@ const snapshot = (i: FeedInsight, items: string[]) => ({
 
 const refresh = (slug: string) => {
   revalidatePath(`/clients/${slug}/insights`)
-  revalidatePath(`/clients/${slug}/performance`, "layout")
+  revalidatePath(`/clients/${slug}/reporting`, "layout")
 }
 
 const Log = z.object({

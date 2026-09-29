@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 
 const DOT = { high: "bg-rag-red", medium: "bg-rag-amber", low: "bg-muted-foreground/50" } as const
 
-/** A short list of open insights (the campaign drill-down, the Performance tab), each linking into the feed. */
+/** A short list of open insights (the campaign drill-down, the Reporting tab), each linking into the feed. */
 export function InsightSummary({ slug, insights, currency, limit = 5, title = "Optimise now" }: { slug: string; insights: FeedInsight[]; currency: string; limit?: number; title?: string }) {
   // Opportunities first, then Claude's order from the daily review (when there is one).
   const open = insights.filter((i) => i.state === "open").sort((a, b) => Number(isOpportunity(b)) - Number(isOpportunity(a)) || (a.claude?.rank ?? 1e6) - (b.claude?.rank ?? 1e6))

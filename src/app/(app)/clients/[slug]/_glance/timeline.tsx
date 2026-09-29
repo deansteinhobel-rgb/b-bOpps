@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import type { TimelineEntry, TimelineSource } from "@/lib/timeline"
 import { cn } from "@/lib/utils"
-import { PLATFORM_COLOR } from "../performance/charts"
+import { PLATFORM_COLOR } from "../reporting/charts"
 
 type SourceFilter = "all" | TimelineSource
 const SOURCES: { value: SourceFilter; label: string }[] = [

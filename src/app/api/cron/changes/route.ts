@@ -6,7 +6,7 @@ import { daysAgo } from "@/lib/windsor/sync"
 export const maxDuration = 300
 
 /**
- * Daily: platform change history for the Account tab (Google Ads change history, Meta activity log,
+ * Daily: platform change history for At a glance (Google Ads change history, Meta activity log,
  * LinkedIn edited ads), yesterday and today. Google can take ~2 minutes on busy accounts.
  * Requires `Authorization: Bearer $CRON_SECRET`.
  */

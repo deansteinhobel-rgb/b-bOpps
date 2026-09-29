@@ -22,6 +22,15 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Don't advertise the framework.
   poweredByHeader: false,
+  // Old client tab URLs (Dean, 2026-09-29): Account became "At a glance" (the client's home), and
+  // Overview + Performance became Reporting.
+  async redirects() {
+    return [
+      { source: "/clients/:slug/account", destination: "/clients/:slug", permanent: false },
+      { source: "/clients/:slug/performance", destination: "/clients/:slug/reporting", permanent: false },
+      { source: "/clients/:slug/performance/:path*", destination: "/clients/:slug/reporting/:path*", permanent: false },
+    ]
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }]
   },

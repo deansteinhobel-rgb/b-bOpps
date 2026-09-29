@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 
 /**
- * The Account tab's jump bar: one link per section, sticky under the top bar, with the section
+ * A long page's jump bar (At a glance, Reporting): one link per section, sticky under the top bar, with the section
  * you're reading highlighted.
  */
 export function SectionNav({ sections }: { sections: { id: string; label: string }[] }) {

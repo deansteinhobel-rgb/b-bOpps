@@ -22,7 +22,7 @@ const AD_COLS: MetricKey[] = ["spend", "impressions", "ctr", "results", "cpr"]
 const num = (v: unknown) => Number(v ?? 0)
 
 /** One campaign: its numbers against the previous period, its trend, and every ad in it. */
-export default async function CampaignPage({ params, searchParams }: PageProps<"/clients/[slug]/performance/[platform]/[campaignId]">) {
+export default async function CampaignPage({ params, searchParams }: PageProps<"/clients/[slug]/reporting/[platform]/[campaignId]">) {
   const { slug, platform: rawPlatform, campaignId: rawId } = await params
   const campaignId = decodeURIComponent(rawId)
   const platform = parsePlatform(rawPlatform)
@@ -55,7 +55,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
     prev: prevBy.get(String(r.ad_id)) ?? null,
   }))
   const previews = await previewsFor(supabase, client.id, ads)
-  const back = `/clients/${slug}/performance${days !== defaultDays ? `?days=${days}` : ""}`
+  const back = `/clients/${slug}/reporting${days !== defaultDays ? `?days=${days}` : ""}`
 
   return (
     <div className="space-y-6">
@@ -68,7 +68,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
           <h2 className="text-2xl">{campaign.name}</h2>
         </div>
       </div>
-      <Controls base={`/clients/${slug}/performance/${platform}/${encodeURIComponent(campaignId)}`} days={days} defaultDays={defaultDays} platform={null} from={perf.periods.from} to={perf.periods.to} prevFrom={perf.periods.prevFrom} prevTo={perf.periods.prevTo} />
+      <Controls base={`/clients/${slug}/reporting/${platform}/${encodeURIComponent(campaignId)}`} days={days} defaultDays={defaultDays} platform={null} from={perf.periods.from} to={perf.periods.to} prevFrom={perf.periods.prevFrom} prevTo={perf.periods.prevTo} />
 
       <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-4 xl:grid-cols-7">
         {CARDS.map((k) => (

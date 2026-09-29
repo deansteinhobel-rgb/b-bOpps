@@ -7,7 +7,7 @@ import type { AccountNumbers } from "@/lib/account"
 import { money, shortDate, whole } from "@/lib/format"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { cn } from "@/lib/utils"
-import { PLATFORM_COLOR } from "../performance/charts"
+import { PLATFORM_COLOR } from "../reporting/charts"
 import { cprTone, paceTone, paceWords } from "./tones"
 
 export type PlatformSpend = {
@@ -110,7 +110,7 @@ export function SpendBreakdown({ slug, currency, target, platforms, campaigns, t
           <ul className="divide-y">
             {shown.map((c) => (
               <li key={`${c.platform}|${c.campaignId}`}>
-                <Link href={`/clients/${slug}/performance/${c.platform}/${encodeURIComponent(c.campaignId)}`} className="grid grid-cols-[minmax(0,1fr)_6.5rem_6.5rem] items-center gap-4 px-4 py-2.5 text-sm hover:bg-secondary/30 sm:grid-cols-[minmax(0,1fr)_10rem_6.5rem_6.5rem]">
+                <Link href={`/clients/${slug}/reporting/${c.platform}/${encodeURIComponent(c.campaignId)}`} className="grid grid-cols-[minmax(0,1fr)_6.5rem_6.5rem] items-center gap-4 px-4 py-2.5 text-sm hover:bg-secondary/30 sm:grid-cols-[minmax(0,1fr)_10rem_6.5rem_6.5rem]">
                   <span className="flex min-w-0 items-center gap-2">
                     <PlatformIcon platform={c.platform} />
                     <span className="min-w-0">

@@ -6,9 +6,8 @@ import { useLayoutEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 
 const TABS = [
-  { href: "", label: "Overview" },
-  { href: "/account", label: "Account" },
-  { href: "/performance", label: "Performance" },
+  { href: "", label: "At a glance" },
+  { href: "/reporting", label: "Reporting" },
   { href: "/insights", label: "Optimise now" },
   { href: "/checks", label: "Checks" },
   { href: "/sprint", label: "Sprint" },
@@ -26,7 +25,7 @@ type Box = { left: number; width: number }
 export function ClientTabs({ slug }: { slug: string }) {
   const pathname = usePathname()
   const base = `/clients/${slug}`
-  const activeFor = (path: string) => TABS.find((t) => t.href && path.startsWith(base + t.href))?.label ?? (path === base ? "Overview" : null)
+  const activeFor = (path: string) => TABS.find((t) => t.href && path.startsWith(base + t.href))?.label ?? (path === base ? "At a glance" : null)
   const [clicked, setClicked] = useState<{ label: string; from: string } | null>(null)
   const active = clicked && clicked.from === pathname ? clicked.label : activeFor(pathname)
 

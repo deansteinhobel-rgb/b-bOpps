@@ -36,6 +36,6 @@ export async function saveGoalValue(slug: string, raw: z.input<typeof Input>): P
     { onConflict: "goal_id,month" },
   )
   if (error) return { ok: false, message: "Couldn't save." }
-  revalidatePath(`/clients/${slug}/account`)
+  revalidatePath(`/clients/${slug}`)
   return { ok: true }
 }

@@ -17,7 +17,7 @@ import { isOpportunity, RULES, type Category, type FeedInsight, type InsightPlat
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import type { PreviewMap } from "@/lib/previews"
 import { cn } from "@/lib/utils"
-import { PLATFORM_COLOR } from "../performance/charts"
+import { PLATFORM_COLOR } from "../reporting/charts"
 import { briefInsight, logInsight, testFromInsight } from "./actions"
 
 type Owner = { id: string | null; name: string; onTeam: boolean }
@@ -249,7 +249,7 @@ type RowProps = Parameters<typeof InsightFeed>[0] & { insight: FeedInsight; open
 
 function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
   const stake = openStake(i)
-  const campaignHref = i.campaignId && i.platform !== "ga4" ? `/clients/${p.slug}/performance/${i.platform}/${encodeURIComponent(i.campaignId)}` : null
+  const campaignHref = i.campaignId && i.platform !== "ga4" ? `/clients/${p.slug}/reporting/${i.platform}/${encodeURIComponent(i.campaignId)}` : null
   return (
     <div id={`insight-${i.key}`} className={cn("border-l-2 border-transparent", isOpportunity(i) && "border-l-lime bg-lime/[0.03]", open && "bg-secondary/25")}>
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-secondary/40">

@@ -4,7 +4,7 @@ import type { Platform } from "@/lib/metrics/types"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 
 /**
- * The Account tab's numbers (Dean, 2026-09-29: a holistic view for account managers): this month to
+ * At a glance's numbers (Dean, 2026-09-29: a holistic view for account managers): this month to
  * date against the same days last month, overall and per platform, results and cost per result
  * against the client's target, and spend per campaign.
  */
