@@ -1,11 +1,15 @@
 "use client"
 
+import Script from "next/script"
 import { useActionState } from "react"
 import { Sparkle } from "@/components/fx/sparkle"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { sendMagicLink, type LoginState } from "./actions"
+
+// Bot protection on sign-in, when switched on (docs/security.md). The site key is public by design.
+const TURNSTILE = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 export function LoginForm({ next, error }: { next?: string; error?: string }) {
   const [state, action, pending] = useActionState<LoginState, FormData>(sendMagicLink, {
@@ -26,12 +30,19 @@ export function LoginForm({ next, error }: { next?: string; error?: string }) {
 
   return (
     <form action={action} className="space-y-4">
-      <input type="hidden" name="next" value={next ?? "/clients"} />
+      <input type="hidden" name="next" value={next ?? "/"} />
       <div className="space-y-2">
         <Label htmlFor="email">Work email</Label>
         {/* key: remount with the submitted email after an error, instead of changing defaultValue */}
         <Input key={state.email ?? ""} id="email" name="email" type="email" autoComplete="email" required placeholder="name@bordeauxandburgundy.co.uk" defaultValue={state.email} />
       </div>
+      {TURNSTILE && (
+        <>
+          {/* Cloudflare Turnstile: adds a hidden cf-turnstile-response field to the form. */}
+          <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
+          <div className="cf-turnstile" data-sitekey={TURNSTILE} data-theme="dark" />
+        </>
+      )}
       {state.status === "error" && (
         <p className="text-sm text-rag-red" role="alert">
           {state.message}

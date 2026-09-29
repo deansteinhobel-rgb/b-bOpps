@@ -16,16 +16,18 @@ const CRON_PREFIX = "/api/cron/"
 function contentSecurityPolicy(nonce: string) {
   const dev = process.env.NODE_ENV === "development"
   const supabase = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).origin
+  // Cloudflare Turnstile on the login page, once switched on.
+  const turnstile = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? " https://challenges.cloudflare.com" : ""
   return [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${turnstile}${dev ? " 'unsafe-eval'" : ""}`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob: ${supabase} https://www.google.com https://*.gstatic.com`,
     `media-src 'self' blob: ${supabase}`,
     `font-src 'self' data:`,
-    `connect-src 'self' ${supabase} ${supabase.replace(/^https/, "wss")}${dev ? " ws:" : ""}`,
+    `connect-src 'self' ${supabase} ${supabase.replace(/^https/, "wss")}${turnstile}${dev ? " ws:" : ""}`,
     `worker-src 'self' blob:`,
-    `frame-src 'none'`,
+    turnstile ? `frame-src${turnstile}` : `frame-src 'none'`,
     `object-src 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,

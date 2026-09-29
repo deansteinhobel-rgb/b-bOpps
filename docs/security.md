@@ -5,7 +5,9 @@ What protects Sauvignon Blanc, and the settings that have to be switched on by h
 
 ## In the app (done)
 
-- **Sign-in**: magic links for `@bordeauxandburgundy.co.uk` only; no passwords. Every page and API
+- **Sign-in**: magic links for `@bordeauxandburgundy.co.uk` only; no passwords. Links point at
+  `APP_URL` only in production, and every redirect after sign-in is checked (`src/lib/safe-path.ts`:
+  no `//`, backslashes, encoded tricks or other schemes). Every page and API
   route needs a session (`src/proxy.ts`), except `/login`, `/auth/*` and the scheduled jobs.
 - **Scheduled jobs** (`/api/cron/*`) skip the login redirect and check `Authorization: Bearer
   $CRON_SECRET` themselves. Without the secret they answer 401.
@@ -34,15 +36,30 @@ What protects Sauvignon Blanc, and the settings that have to be switched on by h
 | CodeQL code scanning (security-extended queries) | `.github/workflows/codeql.yml` | **Code scanning** (results in the Security tab) |
 | Gitleaks: keys in any commit, full history | `.github/workflows/secret-scan.yml` + `.gitleaks.toml` | Runs by itself. Also turn on GitHub **Secret scanning** and **Push protection** (blocks a push that contains a key). |
 
-## Supabase (to do before deploy)
+## Supabase
 
-- [ ] **Security Advisor** (Dashboard → Advisors): fix anything red.
-- [ ] **Auth → URL configuration**: Site URL = the Vercel domain; redirect URLs = that domain only
-      (plus `http://localhost:3000` while developing).
+Done (2026-09-29, `supabase db advisors --linked`):
+- [x] **Security Advisor**: no errors. Fixed: `search_path` pinned on every function (18 warnings),
+      and nothing in `public` is callable without signing in (6 warnings; migration 0034). Checked
+      from outside with the public key: functions refuse, tables return nothing.
+- [x] **Performance Advisor**: access rules call `auth.uid()` once per query (migration 0035).
+- Accepted, by design: signed-in users can call `is_admin`, `has_role`, `can_access_client` (the
+  access rules need them), `take_rate_limit` and `touch_last_seen` (they only touch your own
+  record); two permissive update rules on profiles (admin, and own details).
+- Re-run any time: `npx supabase db advisors --linked --type security`.
+
+To do in the dashboard (they need the Vercel domain or a Cloudflare account):
+- [ ] **Auth → URL configuration**: Site URL = the Vercel domain; redirect URLs = that domain's
+      `/auth/confirm` only (plus `http://localhost:3000/auth/confirm` while developing). Set
+      `APP_URL` in Vercel to the same domain: in production the app refuses to send sign-in links
+      without it (the Host header can be forged).
 - [ ] **Auth → Rate limits**: keep the email limits low (magic links).
-- [ ] **Auth → Bot protection**: CAPTCHA (Cloudflare Turnstile) on sign-in. Needs a small change
-      to the login form (add the widget); ask Claude when you switch it on.
+- [ ] **Auth → Bot and abuse protection**: turn on CAPTCHA with **Cloudflare Turnstile** (free):
+      create a Turnstile widget for the domain, put its **secret** key in Supabase and its **site**
+      key in Vercel as `NEXT_PUBLIC_TURNSTILE_SITE_KEY`. The login form and CSP switch it on by
+      themselves when that variable is set.
 - [ ] **Auth → SMTP**: our own email sender, so magic links don't come from Supabase's shared one.
+- [ ] Optional: **Leaked password protection** (we don't use passwords, but it's free).
 
 ## Vercel (at deploy)
 

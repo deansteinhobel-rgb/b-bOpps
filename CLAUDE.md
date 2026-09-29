@@ -112,6 +112,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - `src/proxy.ts`: login redirect for everything except `/login`, `/auth/*` and **`/api/cron/*` (they check `CRON_SECRET` themselves)**; a per-request **nonce CSP** (the root layout reads `headers()` so every page renders per request and gets the nonce). If a new feature loads anything from another origin (images, scripts, iframes, fetches), add it to the CSP there, or it will be blocked.
 - `next.config.ts`: HSTS, frame, nosniff, referrer, permissions and opener headers; no `X-Powered-By`.
 - **Rate limits** (`src/lib/rate-limit.ts`, `take_rate_limit()`): any new route that calls Claude or takes uploads gets a limit.
+- Supabase advisors are clean apart from accepted notes (see docs/security.md). New SQL functions: they inherit "no execute for signed-out visitors"; grant `authenticated` explicitly if the app calls them, and security definer functions need `set search_path`. Redirect targets go through `safePath`.
 - CI (`.github/workflows`): types, lint, tests, RLS tests and `pnpm audit`; CodeQL; Gitleaks over the full history (`.gitleaks.toml`); Dependabot weekly.
 
 ## Conventions

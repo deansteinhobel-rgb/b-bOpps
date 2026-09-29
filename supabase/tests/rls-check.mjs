@@ -153,3 +153,12 @@ const anon = await as("", () => q("select public.take_rate_limit('test', 2, 3600
 console.log(!anon[0].ok ? "no session, no quota: OK" : "FAIL: anonymous quota")
 const peek = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("select id from public.rate_limit_events"))
 console.log(peek.length === 0 ? "rate limit events are private: OK" : "FAIL: events readable")
+
+// Advisor fixes: nothing in public is callable without signing in.
+await db.exec(`set role anon`)
+let anonBlocked = 0
+for (const fn of ["public.is_admin()", "public.has_role()", "public.touch_last_seen()", "public.take_rate_limit('x', 1, 60)"]) {
+  try { await db.query(`select ${fn}`) } catch { anonBlocked++ }
+}
+await db.exec(`reset role`)
+console.log(anonBlocked === 4 ? "signed-out visitors can't call privileged functions: OK" : `FAIL: anon could call ${4 - anonBlocked} functions`)

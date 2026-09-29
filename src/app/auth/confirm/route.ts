@@ -1,5 +1,6 @@
 import { type EmailOtpType } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
+import { safePath } from "@/lib/safe-path"
 import { createClient } from "@/lib/supabase/server"
 
 /**
@@ -8,8 +9,7 @@ import { createClient } from "@/lib/supabase/server"
  */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl
-  const nextRaw = searchParams.get("next") ?? "/" // "/" opens the start page from Options
-  const next = nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/clients"
+  const next = safePath(searchParams.get("next") ?? "/", "/") // "/" opens the start page from Options
 
   const supabase = await createClient()
   const code = searchParams.get("code")
