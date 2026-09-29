@@ -1,5 +1,6 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { recordStatusChange } from "./changes"
 
 /**
  * Current campaign status per platform, from Windsor, into campaign_statuses (upserts only).
@@ -33,6 +34,15 @@ export async function syncCampaignStatuses(opts: { clientId?: string; to: string
         status: String(r[field]).toUpperCase(),
         checked_at: new Date().toISOString(),
       }))
+      // LinkedIn has no change log: record status changes we see between checks (Google and Meta log them).
+      if (a.platform === "linkedin" && rows.length) {
+        const { data: before } = await db.from("campaign_statuses").select("campaign_id, status").eq("platform", "linkedin").eq("external_account_id", a.external_account_id)
+        const was = new Map((before ?? []).map((b) => [b.campaign_id as string, b.status as string]))
+        for (const r of rows) {
+          const prev = was.get(r.campaign_id)
+          if (prev && prev !== r.status) await recordStatusChange({ client_id: a.client_id, platform: "linkedin", external_account_id: a.external_account_id, campaign_id: r.campaign_id, campaign_name: r.campaign_name, from: prev, to: r.status })
+        }
+      }
       if (rows.length) {
         const { error } = await db.from("campaign_statuses").upsert(rows, { onConflict: "platform,external_account_id,campaign_id" })
         if (error) throw new Error(error.message)

@@ -315,7 +315,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
       </section>
 
       {/* Secondary: change log, red checks and Notion actions */}
-      <details className="rounded-lg border bg-card p-4">
+      <details id="change-log" className="scroll-mt-6 rounded-lg border bg-card p-4">
         <summary className="cursor-pointer text-lg">
           Change log{" "}
           <span className="text-sm text-muted-foreground">
