@@ -13,6 +13,8 @@ import { Controls } from "../../controls"
 import { parseDays, parsePlatform } from "../../params"
 import { campaignBreakdowns } from "@/lib/metrics/breakdowns"
 import { LoadedInsightSummary } from "../../../insights/summary"
+import { aiConfigured } from "@/lib/ai/claude"
+import { CampaignAsk } from "./campaign-ask"
 
 const CARDS: MetricKey[] = ["spend", "impressions", "clicks", "ctr", "cpc", "results", "cpr"]
 const AD_COLS: MetricKey[] = ["spend", "impressions", "ctr", "results", "cpr"]
@@ -103,6 +105,8 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
           )}
         </div>
       </div>
+
+      <CampaignAsk slug={slug} platform={platform} campaignId={campaignId} aiReady={aiConfigured()} />
 
       <div className="surface overflow-hidden">
         <div className="border-b px-4 py-3">
