@@ -117,6 +117,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 
 ## Conventions
 - Small steps, one commit per working step, clear messages.
+- Signing in on localhost without an email (Supabase's built-in sender allows only a few an hour): `pnpm dev:signin you@bordeauxandburgundy.co.uk` opens a one-time link in your browser. It refuses unless APP_URL is localhost; never print the link.
 - **Releases (Dean, 2026-09-29): review on localhost, then "push".** Commit locally only; Dean checks the change at http://localhost:3000 and says "push" (or "deploy") before anything goes to GitHub, because every push to `main` deploys to production. Migrations are the exception to "local only": the database is shared, so they're live as soon as they run. Keep them additive and say before running one.
 - Tests only for the Notion write function (mocked) and pacing. Use Vitest.
 - If anything about the Notion schema or Windsor fields is ambiguous, ask. Don't guess.

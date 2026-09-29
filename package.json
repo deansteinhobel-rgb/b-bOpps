@@ -20,7 +20,8 @@
     "seed:history": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/seed-history.ts",
     "fetch:logos": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/fetch-logos.ts",
     "sync:hq": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-hq.ts",
-    "sync:breakdowns": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-breakdowns.ts"
+    "sync:breakdowns": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-breakdowns.ts",
+    "dev:signin": "tsx --env-file=.env.local scripts/dev-signin.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
