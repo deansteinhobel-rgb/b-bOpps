@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { AdThumb } from "@/components/ad-thumb"
@@ -70,19 +71,36 @@ export function InsightFeed(props: {
   defaultDue: string
   sprintNumber: number
   openKey: string | null
+  /** Claude's latest daily review (phase 4), if any. */
+  review: { id: string; headline: string | null; startHere: { key: string; why: string }[]; at: string } | null
+  reviewRunning: string | null
+  lastReviewFailed: string | null
+  canReview: boolean
+  aiReady: boolean
 }) {
   const initial = props.openKey ? props.insights.find((i) => i.key === props.openKey) : undefined
   const [view, setView] = useState<View>(initial?.state ?? "open")
   const [platform, setPlatform] = useState<InsightPlatform | null>(null)
   const [category, setCategory] = useState<Category | null>(null)
   const [openKey, setOpenKey] = useState<string | null>(props.openKey)
+  // Claude's order when there's a review; otherwise (or by choice) the rules' priority.
+  const [order, setOrder] = useState<"claude" | "priority">(props.review ? "claude" : "priority")
+  const openInsight = (key: string) => {
+    const target = props.insights.find((i) => i.key === key)
+    if (target) setView(target.state)
+    setCategory(null)
+    setPlatform(null)
+    setOpenKey(key)
+    setTimeout(() => document.getElementById(`insight-${key}`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 50)
+  }
 
   useEffect(() => {
     if (props.openKey) document.getElementById(`insight-${props.openKey}`)?.scrollIntoView({ block: "center" })
   }, [props.openKey])
 
   const inView = props.insights.filter((i) => i.state === view)
-  const shown = inView.filter((i) => (!platform || i.platform === platform) && (!category || i.category === category))
+  const byClaude = (a: FeedInsight, b: FeedInsight) => (a.claude?.rank ?? 1e6) - (b.claude?.rank ?? 1e6) // unranked keep the rules' order after them
+  const shown = inView.filter((i) => (!platform || i.platform === platform) && (!category || i.category === category)).sort(order === "claude" && props.review ? byClaude : () => 0)
   const open = props.insights.filter((i) => i.state === "open")
   const counts = (list: FeedInsight[]) => Object.fromEntries((Object.keys(CATEGORY) as Category[]).map((c) => [c, list.filter((i) => i.category === c)])) as Record<Category, FeedInsight[]>
   const byCategory = counts(open)
@@ -105,6 +123,8 @@ export function InsightFeed(props: {
           </p>
         </div>
       </div>
+
+      <ClaudeTake {...props} onOpen={openInsight} />
 
       {/* Summary: the open queue by category. Clicking one filters the list. */}
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-4">
@@ -141,6 +161,18 @@ export function InsightFeed(props: {
           options={VIEWS.map((v) => ({ value: v.key, label: v.label, count: props.insights.filter((i) => i.state === v.key).length }))}
         />
         <div className="flex flex-wrap items-center gap-1.5">
+          {props.review && (
+            <Segmented
+              label="Order"
+              tone="quiet"
+              value={order}
+              onChange={setOrder}
+              options={[
+                { value: "claude", label: "Claude's order", title: "The order from Claude's daily review" },
+                { value: "priority", label: "Priority", title: "Severity, then money at stake" },
+              ]}
+            />
+          )}
           <FilterChip active={!platform} onClick={() => setPlatform(null)}>
             All platforms
           </FilterChip>
@@ -228,6 +260,12 @@ function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
             {i.title}
             {isOpportunity(i) && <span className="rounded-full border border-lime/40 bg-lime/10 px-1.5 py-px text-[10px] font-medium text-lime">Opportunity</span>}
           </span>
+          {i.claude?.whyNow && i.state === "open" && (
+            <span className="flex items-start gap-1.5 text-xs text-foreground/85">
+              <ClaudeMark className="mt-0.5 size-3 shrink-0 text-lime" />
+              <span className="line-clamp-2">{i.claude.whyNow}</span>
+            </span>
+          )}
           <span className="block truncate text-xs text-muted-foreground">
             {RULES[i.rule].label}
             {i.campaignName && <> · {i.campaignName}</>}
@@ -347,7 +385,22 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
                   />
                   <span className="min-w-0 flex-1 break-words">
                     {x.label}
-                    {x.flag && <span className="ml-2 rounded-full border border-rag-amber/40 bg-rag-amber/10 px-1.5 py-px text-[10px] font-medium text-rag-amber">{x.flag}</span>}
+                    {x.flag && (
+                      <span
+                        className={cn(
+                          "ml-2 rounded-full border px-1.5 py-px text-[10px] font-medium",
+                          x.flagTone === "good" ? "border-rag-green/40 bg-rag-green/10 text-rag-green" : x.flagTone === "bad" ? "border-rag-red/40 bg-rag-red/10 text-rag-red" : "border-rag-amber/40 bg-rag-amber/10 text-rag-amber",
+                        )}
+                      >
+                        {x.flag}
+                      </span>
+                    )}
+                    {x.reason && (
+                      <span className="mt-0.5 flex items-start gap-1.5 text-xs text-foreground/80">
+                        <ClaudeMark className="mt-0.5 size-3 shrink-0 text-lime" />
+                        {x.reason}
+                      </span>
+                    )}
                     {x.campaigns && x.campaigns.length > 0 && <SeenIn campaigns={x.campaigns} />}
                   </span>
                   {x.note && <span className="shrink-0 text-right text-xs text-muted-foreground tabular-nums">{x.note}</span>}
@@ -496,6 +549,95 @@ function SeenIn({ campaigns }: { campaigns: string[] }) {
         </span>
       ))}
     </span>
+  )
+}
+
+/** A small four-point star: marks what Claude wrote (its "why now", its ICP reasons). */
+function ClaudeMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" className={className} aria-label="Claude">
+      <path d="M8 0.8c.5 3.6 1.9 5.9 7.2 7.2-5.3 1.3-6.7 3.6-7.2 7.2-.5-3.6-1.9-5.9-7.2-7.2C6.1 6.7 7.5 4.4 8 .8Z" />
+    </svg>
+  )
+}
+
+/**
+ * Claude's take (phase 4): the daily review's headline and the 1-3 things to do first, each opening
+ * its insight. GTM leads and admins can ask for a fresh review (about a minute).
+ */
+function ClaudeTake(p: Parameters<typeof InsightFeed>[0] & { onOpen: (key: string) => void }) {
+  const router = useRouter()
+  const [running, setRunning] = useState<string | null>(p.reviewRunning)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!running) return
+    const t = setInterval(async () => {
+      const r = await fetch(`/api/insight-review?review=${running}`).then((x) => x.json()).catch(() => null)
+      if (r?.status === "ready") {
+        setRunning(null)
+        router.refresh()
+      } else if (r?.status === "failed") {
+        setRunning(null)
+        setError(r.error ?? "The review failed. Try again.")
+      }
+    }, 3000)
+    return () => clearInterval(t)
+  }, [running, router])
+  const start = async () => {
+    setError(null)
+    const res = await fetch("/api/insight-review", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ clientSlug: p.slug }) })
+    const body = (await res.json().catch(() => ({}))) as { reviewId?: string; error?: string }
+    if (!res.ok || !body.reviewId) return setError(body.error ?? "Couldn't start the review.")
+    setRunning(body.reviewId)
+  }
+  const byKey = new Map(p.insights.map((i) => [i.key, i]))
+  const picks = (p.review?.startHere ?? []).map((s) => ({ ...s, insight: byKey.get(s.key) })).filter((s) => s.insight && s.insight.state === "open")
+  const when = p.review ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }).format(new Date(p.review.at)) : null
+
+  if (!p.review && !p.canReview) return null
+  return (
+    <section className="relative overflow-hidden rounded-xl border border-lime/25 bg-gradient-to-br from-lime/[0.07] via-card to-card p-5">
+      <div aria-hidden className="pointer-events-none absolute -top-20 -right-10 size-56 rounded-full bg-lime/10 blur-3xl" />
+      <div className="relative flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-lime">
+            <ClaudeMark className="size-3.5" /> Claude&apos;s take
+            {when && <span className="font-normal text-muted-foreground">· reviewed {when}</span>}
+          </p>
+          <p className="max-w-3xl text-sm leading-relaxed">
+            {p.review?.headline ?? "Claude hasn't reviewed this feed yet. It ranks what to do first, checks the LinkedIn companies and costly search terms against the ICP in the Brain, and reads each campaign's goal from its name and Notion briefs."}
+          </p>
+        </div>
+        {p.canReview && (
+          <div className="flex flex-col items-end gap-1">
+            <Button size="sm" variant={p.review ? "outline" : "default"} disabled={Boolean(running) || !p.aiReady} onClick={start}>
+              {running ? "Reviewing…" : p.review ? "Review again" : "Ask Claude to review"}
+            </Button>
+            <span className="text-[11px] text-muted-foreground">{running ? "About a minute. The page updates when it's done." : "Runs every morning by itself."}</span>
+          </div>
+        )}
+      </div>
+      {(error || (p.lastReviewFailed && !running)) && <p className="relative mt-2 text-xs text-rag-red">{error ?? `The last review failed: ${p.lastReviewFailed}`}</p>}
+      {picks.length > 0 && (
+        <ol className="relative mt-4 grid gap-2 md:grid-cols-3">
+          {picks.map((s, n) => (
+            <li key={s.key}>
+              <button type="button" onClick={() => p.onOpen(s.key)} className="group flex h-full w-full items-start gap-3 rounded-lg border bg-background/50 p-3 text-left transition-colors hover:border-lime/40 hover:bg-background/80">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-lime text-[11px] font-semibold text-primary-foreground">{n + 1}</span>
+                <span className="min-w-0 space-y-1">
+                  <span className="flex items-center gap-1.5 text-sm font-medium leading-snug">
+                    <Icon platform={s.insight!.platform} className="size-3.5" />
+                    <span className="line-clamp-2">{s.insight!.title}</span>
+                  </span>
+                  <span className="line-clamp-3 block text-xs text-muted-foreground">{s.why}</span>
+                  <span className="block text-[11px] text-lime opacity-0 transition-opacity group-hover:opacity-100">Open →</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   )
 }
 

@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation"
+import { aiConfigured } from "@/lib/ai/claude"
+import { getProfile, isAdmin } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { loadFeed } from "@/lib/insights/feed"
 import { addDays } from "@/lib/metrics/ads"
@@ -21,7 +23,7 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, name, currency, monthly_kpi_target").eq("slug", slug).maybeSingle()
   if (!client) notFound()
-  const [feed, people] = await Promise.all([loadFeed(supabase, client.id), peopleForClient(supabase, client.id)]) // access confirmed above
+  const [feed, people, me] = await Promise.all([loadFeed(supabase, client.id), peopleForClient(supabase, client.id), getProfile()]) // access confirmed above
   if (!feed) return <p className="text-muted-foreground">No ad data yet. An admin can run a Windsor backfill for this client.</p>
   const ads = feed.insights.flatMap((x) => (x.ad ? [x.ad] : []))
   const byAd = ads.length ? await previewsFor(supabase, client.id, ads) : {}
@@ -43,6 +45,11 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
       defaultDue={addDays(today, 3)}
       sprintNumber={sprintOf(today).number}
       openKey={typeof i === "string" ? i : null}
+      review={feed.review}
+      reviewRunning={feed.reviewRunning}
+      lastReviewFailed={feed.lastReviewFailed}
+      canReview={isAdmin(me)}
+      aiReady={aiConfigured()}
     />
   )
 }

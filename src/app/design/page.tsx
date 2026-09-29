@@ -258,7 +258,7 @@ export default async function DesignPreview() {
 
           <section className="space-y-4">
             <SectionHeader title="Optimise now" description="The real rules on made-up numbers." />
-            <InsightFeed slug="sample" clientName="Sample Co" currency="USD" target={300} insights={sampleFeed} dataThrough={day(0)} checked={[{ platform: "google_ads", through: day(0) }, { platform: "linkedin", through: day(0) }, { platform: "meta", through: day(0) }, { platform: "ga4", through: day(0) }]} previews={{}} owners={[{ id: "00000000-0000-0000-0000-000000000000", name: "Sample Person", onTeam: true }]} live={false} defaultDue="2026-10-02" sprintNumber={1} openKey={null} />
+            <InsightFeed slug="sample" clientName="Sample Co" currency="USD" target={300} insights={sampleFeed} dataThrough={day(0)} checked={[{ platform: "google_ads", through: day(0) }, { platform: "linkedin", through: day(0) }, { platform: "meta", through: day(0) }, { platform: "ga4", through: day(0) }]} previews={{}} owners={[{ id: "00000000-0000-0000-0000-000000000000", name: "Sample Person", onTeam: true }]} live={false} defaultDue="2026-10-02" sprintNumber={1} openKey={null} review={{ id: "x", headline: "Sample: the Non-Brand campaign is losing most searches to Ad Rank while its keyword opportunities go untargeted. Fix rank first; it's the most spend at stake.", startHere: sampleFeed.filter((i) => i.state === "open").slice(0, 3).map((i) => ({ key: i.key, why: "Sample reason: the most money at stake and a quick fix." })), at: "2026-09-29T07:00:00Z" }} reviewRunning={null} lastReviewFailed={null} canReview aiReady />
           </section>
 
           <section className="space-y-4">

@@ -18,9 +18,11 @@ export type RuleKey =
   | "li_own_company" | "li_companies" | "li_weak_segments" | "li_strong_segments" | "li_junior"
   | "meta_frequency" | "meta_learning" | "meta_placements" | "meta_ages" | "meta_lookalike"
   | "landing_pages"
+  | "li_not_icp" | "icp_terms"
 
 /** `campaigns`: where the item was seen (LinkedIn companies); `flag`: a short warning shown beside it. */
-export type InsightItem = { id: string; label: string; note?: string; spend?: number; flag?: string; campaigns?: string[] }
+/** `campaigns`: where the item was seen (LinkedIn companies); `flag`: a short tag beside it, `flagTone` its colour. */
+export type InsightItem = { id: string; label: string; note?: string; spend?: number; flag?: string; flagTone?: "bad" | "good" | "warn"; reason?: string; campaigns?: string[] }
 export type Insight = {
   key: string
   rule: RuleKey
@@ -64,6 +66,8 @@ export const RULES: Record<RuleKey, { label: string; rule: string }> = {
   meta_placements: { label: "Placements", rule: "Placements that spent the target cost per result with no results while the campaign converts, or cost 2× the campaign's cost per result (last 30 days)." },
   meta_ages: { label: "Age groups", rule: "Age groups that spent the target cost per result with no results while the campaign converts, or cost 2× the campaign's cost per result (last 30 days)." },
   meta_lookalike: { label: "Lookalike", rule: "100+ Meta results in the last 90 days, enough people to seed a lookalike audience." },
+  li_not_icp: { label: "Not ICP", rule: "LinkedIn companies that clicked in the last 30 days and don't fit the ICP in the client brief, as judged by Claude's daily review." },
+  icp_terms: { label: "Off-ICP search terms", rule: "Search terms with spend and no conversions in the last 30 days that don't fit what the client sells or who it sells to, as judged by Claude's daily review (the client brief)." },
   landing_pages: { label: "Landing pages", rule: "paid search landing pages with 100+ sessions in 30 days and under half the average engagement rate, or no conversions where 2+ were expected." },
 }
 
@@ -94,6 +98,16 @@ export type InsightInputs = {
   landing: LandingRow[] // 30 days, paid search only
   /** GA4's last day, when the client has GA4 connected. */
   ga4Through?: string | null
+  /** Claude's latest daily review (phase 4): ICP verdicts and campaign goals. */
+  review?: ReviewVerdicts | null
+  /** Search terms with spend and no conversions (30 days), for the ICP check. */
+  costlyTerms?: TermRow[]
+}
+
+export type ReviewVerdicts = {
+  companies: { name: string; fit: "icp" | "not_icp" | "unsure"; reason: string }[]
+  terms: { campaign_id: string; term: string; fit: "relevant" | "clash" | "unsure"; reason: string }[]
+  goals: { platform: Platform; campaign_id: string; goal: string; note: string }[]
 }
 
 // ---- helpers ------------------------------------------------------------------------------
@@ -117,6 +131,15 @@ export const weekOf = (iso: string) => {
  * The campaign's goal from its name (Dean: always read the campaign name to understand the goal).
  * Awareness campaigns aren't judged on cost per result. The Notion brief comes in with Claude (phase 4).
  */
+/** Goals that aren't judged on cost per result. */
+const AWARENESS = ["awareness", "engagement"]
+
+/** A campaign's goal: Claude's read of its name, Notion briefs and the client brief when we have it, otherwise the name. */
+export function isAwareness(input: Pick<InsightInputs, "review">, platform: Platform, campaignId: string, name: string) {
+  const g = input.review?.goals.find((x) => x.platform === platform && x.campaign_id === campaignId)
+  return g ? AWARENESS.includes(g.goal) : goalOf(name) === "awareness"
+}
+
 export function goalOf(name: string): "awareness" | "results" {
   return /aware|awareness|\breach\b|video[-_ ]?views?|thought[-_ ]?leader|engagement|\btofu\b|brand[-_ ]?lift/i.test(name) ? "awareness" : "results"
 }
@@ -219,6 +242,40 @@ export function computeInsights(raw: InsightInputs): Insight[] {
     }
   }
 
+  // Search terms Claude's daily review says don't fit the ICP (the client brief), per campaign.
+  if (input.review?.terms.length && input.costlyTerms?.length) {
+    const clash = new Map(input.review.terms.filter((t) => t.fit === "clash").map((t) => [`${t.campaign_id}|${t.term}`, t.reason]))
+    const flaggedAsNegative = new Set(out.filter((i) => i.rule === "negatives").flatMap((i) => i.items.map((x) => `${i.campaignId}|${x.id}`)))
+    const byCampaign = new Map<string, TermRow[]>()
+    for (const t of input.costlyTerms) {
+      const k = `${t.campaignId}|${t.term}`
+      if (clash.has(k) && !flaggedAsNegative.has(k)) byCampaign.set(t.campaignId, [...(byCampaign.get(t.campaignId) ?? []), t])
+    }
+    for (const [campaignId, terms] of byCampaign) {
+      const spent = terms.reduce((s, t) => s + t.spend, 0)
+      out.push({
+        key: `icp_terms:google_ads:${campaignId}`,
+        rule: "icp_terms",
+        category: "waste",
+        severity: target && spent >= 3 * target ? "high" : target && spent >= target ? "medium" : "low",
+        platform: "google_ads",
+        campaignId,
+        campaignName: nameOf.get(`google_ads|${campaignId}`) ?? terms[0].campaignName,
+        title: `${terms.length} search term${terms.length === 1 ? "" : "s"} that don't fit the ICP`,
+        why: `${money(spent)} in 30 days with no conversions, on searches Claude judged off-target for what the client sells and who it sells to.`,
+        todo: "Check the reasons, then add the ones you agree with as negative keywords.",
+        numbers: [
+          { label: "Spent, no conversions", value: money(spent), tone: "bad" },
+          { label: "Terms", value: String(terms.length) },
+        ],
+        items: terms.sort((a, b) => b.spend - a.spend).map((t) => ({ id: t.term, label: t.term, spend: t.spend, reason: clash.get(`${t.campaignId}|${t.term}`), note: `${money(t.spend)} · ${intl(t.clicks)} clicks · 0 conv.` })),
+        listed: true,
+        itemsLabel: "Search terms",
+        atStake: spent,
+      })
+    }
+  }
+
   // Google impression share (the last 14 days).
   const shareBy = new Map<string, ShareDay[]>()
   for (const s of input.share) shareBy.set(s.campaignId, [...(shareBy.get(s.campaignId) ?? []), s])
@@ -316,7 +373,7 @@ export function computeInsights(raw: InsightInputs): Insight[] {
         atStake: weekBefore.spend,
       })
     }
-    if (!target || goalOf(c.name) === "awareness") continue
+    if (!target || isAwareness(input, c.platform, c.campaignId, c.name)) continue
     const week = weekOf(through)
     const last7 = span(c, addDays(through, -6), through)
     const before30 = span(c, addDays(through, -36), addDays(through, -7))
@@ -461,7 +518,34 @@ function linkedinInsights(input: InsightInputs, money: (v: number) => string): I
         atStake: spent,
       })
     }
-    const clicked = [...byCompany].filter(([n, e]) => e.m.clicks > 0 && !own.some(([o]) => o === n)).sort((a, b) => b[1].m.clicks - a[1].m.clicks || b[1].m.spend - a[1].m.spend)
+    const verdict = new Map((input.review?.companies ?? []).map((v) => [v.name, v]))
+    const clickedAll = [...byCompany].filter(([n, e]) => e.m.clicks > 0 && !own.some(([o]) => o === n)).sort((a, b) => b[1].m.clicks - a[1].m.clicks || b[1].m.spend - a[1].m.spend)
+    // Claude's daily review judged these against the ICP in the client brief: the misfits get their own insight.
+    const notIcp = clickedAll.filter(([n]) => verdict.get(n)?.fit === "not_icp")
+    if (notIcp.length) {
+      const spent = notIcp.reduce((s, [, e]) => s + e.m.spend, 0)
+      out.push({
+        key: "li_not_icp:linkedin",
+        rule: "li_not_icp",
+        category: "waste",
+        severity: notIcp.length >= 5 || spent >= (input.target ?? 200) ? "medium" : "low",
+        platform: "linkedin",
+        campaignId: null,
+        campaignName: null,
+        title: `${notIcp.length} compan${notIcp.length === 1 ? "y" : "ies"} that don't fit the ICP clicked the ads`,
+        why: `Claude checked every company that clicked in the 30 days to ${companies.asOf} against the ICP in the client brief. These don't fit${spent ? ` (${money(spent)} on them)` : ""}.`,
+        todo: "Check the reasons, then add them to the company exclusions on the campaigns listed under each one.",
+        numbers: [
+          { label: "Companies", value: intl(notIcp.length), tone: "bad" },
+          { label: "Their clicks", value: intl(notIcp.reduce((s, [, e]) => s + e.m.clicks, 0)) },
+        ],
+        items: notIcp.map(([n, e]) => ({ ...companyItem(n, e, `${intl(e.m.clicks)} click${e.m.clicks === 1 ? "" : "s"} · ${intl(e.m.impressions)} impr.`), reason: verdict.get(n)!.reason, flag: e.campaigns.size > 1 ? `${e.campaigns.size} campaigns` : undefined })),
+        listed: true,
+        itemsLabel: "Companies",
+        atStake: spent,
+      })
+    }
+    const clicked = clickedAll.filter(([n]) => verdict.get(n)?.fit !== "not_icp")
     if (clicked.length) {
       out.push({
         key: "li_companies:linkedin",
@@ -471,14 +555,18 @@ function linkedinInsights(input: InsightInputs, money: (v: number) => string): I
         platform: "linkedin",
         campaignId: null,
         campaignName: null,
-        title: `${clicked.length} companies clicked: check them against the ICP`,
+        title: input.review ? `${clicked.length} other compan${clicked.length === 1 ? "y" : "ies"} clicked` : `${clicked.length} companies clicked: check them against the ICP`,
         why: `Who interacted with the ads in the 30 days to ${companies.asOf}, most clicks first. Companies that aren't a fit can be excluded in Campaign Manager.`,
         todo: "Check them against the ICP (Brain tab), select the ones that don't fit, copy them and add them to the campaigns' company exclusions in Campaign Manager.",
         numbers: [
           { label: "Companies that clicked", value: intl(clicked.length) },
           { label: "Their clicks", value: intl(clicked.reduce((s, [, e]) => s + e.m.clicks, 0)) },
         ],
-        items: clicked.slice(0, 150).map(([n, e]) => companyItem(n, e, `${intl(e.m.clicks)} click${e.m.clicks === 1 ? "" : "s"} · ${intl(e.m.impressions)} impr.`)),
+        items: clicked.slice(0, 150).map(([n, e]) => {
+          const v = verdict.get(n)
+          const item = companyItem(n, e, `${intl(e.m.clicks)} click${e.m.clicks === 1 ? "" : "s"} · ${intl(e.m.impressions)} impr.`)
+          return v?.fit === "icp" ? { ...item, reason: v.reason, flag: item.flag ?? "ICP fit", flagTone: item.flag ? item.flagTone : ("good" as const) } : v ? { ...item, reason: v.reason } : item
+        }),
         listed: true,
         itemsLabel: "Companies",
         atStake: null,
@@ -641,7 +729,7 @@ function metaInsights(input: InsightInputs, money: (v: number) => string): Insig
     for (const r of rows) byCampaign.set(r.campaignId, [...(byCampaign.get(r.campaignId) ?? []), r])
     for (const [campaignId, list] of byCampaign) {
       const name = list[0].campaignName
-      if (goalOf(name) === "awareness") continue
+      if (isAwareness(input, "meta", campaignId, name)) continue
       // Age rows come per gender: add them up per age first.
       const merged = new Map<string, SegmentRow>()
       for (const r of list) {
@@ -757,6 +845,8 @@ export type FeedInsight = Insight & {
   state: "open" | "in_hand" | "snoozed" | "closed"
   snoozedUntil: string | null
   history: LoggedAction[]
+  /** Claude's place for it in the daily review (1 = first), and why now. */
+  claude?: { rank: number; whyNow: string } | null
 }
 
 const SEVERITY_WEIGHT: Record<Severity, number> = { high: 3, medium: 2, low: 1 }
@@ -801,7 +891,7 @@ export function applyActions(insights: Insight[], log: LoggedAction[], today: st
  * Changes whenever the rules' code changes, so a cached feed from older rules is never shown (the
  * cache key includes it; on Vercel the data cache outlives a deploy).
  */
-export const RULES_FINGERPRINT = codeFingerprint(computeInsights, linkedinInsights, metaInsights, landingInsights, completeThrough, goalOf)
+export const RULES_FINGERPRINT = codeFingerprint(computeInsights, linkedinInsights, metaInsights, landingInsights, completeThrough, goalOf, isAwareness)
 
 /** A short hash of some functions' source code. */
 export function codeFingerprint(...fns: ((...args: never[]) => unknown)[]) {
