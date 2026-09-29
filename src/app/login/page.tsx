@@ -6,6 +6,9 @@ import { LoginForm } from "./login-form"
 const ERRORS: Record<string, string> = {
   link: "That sign-in link has expired or was already used. Request a new one.",
   domain: "Only Bordeaux & Burgundy accounts can sign in.",
+  google: "Google sign-in didn't start. Try again, or use the email link.",
+  denied: "Google sign-in was cancelled, or that account can't sign in here. Use your Bordeaux & Burgundy Google account.",
+  setup: "Sign-in isn't set up on this server yet. Tell an admin.",
 }
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
@@ -24,7 +27,12 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <p className="text-sm text-muted-foreground">Paid media performance, weekly QA and test sprints, in one place.</p>
         </div>
         <div className="surface p-5">
-          <LoginForm next={typeof next === "string" ? next : undefined} error={typeof error === "string" ? ERRORS[error] : undefined} />
+          <LoginForm
+            next={typeof next === "string" ? next : undefined}
+            error={typeof error === "string" ? ERRORS[error] : undefined}
+            // Shown once Google is set up in Supabase (GOOGLE_SIGNIN_ENABLED=true).
+            google={process.env.GOOGLE_SIGNIN_ENABLED === "true"}
+          />
         </div>
       </div>
       <ParticleAmpersand className="hidden h-[480px] w-[420px] shrink-0 lg:block" />

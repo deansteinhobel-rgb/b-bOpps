@@ -1,6 +1,7 @@
 "use server"
 
 import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 import { z } from "zod"
 import { safePath } from "@/lib/safe-path"
 import { createClient } from "@/lib/supabase/server"
@@ -44,4 +45,29 @@ export async function sendMagicLink(_prev: LoginState, form: FormData): Promise<
     return { status: "error", message, email }
   }
   return { status: "sent", email }
+}
+
+/**
+ * "Continue with Google" (Dean, 2026-09-29): free, no emails, so no sending limits. Google only offers
+ * Bordeaux & Burgundy accounts (`hd`), and the database still refuses any other domain on sign-up.
+ * Supabase sends people to Google and back to /auth/confirm, which finishes the sign-in (?code=).
+ */
+export async function signInWithGoogle(form: FormData) {
+  const next = safePath(form.get("next"), "/")
+  const h = await headers()
+  const origin = process.env.APP_URL ?? (process.env.NODE_ENV === "production" ? null : `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`)
+  if (!origin) redirect("/login?error=setup")
+  const supabase = await createClient()
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${origin}/auth/confirm?next=${encodeURIComponent(next)}`,
+      queryParams: { hd: domain, prompt: "select_account" },
+    },
+  })
+  if (error || !data.url) {
+    console.error("Google sign-in failed to start", error?.message)
+    redirect("/login?error=google")
+  }
+  redirect(data.url)
 }
