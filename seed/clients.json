@@ -36,6 +36,12 @@
       "full_name": "Kieran Carmon",
       "role": "am",
       "notion_user_id": "319d872b-594c-819f-91ea-0002b9a22f07"
+    },
+    {
+      "email": "holly.helps@bordeauxandburgundy.co.uk",
+      "full_name": "Holly Helps",
+      "role": "admin",
+      "notion_user_id": "317d872b-594c-8141-a407-00028df5d59a"
     }
   ],
   "clients": [
@@ -172,16 +178,29 @@
       "slug": "proactis",
       "notion_client_option": "Proactis",
       "currency": "GBP",
-      "team": [],
+      "team": [
+        {
+          "email": "esa.burki@bordeauxandburgundy.co.uk",
+          "role": "gtm_lead"
+        },
+        {
+          "email": "andrea.restrepo@bordeauxandburgundy.co.uk",
+          "role": "specialist"
+        },
+        {
+          "email": "holly.helps@bordeauxandburgundy.co.uk",
+          "role": "am"
+        }
+      ],
       "main_kpi": "cost_per_result",
-      "monthly_kpi_target": null,
+      "monthly_kpi_target": 500,
       "platform_accounts": [
         {
           "platform": "linkedin",
           "windsor_connector": "linkedin",
           "external_account_id": "510004166",
           "account_name": "Proactis Global",
-          "monthly_budget": null,
+          "monthly_budget": 13000,
           "conversion_fields": [
             "externalwebsiteconversions"
           ],

@@ -71,7 +71,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Actions tab = rows the app created (`created_by_app`, via the "B&B Ops app · " prefix); Briefs tab = every other row. Action owners are picked by Notion user from profiles plus `team_invites`, so people who haven't signed in yet can own actions.
 - Briefs tab shows **paid media only** by default (Dean): Production Type "Paid Media" or "Google Ad Campaign", or "Status Paid" set to anything but N/A, plus sub-items of a matching parent. A "Show all briefs" toggle shows the rest.
 - Briefs tab: the client's rows, sub-items nested under `Parent item`, sorted by due date. "Production Complete" is hidden behind a "Show completed" toggle.
-- v1 clients: **Camber** and **DNSFilter**, plus **Proactis** (added 2026-09-29: LinkedIn only, "Proactis Global" 510004166, **GBP**; GA4 319384806 "proactis.com"; Notion HQ is the top-level page titled just "Proactis", `2c46e9bb-1958-8088-ba58-cfa8e2789e41`). Team, target and budget pending Dean.
+- v1 clients: **Camber** and **DNSFilter**, plus **Proactis** (added 2026-09-29: LinkedIn only, "Proactis Global" 510004166, **GBP**; GA4 319384806 "proactis.com"; Notion HQ is the top-level page titled just "Proactis", `2c46e9bb-1958-8088-ba58-cfa8e2789e41`). Team (Dean, 2026-09-29): Esa (GTM lead), Andrea (specialist), Holly (AM). Target £500 cost per result, LinkedIn budget £13k a month; conversions + leads as for the others.
 
 ## Windsor field mapping (from windsor-inspect, 2026-09-28. Numbers confirmed against the platforms by Dean)
 | ours | linkedin | google_ads | facebook |
