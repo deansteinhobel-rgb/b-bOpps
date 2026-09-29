@@ -43,11 +43,11 @@ const enrich = (a: AdStat): RankedAd => {
 }
 
 /**
- * Best and worst ad per platform (CLAUDE.md): only ads whose spend is strictly above their
+ * Eligible ads per platform, best first (CLAUDE.md): only ads whose spend is strictly above their
  * account's median ad spend are eligible. Rank by cost per result when at least 2 eligible ads
  * have 3+ results (conversions + leads); otherwise rank all eligible ads by CTR.
  */
-export function rankAds(ads: AdStat[]): AdRanking[] {
+function rankedByPlatform(ads: AdStat[]): { platform: Platform; basis: AdRanking["basis"]; eligible: number; ranked: RankedAd[] }[] {
   const byAccount = new Map<string, AdStat[]>()
   for (const a of ads) {
     if (a.spend <= 0) continue
@@ -61,25 +61,32 @@ export function rankAds(ads: AdStat[]): AdRanking[] {
       if (a.spend > m) eligibleByPlatform.set(a.platform, [...(eligibleByPlatform.get(a.platform) ?? []), enrich(a)])
     }
   }
-
-  const out: AdRanking[] = []
-  for (const [platform, eligible] of eligibleByPlatform) {
-    const withResults = eligible.filter((a) => a.results >= MIN_RESULTS_FOR_CPR)
-    if (withResults.length >= 2) {
-      const sorted = [...withResults].sort((a, b) => a.costPerResult! - b.costPerResult!)
-      out.push({ platform, basis: "cost_per_result", eligible: eligible.length, best: sorted[0], worst: sorted.at(-1)! })
-      continue
-    }
-    const sorted = eligible.filter((a) => a.ctr !== null).sort((a, b) => b.ctr! - a.ctr!)
-    out.push({
-      platform,
-      basis: "ctr",
-      eligible: eligible.length,
-      best: sorted[0] ?? null,
-      worst: sorted.length > 1 ? sorted.at(-1)! : null,
+  return [...eligibleByPlatform]
+    .map(([platform, eligible]) => {
+      const withResults = eligible.filter((a) => a.results >= MIN_RESULTS_FOR_CPR)
+      return withResults.length >= 2
+        ? { platform, basis: "cost_per_result" as const, eligible: eligible.length, ranked: [...withResults].sort((a, b) => a.costPerResult! - b.costPerResult!) }
+        : { platform, basis: "ctr" as const, eligible: eligible.length, ranked: eligible.filter((a) => a.ctr !== null).sort((a, b) => b.ctr! - a.ctr!) }
     })
-  }
-  return out.sort((a, b) => a.platform.localeCompare(b.platform))
+    .sort((a, b) => a.platform.localeCompare(b.platform))
+}
+
+/** Best and worst ad per platform (see rankedByPlatform for the rule). */
+export function rankAds(ads: AdStat[]): AdRanking[] {
+  return rankedByPlatform(ads).map(({ platform, basis, eligible, ranked }) => ({
+    platform,
+    basis,
+    eligible,
+    best: ranked[0] ?? null,
+    worst: basis === "cost_per_result" || ranked.length > 1 ? ranked.at(-1)! : null,
+  }))
+}
+
+/** The top ads per platform by the same rule, at most `n` and never more than the better half. */
+export function topAds(ads: AdStat[], n = 3): { platform: Platform; basis: AdRanking["basis"]; ads: RankedAd[] }[] {
+  return rankedByPlatform(ads)
+    .filter((r) => r.ranked.length > 0)
+    .map(({ platform, basis, ranked }) => ({ platform, basis, ads: ranked.slice(0, Math.min(n, Math.max(1, Math.floor(ranked.length / 2)))) }))
 }
 
 export type FatigueInput = {
@@ -172,6 +179,16 @@ export function adHealth(rows: FatigueInput[]): FatiguedAd[] {
 /** Live ads first seen 45+ days before the data-through date (the fatigue check). Biggest recent spenders first. */
 export function fatiguedAds(rows: FatigueInput[], minAgeDays = FATIGUE_MIN_AGE_DAYS): FatiguedAd[] {
   return adHealth(rows).filter((a) => a.ageDays >= minAgeDays)
+}
+
+/**
+ * Live ads that look tired (the Overview tiles' rule): over AD_OLD_DAYS live and worse on CTR or cost
+ * per result in their last 14 days than their first 14. Worse on both first, then by recent spend.
+ */
+export function tiringAds(live: FatiguedAd[]): FatiguedAd[] {
+  return live
+    .filter((a) => a.old && (a.ctrDown || a.cprUp))
+    .sort((a, b) => Number(b.ctrDown && b.cprUp) - Number(a.ctrDown && a.cprUp) || b.recent_spend - a.recent_spend)
 }
 
 /** Ads first seen in the calendar month of the data-through date (not ones already there at backfill). */

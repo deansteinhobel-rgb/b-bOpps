@@ -32,13 +32,13 @@ const dayKey = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Eu
  * The change history timeline: newest first, grouped by day, filterable by source, platform and a
  * search. Bulk platform changes (a tool changing thousands of things at once) are hidden until ticked.
  */
-export function Timeline({ entries }: { entries: TimelineEntry[] }) {
+export function Timeline({ entries, pageSize = PAGE }: { entries: TimelineEntry[]; pageSize?: number }) {
   const [source, setSource] = useState<SourceFilter>("all")
   const [platform, setPlatform] = useState<Platform | null>(null)
   const [query, setQuery] = useState("")
   // Bulk changes (a tool changing thousands of things at once) are hidden unless ticked (Dean).
   const [showBulk, setShowBulk] = useState(false)
-  const [limit, setLimit] = useState(PAGE)
+  const [limit, setLimit] = useState(pageSize)
 
   const platforms = useMemo(() => (["google_ads", "linkedin", "meta"] as Platform[]).filter((p) => entries.some((e) => e.platform === p)), [entries])
   const bulkCount = entries.filter((e) => e.bulk).length
@@ -69,7 +69,7 @@ export function Timeline({ entries }: { entries: TimelineEntry[] }) {
           value={source}
           onChange={(v) => {
             setSource(v)
-            setLimit(PAGE)
+            setLimit(pageSize)
           }}
           options={SOURCES.map((s) => ({ ...s, count: s.value === "all" ? entries.length : counts[s.value] }))}
         />
@@ -113,7 +113,7 @@ export function Timeline({ entries }: { entries: TimelineEntry[] }) {
       </ol>
 
       {shown.length > limit && (
-        <button type="button" onClick={() => setLimit(limit + PAGE)} className="w-full border-t px-5 py-3 text-sm text-muted-foreground hover:bg-secondary/40 hover:text-foreground">
+        <button type="button" onClick={() => setLimit(limit + pageSize)} className="w-full border-t px-5 py-3 text-sm text-muted-foreground hover:bg-secondary/40 hover:text-foreground">
           Show more ({shown.length - limit} older)
         </button>
       )}

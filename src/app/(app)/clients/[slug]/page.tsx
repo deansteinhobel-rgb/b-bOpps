@@ -134,7 +134,7 @@ export default async function OverviewPage({ params }: PageProps<"/clients/[slug
       </section>
 
       {/* Fatigue */}
-      <section className="space-y-4">
+      <section id="fatigue" className="scroll-mt-6 space-y-4">
         <SectionHeader
           title="Ad fatigue"
           description={`Every live ad: its first 14 days against its last 14 days. First seen is red when it's over ${AD_OLD_DAYS} days ago; the last 14 days are red when worse. Age counts from the first day with impressions in our data (from ${longDate(o.dataFrom)}), because Windsor can't see creative edits.`}
