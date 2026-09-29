@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { getProfile } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { peopleForClient } from "@/lib/people"
 import { createClient } from "@/lib/supabase/server"
 import { syncNotionMirror } from "./sync"
@@ -30,6 +30,7 @@ export type CreateActionState =
  * the user's own Supabase client (RLS); only then does the admin-side write function run.
  */
 export async function createAction(raw: z.input<typeof Input>): Promise<CreateActionState> {
+  if (!canEdit(await getProfile())) return { status: "error", message: VIEW_ONLY }
   const parsed = Input.safeParse(raw)
   if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Check the form." }
   const input = parsed.data

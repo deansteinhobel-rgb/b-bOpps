@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { getProfile } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { buildAutoData } from "@/lib/checks/auto-data"
 import { weekOf } from "@/lib/checks/periods"
 import { cachedOverview } from "@/lib/metrics/cached"
@@ -18,6 +18,7 @@ const Input = z.object({
 export type SaveState = { ok: boolean; message?: string; savedAt?: string }
 
 export async function saveCheckResult(input: z.input<typeof Input>): Promise<SaveState> {
+  if (!canEdit(await getProfile())) return { ok: false, message: VIEW_ONLY }
   const parsed = Input.safeParse(input)
   if (!parsed.success) return { ok: false, message: "Pick a status before saving." }
   const { resultId, status, findings, flaggedTo } = parsed.data

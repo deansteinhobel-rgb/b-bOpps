@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import { ActionForm } from "@/components/action-form"
 import { StatusBadge } from "@/components/status-badge"
 import { aiConfigured } from "@/lib/ai/claude"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile, isAdmin } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { longDate, money, oneDp, signedPct } from "@/lib/format"
 import { addDays, pctChange } from "@/lib/metrics/ads"
@@ -16,6 +16,7 @@ import { cachedSprintNumbers, ensureSprint, loadSprintDetails, type Sprint } fro
 import { suggestChanges } from "@/lib/sprints/detect"
 import { sprintByNumber, sprintDay, sprintOf, SPRINT_DAYS } from "@/lib/sprints/periods"
 import { CARRY_REASONS, STAGES, stageOf, type Stage } from "@/lib/sprints/tests"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 import { AiPanel, type AiRun, type PourHistoryRow, type Recommendation } from "./ai-panel"
@@ -41,7 +42,9 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
 
   // The current sprint is created on first view; earlier ones only exist if someone used them.
   let sprint: Sprint | null
-  if (isCurrent) sprint = await ensureSprint(supabase, client.id, period)
+  // Viewers can't write, so the empty sprint (and its carry-overs) is made for them with the admin
+  // client; access was confirmed above and only this client's sprint is touched.
+  if (isCurrent) sprint = await ensureSprint(canEdit(me) ? supabase : createAdminClient(), client.id, period)
   else sprint = (await supabase.from("sprints").select("*").eq("client_id", client.id).eq("start_date", period.start).maybeSingle()).data as Sprint | null
   if (!sprint) {
     return (

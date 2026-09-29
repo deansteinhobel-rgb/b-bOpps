@@ -8,7 +8,7 @@ import { ROLE_LABEL, type AppRole } from "@/lib/auth"
 import { lastActive } from "@/lib/format"
 import { listNotionPeople } from "@/lib/notion/users"
 import { createClient } from "@/lib/supabase/server"
-import { saveInvite, setProfileRole } from "../actions"
+import { inviteNotionWorkspace, saveInvite, setProfileRole } from "../actions"
 
 const ROLES = Object.entries(ROLE_LABEL) as [AppRole, string][]
 
@@ -27,7 +27,8 @@ export default async function PeoplePage() {
       <section>
         <h1 className="text-3xl">People</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Signed-in people and their app role. Anyone without a role sees &ldquo;access pending&rdquo;. GTM leads have admin rights.
+          Signed-in people and their app role. Anyone without a role sees &ldquo;access pending&rdquo;. GTM leads have admin rights. Viewers see
+          every client but can&apos;t change anything.
         </p>
         <ul className="mt-4 divide-y rounded-lg border bg-card text-sm">
           {(profiles ?? []).map((p) => (
@@ -74,6 +75,16 @@ export default async function PeoplePage() {
             </li>
           ))}
         </ul>
+
+        <h3 className="mt-6 text-lg">Everyone in our Notion workspace</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Gives view access to everyone in B&amp;B&apos;s Notion with an @bordeauxandburgundy.co.uk email ({notionPeople.filter((n) => n.email?.toLowerCase().endsWith("@bordeauxandburgundy.co.uk")).length}{" "}
+          people): a Viewer invite for anyone not invited yet, and Viewer for anyone signed in without a role. Existing invites and roles
+          stay as they are. Guests from other domains are skipped. Notion is only read.
+        </p>
+        <AdminForm action={inviteNotionWorkspace} submitLabel="Invite everyone as Viewers" className="mt-2 max-w-3xl">
+          {null}
+        </AdminForm>
 
         <h3 className="mt-6 text-lg">Add or update an invite</h3>
         <AdminForm action={saveInvite} submitLabel="Save invite" className="mt-2 max-w-3xl rounded-lg border bg-card p-4">

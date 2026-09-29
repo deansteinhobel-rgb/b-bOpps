@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { z } from "zod"
 import { requireAdmin } from "@/lib/auth"
 import { windsorTag } from "@/lib/metrics/cached"
+import { listNotionPeople } from "@/lib/notion/users"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { CONNECTORS, DEFAULT_FIELDS } from "@/lib/windsor/accounts"
@@ -190,7 +191,7 @@ export async function creativesChunk(accountId: string, dateFrom: string, dateTo
 }
 
 // ── People ─────────────────────────────────────────────────────────────────
-const Role = z.enum(["admin", "gtm_lead", "am", "specialist"])
+const Role = z.enum(["admin", "gtm_lead", "am", "specialist", "viewer"])
 
 export async function saveInvite(_prev: FormState, form: FormData): Promise<FormState> {
   await requireAdmin()
@@ -208,6 +209,47 @@ export async function saveInvite(_prev: FormState, form: FormData): Promise<Form
   if (profile) await supabase.from("profiles").update({ full_name, notion_user_id, ...(profile.role ? {} : { role: role.data }) }).eq("id", profile.id)
   revalidatePath("/admin/people")
   return { ok: true, message: profile ? "Saved and applied to their account." : "Saved. It applies when they first sign in." }
+}
+
+/**
+ * View access for everyone in B&B's Notion workspace (read-only Notion call). People on our domain
+ * without an invite get a Viewer invite linked to their Notion user; signed-in people with no role
+ * become Viewers. Existing invites and roles are never changed.
+ */
+export async function inviteNotionWorkspace(): Promise<FormState> {
+  await requireAdmin()
+  const people = (await listNotionPeople()).filter((n) => n.email?.toLowerCase().endsWith(`@${domain}`))
+  if (!people.length) return fail("Couldn't read anyone on our domain from Notion.")
+  const supabase = await createClient()
+  const [{ data: invites, error: invErr }, { data: profiles, error: profErr }] = await Promise.all([
+    supabase.from("team_invites").select("email"),
+    supabase.from("profiles").select("id, email, role, notion_user_id"),
+  ])
+  if (invErr || profErr) return fail((invErr ?? profErr)!.message)
+  const invited = new Set((invites ?? []).map((i) => i.email))
+  const byEmail = new Map((profiles ?? []).map((p) => [p.email, p]))
+
+  const fresh = people
+    .filter((n) => !invited.has(n.email!.toLowerCase()))
+    .map((n) => ({ email: n.email!.toLowerCase(), full_name: n.name, role: "viewer" as const, notion_user_id: n.id }))
+  if (fresh.length) {
+    const { error } = await supabase.from("team_invites").upsert(fresh, { onConflict: "email", ignoreDuplicates: true })
+    if (error) return fail(error.message)
+  }
+  let upgraded = 0
+  for (const n of people) {
+    const p = byEmail.get(n.email!.toLowerCase())
+    if (!p || p.role) continue
+    const { error } = await supabase.from("profiles").update({ role: "viewer", ...(p.notion_user_id ? {} : { notion_user_id: n.id }) }).eq("id", p.id)
+    if (error) return fail(error.message)
+    upgraded++
+  }
+  revalidatePath("/admin/people")
+  const skipped = people.length - fresh.length
+  return {
+    ok: true,
+    message: `${fresh.length} new Viewer invite${fresh.length === 1 ? "" : "s"}, ${upgraded} signed-in ${upgraded === 1 ? "person" : "people"} given view access. ${skipped} already had an invite and kept it.`,
+  }
 }
 
 export async function setProfileRole(_prev: FormState, form: FormData): Promise<FormState> {

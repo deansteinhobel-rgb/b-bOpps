@@ -2,6 +2,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ClientLogo } from "@/components/brand"
 import { PageHeader } from "@/components/page-header"
+import { canEdit, getProfile } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { ClientTabs } from "./client-tabs"
 
@@ -16,7 +17,7 @@ export default async function ClientLayout({ children, params }: LayoutProps<"/c
   const { slug } = await params
   const supabase = await createClient()
   // RLS: a client you aren't assigned to simply isn't found.
-  const { data: client } = await supabase.from("clients").select("id, name, logo_url, website").eq("slug", slug).maybeSingle()
+  const [{ data: client }, me] = await Promise.all([supabase.from("clients").select("id, name, logo_url, website").eq("slug", slug).maybeSingle(), getProfile()])
   if (!client) notFound()
 
   return (
@@ -34,6 +35,11 @@ export default async function ClientLayout({ children, params }: LayoutProps<"/c
       <div className="border-b">
         <ClientTabs slug={slug} />
       </div>
+      {!canEdit(me) && (
+        <p className="rounded-md border bg-card px-4 py-2 text-sm text-muted-foreground">
+          You have view access: you can see everything here, but saving, briefing and editing are for the paid media team.
+        </p>
+      )}
       <div>{children}</div>
     </div>
   )

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { getProfile } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { loadFeed } from "@/lib/insights/feed"
 import { RULES, type FeedInsight } from "@/lib/insights/rules"
@@ -59,6 +59,7 @@ const Log = z.object({
 
 /** Done, dismiss (with an optional reason), snooze for N days, or reopen. `items` empty = the whole insight. */
 export async function logInsight(slug: string, key: string, raw: z.input<typeof Log>): Promise<InsightResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const p = Log.safeParse(raw)
   if (!p.success) return fail(p.error.issues[0].message)
   const l = await load(slug, key, p.data.items)
@@ -89,6 +90,7 @@ const Brief = z.object({
 
 /** Brief the team: one Notion action on the Master Production board (dry run until Dean switches writes on). */
 export async function briefInsight(slug: string, key: string, raw: z.input<typeof Brief>): Promise<InsightResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const p = Brief.safeParse(raw)
   if (!p.success) return fail(p.error.issues[0].message)
   const l = await load(slug, key, p.data.items)
@@ -134,6 +136,7 @@ const Test = z.object({
 
 /** Make it a sprint test: a planned test in the current sprint, linked back to the insight. */
 export async function testFromInsight(slug: string, key: string, raw: z.input<typeof Test>): Promise<InsightResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const p = Test.safeParse(raw)
   if (!p.success) return fail(p.error.issues[0].message)
   const l = await load(slug, key, p.data.items)

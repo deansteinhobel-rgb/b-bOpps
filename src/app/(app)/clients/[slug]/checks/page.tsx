@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { canEdit, getProfile } from "@/lib/auth"
 import { buildAutoData, type AutoData } from "@/lib/checks/auto-data"
 import { londonToday } from "@/lib/checks/periods"
 import { ensureCurrentRuns, loadRun, pastRuns } from "@/lib/checks/runs"
@@ -9,6 +10,7 @@ import { cachedOverview } from "@/lib/metrics/cached"
 import { notionWritesLive } from "@/lib/notion/server"
 import { peopleForClient } from "@/lib/people"
 import { previewsFor } from "@/lib/previews"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { type Person } from "./check-card"
 import { CheckDeck } from "./check-deck"
@@ -19,11 +21,14 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target").eq("slug", slug).maybeSingle()
   if (!client) notFound()
+  // Viewers can't write, so this week's empty runs are made for them with the admin client
+  // (access confirmed above, and only this client's runs are touched).
+  const runsDb = canEdit(await getProfile()) ? supabase : createAdminClient()
 
   // Round 2, all in parallel: runs, the focused result (?result= links from Notion's "QA Document"),
   // cached numbers, people and history.
   const [current, focusResult, overview, { data: team }, { data: profiles }, owners, allPast] = await Promise.all([
-    ensureCurrentRuns(supabase, client.id),
+    ensureCurrentRuns(runsDb, client.id),
     typeof runParam !== "string" && typeof resultParam === "string"
       ? supabase.from("check_results").select("check_run_id").eq("id", resultParam).eq("client_id", client.id).maybeSingle()
       : Promise.resolve({ data: null }),

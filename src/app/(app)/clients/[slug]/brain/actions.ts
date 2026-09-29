@@ -2,7 +2,7 @@
 
 import { after } from "next/server"
 import { revalidatePath } from "next/cache"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile, isAdmin, VIEW_ONLY } from "@/lib/auth"
 import { FILE_BUCKET } from "@/lib/knowledge/brief"
 import { readHqPage } from "@/lib/knowledge/notion-hq"
 import { rateLimit } from "@/lib/rate-limit"
@@ -26,6 +26,7 @@ async function clientFor(slug: string) {
 }
 
 export async function addNote(slug: string, category: string, text: string): Promise<BrainResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const me = await getProfile()
   const content = text.trim()
   if (!content) return fail("Write the note first.")
@@ -40,6 +41,7 @@ export async function addNote(slug: string, category: string, text: string): Pro
 }
 
 export async function removeNote(slug: string, id: string): Promise<BrainResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const { supabase } = await clientFor(slug)
   const { error } = await supabase.from("client_knowledge").update({ removed_at: new Date().toISOString() }).eq("id", id).eq("source", "note")
   if (error) return fail("Couldn't remove it.")
@@ -52,6 +54,7 @@ export async function removeNote(slug: string, id: string): Promise<BrainResult>
  * request bodies to 4.5 MB), then finishUpload records them. Both check access first.
  */
 export async function startUpload(slug: string, name: string, type: string, size: number): Promise<BrainResult & { path?: string; token?: string }> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   if (!FILE_TYPES[type]) return fail("PDF, TXT, MD or CSV only.")
   if (size > 10 * 1024 * 1024) return fail("Files must be under 10 MB.")
   const { clientId } = await clientFor(slug)
@@ -65,6 +68,7 @@ export async function startUpload(slug: string, name: string, type: string, size
 }
 
 export async function finishUpload(slug: string, path: string, name: string, type: string, size: number): Promise<BrainResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const me = await getProfile()
   const { clientId } = await clientFor(slug)
   if (!clientId || !path.startsWith(`${clientId}/`) || !FILE_TYPES[type]) return fail("This upload isn't available to you.")
@@ -79,6 +83,7 @@ export async function finishUpload(slug: string, path: string, name: string, typ
 }
 
 export async function removeFile(slug: string, id: string): Promise<BrainResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const { clientId } = await clientFor(slug)
   if (!clientId) return fail("This client isn't available to you.")
   // The stored file stays (no deletes); it just stops counting.
@@ -90,6 +95,7 @@ export async function removeFile(slug: string, id: string): Promise<BrainResult>
 
 /** Tick or untick an HQ page. Ticking reads it straight away (read only). GTM leads and admins. */
 export async function setHqPageIncluded(slug: string, id: string, include: boolean): Promise<BrainResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const me = await getProfile()
   if (!isAdmin(me)) return fail("Only GTM leads and admins choose which HQ pages count.")
   const { clientId } = await clientFor(slug)
@@ -104,6 +110,7 @@ export async function setHqPageIncluded(slug: string, id: string, include: boole
 
 /** Save the team's corrected brief as a new version. Claude keeps these corrections next time. */
 export async function saveBriefEdit(slug: string, content: string): Promise<BrainResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const me = await getProfile()
   const text = content.trim()
   if (text.length < 50) return fail("That looks too short to be the brief.")

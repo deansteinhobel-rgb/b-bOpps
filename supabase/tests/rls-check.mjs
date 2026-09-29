@@ -162,3 +162,33 @@ for (const fn of ["public.is_admin()", "public.has_role()", "public.touch_last_s
 }
 await db.exec(`reset role`)
 console.log(anonBlocked === 4 ? "signed-out visitors can't call privileged functions: OK" : `FAIL: anon could call ${4 - anonBlocked} functions`)
+
+// Viewers (everyone in B&B's Notion workspace): read every client, change nothing.
+await db.exec(`
+  insert into public.team_invites (email, full_name, role) values ('vera.viewer@bordeauxandburgundy.co.uk','Vera Viewer','viewer');
+  insert into auth.users values ('aaaaaaaa-0000-0000-0000-000000000010','vera.viewer@bordeauxandburgundy.co.uk');
+`)
+const vera = "aaaaaaaa-0000-0000-0000-000000000010"
+const veraSees = await as(vera, () => q("select slug from public.clients order by slug"))
+console.log(veraSees.length === 2 ? "viewer sees every client: OK" : `FAIL: viewer sees ${veraSees.length} clients`)
+const veraRuns = await as(vera, () => q("select id from public.check_runs"))
+console.log(veraRuns.length > 0 ? "viewer reads check runs: OK" : "FAIL: viewer can't read runs")
+try { await as(vera, () => q("insert into public.check_runs (client_id,cadence,period_start,period_end) values ('11111111-1111-1111-1111-111111111111','monthly','2026-09-01','2026-09-30')")); console.log("FAIL: viewer created a run") } catch { console.log("viewer can't create runs: OK") }
+const veraUpd = await as(vera, () => q("update public.check_results set findings = 'x' returning id"))
+console.log(veraUpd.length === 0 ? "viewer can't update results: OK" : "FAIL: viewer updated results")
+try { await as(vera, () => q("insert into public.sprints (client_id, number, start_date, end_date) values ('22222222-2222-2222-2222-222222222222', 99, '2030-01-07', '2030-01-20')")); console.log("FAIL: viewer created a sprint") } catch { console.log("viewer can't create sprints: OK") }
+try { await as(vera, () => q("insert into public.client_knowledge (client_id, source, category, title, content) values ('11111111-1111-1111-1111-111111111111','note','note','x','x')")); console.log("FAIL: viewer added a note") } catch { console.log("viewer can't add notes: OK") }
+const veraEdit = await as(vera, () => q("select public.can_edit_client('11111111-1111-1111-1111-111111111111') as ok"))
+const andreaEdit = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select public.can_edit_client('11111111-1111-1111-1111-111111111111') as ok"))
+console.log(!veraEdit[0].ok && andreaEdit[0].ok ? "can_edit_client: viewer no, team member yes: OK" : "FAIL: can_edit_client")
+
+// Client goals: the team reads its client's goals; only admins set them; no deletes.
+const goal = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.client_goals (client_id, name, monthly_target) values ('11111111-1111-1111-1111-111111111111', 'Demos', 50) returning id`))
+const gv = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.client_goal_values (goal_id, client_id, month, value) values ('${goal[0].id}', '11111111-1111-1111-1111-111111111111', '2026-09-01', 12) returning value`))
+console.log(goal.length === 1 && gv.length === 1 ? "admin sets a client goal: OK" : "FAIL: admin couldn't set a goal")
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.client_goal_values (goal_id, client_id, month, value) values ('${goal[0].id}', '11111111-1111-1111-1111-111111111111', '2026-08-01', 9)`)); console.log("FAIL: specialist set a goal value") } catch { console.log("specialist can't set goal figures: OK") }
+const andreaSees = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select value from public.client_goal_values"))
+const dannySees = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select value from public.client_goal_values"))
+console.log(andreaSees.length === 1 && dannySees.length === 0 ? "goals are read by the client's team only: OK" : "FAIL: goal visibility")
+const goalDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.client_goal_values returning value"))
+console.log(goalDel.length === 0 ? "goal figures can't be deleted: OK" : "FAIL: goal figure deleted")

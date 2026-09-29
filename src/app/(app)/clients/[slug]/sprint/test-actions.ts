@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { getProfile } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { longDate, money } from "@/lib/format"
 import { writeDeps } from "@/lib/notion/server"
 import { createNotionAction } from "@/lib/notion/write"
@@ -46,6 +46,7 @@ const Plan = z.object({
 })
 
 export async function planTest(sprintId: string, raw: z.input<typeof Plan>): Promise<TestResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const parsed = Plan.safeParse(raw)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
   const p = parsed.data
@@ -79,6 +80,7 @@ export async function planTest(sprintId: string, raw: z.input<typeof Plan>): Pro
 
 /** Brief the team: creates ONE Notion brief row for the test via the single write function (dry run by default). */
 export async function briefTest(testId: string): Promise<TestResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const me = await getProfile()
   const { test, error } = await loadTest(testId)
   if (!test) return fail(error!)
@@ -121,6 +123,7 @@ export async function briefTest(testId: string): Promise<TestResult> {
  * With a real Notion brief the app moves it automatically, so this isn't offered then.
  */
 export async function markReadyManually(testId: string): Promise<TestResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const { supabase, test, error } = await loadTest(testId)
   if (!test) return fail(error!)
   if (test.notion_page_id) return fail("This test has a Notion brief: it becomes ready when Notion says Client Approved or Production Complete.")
@@ -131,6 +134,7 @@ export async function markReadyManually(testId: string): Promise<TestResult> {
 }
 
 export async function markLive(testId: string, raw: { live_on: string; campaigns: { id: string; name: string }[] }): Promise<TestResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const parsed = z
     .object({ live_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the live date."), campaigns: z.array(z.object({ id: z.string().max(100), name: z.string().max(400) })).max(30) })
     .safeParse(raw)
@@ -152,6 +156,7 @@ export async function markLive(testId: string, raw: { live_on: string; campaigns
 }
 
 export async function saveFindings(testId: string, raw: { worked: string; blockers: string; notes: string }): Promise<TestResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const { supabase, test, error } = await loadTest(testId)
   if (!test) return fail(error!)
   const clean = (s: string) => s.trim().slice(0, 3000) || null
@@ -176,6 +181,7 @@ const Outcome = z.object({
 
 /** Proven / disproven / inconclusive, or carry over (with a reason) into the next sprint. */
 export async function setOutcome(testId: string, raw: z.input<typeof Outcome>): Promise<TestResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const parsed = Outcome.safeParse(raw)
   if (!parsed.success) return fail("Pick an outcome.")
   const o = parsed.data
@@ -200,6 +206,7 @@ export async function setOutcome(testId: string, raw: z.input<typeof Outcome>): 
 
 /** Undo an outcome while the sprint is still open. */
 export async function clearOutcome(testId: string): Promise<TestResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const { supabase, test, error } = await loadTest(testId)
   if (!test) return fail(error!)
   await supabase.from("sprint_tests").update({ outcome: null, carry_reason: null, carry_note: null }).eq("id", testId)

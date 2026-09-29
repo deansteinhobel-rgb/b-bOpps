@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile, isAdmin, VIEW_ONLY } from "@/lib/auth"
 import { carryForward, carryTests, cachedSprintNumbers, type Sprint } from "@/lib/sprints/data"
 import { sprintByNumber } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
@@ -25,6 +25,7 @@ const refresh = (slug: string) => revalidatePath(`/clients/${slug}/sprint`)
 const TEXT_FIELDS = ["goal", "key_takeaway", "highlights", "challenges", "progress_made"] as const
 
 export async function saveSprintText(sprintId: string, field: (typeof TEXT_FIELDS)[number], value: string): Promise<Result> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   if (!TEXT_FIELDS.includes(field)) return fail("Unknown field.")
   const { supabase, sprint, error } = await openSprint(sprintId)
   if (!sprint) return fail(error!)
@@ -37,6 +38,7 @@ export async function saveSprintText(sprintId: string, field: (typeof TEXT_FIELD
 const Kind = z.enum(["hypothesis", "learning", "mitigation", "action"])
 
 export async function addItem(sprintId: string, kind: z.infer<typeof Kind>, text: string): Promise<Result> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   if (!Kind.safeParse(kind).success) return fail("Unknown item type.")
   const clean = text.trim().slice(0, 1000)
   if (!clean) return fail("Write something first.")
@@ -64,6 +66,7 @@ const ItemPatch = z.object({
 })
 
 export async function updateItem(itemId: string, patch: z.infer<typeof ItemPatch>): Promise<Result> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const parsed = ItemPatch.safeParse(patch)
   if (!parsed.success) return fail("Invalid change.")
   const supabase = await createClient()
@@ -89,6 +92,7 @@ const Change = z.object({
 })
 
 export async function logChange(sprintId: string, input: z.input<typeof Change>): Promise<Result> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const parsed = Change.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
   const me = await getProfile()
@@ -114,6 +118,7 @@ export async function logChange(sprintId: string, input: z.input<typeof Change>)
 }
 
 export async function setChangeStatus(changeId: string, status: "logged" | "dismissed"): Promise<Result> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const supabase = await createClient()
   const { data: change } = await supabase.from("sprint_changes").select("sprint_id").eq("id", changeId).maybeSingle()
   if (!change) return fail("That change isn't available to you.")
@@ -126,6 +131,7 @@ export async function setChangeStatus(changeId: string, status: "logged" | "dism
 
 /** Close: needs a key takeaway. Snapshots the numbers, then carries the chosen items into the next sprint if it exists. */
 export async function closeSprint(sprintId: string): Promise<Result> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const me = await getProfile()
   const { supabase, sprint, error } = await openSprint(sprintId)
   if (!sprint) return fail(error!)
@@ -148,6 +154,7 @@ export async function closeSprint(sprintId: string): Promise<Result> {
 }
 
 export async function reopenSprint(sprintId: string): Promise<Result> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const me = await getProfile()
   if (!isAdmin(me)) return fail("Only admins can reopen a sprint.")
   const supabase = await createClient()
