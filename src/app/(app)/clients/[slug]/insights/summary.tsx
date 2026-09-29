@@ -2,7 +2,7 @@ import Link from "next/link"
 import { PlatformIcon } from "@/components/brand"
 import { money } from "@/lib/format"
 import { loadFeed } from "@/lib/insights/feed"
-import { RULES, type FeedInsight } from "@/lib/insights/rules"
+import { isOpportunity, RULES, type FeedInsight } from "@/lib/insights/rules"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 
@@ -10,7 +10,7 @@ const DOT = { high: "bg-rag-red", medium: "bg-rag-amber", low: "bg-muted-foregro
 
 /** A short list of open insights (the campaign drill-down, the Performance tab), each linking into the feed. */
 export function InsightSummary({ slug, insights, currency, limit = 5, title = "Optimise now" }: { slug: string; insights: FeedInsight[]; currency: string; limit?: number; title?: string }) {
-  const open = insights.filter((i) => i.state === "open")
+  const open = insights.filter((i) => i.state === "open").sort((a, b) => Number(isOpportunity(b)) - Number(isOpportunity(a)))
   if (!open.length) return null
   return (
     <div className="surface overflow-hidden">
@@ -25,8 +25,8 @@ export function InsightSummary({ slug, insights, currency, limit = 5, title = "O
       <ul className="divide-y">
         {open.slice(0, limit).map((i) => (
           <li key={i.key}>
-            <Link href={`/clients/${slug}/insights?i=${encodeURIComponent(i.key)}`} className={cn("flex items-start gap-3 border-l-2 border-transparent px-4 py-2.5 text-sm hover:bg-secondary/40", (i.category === "opportunity" || i.rule === "li_strong_segments") && "border-l-lime")}>
-              <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", DOT[i.severity])} title={`${i.severity} priority`} />
+            <Link href={`/clients/${slug}/insights?i=${encodeURIComponent(i.key)}`} className={cn("flex items-start gap-3 border-l-2 border-transparent px-4 py-2.5 text-sm hover:bg-secondary/40", isOpportunity(i) && "border-l-lime")}>
+              <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", isOpportunity(i) ? "bg-lime" : DOT[i.severity])} title={isOpportunity(i) ? "Opportunity" : `${i.severity} priority`} />
               {i.platform !== "ga4" && <PlatformIcon platform={i.platform} className="mt-0.5" />}
               <span className="min-w-0 flex-1">
                 <span className="block leading-snug">{i.title}</span>

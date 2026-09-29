@@ -250,7 +250,7 @@ export default async function DesignPreview() {
 
           <section className="space-y-4">
             <SectionHeader title="Optimise now" description="The real rules on made-up numbers." />
-            <InsightFeed slug="sample" clientName="Sample Co" currency="USD" target={300} insights={sampleFeed} dataThrough={day(0)} previews={{}} owners={[{ id: "00000000-0000-0000-0000-000000000000", name: "Sample Person", onTeam: true }]} live={false} defaultDue="2026-10-02" sprintNumber={1} openKey={null} />
+            <InsightFeed slug="sample" clientName="Sample Co" currency="USD" target={300} insights={sampleFeed} dataThrough={day(0)} checked={[{ platform: "google_ads", through: day(0) }, { platform: "linkedin", through: day(0) }, { platform: "meta", through: day(0) }, { platform: "ga4", through: day(0) }]} previews={{}} owners={[{ id: "00000000-0000-0000-0000-000000000000", name: "Sample Person", onTeam: true }]} live={false} defaultDue="2026-10-02" sprintNumber={1} openKey={null} />
           </section>
 
           <section className="space-y-4">

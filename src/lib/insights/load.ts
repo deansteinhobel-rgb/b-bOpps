@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { addDays } from "@/lib/metrics/ads"
 import type { Platform } from "@/lib/metrics/types"
 import { rpcAll } from "@/lib/supabase/rpc-all"
-import { computeInsights, type CampaignDays, type InsightInputs, type LinkedInKind, type SegmentRow, type Sums } from "./rules"
+import { computeInsights, effectiveThrough, type CampaignDays, type InsightPlatform, type InsightInputs, type LinkedInKind, type SegmentRow, type Sums } from "./rules"
 
 /** Loads everything the insight rules read, for one client, and runs them. */
 
@@ -22,7 +22,7 @@ async function latest(supabase: SupabaseClient, clientId: string, kind: string) 
 
 export async function loadInsightInputs(supabase: SupabaseClient, clientId: string): Promise<InsightInputs | null> {
   const [{ data: client }, { data: range }, { data: statuses }] = await Promise.all([
-    supabase.from("clients").select("name, currency, monthly_kpi_target").eq("id", clientId).single(),
+    supabase.from("clients").select("name, currency, monthly_kpi_target, ga4_property_id").eq("id", clientId).single(),
     supabase.from("account_data_range").select("platform, data_through").eq("client_id", clientId),
     supabase.from("campaign_statuses").select("platform, campaign_id, status").eq("client_id", clientId),
   ])
@@ -95,6 +95,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     metaAges: ages,
     metaPlacements: placements,
     linkedin,
+    ga4Through: client.ga4_property_id ? await latest(supabase, clientId, "ga4_landing_page") : null,
     // Paid search only (Google Ads traffic in GA4).
     landing: landing.filter((r) => /google\s*\/\s*cpc/i.test(String(r.source_medium ?? ""))).map((r) => ({ page: String(r.page ?? ""), sourceMedium: String(r.source_medium ?? ""), sessions: num(r.sessions), engaged: num(r.engaged), conversions: num(r.conversions) })),
   }
@@ -102,5 +103,10 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
 
 export async function getInsights(supabase: SupabaseClient, clientId: string) {
   const input = await loadInsightInputs(supabase, clientId)
-  return input ? { dataThrough: input.dataThrough, currency: input.currency, insights: computeInsights(input) } : null
+  if (!input) return null
+  const through = effectiveThrough(input)
+  // Every connected source the rules looked at, so a platform with nothing to flag reads as checked.
+  const checked: { platform: InsightPlatform; through: string }[] = (Object.entries(through) as [InsightPlatform, string][]).map(([platform, d]) => ({ platform, through: d }))
+  if (input.ga4Through) checked.push({ platform: "ga4", through: input.ga4Through })
+  return { dataThrough: through, checked, currency: input.currency, insights: computeInsights(input) }
 }

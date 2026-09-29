@@ -92,6 +92,8 @@ export type InsightInputs = {
   metaPlacements: SegmentRow[] // 30 days, value = publisher, value2 = position
   linkedin: Partial<Record<LinkedInKind, { asOf: string; rows: SegmentRow[] }>>
   landing: LandingRow[] // 30 days, paid search only
+  /** GA4's last day, when the client has GA4 connected. */
+  ga4Through?: string | null
 }
 
 // ---- helpers ------------------------------------------------------------------------------
@@ -143,12 +145,16 @@ export function completeThrough(campaigns: CampaignDays[], platform: Platform, t
   return day
 }
 
+/** Each platform's last complete day (see completeThrough): what the rules actually judge up to. */
+export const effectiveThrough = (input: InsightInputs): Partial<Record<Platform, string>> =>
+  Object.fromEntries(Object.entries(input.dataThrough).map(([p, d]) => [p, completeThrough(input.campaigns, p as Platform, d!)]))
+
+/** Something to capitalise on: shown first, in its own section, with a lime dot and border (Dean). */
+export const isOpportunity = (i: Pick<Insight, "category" | "rule">) => i.category === "opportunity" || i.rule === "li_strong_segments"
+
 export function computeInsights(raw: InsightInputs): Insight[] {
   const out: Insight[] = []
-  const input: InsightInputs = {
-    ...raw,
-    dataThrough: Object.fromEntries(Object.entries(raw.dataThrough).map(([p, d]) => [p, completeThrough(raw.campaigns, p as Platform, d!)])),
-  }
+  const input: InsightInputs = { ...raw, dataThrough: effectiveThrough(raw) }
   const { target, currency } = input
   const money = (v: number) => fmtMoney(v, currency, Math.abs(v) < 10 && v !== 0 ? 2 : 0)
   // Brand terms (with the client's name in them) are never negative candidates.

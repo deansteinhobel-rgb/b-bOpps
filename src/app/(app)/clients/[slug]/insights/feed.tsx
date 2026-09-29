@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { money } from "@/lib/format"
-import { RULES, type Category, type FeedInsight, type InsightPlatform, type Severity } from "@/lib/insights/rules"
+import { money, shortDate } from "@/lib/format"
+import { isOpportunity, RULES, type Category, type FeedInsight, type InsightPlatform, type Severity } from "@/lib/insights/rules"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import type { PreviewMap } from "@/lib/previews"
 import { cn } from "@/lib/utils"
@@ -59,6 +59,8 @@ export function InsightFeed(props: {
   target: number | null
   insights: FeedInsight[]
   dataThrough: string | null
+  /** Every connected source the rules checked, with its last complete day. */
+  checked: { platform: InsightPlatform; through: string }[]
   /** Ad previews by insight key. */
   previews: PreviewMap
   owners: Owner[]
@@ -83,7 +85,13 @@ export function InsightFeed(props: {
   const counts = (list: FeedInsight[]) => Object.fromEntries((Object.keys(CATEGORY) as Category[]).map((c) => [c, list.filter((i) => i.category === c)])) as Record<Category, FeedInsight[]>
   const byCategory = counts(open)
   const wasted = byCategory.waste.reduce((s, i) => s + openStake(i), 0)
-  const platformsHere = PLATFORMS.filter((p) => inView.some((i) => i.platform === p))
+  const platformsHere = PLATFORMS.filter((p) => inView.some((i) => i.platform === p) || props.checked.some((c) => c.platform === p))
+  // Opportunities first, in their own section (Dean); then everything that needs attention.
+  const opportunities = shown.filter(isOpportunity)
+  const attention = shown.filter((i) => !isOpportunity(i))
+  // Connected platforms with nothing open read as checked and healthy, not missing.
+  const clear = view === "open" && !category ? props.checked.filter((c) => (!platform || c.platform === platform) && !open.some((i) => i.platform === c.platform)) : []
+  const row = (i: FeedInsight) => <InsightRow key={i.key} insight={i} open={openKey === i.key} onToggle={() => setOpenKey(openKey === i.key ? null : i.key)} {...props} />
 
   return (
     <div className="space-y-6">
@@ -157,16 +165,42 @@ export function InsightFeed(props: {
         </div>
       </div>
 
-      <div className="surface divide-y overflow-hidden">
-        {shown.map((i) => (
-          <InsightRow key={i.key} insight={i} open={openKey === i.key} onToggle={() => setOpenKey(openKey === i.key ? null : i.key)} {...props} />
-        ))}
-        {shown.length === 0 && (
-          <p className="px-5 py-12 text-center text-sm text-muted-foreground">
-            {view === "open" ? (props.insights.some((i) => i.state === "open") ? "Nothing here with these filters." : "Nothing to optimise right now. Nice.") : "Nothing here."}
-          </p>
-        )}
-      </div>
+      {opportunities.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <span className="size-2 rounded-full bg-lime" aria-hidden />
+            Opportunities <span className="text-xs font-normal text-muted-foreground">{opportunities.length} · things to capitalise on</span>
+          </h3>
+          <div className="surface divide-y overflow-hidden">{opportunities.map(row)}</div>
+        </section>
+      )}
+
+      {(attention.length > 0 || opportunities.length === 0 || clear.length > 0) && (
+        <section className="space-y-2">
+          {opportunities.length > 0 && (
+            <h3 className="text-sm font-semibold">
+              Needs attention <span className="text-xs font-normal text-muted-foreground">{attention.length}</span>
+            </h3>
+          )}
+          <div className="surface divide-y overflow-hidden">
+            {attention.map(row)}
+            {clear.map((c) => (
+              <div key={c.platform} className="flex items-center gap-3 px-5 py-3.5 text-sm text-muted-foreground">
+                <span className="size-2 shrink-0 rounded-full bg-rag-green" aria-hidden />
+                <Icon platform={c.platform} />
+                <span>
+                  <span className="text-foreground">{platformName(c.platform)}</span>: checked, nothing to flag (data to {shortDate(c.through)})
+                </span>
+              </div>
+            ))}
+            {attention.length === 0 && opportunities.length === 0 && clear.length === 0 && (
+              <p className="px-5 py-12 text-center text-sm text-muted-foreground">
+                {view === "open" ? (props.insights.some((i) => i.state === "open") ? "Nothing here with these filters." : "Nothing to optimise right now. Nice.") : "Nothing here."}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       <p className="text-xs text-muted-foreground">
         Done and Dismiss hide the items you handled; anything new (a new search term, a new week of high costs) brings the insight back. Nothing here changes the ad platforms.
@@ -175,9 +209,6 @@ export function InsightFeed(props: {
     </div>
   )
 }
-
-/** Something to capitalise on (Dean: marked with a lime border, in brand colours). */
-const isOpportunity = (i: FeedInsight) => i.category === "opportunity" || i.rule === "li_strong_segments"
 
 /** Money at stake on the items still open (lists), or on the whole insight. */
 function openStake(i: FeedInsight) {
@@ -207,8 +238,8 @@ function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
   return (
     <div id={`insight-${i.key}`} className={cn("border-l-2 border-transparent", isOpportunity(i) && "border-l-lime bg-lime/[0.03]", open && "bg-secondary/25")}>
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-secondary/40">
-        <span className={cn("mt-2 size-2 shrink-0 rounded-full", SEVERITY[i.severity].dot)} title={SEVERITY[i.severity].label}>
-          <span className="sr-only">{SEVERITY[i.severity].label}</span>
+        <span className={cn("mt-2 size-2 shrink-0 rounded-full", isOpportunity(i) ? "bg-lime" : SEVERITY[i.severity].dot)} title={isOpportunity(i) ? "Opportunity" : SEVERITY[i.severity].label}>
+          <span className="sr-only">{isOpportunity(i) ? "Opportunity" : SEVERITY[i.severity].label}</span>
         </span>
         <Icon platform={i.platform} className="mt-0.5" />
         <span className="min-w-0 flex-1 space-y-0.5">

@@ -17,7 +17,7 @@ import type { Platform } from "./types"
 export const windsorTag = (clientId: string) => `windsor:${clientId}`
 const TTL = 900
 // Bump when the shape of getOverview/getPacing changes, so an old cached copy is never read.
-const SHAPE = "v3"
+const SHAPE = "v4"
 
 export const cachedOverview = (clientId: string) =>
   unstable_cache(() => getOverview(createAdminClient(), clientId), ["overview", SHAPE, clientId], { tags: ["windsor", windsorTag(clientId)], revalidate: TTL })()

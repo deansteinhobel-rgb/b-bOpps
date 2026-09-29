@@ -36,6 +36,7 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
       target={client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)}
       insights={feed.insights}
       dataThrough={Object.values(feed.dataThrough).sort().at(-1) ?? null}
+      checked={feed.checked}
       previews={previews}
       owners={people.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam }))}
       live={notionWritesLive()}
