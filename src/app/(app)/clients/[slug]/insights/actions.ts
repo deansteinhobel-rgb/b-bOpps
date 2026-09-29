@@ -147,7 +147,7 @@ export async function testFromInsight(slug: string, key: string, raw: z.input<ty
   const notes = [
     `From "Optimise now" (${RULES[i.rule].label})${i.campaignName ? `, campaign ${i.campaignName}` : ""}: ${i.why}`,
     `What to do: ${i.todo}`,
-    items.length ? `${i.itemsLabel ?? "Items"}:\n${items.map((x) => `- ${x.label}${x.note ? ` (${x.note})` : ""}`).join("\n")}` : null,
+    items.length ? `${i.itemsLabel ?? "Items"}:\n${items.map((x) => `- ${x.label}${x.note ? ` (${x.note})` : ""}${x.campaigns?.length ? ` [seen in: ${x.campaigns.join("; ")}]` : ""}`).join("\n")}` : null,
   ]
     .filter(Boolean)
     .join("\n\n")

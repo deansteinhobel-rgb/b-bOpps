@@ -25,7 +25,7 @@ export function InsightSummary({ slug, insights, currency, limit = 5, title = "O
       <ul className="divide-y">
         {open.slice(0, limit).map((i) => (
           <li key={i.key}>
-            <Link href={`/clients/${slug}/insights?i=${encodeURIComponent(i.key)}`} className="flex items-start gap-3 px-4 py-2.5 text-sm hover:bg-secondary/40">
+            <Link href={`/clients/${slug}/insights?i=${encodeURIComponent(i.key)}`} className={cn("flex items-start gap-3 border-l-2 border-transparent px-4 py-2.5 text-sm hover:bg-secondary/40", (i.category === "opportunity" || i.rule === "li_strong_segments") && "border-l-lime")}>
               <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", DOT[i.severity])} title={`${i.severity} priority`} />
               {i.platform !== "ga4" && <PlatformIcon platform={i.platform} className="mt-0.5" />}
               <span className="min-w-0 flex-1">

@@ -6,6 +6,7 @@
  *   pnpm sync:windsor --backfill camber
  */
 import { createAdminClient } from "@/lib/supabase/admin"
+import { syncCampaignStatuses } from "@/lib/windsor/statuses"
 import { daysAgo, syncWindsor } from "@/lib/windsor/sync"
 
 async function main() {
@@ -22,6 +23,7 @@ async function main() {
   console.log(`Windsor ${backfill ? "backfill" : "daily"} sync ${dateFrom} to ${dateTo}${slug ? ` for ${slug}` : ""}`)
   const results = await syncWindsor({ clientId, dateFrom, dateTo, kind: backfill ? "backfill" : "daily" })
   for (const r of results) console.log(`  ${r.account.padEnd(32)} ${r.error ? "FAILED: " + r.error : `${r.rows} rows`}`)
+  for (const r of await syncCampaignStatuses({ clientId, to: daysAgo(0) })) console.log(`  status ${r.account.padEnd(25)} ${r.error ? "FAILED: " + r.error : `${r.rows} campaigns`}`)
   if (results.some((r) => r.error)) process.exit(1)
 }
 

@@ -21,10 +21,12 @@ async function latest(supabase: SupabaseClient, clientId: string, kind: string) 
 }
 
 export async function loadInsightInputs(supabase: SupabaseClient, clientId: string): Promise<InsightInputs | null> {
-  const [{ data: client }, { data: range }] = await Promise.all([
+  const [{ data: client }, { data: range }, { data: statuses }] = await Promise.all([
     supabase.from("clients").select("name, currency, monthly_kpi_target").eq("id", clientId).single(),
     supabase.from("account_data_range").select("platform, data_through").eq("client_id", clientId),
+    supabase.from("campaign_statuses").select("platform, campaign_id, status").eq("client_id", clientId),
   ])
+  const statusOf = new Map((statuses ?? []).map((r) => [`${r.platform}|${r.campaign_id}`, r.status as string]))
   if (!client || !range?.length) return null
   const dataThrough: Partial<Record<Platform, string>> = {}
   for (const r of range) {
@@ -52,7 +54,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
   const campaigns = new Map<string, CampaignDays>()
   for (const r of daily) {
     const key = `${r.platform}|${r.campaign_id}`
-    const c = campaigns.get(key) ?? { platform: r.platform as Platform, campaignId: String(r.campaign_id), name: String(r.campaign_name ?? r.campaign_id), daily: [] }
+    const c = campaigns.get(key) ?? { platform: r.platform as Platform, campaignId: String(r.campaign_id), name: String(r.campaign_name ?? r.campaign_id), status: statusOf.get(key) ?? null, daily: [] }
     c.name = String(r.campaign_name ?? c.name)
     c.daily.push({ date: String(r.date), ...sums(r) })
     campaigns.set(key, c)

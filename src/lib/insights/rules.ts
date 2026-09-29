@@ -19,7 +19,8 @@ export type RuleKey =
   | "meta_frequency" | "meta_learning" | "meta_placements" | "meta_ages" | "meta_lookalike"
   | "landing_pages"
 
-export type InsightItem = { id: string; label: string; note?: string; spend?: number; flag?: string }
+/** `campaigns`: where the item was seen (LinkedIn companies); `flag`: a short warning shown beside it. */
+export type InsightItem = { id: string; label: string; note?: string; spend?: number; flag?: string; campaigns?: string[] }
 export type Insight = {
   key: string
   rule: RuleKey
@@ -66,7 +67,8 @@ export const RULES: Record<RuleKey, { label: string; rule: string }> = {
   landing_pages: { label: "Landing pages", rule: "paid search landing pages with 100+ sessions in 30 days and under half the average engagement rate, or no conversions where 2+ were expected." },
 }
 
-export type CampaignDays = { platform: Platform; campaignId: string; name: string; daily: ({ date: string } & Sums)[] }
+/** `status`: the campaign's current status in the platform (campaign_statuses), when we have it. */
+export type CampaignDays = { platform: Platform; campaignId: string; name: string; status?: string | null; daily: ({ date: string } & Sums)[] }
 export type AdPair = { platform: Platform; external_account_id: string; campaignId: string; campaignName: string; adId: string; adName: string; last7: Sums; prev7: Sums }
 export type TermRow = { campaignId: string; campaignName: string; term: string; spend: number; impressions: number; clicks: number; results: number; isKeyword: boolean }
 export type ShareDay = { campaignId: string; campaignName: string; date: string; lostBudget: number | null; lostRank: number | null }
@@ -121,8 +123,32 @@ const span = (c: CampaignDays, from: string, to: string) => sumOf(c.daily.filter
 
 // ---- the rules ------------------------------------------------------------------------------
 
-export function computeInsights(input: InsightInputs): Insight[] {
+/** Statuses that mean the campaign is off on purpose (Dean: a paused campaign isn't "stopped spending"). */
+const RUNNING = new Set(["ENABLED", "ACTIVE", "IN_PROCESS", "WITH_ISSUES"])
+export const isPaused = (status: string | null | undefined) => Boolean(status) && !RUNNING.has(status!.toUpperCase())
+
+/**
+ * The last day whose numbers look complete for a platform. Windsor's latest day is often partial
+ * (Google especially), so a day with under 30% of the average spend of the 7 days before it is
+ * treated as not in yet (at most 3 days back).
+ */
+export function completeThrough(campaigns: CampaignDays[], platform: Platform, through: string) {
+  const total = (date: string) => campaigns.filter((c) => c.platform === platform).reduce((s, c) => s + (c.daily.find((d) => d.date === date)?.spend ?? 0), 0)
+  let day = through
+  for (let step = 0; step < 3; step++) {
+    const avg = Array.from({ length: 7 }, (_, n) => total(addDays(day, -(n + 1)))).reduce((a, b) => a + b, 0) / 7
+    if (avg <= 0 || total(day) >= 0.3 * avg) break
+    day = addDays(day, -1)
+  }
+  return day
+}
+
+export function computeInsights(raw: InsightInputs): Insight[] {
   const out: Insight[] = []
+  const input: InsightInputs = {
+    ...raw,
+    dataThrough: Object.fromEntries(Object.entries(raw.dataThrough).map(([p, d]) => [p, completeThrough(raw.campaigns, p as Platform, d!)])),
+  }
   const { target, currency } = input
   const money = (v: number) => fmtMoney(v, currency, Math.abs(v) < 10 && v !== 0 ? 2 : 0)
   // Brand terms (with the client's name in them) are never negative candidates.
@@ -257,7 +283,8 @@ export function computeInsights(input: InsightInputs): Insight[] {
     if (!through) continue
     const last2 = span(c, addDays(through, -1), through)
     const weekBefore = span(c, addDays(through, -8), addDays(through, -2))
-    if (last2.spend === 0 && weekBefore.spend > 0) {
+    // Paused, removed, archived or completed campaigns are off on purpose: ignore them.
+    if (last2.spend === 0 && weekBefore.spend > 0 && !isPaused(c.status)) {
       const lastSpend = c.daily.filter((d) => d.spend > 0).map((d) => d.date).sort().at(-1) ?? ""
       out.push({
         key: `no_spend:${c.platform}:${c.campaignId}`,
@@ -269,11 +296,14 @@ export function computeInsights(input: InsightInputs): Insight[] {
         campaignId: c.campaignId,
         campaignName: c.name,
         title: "Stopped spending",
-        why: `It spent ${money(weekBefore.spend)} in the week before and nothing since ${lastSpend}.`,
-        todo: "Check whether it was paused on purpose, ran out of budget or end date, or has disapproved ads or a billing problem.",
+        why: `It spent ${money(weekBefore.spend)} in the week before and nothing since ${lastSpend} (data to ${through}). ${
+          c.status ? `It's still ${c.status.toLowerCase().replace(/_/g, " ")} in the platform, so something else stopped it.` : "We couldn't confirm its status in the platform."
+        }`,
+        todo: c.status?.toUpperCase() === "WITH_ISSUES" ? "Meta reports issues with this campaign: open it in Ads Manager and fix what it flags." : "Check the budget, end date, bid strategy, disapproved ads and billing.",
         numbers: [
           { label: "Spend, the week before", value: money(weekBefore.spend) },
           { label: "Last spend", value: lastSpend },
+          { label: "Status", value: c.status ? c.status.charAt(0) + c.status.slice(1).toLowerCase().replace(/_/g, " ") : "Unknown" },
         ],
         items: [{ id: lastSpend, label: lastSpend }],
         listed: false,
@@ -391,6 +421,15 @@ function linkedinInsights(input: InsightInputs, money: (v: number) => string): I
       e.campaigns.add(r.campaignName)
       byCompany.set(r.value, e)
     }
+    // Which campaigns each company saw; seeing several is flagged (Dean), since each needs the exclusion.
+    const companyItem = (n: string, e: { m: Sums; campaigns: Set<string> }, note: string): InsightItem => ({
+      id: n,
+      label: n,
+      spend: e.m.spend,
+      note,
+      campaigns: [...e.campaigns].sort(),
+      flag: e.campaigns.size > 1 ? `${e.campaigns.size} campaigns` : undefined,
+    })
     const clientWords = input.clientName.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(" ").filter((w) => w.length >= 4)
     const own = [...byCompany].filter(([name]) => {
       const n = name.toLowerCase()
@@ -408,9 +447,9 @@ function linkedinInsights(input: InsightInputs, money: (v: number) => string): I
         campaignName: null,
         title: "Our own people are seeing the ads",
         why: `${own.map(([n]) => n).join(", ")} got ${intl(own.reduce((s, [, e]) => s + e.m.impressions, 0))} impressions${spent ? ` (${money(spent)})` : ""} in the 30 days to ${companies.asOf}.`,
-        todo: "Add them to the company exclusion list on every campaign.",
+        todo: "Add them to the company exclusions on the campaigns listed under each one.",
         numbers: [{ label: "Impressions", value: intl(own.reduce((s, [, e]) => s + e.m.impressions, 0)), tone: "bad" }],
-        items: own.map(([n, e]) => ({ id: n, label: n, spend: e.m.spend, note: `${intl(e.m.impressions)} impr. · ${intl(e.m.clicks)} clicks` })),
+        items: own.map(([n, e]) => companyItem(n, e, `${intl(e.m.impressions)} impr. · ${intl(e.m.clicks)} clicks`)),
         listed: true,
         itemsLabel: "Companies",
         atStake: spent,
@@ -433,7 +472,7 @@ function linkedinInsights(input: InsightInputs, money: (v: number) => string): I
           { label: "Companies that clicked", value: intl(clicked.length) },
           { label: "Their clicks", value: intl(clicked.reduce((s, [, e]) => s + e.m.clicks, 0)) },
         ],
-        items: clicked.slice(0, 150).map(([n, e]) => ({ id: n, label: n, spend: e.m.spend, note: `${intl(e.m.clicks)} click${e.m.clicks === 1 ? "" : "s"} · ${intl(e.m.impressions)} impr.${e.campaigns.size > 1 ? ` · ${e.campaigns.size} campaigns` : ""}` })),
+        items: clicked.slice(0, 150).map(([n, e]) => companyItem(n, e, `${intl(e.m.clicks)} click${e.m.clicks === 1 ? "" : "s"} · ${intl(e.m.impressions)} impr.`)),
         listed: true,
         itemsLabel: "Companies",
         atStake: null,

@@ -128,6 +128,8 @@ const sampleInputs: InsightInputs = {
       rows: [
         { campaignId: "l1", campaignName: "Sample_Cold_JobTitles_LG", value: "Sample Co", m: { spend: 40, impressions: 800, clicks: 3, results: 0 } },
         { campaignId: "l1", campaignName: "Sample_Cold_JobTitles_LG", value: "Widget Recruiters Ltd", m: { spend: 25, impressions: 300, clicks: 4, results: 0 } },
+        { campaignId: "l2", campaignName: "Sample_Retargeting_Visitors", value: "Widget Recruiters Ltd", m: { spend: 12, impressions: 140, clicks: 1, results: 0 } },
+        { campaignId: "l3", campaignName: "Sample_Event_MatchedAudience", value: "Widget Recruiters Ltd", m: { spend: 9, impressions: 90, clicks: 1, results: 0 } },
         { campaignId: "l1", campaignName: "Sample_Cold_JobTitles_LG", value: "Example University", m: { spend: 18, impressions: 210, clicks: 2, results: 0 } },
       ],
     },

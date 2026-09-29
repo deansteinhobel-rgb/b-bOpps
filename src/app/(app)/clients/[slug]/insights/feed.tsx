@@ -176,6 +176,9 @@ export function InsightFeed(props: {
   )
 }
 
+/** Something to capitalise on (Dean: marked with a lime border, in brand colours). */
+const isOpportunity = (i: FeedInsight) => i.category === "opportunity" || i.rule === "li_strong_segments"
+
 /** Money at stake on the items still open (lists), or on the whole insight. */
 function openStake(i: FeedInsight) {
   if (i.atStake === null) return 0 // opportunities: nothing at stake
@@ -202,14 +205,17 @@ function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
   const stake = openStake(i)
   const campaignHref = i.campaignId && i.platform !== "ga4" ? `/clients/${p.slug}/performance/${i.platform}/${encodeURIComponent(i.campaignId)}` : null
   return (
-    <div id={`insight-${i.key}`} className={cn(open && "bg-secondary/25")}>
+    <div id={`insight-${i.key}`} className={cn("border-l-2 border-transparent", isOpportunity(i) && "border-l-lime bg-lime/[0.03]", open && "bg-secondary/25")}>
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-secondary/40">
         <span className={cn("mt-2 size-2 shrink-0 rounded-full", SEVERITY[i.severity].dot)} title={SEVERITY[i.severity].label}>
           <span className="sr-only">{SEVERITY[i.severity].label}</span>
         </span>
         <Icon platform={i.platform} className="mt-0.5" />
         <span className="min-w-0 flex-1 space-y-0.5">
-          <span className="block text-sm font-semibold leading-snug">{i.title}</span>
+          <span className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-snug">
+            {i.title}
+            {isOpportunity(i) && <span className="rounded-full border border-lime/40 bg-lime/10 px-1.5 py-px text-[10px] font-medium text-lime">Opportunity</span>}
+          </span>
           <span className="block truncate text-xs text-muted-foreground">
             {RULES[i.rule].label}
             {i.campaignName && <> · {i.campaignName}</>}
@@ -262,7 +268,7 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
     }
   }
 
-  const itemLines = chosen.map((x) => `- ${x.label}${x.note ? ` (${x.note})` : ""}`).join("\n")
+  const itemLines = chosen.map((x) => `- ${x.label}${x.note ? ` (${x.note})` : ""}${x.campaigns?.length ? `\n  Seen in: ${x.campaigns.join("; ")}` : ""}`).join("\n")
   const description = [`${i.why}`, `What to do: ${i.todo}`, i.listed && chosen.length ? `${i.itemsLabel ?? "Items"}:\n${itemLines}` : null, i.campaignName ? `Campaign: ${i.campaignName} (${platformName(i.platform)})` : null, `From "Optimise now" in Sauvignon Blanc (${rule.label}).`]
     .filter(Boolean)
     .join("\n\n")
@@ -327,7 +333,11 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
                       setSelected(next)
                     }}
                   />
-                  <span className="min-w-0 flex-1 break-words">{x.label}</span>
+                  <span className="min-w-0 flex-1 break-words">
+                    {x.label}
+                    {x.flag && <span className="ml-2 rounded-full border border-rag-amber/40 bg-rag-amber/10 px-1.5 py-px text-[10px] font-medium text-rag-amber">{x.flag}</span>}
+                    {x.campaigns && x.campaigns.length > 0 && <SeenIn campaigns={x.campaigns} />}
+                  </span>
                   {x.note && <span className="shrink-0 text-right text-xs text-muted-foreground tabular-nums">{x.note}</span>}
                 </label>
               </li>
@@ -446,6 +456,34 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
         </div>
       )}
     </div>
+  )
+}
+
+/** The campaigns an item was seen in: the first two, then the rest behind "and N more". */
+function SeenIn({ campaigns }: { campaigns: string[] }) {
+  const [all, setAll] = useState(false)
+  const shown = all ? campaigns : campaigns.slice(0, 2)
+  return (
+    <span className="mt-0.5 block text-xs text-muted-foreground">
+      {campaigns.length === 1 ? "Campaign:" : "Campaigns:"}
+      {shown.map((c, n) => (
+        <span key={c} className="block truncate" title={c}>
+          {c}
+          {n === shown.length - 1 && campaigns.length > 2 && (
+            <button
+              type="button"
+              className="ml-2 underline hover:text-foreground"
+              onClick={(e) => {
+                e.preventDefault() // the row is a label for its checkbox
+                setAll(!all)
+              }}
+            >
+              {all ? "show less" : `and ${campaigns.length - 2} more`}
+            </button>
+          )}
+        </span>
+      ))}
+    </span>
   )
 }
 
