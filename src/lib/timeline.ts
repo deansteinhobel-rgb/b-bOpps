@@ -132,7 +132,7 @@ export async function loadTimeline(supabase: SupabaseClient, admin: SupabaseClie
       detail: [p.object_name && p.object_name !== p.campaign_name ? p.object_name : null, p.detail].filter(Boolean).join(" · ") || null,
       via: p.via,
       bulk: Boolean(p.bulk),
-      campaigns: (p.campaigns ?? []).map((c) => (/^\d+$/.test(c) ? `Campaign ${c}` : c)),
+      campaigns: (p.campaigns ?? []).map((c: string) => (/^\d+$/.test(c) ? `Campaign ${c}` : c)),
     })
   }
   for (const t of tests ?? []) {
