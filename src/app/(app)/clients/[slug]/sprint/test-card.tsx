@@ -56,6 +56,7 @@ export function TestCard(props: {
           {t.carried_from_test_id && <span>Carried from last sprint</span>}
           {t.recommendation_id && <PourTag />}
           {t.insight_key && <OptimiseTag />}
+          {t.content_idea_id && <ContentIdeaTag />}
         </div>
         <h3 className="text-base leading-snug font-bold">{t.title}</h3>
         <p className="text-xs text-muted-foreground">
@@ -430,6 +431,17 @@ export function PourTag({ className }: { className?: string }) {
 }
 
 /** Tag for tests made from an "Optimise now" insight. */
+export function ContentIdeaTag({ className }: { className?: string }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full border border-lavender/40 bg-lavender/10 px-2 py-0.5 text-[11px] font-medium text-lavender", className)} title="Planned from a content idea on At a glance">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden>
+        <path d="M8 1.5a4.5 4.5 0 0 0-2.5 8.2V12h5V9.7A4.5 4.5 0 0 0 8 1.5ZM6 14.5h4" />
+      </svg>
+      Content idea
+    </span>
+  )
+}
+
 export function OptimiseTag({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full border border-violet/40 bg-violet/10 px-2 py-0.5 text-[11px] font-medium text-violet", className)} title="Made from an Optimise now insight">

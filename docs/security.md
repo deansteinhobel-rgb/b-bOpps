@@ -23,7 +23,7 @@ What protects Sauvignon Blanc, and the settings that have to be switched on by h
   only from our Supabase project (plus Google favicons for source chips).
 - **Rate limits** per person (`src/lib/rate-limit.ts`, `take_rate_limit()` in the database):
   news chat 40/hour, campaign chat 40/hour, pours 8/day, Claude reviews 8/day, brain refreshes
-  12/day, brain uploads 40/day, profile pictures 20/hour, feedback 20/day.
+  12/day, brain uploads 40/day, profile pictures 20/hour, feedback 20/day, content idea runs 6/day.
 - **Report embeds for Notion** (`/embed/report/<token>`, Dean 2026-09-29: "anyone with the link,
   view only"): the link's token (192 random bits, `report_links`) is the only key. It shows one
   board of one client and nothing else: no session is read or set, no links into the app, and the

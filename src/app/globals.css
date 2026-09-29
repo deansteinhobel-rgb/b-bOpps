@@ -14,6 +14,7 @@
   --color-subtle-foreground: var(--subtle-foreground);
   --color-lime: var(--lime);
   --color-violet: var(--violet);
+  --color-lavender: var(--lavender);
   --color-rag-green: var(--rag-green);
   --color-rag-green-bg: var(--rag-green-bg);
   --color-rag-amber: var(--rag-amber);
@@ -258,4 +259,10 @@
   animation-duration: 0.001ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
+}
+
+/* An indeterminate progress bar (content ideas while Claude works). */
+@keyframes slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
 }

@@ -210,3 +210,18 @@ const off = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`update pub
 console.log(off.length === 1 ? "AM turns a link off: OK" : "FAIL: AM couldn't turn a link off")
 const linkDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.report_links returning id"))
 console.log(linkDel.length === 0 ? "report links can't be deleted: OK" : "FAIL: report link deleted")
+
+// Content ideas: runs are written by the server; the client's team reads them and logs what it did
+// with an idea (not viewers, not other clients); nothing is changed or deleted.
+const ideaRun = (await q(`insert into public.content_idea_runs (client_id, status, ideas) values ('11111111-1111-1111-1111-111111111111', 'ready', '[{"id":"x-1","title":"Idea"}]') returning id`))[0].id
+const andreaRuns = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select id from public.content_idea_runs"))
+const dannyRuns = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select id from public.content_idea_runs"))
+console.log(andreaRuns.length === 1 && dannyRuns.length === 0 ? "content idea runs are read by the client's team only: OK" : "FAIL: content idea run visibility")
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.content_idea_runs (client_id) values ('11111111-1111-1111-1111-111111111111')`)); console.log("FAIL: team member started a run directly") } catch { console.log("only the server writes content idea runs: OK") }
+const logged = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.content_idea_actions (client_id, run_id, idea_id, action, reason, profile_id) values ('11111111-1111-1111-1111-111111111111', '${ideaRun}', 'x-1', 'dismissed', 'Not our ICP', 'aaaaaaaa-0000-0000-0000-000000000002') returning id`))
+console.log(logged.length === 1 ? "team member logs a content idea decision: OK" : "FAIL: team couldn't log a decision")
+try { await as(vera, () => q(`insert into public.content_idea_actions (client_id, run_id, idea_id, action, profile_id) values ('11111111-1111-1111-1111-111111111111', '${ideaRun}', 'x-1', 'reopened', '${vera}')`)); console.log("FAIL: viewer logged a decision") } catch { console.log("viewer can't log content idea decisions: OK") }
+try { await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`insert into public.content_idea_actions (client_id, run_id, idea_id, action, profile_id) values ('11111111-1111-1111-1111-111111111111', '${ideaRun}', 'x-1', 'reopened', 'aaaaaaaa-0000-0000-0000-000000000003')`)); console.log("FAIL: other client's AM logged a decision") } catch { console.log("other clients' team can't log decisions: OK") }
+const ideaDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.content_idea_actions returning id"))
+const ideaUpd = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.content_idea_actions set reason = 'x' returning id"))
+console.log(ideaDel.length === 0 && ideaUpd.length === 0 ? "content idea decisions can't be changed or deleted: OK" : "FAIL: decision changed or deleted")

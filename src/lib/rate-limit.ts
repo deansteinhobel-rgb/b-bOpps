@@ -15,6 +15,7 @@ export const LIMITS = {
   brain_upload: { max: 40, seconds: 86400, what: "file uploads a day" },
   avatar_upload: { max: 20, seconds: 3600, what: "picture uploads an hour" },
   feedback: { max: 20, seconds: 86400, what: "ideas and bug reports a day" },
+  content_ideas: { max: 6, seconds: 86400, what: "content idea runs a day" },
 } as const
 export type LimitKind = keyof typeof LIMITS
 
