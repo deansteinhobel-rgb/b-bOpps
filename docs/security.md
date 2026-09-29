@@ -8,7 +8,8 @@ What protects Sauvignon Blanc, and the settings that have to be switched on by h
 - **Sign-in**: magic links for `@bordeauxandburgundy.co.uk` only; no passwords. Links point at
   `APP_URL` only in production, and every redirect after sign-in is checked (`src/lib/safe-path.ts`:
   no `//`, backslashes, encoded tricks or other schemes). Every page and API
-  route needs a session (`src/proxy.ts`), except `/login`, `/auth/*` and the scheduled jobs.
+  route needs a session (`src/proxy.ts`), except `/login`, `/auth/*`, the scheduled jobs and report
+  embeds (below).
 - **Scheduled jobs** (`/api/cron/*`) skip the login redirect and check `Authorization: Bearer
   $CRON_SECRET` themselves. Without the secret they answer 401.
 - **Database**: row-level security on every table, scoped by client team; admin-only writes where
@@ -23,6 +24,16 @@ What protects Sauvignon Blanc, and the settings that have to be switched on by h
 - **Rate limits** per person (`src/lib/rate-limit.ts`, `take_rate_limit()` in the database):
   news chat 40/hour, campaign chat 40/hour, pours 8/day, Claude reviews 8/day, brain refreshes
   12/day, brain uploads 40/day, profile pictures 20/hour, feedback 20/day.
+- **Report embeds for Notion** (`/embed/report/<token>`, Dean 2026-09-29: "anyone with the link,
+  view only"): the link's token (192 random bits, `report_links`) is the only key. It shows one
+  board of one client and nothing else: no session is read or set, no links into the app, and the
+  page reads only through the link row (admin client, server-side). Only Notion may frame these
+  pages (`frame-ancestors` notion.so, *.notion.so, *.notion.site; no `X-Frame-Options` there, since
+  it can't name a site); every other page stays `DENY`. `noindex`, `Referrer-Policy: no-referrer`.
+  Admins, GTM leads and the client's AMs create and turn off links (RLS `can_share_reports`); the
+  client's team (not viewers) can read them; a turned-off link stops at once; links are never
+  deleted. No rate limit (there's no person to count by): the numbers come from the shared cache,
+  and a token can't be guessed. If a link leaks, turn it off in Reporting → Embed in Notion.
 - **Notion**: no writes while testing (two flags, both safe by default; only Dean changes them).
 - **Claude**: web content is treated as untrusted data in every prompt; web tools can't be
   scripted by the model; token use is saved per run.
