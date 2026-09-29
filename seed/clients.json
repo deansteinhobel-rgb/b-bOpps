@@ -166,6 +166,30 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Proactis",
+      "slug": "proactis",
+      "notion_client_option": "Proactis",
+      "currency": "GBP",
+      "team": [],
+      "main_kpi": "cost_per_result",
+      "monthly_kpi_target": null,
+      "platform_accounts": [
+        {
+          "platform": "linkedin",
+          "windsor_connector": "linkedin",
+          "external_account_id": "510004166",
+          "account_name": "Proactis Global",
+          "monthly_budget": null,
+          "conversion_fields": [
+            "externalwebsiteconversions"
+          ],
+          "lead_fields": [
+            "oneclickleads"
+          ]
+        }
+      ]
     }
   ]
 }
