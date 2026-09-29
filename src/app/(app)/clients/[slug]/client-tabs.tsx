@@ -9,6 +9,7 @@ const TABS = [
   { href: "/checks", label: "Checks" },
   { href: "/sprint", label: "Sprint" },
   { href: "/briefs", label: "Briefs" },
+  { href: "/brain", label: "Brain" },
 ]
 
 export function ClientTabs({ slug }: { slug: string }) {

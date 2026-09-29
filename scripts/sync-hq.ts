@@ -21,5 +21,5 @@ const { data: clients } = await db.from("clients").select("id, slug").not("notio
 for (const c of clients ?? []) {
   const t = Date.now()
   const r = await syncClientHq(c.id, { force: args.includes("--force") })
-  console.log(`  ${c.slug}: ${r.pages} pages found, ${r.added} new, ${r.read} read${r.errors.length ? `, ${r.errors.length} errors: ${r.errors.slice(0, 3).join(" | ")}` : ""} (${((Date.now() - t) / 1000).toFixed(0)}s)`)
+  console.log(`  ${c.slug}: ${r.pages} pages found, ${r.added} new, ${r.read} read, ${r.remaining} left${r.errors.length ? `, ${r.errors.length} errors: ${r.errors.slice(0, 3).join(" | ")}` : ""} (${((Date.now() - t) / 1000).toFixed(0)}s)`)
 }

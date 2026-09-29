@@ -42,11 +42,15 @@ async function children(n: Client, id: string): Promise<Block[]> {
 }
 
 const rt = (a: RichText[] | undefined) => (a ?? []).map((x) => (x.href && !x.plain_text.startsWith("http") ? `${x.plain_text} (${x.href})` : x.plain_text)).join("")
+// Blocks that can hold sub-pages in an HQ layout. Lists, tables and quotes are skipped during
+// discovery (their text is still read when the page itself is read).
+const CONTAINERS = new Set(["toggle", "column_list", "column", "callout", "heading_1", "heading_2", "heading_3", "synced_block"])
 const titleOf = (b: Block) => String((b[b.type] as { title?: string })?.title ?? "Untitled").trim() || "Untitled"
 
 /**
- * Every page and database under the HQ, through toggles and columns, two page levels deep (the
- * HQ menu itself lives on a child page). Returns them with their place in the tree.
+ * Every page and database under the HQ, through toggles and columns: the HQ's own pages, plus the
+ * pages one level inside them (the HQ menu lives on a child page). Deeper sub-pages are read as
+ * part of their parent. Returns them with their place in the tree.
  */
 export async function discoverHq(rootId: string): Promise<Candidate[]> {
   const n = notion()
@@ -59,8 +63,8 @@ export async function discoverHq(rootId: string): Promise<Candidate[]> {
         seen.add(b.id)
         const title = titleOf(b)
         found.push({ id: b.id, kind: b.type === "child_page" ? "page" : "database", title, path: path.join(" › "), lastEdited: (b.last_edited_time as string) ?? null })
-        if (b.type === "child_page" && pageDepth < 2) await walk(b.id, [...path, title], pageDepth + 1)
-      } else if (b.has_children && b.type !== "synced_block") {
+        if (b.type === "child_page" && pageDepth < 1) await walk(b.id, [...path, title], pageDepth + 1)
+      } else if (b.has_children && CONTAINERS.has(b.type)) {
         const label = b.type === "toggle" || b.type.startsWith("heading") ? rt((b[b.type] as { rich_text?: RichText[] })?.rich_text) : ""
         await walk(b.id, label ? [...path, label] : path, pageDepth)
       }
@@ -146,58 +150,78 @@ async function databaseText(n: Client, id: string): Promise<string> {
 }
 
 /**
- * Finds the HQ's pages (new ones get the default pick), then reads every included page that's new
- * or changed since the last sync (or all of them with `force`). Writes only our own database.
+ * Step 1 of a refresh: find the HQ's pages and store them (new ones get the default pick; titles,
+ * places and Notion's edit times are updated; pages gone from the HQ are marked removed, never
+ * deleted). Writes only our own database.
  */
-export async function syncClientHq(clientId: string, opts: { force?: boolean } = {}) {
+export async function discoverClientHq(clientId: string) {
   const db = createAdminClient()
   const { data: client } = await db.from("clients").select("notion_hq_page_id").eq("id", clientId).single()
   if (!client?.notion_hq_page_id) throw new Error("No Notion HQ page linked for this client.")
-  const n = notion()
   const found = await discoverHq(client.notion_hq_page_id)
-
-  const { data: existing } = await db.from("client_knowledge").select("id, notion_page_id, include, last_edited_time, content").eq("client_id", clientId).eq("source", "notion")
-  const byId = new Map((existing ?? []).map((e) => [e.notion_page_id, e]))
+  const { data: existing } = await db.from("client_knowledge").select("id, notion_page_id").eq("client_id", clientId).eq("source", "notion")
+  const known = new Set((existing ?? []).map((e) => e.notion_page_id))
   const now = new Date().toISOString()
-  const fresh = found.filter((f) => !byId.has(f.id))
+  const fresh = found.filter((f) => !known.has(f.id))
   if (fresh.length) {
-    await db.from("client_knowledge").insert(fresh.map((f) => ({ client_id: clientId, source: "notion", notion_page_id: f.id, notion_kind: f.kind, title: f.title, path: f.path, include: defaultInclude(f.title), last_edited_time: null })))
+    await db.from("client_knowledge").insert(fresh.map((f) => ({ client_id: clientId, source: "notion", notion_page_id: f.id, notion_kind: f.kind, title: f.title, path: f.path, include: defaultInclude(f.title), last_edited_time: f.lastEdited })))
   }
-  // Keep titles and places current; pages no longer in the HQ are marked removed (never deleted).
-  for (const f of found.filter((x) => byId.has(x.id))) await db.from("client_knowledge").update({ title: f.title, path: f.path, removed_at: null }).eq("client_id", clientId).eq("notion_page_id", f.id)
+  for (const f of found.filter((x) => known.has(x.id))) {
+    await db.from("client_knowledge").update({ title: f.title, path: f.path, last_edited_time: f.lastEdited, removed_at: null }).eq("client_id", clientId).eq("notion_page_id", f.id)
+  }
   const gone = (existing ?? []).filter((e) => !found.some((f) => f.id === e.notion_page_id))
-  for (const g of gone) await db.from("client_knowledge").update({ removed_at: now }).eq("id", g.id)
+  if (gone.length) await db.from("client_knowledge").update({ removed_at: now }).in("id", gone.map((g) => g.id))
+  return { pages: found.length, added: fresh.length }
+}
 
-  const { data: included } = await db.from("client_knowledge").select("id, notion_page_id, notion_kind, last_edited_time, content").eq("client_id", clientId).eq("source", "notion").eq("include", true).is("removed_at", null)
+/** Included HQ pages that need reading: never read, edited in Notion since, or read before `since`. */
+async function staleIncluded(clientId: string, since?: string) {
+  const { data } = await createAdminClient().from("client_knowledge").select("id, notion_page_id, notion_kind, last_edited_time, synced_at, content").eq("client_id", clientId).eq("source", "notion").eq("include", true).is("removed_at", null)
+  return (data ?? []).filter((k) => !k.content || !k.synced_at || (k.last_edited_time && k.last_edited_time > k.synced_at) || (since && k.synced_at < since))
+}
+
+/**
+ * Step 2: read stale included pages until `budgetMs` runs out. Returns how many are left, so the
+ * caller can go again (each call stays well inside a request's time limit).
+ */
+export async function readClientHq(clientId: string, opts: { since?: string; budgetMs?: number } = {}) {
+  const started = Date.now()
+  const todo = await staleIncluded(clientId, opts.since)
   let read = 0
   const errors: string[] = []
-  for (const k of included ?? []) {
-    const cand = found.find((f) => f.id === k.notion_page_id)
-    const changed = !k.content || !k.last_edited_time || (cand?.lastEdited && Date.parse(cand.lastEdited) > Date.parse(k.last_edited_time))
-    if (!opts.force && !changed) continue
-    try {
-      const text = k.notion_kind === "database" ? await databaseText(n, k.notion_page_id!) : await pageText(n, k.notion_page_id!)
-      await db.from("client_knowledge").update({ content: text, content_chars: text.length, last_edited_time: cand?.lastEdited ?? now, synced_at: now, error: null, updated_at: now }).eq("id", k.id)
-      read++
-    } catch (e) {
-      errors.push((e as Error).message)
-      await db.from("client_knowledge").update({ error: (e as Error).message.slice(0, 300), synced_at: now }).eq("id", k.id)
-    }
+  for (const k of todo) {
+    if (opts.budgetMs && Date.now() - started > opts.budgetMs) break
+    const err = await readInto(k.id, k.notion_page_id!, k.notion_kind as "page" | "database")
+    if (err) errors.push(err)
+    read++
   }
-  return { pages: found.length, added: fresh.length, read, errors }
+  return { read, remaining: todo.length - read, errors }
+}
+
+async function readInto(knowledgeId: string, pageId: string, kind: "page" | "database") {
+  const db = createAdminClient()
+  const n = notion()
+  const now = new Date().toISOString()
+  try {
+    const text = kind === "database" ? await databaseText(n, pageId) : await pageText(n, pageId)
+    await db.from("client_knowledge").update({ content: text, content_chars: text.length, synced_at: now, error: null, updated_at: now }).eq("id", knowledgeId)
+    return null
+  } catch (e) {
+    await db.from("client_knowledge").update({ error: (e as Error).message.slice(0, 300), synced_at: now }).eq("id", knowledgeId)
+    return (e as Error).message
+  }
+}
+
+/** Both steps in one go, for scripts and the nightly job (no time budget). */
+export async function syncClientHq(clientId: string, opts: { force?: boolean } = {}) {
+  const since = opts.force ? new Date().toISOString() : undefined
+  const d = await discoverClientHq(clientId)
+  const r = await readClientHq(clientId, { since })
+  return { ...d, ...r }
 }
 
 /** Reads one page on demand (after an admin ticks it). */
 export async function readHqPage(knowledgeId: string) {
-  const db = createAdminClient()
-  const { data: k } = await db.from("client_knowledge").select("id, notion_page_id, notion_kind").eq("id", knowledgeId).eq("source", "notion").single()
-  if (!k) return
-  const n = notion()
-  const now = new Date().toISOString()
-  try {
-    const text = k.notion_kind === "database" ? await databaseText(n, k.notion_page_id!) : await pageText(n, k.notion_page_id!)
-    await db.from("client_knowledge").update({ content: text, content_chars: text.length, last_edited_time: now, synced_at: now, error: null, updated_at: now }).eq("id", k.id)
-  } catch (e) {
-    await db.from("client_knowledge").update({ error: (e as Error).message.slice(0, 300), synced_at: now }).eq("id", k.id)
-  }
+  const { data: k } = await createAdminClient().from("client_knowledge").select("id, notion_page_id, notion_kind").eq("id", knowledgeId).eq("source", "notion").single()
+  if (k) await readInto(k.id, k.notion_page_id!, k.notion_kind as "page" | "database")
 }
