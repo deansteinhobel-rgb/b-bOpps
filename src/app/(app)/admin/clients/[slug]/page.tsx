@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { AdminForm, fieldClass } from "@/components/admin-form"
+import { AdminForm } from "@/components/admin-form"
+import { fieldClass } from "@/components/field-class"
 import { PlatformLabel } from "@/components/brand"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"

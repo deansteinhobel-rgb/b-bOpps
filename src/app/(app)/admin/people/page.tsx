@@ -1,4 +1,5 @@
-import { AdminForm, fieldClass } from "@/components/admin-form"
+import { AdminForm } from "@/components/admin-form"
+import { fieldClass } from "@/components/field-class"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ROLE_LABEL, type AppRole } from "@/lib/auth"

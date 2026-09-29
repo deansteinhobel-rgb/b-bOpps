@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { fieldClass } from "@/components/admin-form"
+import { fieldClass } from "@/components/field-class"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { fieldClass } from "@/components/admin-form"
+import { fieldClass } from "@/components/field-class"
 import { PlatformIcon, PlatformLabel } from "@/components/brand"
 import { Sparkle } from "@/components/fx/sparkle"
 import { StatusDot } from "@/components/status-badge"

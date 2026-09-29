@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown } from "lucide-react"
-import { fieldClass } from "@/components/admin-form"
+import { fieldClass } from "@/components/field-class"
 import { PlatformIcon, PlatformLabel } from "@/components/brand"
 import { Sparkle } from "@/components/fx/sparkle"
 import { Button } from "@/components/ui/button"

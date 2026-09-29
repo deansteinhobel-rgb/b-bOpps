@@ -36,4 +36,3 @@ export function AdminForm({
   )
 }
 
-export const fieldClass = "h-9 w-full rounded-md border border-input bg-card px-2 text-sm"

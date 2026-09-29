@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   try {
     if (body.step === "discover") {
       if (!client.notion_hq_page_id) return NextResponse.json({ pages: 0, added: 0 })
-      return NextResponse.json(await discoverClientHq(client.id))
+      return NextResponse.json(await discoverClientHq(client.id, { full: Boolean(body.force) }))
     }
     if (body.step === "read") return NextResponse.json(await readClientHq(client.id, { since: body.since, budgetMs: 60_000 }))
   } catch (e) {

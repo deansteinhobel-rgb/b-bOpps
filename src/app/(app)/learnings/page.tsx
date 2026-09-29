@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { fieldClass } from "@/components/admin-form"
+import { fieldClass } from "@/components/field-class"
 import { ClientLogo, PlatformIcon } from "@/components/brand"
 import { PageHeader } from "@/components/page-header"
 import { Input } from "@/components/ui/input"

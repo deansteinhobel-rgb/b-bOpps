@@ -150,15 +150,24 @@ async function databaseText(n: Client, id: string): Promise<string> {
 }
 
 /**
- * Step 1 of a refresh: find the HQ's pages and store them (new ones get the default pick; titles,
- * places and Notion's edit times are updated; pages gone from the HQ are marked removed, never
- * deleted). Writes only our own database.
+ * Step 1 of a refresh: find the HQ's pages. The first time (or with `full`) it walks the whole HQ,
+ * which takes minutes. After that it asks Notion's search for pages edited since the last check
+ * (newest first, stopping there), which is usually a handful of requests: pages new to the HQ are
+ * added, and pages inside ticked ones mark those as changed. Writes only our own database.
  */
-export async function discoverClientHq(clientId: string) {
+export async function discoverClientHq(clientId: string, opts: { full?: boolean } = {}) {
   const db = createAdminClient()
-  const { data: client } = await db.from("clients").select("notion_hq_page_id").eq("id", clientId).single()
+  const { data: client } = await db.from("clients").select("notion_hq_page_id, notion_hq_checked_at").eq("id", clientId).single()
   if (!client?.notion_hq_page_id) throw new Error("No Notion HQ page linked for this client.")
-  const found = await discoverHq(client.notion_hq_page_id)
+  const started = new Date().toISOString()
+  const result = opts.full || !client.notion_hq_checked_at ? await fullDiscover(clientId, client.notion_hq_page_id) : await changedSince(clientId, client.notion_hq_page_id, client.notion_hq_checked_at)
+  await db.from("clients").update({ notion_hq_checked_at: started }).eq("id", clientId)
+  return result
+}
+
+async function fullDiscover(clientId: string, rootId: string) {
+  const db = createAdminClient()
+  const found = await discoverHq(rootId)
   const { data: existing } = await db.from("client_knowledge").select("id, notion_page_id").eq("client_id", clientId).eq("source", "notion")
   const known = new Set((existing ?? []).map((e) => e.notion_page_id))
   const now = new Date().toISOString()
@@ -171,7 +180,75 @@ export async function discoverClientHq(clientId: string) {
   }
   const gone = (existing ?? []).filter((e) => !found.some((f) => f.id === e.notion_page_id))
   if (gone.length) await db.from("client_knowledge").update({ removed_at: now }).in("id", gone.map((g) => g.id))
-  return { pages: found.length, added: fresh.length }
+  return { pages: found.length, added: fresh.length, changed: 0, mode: "full" as const }
+}
+
+type SearchPage = { id: string; last_edited_time: string; parent: { type: string; page_id?: string; block_id?: string; database_id?: string; data_source_id?: string }; properties?: Record<string, { type: string; title?: RichText[] }> }
+const norm = (id: string) => id.replace(/-/g, "")
+
+async function changedSince(clientId: string, rootId: string, since: string) {
+  const db = createAdminClient()
+  const n = notion()
+  const { data: rows } = await db.from("client_knowledge").select("id, notion_page_id, path, title").eq("client_id", clientId).eq("source", "notion").is("removed_at", null)
+  const known = new Map((rows ?? []).map((r) => [norm(r.notion_page_id!), r]))
+  const cutoff = new Date(Date.parse(since) - 5 * 60_000).toISOString()
+
+  // Pages edited since the last check, newest first.
+  const edited: SearchPage[] = []
+  let cursor: string | undefined
+  for (let page = 0; page < 20; page++) {
+    const r = (await throttled(() => n.search({ filter: { property: "object", value: "page" }, sort: { direction: "descending", timestamp: "last_edited_time" }, page_size: 100, start_cursor: cursor }))) as unknown as { results: SearchPage[]; has_more: boolean; next_cursor: string | null }
+    const recent = r.results.filter((p) => p.last_edited_time >= cutoff)
+    edited.push(...recent)
+    if (recent.length < r.results.length || !r.has_more) break
+    cursor = r.next_cursor ?? undefined
+  }
+
+  // Walk each one up its parents until we reach a page we know (or the HQ root), or leave the HQ.
+  const cache = new Map<string, string | null>() // block/page id → nearest known id (or "root"), null = outside the HQ
+  async function nearestKnown(parent: SearchPage["parent"], hops = 0): Promise<string | null> {
+    const id = parent.page_id ?? parent.block_id ?? parent.database_id
+    if (!id || parent.type === "workspace" || hops > 8) return null
+    const key = norm(id)
+    if (key === norm(rootId)) return "root"
+    if (known.has(key)) return key
+    if (cache.has(key)) return cache.get(key)!
+    let up: SearchPage["parent"] | null = null
+    try {
+      up = parent.type === "page_id" ? ((await throttled(() => n.pages.retrieve({ page_id: id }))) as unknown as SearchPage).parent : parent.type === "block_id" ? ((await throttled(() => n.blocks.retrieve({ block_id: id }))) as unknown as SearchPage).parent : null
+    } catch {
+      up = null
+    }
+    const found = up ? await nearestKnown(up, hops + 1) : null
+    cache.set(key, found)
+    return found
+  }
+
+  let added = 0
+  let changed = 0
+  const now = new Date().toISOString()
+  for (const p of edited) {
+    const self = known.get(norm(p.id))
+    if (self) {
+      await db.from("client_knowledge").update({ last_edited_time: p.last_edited_time, removed_at: null }).eq("id", self.id)
+      changed++
+      continue
+    }
+    const anchor = await nearestKnown(p.parent)
+    if (!anchor) continue
+    if (anchor === "root") {
+      // A new page on the HQ itself.
+      const title = rt(Object.values(p.properties ?? {}).find((v) => v.type === "title")?.title) || "Untitled"
+      await db.from("client_knowledge").insert({ client_id: clientId, source: "notion", notion_page_id: p.id, notion_kind: "page", title, path: "", include: defaultInclude(title), last_edited_time: p.last_edited_time })
+      known.set(norm(p.id), { id: "", notion_page_id: p.id, path: "", title })
+      added++
+    } else {
+      // Something inside a page we track changed (a sub-page or a database row): re-read that page.
+      await db.from("client_knowledge").update({ last_edited_time: now }).eq("client_id", clientId).eq("notion_page_id", known.get(anchor)!.notion_page_id)
+      changed++
+    }
+  }
+  return { pages: known.size, added, changed, mode: "changes" as const }
 }
 
 /** Included HQ pages that need reading: never read, edited in Notion since, or read before `since`. */
@@ -215,7 +292,7 @@ async function readInto(knowledgeId: string, pageId: string, kind: "page" | "dat
 /** Both steps in one go, for scripts and the nightly job (no time budget). */
 export async function syncClientHq(clientId: string, opts: { force?: boolean } = {}) {
   const since = opts.force ? new Date().toISOString() : undefined
-  const d = await discoverClientHq(clientId)
+  const d = await discoverClientHq(clientId, { full: opts.force })
   const r = await readClientHq(clientId, { since })
   return { ...d, ...r }
 }

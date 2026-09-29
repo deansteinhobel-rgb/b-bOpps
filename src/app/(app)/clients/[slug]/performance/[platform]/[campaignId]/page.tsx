@@ -3,10 +3,10 @@ import { notFound } from "next/navigation"
 import { AdThumb } from "@/components/ad-thumb"
 import { PlatformLabel } from "@/components/brand"
 import { cachedPerformance } from "@/lib/metrics/cached"
-import { derive, METRIC, type MetricKey } from "@/lib/metrics/performance"
+import { derive, fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import { adKey, previewsFor } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
-import { Delta, fmt, Investigator, Sparkline, TrendPanel } from "../../charts"
+import { Delta, Investigator, Sparkline, TrendPanel } from "../../charts"
 import { Controls, parseDays, parsePlatform } from "../../controls"
 
 const CARDS: MetricKey[] = ["spend", "impressions", "clicks", "ctr", "cpc", "results", "cpr"]

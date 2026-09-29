@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { money, percent, whole } from "@/lib/format"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { addDays } from "./ads"
 import type { Platform } from "./types"
@@ -18,6 +19,13 @@ export const METRIC: Record<MetricKey, { label: string; unit: "money" | "count" 
   results: { label: "Results", unit: "count", better: "up" },
   cvr: { label: "Conversion rate", unit: "percent", better: "up" },
   cpr: { label: "Cost per result", unit: "money", better: "down" },
+}
+
+/** A metric value for display (usable on the server and in the browser). */
+export function fmt(k: MetricKey, v: number | null, currency: string) {
+  if (v === null || v === undefined) return "–"
+  const u = METRIC[k].unit
+  return u === "money" ? money(v, currency, v < 10 && k !== "spend" ? 2 : 0) : u === "percent" ? percent(v, 2) : whole(v)
 }
 
 export const zero = (): Sums => ({ spend: 0, impressions: 0, clicks: 0, conversions: 0, leads: 0 })

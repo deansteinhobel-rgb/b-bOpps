@@ -3,21 +3,16 @@
 import { useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { ArrowDown, ArrowUp, Minus } from "lucide-react"
-import { fieldClass } from "@/components/admin-form"
+import { fieldClass } from "@/components/field-class"
 import { PlatformIcon, PlatformLabel } from "@/components/brand"
-import { money, percent, whole } from "@/lib/format"
-import { change, DRIVERS, METRIC, tone, type Derived, type MetricKey } from "@/lib/metrics/performance"
+import { money, whole } from "@/lib/format"
+import { change, DRIVERS, fmt, METRIC, tone, type Derived, type MetricKey } from "@/lib/metrics/performance"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { cn } from "@/lib/utils"
 
 /** Platform colours (validated for the dark surface: lightness band, chroma, colour-blind separation). Always shown with the platform's logo and name. */
 export const PLATFORM_COLOR: Record<Platform, string> = { linkedin: "#7f6ae0", google_ads: "#869a14", meta: "#cf4f86" }
 
-export function fmt(k: MetricKey, v: number | null, currency: string) {
-  if (v === null || v === undefined) return "–"
-  const u = METRIC[k].unit
-  return u === "money" ? money(v, currency, v < 10 && k !== "spend" ? 2 : 0) : u === "percent" ? percent(v, 2) : whole(v)
-}
 
 export function Delta({ k, now, before, className }: { k: MetricKey; now: number | null; before: number | null; className?: string }) {
   const pct = change(now, before)

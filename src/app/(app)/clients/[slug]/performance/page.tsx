@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation"
 import { cachedPerformance } from "@/lib/metrics/cached"
-import { METRIC, type MetricKey } from "@/lib/metrics/performance"
+import { fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import type { Platform } from "@/lib/metrics/types"
 import { createClient } from "@/lib/supabase/server"
-import { CampaignTable, Delta, fmt, Investigator, PlatformSplit, Sparkline, TrendPanel } from "./charts"
+import { CampaignTable, Delta, Investigator, PlatformSplit, Sparkline, TrendPanel } from "./charts"
 import { Controls, parseDays, parsePlatform } from "./controls"
 
 export const metadata = { title: "Performance" }

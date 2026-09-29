@@ -74,7 +74,7 @@ export function BrainView(props: { slug: string; clientName: string; hqPageId: s
       const since = opts.force ? new Date().toISOString() : undefined
       if (opts.notion !== false && props.hqPageId) {
         setStatus("Looking through the Notion HQ…")
-        await call({ step: "discover" })
+        await call({ step: "discover", force: opts.force })
         let total: number | null = null
         let done = 0
         for (;;) {
