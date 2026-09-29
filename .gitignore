@@ -9,3 +9,6 @@ out/
 scripts/output/
 *.tsbuildinfo
 supabase/.temp/
+
+.vercel
+.env*

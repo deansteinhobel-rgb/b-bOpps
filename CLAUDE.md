@@ -14,7 +14,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Windsor.ai REST only (`connectors.windsor.ai/{linkedin|google_ads|facebook}`). Never call the LinkedIn, Google Ads or Meta APIs directly.
 - Claude (Anthropic API, `@anthropic-ai/sdk`, key `ANTHROPIC_API_KEY`, plus `ANTHROPIC_WORKSPACE_ID` when the key isn't scoped to a workspace, sent as the `anthropic-workspace-id` header; server-side only): sprint suggestions use `claude-opus-5-5`, the news chat uses `claude-sonnet-5`, both with the web search and web fetch server tools. See "Claude in the app" below.
 - HubSpot: stubbed. Slack: on hold. Build the post function, but it does nothing unless `SLACK_WEBHOOK_URL` is set.
-- Vercel (Hobby for now) for hosting.
+- Vercel (Hobby for now) for hosting: project `bbmopsapp`, https://bbmopsapp.vercel.app, deploys from GitHub `main`, functions in `dub1` (the database is in eu-west-1). Hobby cron runs each job once a day (±59 min), so jobs that need several runs overnight have extra daily slots in `vercel.json` (`?slot=2`). Supabase Auth URLs are managed in `supabase/config.toml` (`npx supabase config diff`, then `config push`; only declared settings change).
 - All third-party keys stay server-side. Nothing secret goes in a `NEXT_PUBLIC_` variable.
 
 ## NO WRITES TO NOTION WHILE TESTING. NOTHING GETS DELETED. (Dean, 2026-09-28)

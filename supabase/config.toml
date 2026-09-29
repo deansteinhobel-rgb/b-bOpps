@@ -1,0 +1,9 @@
+# Supabase settings this repo manages on the live project (`npx supabase config push`, preview with
+# `npx supabase config diff`). Only what's declared here is changed; everything else is left as set
+# in the dashboard. Security review 2026-09-29: sign-in links may only come back to our own domain.
+project_id = "mazdffcxbgfspjemqhqx"
+
+[auth]
+site_url = "https://bbmopsapp.vercel.app"
+# /auth/confirm only (with its ?next= query), on production and while developing locally.
+additional_redirect_urls = ["https://bbmopsapp.vercel.app/auth/confirm**", "http://localhost:3000/auth/confirm**"]

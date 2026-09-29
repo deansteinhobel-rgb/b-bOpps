@@ -49,10 +49,9 @@ Done (2026-09-29, `supabase db advisors --linked`):
 - Re-run any time: `npx supabase db advisors --linked --type security`.
 
 To do in the dashboard (they need the Vercel domain or a Cloudflare account):
-- [ ] **Auth → URL configuration**: Site URL = the Vercel domain; redirect URLs = that domain's
-      `/auth/confirm` only (plus `http://localhost:3000/auth/confirm` while developing). Set
-      `APP_URL` in Vercel to the same domain: in production the app refuses to send sign-in links
-      without it (the Host header can be forged).
+- [x] **Auth → URL configuration** (2026-09-29, `supabase/config.toml`, `npx supabase config push`):
+      Site URL `https://bbmopsapp.vercel.app`; redirect URLs = `/auth/confirm` on that domain and on
+      localhost only. `APP_URL` in Vercel is the same domain.
 - [ ] **Auth → Rate limits**: keep the email limits low (magic links).
 - [ ] **Auth → Bot and abuse protection**: turn on CAPTCHA with **Cloudflare Turnstile** (free):
       create a Turnstile widget for the domain, put its **secret** key in Supabase and its **site**
@@ -61,7 +60,13 @@ To do in the dashboard (they need the Vercel domain or a Cloudflare account):
 - [ ] **Auth → SMTP**: our own email sender, so magic links don't come from Supabase's shared one.
 - [ ] Optional: **Leaked password protection** (we don't use passwords, but it's free).
 
-## Vercel (at deploy)
+## Vercel
+
+Done (2026-09-29): project `bbmopsapp` (Hobby), deployed from GitHub `main` to
+https://bbmopsapp.vercel.app; functions in Dublin (`dub1`, next to the database); every
+environment variable stored as Secret except `APP_URL` and the Notion flags (set to the safe values:
+writes off, dry run on); 12 daily scheduled jobs (`vercel.json`), checked end to end.
+
 
 - [ ] Environment variables marked **Sensitive** (Anthropic, Supabase secret, Notion, Windsor,
       `CRON_SECRET`).
