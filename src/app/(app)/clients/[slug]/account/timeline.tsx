@@ -30,13 +30,14 @@ const dayKey = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Eu
 
 /**
  * The change history timeline: newest first, grouped by day, filterable by source, platform and a
- * search. Bulk platform changes (a tool changing thousands of things at once) can be hidden.
+ * search. Bulk platform changes (a tool changing thousands of things at once) are hidden until ticked.
  */
 export function Timeline({ entries }: { entries: TimelineEntry[] }) {
   const [source, setSource] = useState<SourceFilter>("all")
   const [platform, setPlatform] = useState<Platform | null>(null)
   const [query, setQuery] = useState("")
-  const [hideBulk, setHideBulk] = useState(false)
+  // Bulk changes (a tool changing thousands of things at once) are hidden unless ticked (Dean).
+  const [showBulk, setShowBulk] = useState(false)
   const [limit, setLimit] = useState(PAGE)
 
   const platforms = useMemo(() => (["google_ads", "linkedin", "meta"] as Platform[]).filter((p) => entries.some((e) => e.platform === p)), [entries])
@@ -46,7 +47,7 @@ export function Timeline({ entries }: { entries: TimelineEntry[] }) {
     (e) =>
       (source === "all" || e.source === source) &&
       (!platform || e.platform === platform) &&
-      (!hideBulk || !e.bulk) &&
+      (showBulk || !e.bulk) &&
       (!q || [e.title, e.detail, e.campaign, e.who, e.kind, e.via].some((x) => x?.toLowerCase().includes(q))),
   )
   const page = shown.slice(0, limit)
@@ -88,15 +89,15 @@ export function Timeline({ entries }: { entries: TimelineEntry[] }) {
         <div className="ml-auto flex items-center gap-3">
           {bulkCount > 0 && (
             <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <input type="checkbox" className="accent-lime" checked={hideBulk} onChange={(e) => setHideBulk(e.target.checked)} />
-              Hide bulk changes ({bulkCount})
+              <input type="checkbox" className="accent-lime" checked={showBulk} onChange={(e) => setShowBulk(e.target.checked)} />
+              Show bulk changes ({bulkCount})
             </label>
           )}
           <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search changes, campaigns, people…" className="h-8 w-56" aria-label="Search the change history" />
         </div>
       </div>
 
-      {days.length === 0 && <p className="px-5 py-12 text-center text-sm text-muted-foreground">{entries.length ? "Nothing matches these filters." : "No changes recorded in the last 60 days yet."}</p>}
+      {days.length === 0 && <p className="px-5 py-12 text-center text-sm text-muted-foreground">{!entries.length ? "No changes recorded in the last 60 days yet." : !showBulk && bulkCount ? "Only bulk changes here. Tick “Show bulk changes” to see them." : "Nothing matches these filters."}</p>}
 
       <ol>
         {days.map((d) => (
