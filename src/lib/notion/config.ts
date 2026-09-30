@@ -45,6 +45,10 @@ export const TEST_BRIEF_STATUS_CONTENT = "Ready for Copy"
  */
 export const TEST_TITLE_PREFIX = "[TEST Lumaux] "
 
+/** Sprint test briefs are named "Lumaux | Paid Media | {test name}" (Dean, 2026-09-30), with no test prefix. */
+export const BRIEF_TITLE_PREFIX = "Lumaux | Paid Media | "
+export const briefTitle = (testTitle: string) => `${BRIEF_TITLE_PREFIX}${testTitle.trim()}`.slice(0, 200)
+
 /**
  * NOTION_LIVE_CLIENTS (comma-separated client slugs, e.g. "dnsfilter"): while it's set, live writes
  * only happen for those clients; every other client stays a dry run. Unset means no restriction

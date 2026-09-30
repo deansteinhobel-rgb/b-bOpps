@@ -213,12 +213,12 @@ describe("createNotionAction: test briefs with a comment (Dean, 2026-09-30)", ()
     return { ...n, comments: { create: vi.fn(async () => (fail ? Promise.reject(new Error("restricted_resource")) : { id: "comment-1" })) } }
   }
 
-  it("labels the title [TEST Lumaux], sets Status Content to Ready for Copy, priority and every project lead", async () => {
+  it("names it Lumaux | Paid Media | {test}, sets Status Content to Ready for Copy, priority and every project lead", async () => {
     const { db } = fakeDb()
     const notion = withComments()
     await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, brief)
     const sent = (notion.pages.create.mock.calls[0] as unknown[])[0] as { properties: Record<string, unknown> }
-    expect(sent.properties["Project"]).toEqual({ title: [{ type: "text", text: { content: "[TEST Lumaux] Camber: Meta overspend" } }] })
+    expect(sent.properties["Project"]).toEqual({ title: [{ type: "text", text: { content: "Lumaux | Paid Media | Camber: Meta overspend" } }] })
     expect(sent.properties["Status Content"]).toEqual({ select: { name: "Ready for Copy" } })
     expect(sent.properties["Priority"]).toEqual({ select: { name: "Medium" } })
     expect(sent.properties["Project Lead"]).toEqual({ people: [{ id: "notion-andrea" }, { id: "notion-kieran" }] })

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { longDate, money } from "@/lib/format"
-import { liveClientSlugs, PRIORITIES, TEST_TITLE_PREFIX, type Priority } from "@/lib/notion/config"
+import { briefTitle, liveClientSlugs, PRIORITIES, type Priority } from "@/lib/notion/config"
 import { notionWritesLive, writeDeps } from "@/lib/notion/server"
 import { listNotionPeople } from "@/lib/notion/users"
 import { commentBody, createNotionAction } from "@/lib/notion/write"
@@ -132,7 +132,7 @@ export async function briefOptions(testId: string): Promise<{ ok: true; options:
       priority: "Medium",
       platform: guessPlatform(test.platform, test.title),
       commentParts,
-      title: `${TEST_TITLE_PREFIX}Paid media test: ${test.title}`,
+      title: briefTitle(test.title),
       live: notionWritesLive(client.slug),
     },
   }
@@ -178,7 +178,7 @@ export async function briefTest(testId: string, raw: z.input<typeof Brief>): Pro
   const mentions = tags.map((p) => ({ id: p!.id, name: p!.name }))
   const res = await createNotionAction(writeDeps(), {
     client: { id: client.id, slug: client.slug, notion_client_option: client.notion_client_option },
-    title: `Paid media test: ${test.title}`.slice(0, 200),
+    title: test.title,
     owner: { id: owner.id, full_name: owner.name, notion_user_id: owner.id },
     coLeadIds: leads.slice(1).map((p) => p!.id),
     priority: b.priority,
