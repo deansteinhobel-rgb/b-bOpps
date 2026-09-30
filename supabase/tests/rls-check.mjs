@@ -15,9 +15,16 @@ await db.exec(`
   create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
   alter table storage.objects enable row level security;
   create function storage.foldername(name text) returns text[] language sql immutable as $$ select string_to_array(name, '/') $$;
+  -- Supabase Cron: PGlite has no pg_cron or pg_net, so scheduling a job only records it
+  create schema extensions;
+  create schema cron;
+  create table cron.job (jobname text primary key, schedule text, command text);
+  create function cron.schedule(jobname text, schedule text, command text) returns bigint language sql as $$ insert into cron.job values (jobname, schedule, command) on conflict (jobname) do update set schedule = excluded.schedule, command = excluded.command; select 1::bigint $$;
 `)
 const dir = new URL("../migrations/", import.meta.url)
 const sql = fs.readdirSync(dir).filter((f) => f.endsWith(".sql")).sort().map((f) => fs.readFileSync(new URL(f, dir), "utf8")).join("\n")
+  // pg_cron and pg_net aren't in PGlite; the stand-ins above cover what the migrations call
+  .replace(/^create extension if not exists (pg_cron|pg_net)\b.*$/gm, "")
 await db.exec(sql)
 console.log("migration applied OK")
 const q = async (s, p) => (await db.query(s, p)).rows
@@ -225,3 +232,10 @@ try { await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`insert into publ
 const ideaDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.content_idea_actions returning id"))
 const ideaUpd = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.content_idea_actions set reason = 'x' returning id"))
 console.log(ideaDel.length === 0 && ideaUpd.length === 0 ? "content idea decisions can't be changed or deleted: OK" : "FAIL: decision changed or deleted")
+
+// Archived sprint tests (archived_at) are hidden from everyone signed in, admins included, and still never deleted.
+await q(`update public.sprint_tests set archived_at = now() where id = '${t1[0].id}'`)
+const andreaArchived = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`select id from public.sprint_tests where id = '${t1[0].id}'`))
+const deanArchived = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`select id from public.sprint_tests where id = '${t1[0].id}'`))
+const archivedRow = await q(`select id from public.sprint_tests where id = '${t1[0].id}'`)
+console.log(andreaArchived.length === 0 && deanArchived.length === 0 && archivedRow.length === 1 ? "archived tests are hidden, not deleted: OK" : "FAIL: archived test visibility")
