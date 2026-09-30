@@ -176,7 +176,7 @@ export async function buildContentContext(db: SupabaseClient, clientId: string):
 
   // Past tests, content in production (Notion mirror, read only), and what the team said about earlier ideas.
   const [{ data: tests }, { data: mirror }, { data: actions }] = await Promise.all([
-    db.from("sprint_tests").select("title, platform, outcome, status, findings_worked, findings_blockers, findings_notes, sprints(number)").eq("client_id", clientId).order("created_at", { ascending: false }).limit(60),
+    db.from("sprint_tests").select("title, platform, outcome, status, findings_worked, findings_blockers, findings_notes, sprints(number)").eq("client_id", clientId).is("archived_at", null).order("created_at", { ascending: false }).limit(60),
     db.from("notion_pages_mirror").select("title, properties, last_edited_time").eq("client_id", clientId).eq("page_type", "brief").eq("in_trash", false).order("last_edited_time", { ascending: false }).limit(200),
     db.from("content_idea_actions").select("idea_id, action, reason, snapshot, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(60),
   ])

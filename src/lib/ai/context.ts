@@ -93,6 +93,7 @@ export async function buildSprintContext(db: SupabaseClient, clientId: string, s
       .from("sprint_tests")
       .select("title, hypothesis, platform, status, success_metric, success_target, success_text, outcome, findings_worked, findings_blockers, findings_notes, carry_reason, carry_note, campaign_names, live_on, sprint_id, sprints(number, start_date)")
       .eq("client_id", clientId)
+      .is("archived_at", null)
       .order("created_at"),
     db.from("sprint_changes").select("changed_on, platform, campaign_name, type, description").eq("client_id", clientId).eq("status", "logged").order("changed_on", { ascending: false }).limit(25),
     db.from("sprint_recommendations").select("title, platform, status, reject_reason, sprint_ai_runs!inner(archived_at)").eq("client_id", clientId).is("sprint_ai_runs.archived_at", null).in("status", ["approved", "rejected"]).order("decided_at", { ascending: false }).limit(20),

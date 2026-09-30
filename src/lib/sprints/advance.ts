@@ -23,6 +23,7 @@ export async function advanceTestsFromNotion(db: SupabaseClient, pages: Page[]) 
       .from("sprint_tests")
       .select("id, status, ready_at, notion_page_id, sprints(closed_at)")
       .in("notion_page_id", ids.slice(i, i + 200))
+      .is("archived_at", null)
       .in("status", ["briefed", "ready"])
       .is("outcome", null)
     for (const t of tests ?? []) {

@@ -34,7 +34,7 @@ export async function buildCampaignContext(db: SupabaseClient, clientId: string,
     // The shared cache inside Next; computed directly elsewhere (scripts).
     cachedInsights(clientId).catch(() => getInsights(db, clientId)),
     db.from("insight_reviews").select("goals").eq("client_id", clientId).eq("status", "ready").order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    db.from("sprint_tests").select("title, status, outcome, findings_worked, findings_blockers, live_on, sprints(number)").eq("client_id", clientId).contains("campaign_ids", [campaignId]),
+    db.from("sprint_tests").select("title, status, outcome, findings_worked, findings_blockers, live_on, sprints(number)").eq("client_id", clientId).is("archived_at", null).contains("campaign_ids", [campaignId]),
   ])
   const rows = daily.filter((r) => r.platform === platform && String(r.campaign_id) === campaignId)
   if (!rows.length) return null

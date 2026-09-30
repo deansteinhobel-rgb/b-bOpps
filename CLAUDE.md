@@ -162,6 +162,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - The old sprint_items (goal, hypotheses, learnings, mitigations) are still in the schema but no longer in the UI.
 - History before the app lives in a closed **Sprint 0** per client (`seed/history.json`, `pnpm seed:history`, safe to re-run). DNSFilter entries are real (Dean). **Camber entries are MOCK, titles "Mock:"**, to be replaced with real findings from Esa.
 - No deletes anywhere. Tables `sprints`, `sprint_tests`, `sprint_changes`, `sprint_items` (RLS by client team).
+- **Archived tests** (`sprint_tests.archived_at`, Dean 2026-09-30): hidden by the read policy; admin-client reads filter `archived_at is null` themselves. DNSFilter's Sprint 1 tests were archived as mock/test data (their three Notion pages stay; the app can't remove them).
 
 ## UX patterns (2026-09-28)
 - **Status is colour only** (Dean): green/amber/red render as a coloured dot (`StatusBadge` with no label, or `StatusDot`). The colour name is kept for screen readers and tooltips. Words only when they add meaning ("Proven", "On target", "N/A", "No budget").
