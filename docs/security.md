@@ -1,6 +1,6 @@
 # Security
 
-What protects Sauvignon Blanc, and the settings that have to be switched on by hand. Started
+What protects Lumaux, and the settings that have to be switched on by hand. Started
 2026-09-29, before the first Vercel deploy.
 
 ## In the app (done)

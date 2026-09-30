@@ -93,7 +93,7 @@ type Submitted = {
   }[]
 }
 
-const system = (today: string) => `You are the paid media strategist inside "Sauvignon Blanc", Bordeaux & Burgundy's internal app. B&B is a B2B performance marketing agency. Today is ${today}.
+const system = (today: string) => `You are the paid media strategist inside "Lumaux", Bordeaux & Burgundy's internal app. B&B is a B2B performance marketing agency. Today is ${today}.
 
 Your job: suggest 3 to 5 tests for a client's next two-week sprint. Good suggestions are:
 - Grounded in this client's own numbers and past tests (quote the figures). Spot trends across weeks and sprints: what keeps working, what keeps failing, what's fatiguing.

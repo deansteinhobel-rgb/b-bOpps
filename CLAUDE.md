@@ -1,4 +1,4 @@
-# Sauvignon Blanc (B&B Account Ops)
+# Lumaux (B&B Account Ops)
 
 An internal web app for Bordeaux & Burgundy. For each client it shows paid media performance (from Windsor.ai), runs the weekly and monthly QA checks, and shows and creates action points in Notion. Notion stays the system of record.
 
@@ -92,8 +92,8 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Accounts on the key: LinkedIn (Filevine, DNSFilter, Camber, Proactis Global in GBP), Google Ads (DNSFilter, Camber), Facebook (Filevine, "DNSFilter X", Camber). Everything is in USD apart from Proactis (GBP).
 - Supabase uses the new keys: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`. The legacy anon and service_role keys are deprecated by the end of 2026.
 
-## Look and feel: "Sauvignon Blanc" by Bordeaux & Burgundy (2026-09-28)
-- The app is called **Sauvignon Blanc**, endorsed "by Bordeaux & Burgundy" (`AppMark` in `src/components/brand.tsx`). It's **dark, like bordeauxandburgundy.com**: background #0a0a0a, cards #121212, borders #242424, warm off-white text, **lime #e4ff1a as the primary accent** (primary buttons are lime with ink text), secondary pinks, purples and lavenders.
+## Look and feel: "Lumaux" by Bordeaux & Burgundy (2026-09-28)
+- The app is called **Lumaux** (renamed from Sauvignon Blanc, Dean 2026-09-30; the wine pour jokes stay), endorsed "by Bordeaux & Burgundy" (`AppMark` in `src/components/brand.tsx`). It's **dark, like bordeauxandburgundy.com**: background #0a0a0a, cards #121212, borders #242424, warm off-white text, **lime #e4ff1a as the primary accent** (primary buttons are lime with ink text), secondary pinks, purples and lavenders.
 - Fonts: MADE Avenue (serif, falling back to Georgia) for h1/h2 page and section titles only. Everything else uses Helvetica Neue (falling back to Arial). h3 is sans semibold. The font files are licensed: get them from the B&B web team.
 - Modern SaaS layout: a **left sidebar** (app mark, Clients, Learnings, Admin, the client list with logos, the profile) that becomes a top bar with a menu under `lg`. Pages use `PageHeader` / `SectionHeader`. Prefer one `surface` container with `divide-y` rows over boxes inside boxes. Put detail behind expandable rows (see /learnings).
 - **Sidebar** (Dean, 2026-09-29): the client list at the top (its "Clients" heading links to all clients; no separate Clients item), then Learnings, Admin and **Options** at the bottom above the profile, which opens your profile page.

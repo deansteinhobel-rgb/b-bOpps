@@ -321,7 +321,7 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
   }
 
   const itemLines = chosen.map((x) => `- ${x.label}${x.note ? ` (${x.note})` : ""}${x.campaigns?.length ? `\n  Seen in: ${x.campaigns.join("; ")}` : ""}`).join("\n")
-  const description = [`${i.why}`, `What to do: ${i.todo}`, i.listed && chosen.length ? `${i.itemsLabel ?? "Items"}:\n${itemLines}` : null, i.campaignName ? `Campaign: ${i.campaignName} (${platformName(i.platform)})` : null, `From "Optimise now" in Sauvignon Blanc (${rule.label}).`]
+  const description = [`${i.why}`, `What to do: ${i.todo}`, i.listed && chosen.length ? `${i.itemsLabel ?? "Items"}:\n${itemLines}` : null, i.campaignName ? `Campaign: ${i.campaignName} (${platformName(i.platform)})` : null, `From "Optimise now" in Lumaux (${rule.label}).`]
     .filter(Boolean)
     .join("\n\n")
   const shortTitle = `${p.clientName}: ${i.title}${i.campaignName ? ` (${i.campaignName})` : ""}`.slice(0, 200)

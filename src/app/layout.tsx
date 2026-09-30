@@ -5,8 +5,8 @@ import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: { default: "Sauvignon Blanc", template: "%s · Sauvignon Blanc" },
-  description: "Sauvignon Blanc by Bordeaux & Burgundy: paid media performance, weekly QA and test sprints per client.",
+  title: { default: "Lumaux", template: "%s · Lumaux" },
+  description: "Lumaux by Bordeaux & Burgundy: paid media performance, weekly QA and test sprints per client.",
 }
 
 /**

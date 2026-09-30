@@ -1,6 +1,6 @@
 # Gitleaks config: the default rules, plus the keys this app uses. Placeholders in .env.example are
 # allowed; real values only ever live in .env.local (git-ignored) and in Vercel.
-title = "Sauvignon Blanc secret scan"
+title = "Lumaux secret scan"
 
 [extend]
 useDefault = true

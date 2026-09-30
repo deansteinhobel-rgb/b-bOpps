@@ -173,7 +173,7 @@ export default async function DesignPreview() {
         <div className="mx-auto w-full max-w-7xl space-y-12 px-4 py-8 sm:px-8 lg:py-10">
           <PageHeader
             eyebrow="Design preview"
-            title="Sauvignon Blanc"
+            title="Lumaux"
             description="Sample data only. This page exists in development to check the look."
             actions={
               <>

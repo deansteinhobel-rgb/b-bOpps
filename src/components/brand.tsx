@@ -64,7 +64,7 @@ export function ClientLogo({ name, logoUrl, size = "sm", className }: { name: st
   return <span className={cn(tile, "bg-elevated font-bold text-foreground")}>{initials}</span>
 }
 
-/** "Sauvignon Blanc" wordmark with the B&B endorsement. */
+/** "Lumaux" wordmark with the B&B endorsement. */
 export function AppMark({ compact }: { compact?: boolean }) {
   return (
     <span className="flex items-center gap-2.5">
@@ -73,7 +73,7 @@ export function AppMark({ compact }: { compact?: boolean }) {
       </span>
       {!compact && (
         <span className="leading-tight">
-          <span className="block font-heading text-[17px] text-foreground">Sauvignon Blanc</span>
+          <span className="block font-heading text-[17px] text-foreground">Lumaux</span>
           <span className="block text-[9px] tracking-[0.1em] whitespace-nowrap text-muted-foreground uppercase">by Bordeaux &amp; Burgundy</span>
         </span>
       )}
