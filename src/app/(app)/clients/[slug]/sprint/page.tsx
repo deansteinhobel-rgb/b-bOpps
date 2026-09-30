@@ -130,6 +130,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
       campaigns={board.campaigns.filter((c) => !t.platform || c.platform === t.platform)}
       currency={cur}
       readOnly={closed}
+      canRename={!closed && isAdmin(me)}
       writesLive={writesLive}
       today={today}
     />

@@ -368,6 +368,7 @@ export default async function DesignPreview() {
                   campaigns={[]}
                   currency="USD"
                   readOnly={false}
+                  canRename
                   writesLive
                   today="2026-09-30"
                 />

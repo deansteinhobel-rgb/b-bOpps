@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowRightLeft, ChevronRight, ExternalLink, Link2, Target } from "lucide-react"
+import { ArrowRightLeft, Check, ChevronRight, ExternalLink, Link2, Pencil, Target, X } from "lucide-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"
 import { Avatar, PlatformLabel } from "@/components/brand"
@@ -21,7 +21,7 @@ import { daysSince, dueChip } from "@/lib/sprints/stage-style"
 import { ASSETS, CARRY_REASONS, evaluate, METRICS, type Stage, type TestTotals } from "@/lib/sprints/tests"
 import { cn } from "@/lib/utils"
 import { BriefDialog } from "./brief-form"
-import { clearOutcome, markLive, markReadyManually, saveFindings, setOutcome } from "./test-actions"
+import { clearOutcome, markLive, markReadyManually, renameTest, saveFindings, setOutcome } from "./test-actions"
 import { TestPanel, VerdictChip } from "./test-panel"
 
 const OUTCOME = {
@@ -57,6 +57,8 @@ export function TestCard(props: {
   /** Live results for the side panel (live and review tests with campaigns). */
   detail?: TestDetail
   previews?: PreviewMap
+  /** Admins and GTM leads can rename the test (Dean, 2026-09-30). */
+  canRename?: boolean
 }) {
   const { test: t, stage } = props
   const [pending, start] = useTransition()
@@ -149,15 +151,12 @@ export function TestCard(props: {
           )}
         </div>
 
-        <h3 className="line-clamp-3 text-[15px] leading-snug font-semibold text-balance" title={t.title}>
-          {props.detail ? (
-            <button type="button" className="text-left hover:underline focus-visible:underline focus-visible:outline-none" onClick={() => setResultsOpen(true)}>
-              {t.title}
-            </button>
-          ) : (
-            t.title
-          )}
-        </h3>
+        <TestTitle
+          testId={t.id}
+          title={t.title}
+          canRename={props.canRename ?? false}
+          onOpen={props.detail ? () => setResultsOpen(true) : undefined}
+        />
 
         <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground" title={t.owner_name ? `Owner: ${t.owner_name}` : "No owner"}>
           <Avatar name={t.owner_name ?? "?"} className="size-5 text-[9px]" />
@@ -345,6 +344,94 @@ export function TestCard(props: {
         />
       )}
     </article>
+  )
+}
+
+/** The test's name. Admins see a pencil on hover and rename it in place (Enter saves, Esc cancels). */
+function TestTitle({ testId, title, canRename, onOpen }: { testId: string; title: string; canRename: boolean; onOpen?: () => void }) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(title)
+  const [error, setError] = useState<string | null>(null)
+  const [pending, start] = useTransition()
+  const cancel = () => {
+    setValue(title)
+    setError(null)
+    setEditing(false)
+  }
+  const save = () => {
+    const next = value.trim()
+    if (!next || next === title) return cancel()
+    start(async () => {
+      const r = await renameTest(testId, next)
+      if (r.ok) setEditing(false)
+      else setError(r.message ?? "Couldn't save the name.")
+    })
+  }
+  if (editing)
+    return (
+      <div className="space-y-1">
+        <div className="flex items-start gap-1">
+          <Textarea
+            autoFocus
+            aria-label="Test name"
+            rows={2}
+            maxLength={200}
+            value={value}
+            disabled={pending}
+            onChange={(e) => setValue(e.target.value)}
+            onFocus={(e) => e.currentTarget.select()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                save()
+              }
+              if (e.key === "Escape") cancel()
+            }}
+            className="min-h-0 resize-none bg-background text-[15px] leading-snug font-semibold"
+          />
+          <div className="flex flex-col gap-0.5">
+            <Button size="icon-xs" variant="ghost" disabled={pending} onClick={save} aria-label="Save the name" title="Save (Enter)">
+              <Check aria-hidden />
+            </Button>
+            <Button size="icon-xs" variant="ghost" disabled={pending} onClick={cancel} aria-label="Cancel" title="Cancel (Esc)">
+              <X aria-hidden />
+            </Button>
+          </div>
+        </div>
+        {error && (
+          <p className="text-xs text-rag-red" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    )
+  return (
+    <div className="group/title flex items-start gap-1">
+      <h3 className="line-clamp-3 min-w-0 flex-1 text-[15px] leading-snug font-semibold text-balance" title={title}>
+        {onOpen ? (
+          <button type="button" className="text-left hover:underline focus-visible:underline focus-visible:outline-none" onClick={onOpen}>
+            {title}
+          </button>
+        ) : (
+          title
+        )}
+      </h3>
+      {canRename && (
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          onClick={() => {
+            setValue(title)
+            setEditing(true)
+          }}
+          aria-label="Rename the test"
+          title="Rename"
+          className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/title:opacity-100 focus-visible:opacity-100 max-lg:opacity-100"
+        >
+          <Pencil aria-hidden />
+        </Button>
+      )}
+    </div>
   )
 }
 

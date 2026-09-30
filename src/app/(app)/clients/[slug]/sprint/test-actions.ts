@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
+import { canEdit, getProfile, isAdmin, VIEW_ONLY } from "@/lib/auth"
 import { longDate, money } from "@/lib/format"
 import { briefTitle, liveClientSlugs, PRIORITIES, type Priority } from "@/lib/notion/config"
 import { notionWritesLive, writeDeps } from "@/lib/notion/server"
@@ -269,6 +269,19 @@ export async function setTestSetup(testId: string, raw: { kind: "new_campaign" |
     .update({ test_kind: parsed.data.kind, test_ad_ids: parsed.data.kind === "change" ? [...new Set(parsed.data.adIds)] : [] })
     .eq("id", testId)
   if (e) return fail("Couldn't save that. Try again.")
+  refresh((test.clients as { slug: string }).slug)
+  return { ok: true }
+}
+
+/** Renames a test (Dean, 2026-09-30: admins and GTM leads only). The app's copy only: the Notion brief keeps its name. */
+export async function renameTest(testId: string, raw: string): Promise<TestResult> {
+  if (!isAdmin(await getProfile())) return fail("Only admins can rename tests.")
+  const parsed = z.string().trim().min(1, "Give it a name.").max(200, "Keep it under 200 characters.").safeParse(raw)
+  if (!parsed.success) return fail(parsed.error.issues[0].message)
+  const { supabase, test, error } = await loadTest(testId)
+  if (!test) return fail(error!)
+  const { error: e } = await supabase.from("sprint_tests").update({ title: parsed.data }).eq("id", testId)
+  if (e) return fail("Couldn't save the name. Try again.")
   refresh((test.clients as { slug: string }).slug)
   return { ok: true }
 }
