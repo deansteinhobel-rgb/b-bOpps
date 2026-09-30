@@ -16,6 +16,8 @@ import { rangeParams } from "@/lib/metrics/range"
 import { campaignBreakdowns } from "@/lib/metrics/breakdowns"
 import { LoadedInsightSummary } from "../../../insights/summary"
 import { aiConfigured } from "@/lib/ai/claude"
+import { newLayout } from "@/lib/lens"
+import { CampaignAskCard } from "./ask-card"
 import { CampaignAsk } from "./campaign-ask"
 
 const CARDS: MetricKey[] = ["spend", "impressions", "clicks", "ctr", "cpc", "results", "cpr"]
@@ -28,7 +30,8 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
   const campaignId = decodeURIComponent(rawId)
   const platform = parsePlatform(rawPlatform)
   if (!platform) notFound()
-  const defaultDays = (await getProfile()).preferences?.default_days ?? 30
+  const me = await getProfile()
+  const defaultDays = me.preferences?.default_days ?? 30
   const range = parseRange(await searchParams, defaultDays)
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target").eq("slug", slug).maybeSingle()
@@ -110,7 +113,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
         </div>
       </div>
 
-      <CampaignAsk slug={slug} platform={platform} campaignId={campaignId} aiReady={aiConfigured()} />
+      {newLayout(me.preferences) ? <CampaignAskCard aiReady={aiConfigured()} /> : <CampaignAsk slug={slug} platform={platform} campaignId={campaignId} aiReady={aiConfigured()} />}
 
       <div className="surface overflow-hidden">
         <div className="border-b px-4 py-3">

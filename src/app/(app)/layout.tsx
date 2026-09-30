@@ -1,6 +1,7 @@
 import { AppSidebar } from "@/components/app-sidebar"
 import { CallReminders } from "@/components/call-followups"
 import { Starfield } from "@/components/fx/starfield"
+import { AskChat } from "@/components/ask-chat"
 import { NewsChat } from "@/components/news-chat"
 import { aiConfigured } from "@/lib/ai/claude"
 import { canEdit, getProfile, isAdmin, ROLE_LABEL } from "@/lib/auth"
@@ -48,7 +49,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           )}
         </div>
       </main>
-      {profile.role && aiConfigured() && <NewsChat />}
+      {/* One Ask in the new layout (news, and the campaign when you're on one); the news cellar in the classic one. */}
+      {profile.role && aiConfigured() && (newLayout(profile.preferences) ? <AskChat aiReady /> : <NewsChat />)}
       {reminders.length > 0 && <CallReminders reminders={reminders} canEdit />}
     </div>
   )
