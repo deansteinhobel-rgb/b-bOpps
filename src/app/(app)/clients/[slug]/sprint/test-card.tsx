@@ -14,8 +14,7 @@ import type { BriefInfo, Campaign } from "@/lib/sprints/board"
 import type { SprintTest } from "@/lib/sprints/data"
 import { ASSETS, CARRY_REASONS, evaluate, METRICS, successLine, type Stage, type TestTotals } from "@/lib/sprints/tests"
 import { cn } from "@/lib/utils"
-import { BriefForm } from "./brief-form"
-import type { BriefPerson } from "./test-actions"
+import { BriefDialog } from "./brief-form"
 import { clearOutcome, markLive, markReadyManually, saveFindings, setOutcome } from "./test-actions"
 
 const OUTCOME = {
@@ -39,8 +38,7 @@ export function TestCard(props: {
   const { test: t, stage } = props
   const [pending, start] = useTransition()
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [preview, setPreview] = useState<{ properties: Record<string, unknown>; comment?: string; people: BriefPerson[] } | null>(null)
-  const [panel, setPanel] = useState<null | "brief" | "live" | "findings" | "carry">(null)
+  const [panel, setPanel] = useState<null | "live" | "findings" | "carry">(null)
   const m = (v: number) => money(v, props.currency)
   const overdue = t.deadline && t.deadline < props.today && (stage === "planned" || stage === "in_production")
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>, after?: () => void) =>
@@ -88,24 +86,9 @@ export function TestCard(props: {
               ))}
             </div>
           )}
-          {!props.readOnly && panel === "brief" && (
-            <BriefForm
-              testId={t.id}
-              onCancel={() => setPanel(null)}
-              onDone={(r) => {
-                setPanel(null)
-                setPreview(r.preview ?? null)
-                setMsg({ ok: r.ok, text: r.text })
-              }}
-            />
-          )}
-          {!props.readOnly && panel !== "brief" && (
+          {!props.readOnly && (
             <div className="flex flex-wrap gap-2">
-              <Sparkle>
-                <Button size="sm" disabled={pending} onClick={() => setPanel("brief")}>
-                  {props.writesLive ? "Brief the team in Notion" : "Brief the team (test mode)"}
-                </Button>
-              </Sparkle>
+              <BriefDialog testId={t.id} live={props.writesLive} disabled={pending} onDone={(r) => setMsg({ ok: r.ok, text: r.text })} />
               {!props.writesLive && (
                 <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => markReadyManually(t.id))} title="Test mode: skip Notion and treat the assets as ready">
                   Mark ready (test mode)
@@ -113,7 +96,6 @@ export function TestCard(props: {
               )}
             </div>
           )}
-          {preview && <BriefPreview {...preview} />}
         </div>
       )}
 
@@ -244,38 +226,6 @@ export function TestCard(props: {
         </p>
       )}
     </article>
-  )
-}
-
-function BriefPreview({ properties, comment, people }: { properties: Record<string, unknown>; comment?: string; people: BriefPerson[] }) {
-  const text = (v: unknown): string => {
-    const o = v as Record<string, unknown>
-    if ("title" in o || "rich_text" in o) return ((o.title ?? o.rich_text) as { text: { content: string } }[]).map((x) => x.text.content).join("")
-    if ("select" in o) return (o.select as { name: string }).name
-    if ("status" in o) return (o.status as { name: string }).name
-    if ("date" in o) return (o.date as { start: string }).start
-    if ("url" in o) return String(o.url)
-    if ("people" in o) return (o.people as { id: string }[]).map((p) => people.find((x) => x.id === p.id)?.name ?? "Notion user").join(", ")
-    return ""
-  }
-  return (
-    <div className="rounded-md border border-dashed p-2 text-xs">
-      <p className="mb-1 text-muted-foreground">The Notion brief that would be created:</p>
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1">
-        {Object.entries(properties).map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="text-muted-foreground">{k}</dt>
-            <dd className="break-words whitespace-pre-line">{text(v)}</dd>
-          </div>
-        ))}
-      </dl>
-      {comment && (
-        <>
-          <p className="mt-3 mb-1 text-muted-foreground">Then this comment on it:</p>
-          <p className="break-words whitespace-pre-line">{comment}</p>
-        </>
-      )}
-    </div>
   )
 }
 
