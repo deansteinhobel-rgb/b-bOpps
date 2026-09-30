@@ -1,7 +1,7 @@
 /**
  * Run the Windsor sync from the command line. Reads Windsor, writes our Supabase cache only.
  *
- *   pnpm sync:windsor                 # last 3 days, all active clients (same as the daily job)
+ *   pnpm sync:windsor                 # last 14 days, all active clients (same as the daily job)
  *   pnpm sync:windsor --backfill      # last 90 days
  *   pnpm sync:windsor --backfill camber
  */
@@ -18,7 +18,7 @@ async function main() {
     if (!data) throw new Error(`No client with slug "${slug}"`)
     clientId = data.id
   }
-  const dateFrom = daysAgo(backfill ? 90 : 3)
+  const dateFrom = daysAgo(backfill ? 90 : 14)
   const dateTo = daysAgo(1)
   console.log(`Windsor ${backfill ? "backfill" : "daily"} sync ${dateFrom} to ${dateTo}${slug ? ` for ${slug}` : ""}`)
   const results = await syncWindsor({ clientId, dateFrom, dateTo, kind: backfill ? "backfill" : "daily" })
