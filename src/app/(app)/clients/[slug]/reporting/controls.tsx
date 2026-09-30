@@ -99,13 +99,17 @@ export function Controls({ base, range, defaultDays = 30, platform, platforms, c
       {segments.length > 0 && (
         <>
           <span className="hidden h-5 w-px bg-border sm:block" aria-hidden />
-          <Segmented
-            label="Segment"
-            tone="quiet"
-            value={view.segment ?? "all"}
-            options={[{ value: "all", label: "All segments", title: "Every campaign" }, ...segments.map((s) => ({ value: s.key, label: s.label, title: s.hint }))]}
-            onChange={(v) => go(view.range, view.platform, v === "all" ? null : v)}
-          />
+          <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Segment">
+            <FilterChip active={!view.segment} onClick={() => go(view.range, view.platform, null)} title="Every campaign">
+              All segments
+            </FilterChip>
+            {segments.map((s) => (
+              <FilterChip key={s.key} active={view.segment === s.key} color={s.color} onClick={() => go(view.range, view.platform, s.key)} title={s.hint}>
+                <span className="size-2 rounded-full" style={{ background: s.color }} aria-hidden />
+                {s.label}
+              </FilterChip>
+            ))}
+          </div>
         </>
       )}
 

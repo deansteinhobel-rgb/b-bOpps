@@ -9,15 +9,20 @@
 import { add, derive, zero, type Derived, type Performance, type Sums } from "./performance"
 import type { Platform } from "./types"
 
-export type SegmentDef = { key: string; label: string; pattern: RegExp; hint: string }
-export type SegmentOption = { key: string; label: string; hint: string }
+export type SegmentDef = { key: string; label: string; pattern: RegExp; hint: string; color: string }
+export type SegmentOption = { key: string; label: string; hint: string; color: string }
 
 export const OTHER_SEGMENT = "other"
+const OTHER_COLOR = "#8a8a8a"
 
+/**
+ * Colours (Dean, 2026-09-30: tell SMB and ABX apart at a glance): sky and orange, clear of the
+ * platform colours (LinkedIn purple, Google olive, Meta pink), lime and each other on dark.
+ */
 const CLIENT_SEGMENTS: Record<string, SegmentDef[]> = {
   camber: [
-    { key: "smb", label: "SMB", pattern: /^\s*SMB\b/i, hint: "Campaigns whose name starts with SMB" },
-    { key: "abx", label: "ABX", pattern: /^\s*AB[XM]\b/i, hint: "Campaigns whose name starts with ABX or ABM (account-based)" },
+    { key: "smb", label: "SMB", pattern: /^\s*SMB\b/i, hint: "Campaigns whose name starts with SMB", color: "#38bdf8" },
+    { key: "abx", label: "ABX", pattern: /^\s*AB[XM]\b/i, hint: "Campaigns whose name starts with ABX or ABM (account-based)", color: "#ff8a3d" },
   ],
 }
 
@@ -26,7 +31,9 @@ export const segmentsFor = (slug: string): SegmentDef[] => CLIENT_SEGMENTS[slug]
 
 /** The options to pick from: each segment, then Other. */
 export const segmentOptions = (defs: SegmentDef[]): SegmentOption[] =>
-  defs.length ? [...defs.map(({ key, label, hint }) => ({ key, label, hint })), { key: OTHER_SEGMENT, label: "Other", hint: `Campaigns that fit none of ${defs.map((d) => d.label).join(" or ")}, e.g. brand search or retargeting` }] : []
+  defs.length
+    ? [...defs.map(({ key, label, hint, color }) => ({ key, label, hint, color })), { key: OTHER_SEGMENT, label: "Other", hint: `Campaigns that fit none of ${defs.map((d) => d.label).join(" or ")}, e.g. brand search or retargeting`, color: OTHER_COLOR }]
+    : []
 
 /** Which segment a campaign name belongs to. */
 export const segmentOf = (defs: SegmentDef[], name: string | null | undefined) => defs.find((d) => d.pattern.test(name ?? ""))?.key ?? OTHER_SEGMENT

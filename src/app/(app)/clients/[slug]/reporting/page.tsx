@@ -29,7 +29,7 @@ import { parsePlatform, parseRange } from "./params"
 import { adsForPeriod, boardAds, buildBoard, type BoardKey } from "./boards"
 import { EmbedButton, type EmbedLink } from "./embed-button"
 import { ReportBoard } from "./report-board"
-import { SegmentSplit } from "./segment-split"
+import { SegmentAds, SegmentDetail, SegmentSplit } from "./segment-split"
 
 export const metadata = { title: "Reporting" }
 
@@ -68,8 +68,8 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   const [perf, all, unsegmented, o] = await Promise.all([
     cachedPerformance(client.id, range, platform, null, seg),
     platform ? cachedPerformance(client.id, range, null, null, seg) : null,
-    // The split always shows every segment, so it needs the page without the segment filter.
-    segmentDefs.length && segment ? cachedPerformance(client.id, range, platform) : null,
+    // The split always shows every segment on every platform (it's how you pick one), so it needs the page without either filter.
+    segmentDefs.length && (segment || platform) ? cachedPerformance(client.id, range, null) : null,
     cachedOverview(client.id),
   ])
   if (!perf || !o) return <p className="text-muted-foreground">No ad data yet. An admin can run a Windsor backfill for this client.</p>
@@ -127,7 +127,12 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   const sections = split ? [SECTIONS[0], { id: "segments", label: segmentDefs.map((d) => d.label).join(" vs ") }, ...SECTIONS.slice(1)] : SECTIONS
   const scopeName = [segmentName, platform ? PLATFORM_LABEL[platform] : null].filter(Boolean).join(" · ")
   const boardLabel = (p: Platform | null) => [segmentName, p ? PLATFORM_LABEL[p] : "All platforms"].filter(Boolean).join(" · ")
-  const previews = await previewsFor(supabase, client.id, [...rankings.flatMap((r) => [r.best, r.worst]).filter((a) => a !== null), ...boardAds(boards, ads), ...liveAds, ...newest])
+  // The picked segment's ads (Segment detail), biggest spend first; previews for the first 40.
+  const segmentAds = segment ? ads.filter((a) => a.spend > 0 || a.impressions > 0).sort((a, b) => b.spend - a.spend) : []
+  const segmentOption = segment ? segmentOpts.find((s) => s.key === segment)! : null
+  const segmentPlatforms = segment ? (split?.find((s) => s.key === segment)?.platforms ?? []).map((p) => p.platform) : []
+  const previews = await previewsFor(supabase, client.id, [...rankings.flatMap((r) => [r.best, r.worst]).filter((a) => a !== null), ...boardAds(boards, ads), ...liveAds, ...newest, ...segmentAds.slice(0, 40)])
+  const campaignRows = perf.campaigns.map((c) => ({ ...c, live: Boolean(c.lastSpendDate && c.lastSpendDate >= twoDaysAgo) }))
 
   return (
     <div className="space-y-12">
@@ -236,9 +241,15 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
         <section id="segments" className="scroll-mt-28 space-y-4">
           <SectionHeader
             title={segmentDefs.map((d) => d.label).join(" vs ")}
-            description={`Each segment's campaigns added up across ${platform ? PLATFORM_LABEL[platform] : "every platform"}, ${dates}, ${against}, with each platform underneath. Pick a segment here or in the toolbar to narrow the whole page to it.`}
+            description={`Each segment's campaigns added up across every platform, ${dates}, ${against}. Click a segment, or one of its platforms, to see only its campaigns and ads (the rest of the page follows).`}
           />
-          <SegmentSplit segments={split} currency={cur} base={base} query={q} active={segment} />
+          <SegmentSplit segments={split} currency={cur} base={base} query={q} active={segment} platform={platform} />
+          {segmentOption && (
+            <SegmentDetail segment={segmentOption} platform={platform} platforms={segmentPlatforms} base={base} query={q}>
+              <CampaignTable slug={slug} currency={cur} target={target} query={query ? `?${query}` : ""} rows={campaignRows} />
+              <SegmentAds ads={segmentAds} previews={previews} currency={cur} />
+            </SegmentDetail>
+          )}
         </section>
       )}
 
@@ -337,7 +348,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
             {!platform && <PlatformSplit platforms={perf.platforms} currency={cur} />}
           </div>
         </div>
-        <CampaignTable slug={slug} currency={cur} target={target} query={query ? `?${query}` : ""} rows={perf.campaigns.map((c) => ({ ...c, live: Boolean(c.lastSpendDate && c.lastSpendDate >= twoDaysAgo) }))} />
+        <CampaignTable slug={slug} currency={cur} target={target} query={query ? `?${query}` : ""} rows={campaignRows} />
         {pages && <LandingPages rows={pages} />}
       </section>
     </div>
