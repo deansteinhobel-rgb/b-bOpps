@@ -49,11 +49,17 @@ const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim
  * together with conversions and leads makes Windsor's LinkedIn connector silently drop rows (Camber,
  * 22-23 Sept 2026: $295 of spend missing in one week), while any two of the three are fine.
  */
-export function fieldsFor(account: WindsorAccount): string[] {
+export function fieldsFor(account: WindsorAccount, level: Level = "ad"): string[] {
   const dims = DIMENSIONS[account.windsor_connector]
   if (!dims) throw new Error(`Unknown Windsor connector: ${account.windsor_connector}`)
-  return [...new Set(["date", dims.campaign_id, dims.campaign_name, dims.ad_id, ...METRICS, ...account.conversion_fields, ...account.lead_fields])]
+  return [...new Set(["date", dims.campaign_id, dims.campaign_name, ...(level === "ad" ? [dims.ad_id] : []), ...METRICS, ...account.conversion_fields, ...account.lead_fields])]
 }
+
+/**
+ * "ad" is the normal grain. "campaign" (ad_id = '') is only for old history Windsor can't give by ad
+ * (LinkedIn refuses creatives whose post expired, after 2 years). Never both for the same account and day.
+ */
+export type Level = "ad" | "campaign"
 
 export function nameFieldsFor(account: WindsorAccount): string[] {
   const dims = DIMENSIONS[account.windsor_connector]
@@ -112,11 +118,11 @@ async function windsorGet(account: WindsorAccount, dateFrom: string, dateTo: str
 }
 
 /** One request per account, filtered to that account by Windsor (never pull all and filter). */
-export async function fetchAccountMetrics(account: WindsorAccount, dateFrom: string, dateTo: string): Promise<MetricRow[]> {
+export async function fetchAccountMetrics(account: WindsorAccount, dateFrom: string, dateTo: string, level: Level = "ad"): Promise<MetricRow[]> {
   const dims = DIMENSIONS[account.windsor_connector]
   const [data, names] = await Promise.all([
-    windsorGet(account, dateFrom, dateTo, fieldsFor(account)),
-    windsorGet(account, dateFrom, dateTo, nameFieldsFor(account)).catch(() => []), // names are cosmetic
+    windsorGet(account, dateFrom, dateTo, fieldsFor(account, level)),
+    level === "ad" ? windsorGet(account, dateFrom, dateTo, nameFieldsFor(account)).catch(() => []) : [], // names are cosmetic
   ])
   const adNames = new Map<string, string>()
   for (const n of names) if (str(n[dims.ad_id]) && str(n[dims.ad_name])) adNames.set(str(n[dims.ad_id]), str(n[dims.ad_name]))

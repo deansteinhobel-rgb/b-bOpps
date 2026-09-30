@@ -1,8 +1,9 @@
 import { ArrowDown, ArrowUp, Minus } from "lucide-react"
 import { AdThumb } from "@/components/ad-thumb"
 import { ClientLogo, PlatformIcon } from "@/components/brand"
-import { money, percent, shortDate, whole } from "@/lib/format"
+import { money, percent, whole } from "@/lib/format"
 import { change, type Derived } from "@/lib/metrics/performance"
+import { rangeText } from "@/lib/metrics/range"
 import type { Platform } from "@/lib/metrics/types"
 import type { PreviewMap } from "@/lib/previews"
 import { cn } from "@/lib/utils"
@@ -29,7 +30,7 @@ const show = (kind: Tile["kind"], v: number | null, currency: string) => (v === 
  * embedded on a Notion page. The period's headline numbers against the previous period, where the
  * money went, which campaigns brought results, and the ads that did best. No internal notes.
  */
-export function ReportBoard({ board: b, client, currency, from, to, prevFrom, prevTo, previews }: { board: Board; client: { name: string; logoUrl: string | null }; currency: string; from: string; to: string; prevFrom: string; prevTo: string; previews: PreviewMap }) {
+export function ReportBoard({ board: b, client, currency, from, to, prevFrom, prevTo, compare = true, latest, previews }: { board: Board; client: { name: string; logoUrl: string | null }; currency: string; from: string; to: string; prevFrom: string; prevTo: string; compare?: boolean; latest: string; previews: PreviewMap }) {
   const leadsMatter = b.platform !== "google_ads" && (b.now.leads > 0 || b.prev.leads > 0)
   const tiles: Tile[] = [
     { label: "Spend", caption: "Paid to the ad platform", now: b.now.spend, prev: b.prev.spend, kind: "money", better: "none" },
@@ -65,10 +66,8 @@ export function ReportBoard({ board: b, client, currency, from, to, prevFrom, pr
           </div>
         </div>
         <p className="text-right text-xs text-muted-foreground">
-          <span className="block text-foreground">
-            {shortDate(from)} – {shortDate(to)}
-          </span>
-          compared with {shortDate(prevFrom)} – {shortDate(prevTo)}
+          <span className="block text-foreground">{rangeText(from, to, latest)}</span>
+          {compare ? `compared with ${rangeText(prevFrom, prevTo, latest)}` : "all time"}
         </p>
       </header>
 
@@ -79,10 +78,12 @@ export function ReportBoard({ board: b, client, currency, from, to, prevFrom, pr
           <div key={t.label} className={cn("bg-card px-4 py-4", i === 0 && tiles.length % 2 === 1 && "col-span-2")}>
             <dt className="text-xs font-medium">{t.label}</dt>
             <dd className="mt-2 font-heading text-3xl leading-none tabular-nums">{show(t.kind, t.now, currency)}</dd>
-            <dd className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
-              <Chip now={t.now} prev={t.prev} better={t.better} />
-              <span className="tabular-nums">was {show(t.kind, t.prev, currency)}</span>
-            </dd>
+            {compare && (
+              <dd className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
+                <Chip now={t.now} prev={t.prev} better={t.better} />
+                <span className="tabular-nums">was {show(t.kind, t.prev, currency)}</span>
+              </dd>
+            )}
             <dd className="mt-1 text-[11px] text-subtle-foreground">{t.caption}</dd>
           </div>
         ))}
@@ -100,7 +101,7 @@ export function ReportBoard({ board: b, client, currency, from, to, prevFrom, pr
                 <tr className="border-b">
                   <th className="px-5 py-1.5 text-left font-normal">Campaign</th>
                   <th className="px-3 py-1.5 text-right font-normal">Spend</th>
-                  <th className="px-5 py-1.5 text-right font-normal">vs before</th>
+                  {compare && <th className="px-5 py-1.5 text-right font-normal">vs before</th>}
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -115,9 +116,11 @@ export function ReportBoard({ board: b, client, currency, from, to, prevFrom, pr
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right">{money(c.spend, currency)}</td>
-                    <td className="px-5 py-2 text-right">
-                      <Chip now={c.spend} prev={c.prevSpend} better="none" />
-                    </td>
+                    {compare && (
+                      <td className="px-5 py-2 text-right">
+                        <Chip now={c.spend} prev={c.prevSpend} better="none" />
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -125,9 +128,11 @@ export function ReportBoard({ board: b, client, currency, from, to, prevFrom, pr
                 <tr className="border-t text-muted-foreground">
                   <td className="px-5 py-2">{campaigns.length > 8 ? `Total (${campaigns.length} campaigns)` : "Total"}</td>
                   <td className="px-3 py-2 text-right text-foreground">{money(b.now.spend, currency)}</td>
-                  <td className="px-5 py-2 text-right">
-                    <Chip now={b.now.spend} prev={b.prev.spend} better="none" />
-                  </td>
+                  {compare && (
+                    <td className="px-5 py-2 text-right">
+                      <Chip now={b.now.spend} prev={b.prev.spend} better="none" />
+                    </td>
+                  )}
                 </tr>
               </tfoot>
             </table>

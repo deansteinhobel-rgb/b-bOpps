@@ -1,10 +1,10 @@
 import { longDate } from "@/lib/format"
 import { cachedPerformance } from "@/lib/metrics/cached"
+import { decodeRange, parseRange } from "@/lib/metrics/range"
 import type { Platform } from "@/lib/metrics/types"
 import { previewsFor } from "@/lib/previews"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { adsForPeriod, boardAds, buildBoard, isBoardKey } from "@/app/(app)/clients/[slug]/reporting/boards"
-import { parseDays } from "@/app/(app)/clients/[slug]/reporting/params"
 import { ReportBoard } from "@/app/(app)/clients/[slug]/reporting/report-board"
 import { PeriodPicker } from "./period-picker"
 
@@ -20,16 +20,16 @@ export default async function EmbedReportPage({ params, searchParams }: PageProp
   const sp = await searchParams
   if (!/^[A-Za-z0-9_-]{32,}$/.test(token)) return <Notice text="This report link isn't valid." />
   const admin = createAdminClient()
-  const { data: link } = await admin.from("report_links").select("id, client_id, board, default_days, revoked_at, last_viewed_at").eq("token", token).maybeSingle()
+  const { data: link } = await admin.from("report_links").select("id, client_id, board, default_days, default_range, revoked_at, last_viewed_at").eq("token", token).maybeSingle()
   if (!link || link.revoked_at || !isBoardKey(link.board)) return <Notice text="This report link has been turned off. Ask Bordeaux & Burgundy for a new one." />
   const { data: client } = await admin.from("clients").select("name, logo_url, currency").eq("id", link.client_id).maybeSingle()
   if (!client) return <Notice text="This report isn't available." />
 
-  const days = parseDays(sp.days, link.default_days)
+  const range = parseRange(sp, decodeRange(link.default_range) ?? link.default_days)
   const platform = link.board === "all" ? null : (link.board as Platform)
-  const perf = await cachedPerformance(link.client_id, days, null)
+  const perf = await cachedPerformance(link.client_id, range, null)
   if (!perf) return <Notice text="No data for this report yet." />
-  const { from, to, prevFrom, prevTo } = perf.periods
+  const { from, to, prevFrom, prevTo, compare } = perf.periods
   const ads = await adsForPeriod(admin, link.client_id, from, to)
   const board = buildBoard(perf, ads, platform)
   const previews = await previewsFor(admin, link.client_id, boardAds([board], ads))
@@ -39,10 +39,10 @@ export default async function EmbedReportPage({ params, searchParams }: PageProp
   return (
     <main className="mx-auto w-full max-w-6xl space-y-3 bg-background p-3 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PeriodPicker days={days} />
+        <PeriodPicker range={range} periods={perf.periods} dataFrom={perf.dataFrom} dataThrough={perf.dataThrough} />
         <p className="text-[11px] text-muted-foreground">Data through {longDate(perf.dataThrough)} · updated daily</p>
       </div>
-      <ReportBoard board={board} client={{ name: client.name, logoUrl: client.logo_url }} currency={client.currency} from={from} to={to} prevFrom={prevFrom} prevTo={prevTo} previews={previews} />
+      <ReportBoard board={board} client={{ name: client.name, logoUrl: client.logo_url }} currency={client.currency} from={from} to={to} prevFrom={prevFrom} prevTo={prevTo} compare={compare} latest={perf.dataThrough} previews={previews} />
       <p className="text-center text-[11px] text-subtle-foreground">Report by Bordeaux &amp; Burgundy</p>
     </main>
   )

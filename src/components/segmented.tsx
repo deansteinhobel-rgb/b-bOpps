@@ -26,7 +26,8 @@ export function Segmented<T extends string>({
   const [thumb, setThumb] = useState<{ left: number; width: number } | null>(null)
   useLayoutEffect(() => {
     const el = refs.current[value]
-    if (!el) return
+    // Nothing selected (e.g. a date range the quick options don't cover): no highlight.
+    if (!el) return setThumb(null)
     const measure = () => setThumb({ left: el.offsetLeft, width: el.offsetWidth })
     measure()
     // Counts and fonts can change the widths after the first paint.

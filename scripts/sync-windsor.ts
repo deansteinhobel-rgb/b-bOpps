@@ -4,19 +4,33 @@
  *   pnpm sync:windsor                 # last 14 days, all active clients (same as the daily job)
  *   pnpm sync:windsor --backfill      # last 90 days
  *   pnpm sync:windsor --backfill camber
+ *   pnpm sync:windsor --history 2018-01-01 [slug]   # whole history, month by month (custom ranges)
  */
 import { createAdminClient } from "@/lib/supabase/admin"
 import { syncCampaignStatuses } from "@/lib/windsor/statuses"
-import { daysAgo, syncWindsor } from "@/lib/windsor/sync"
+import { daysAgo, loadHistory, syncWindsor } from "@/lib/windsor/sync"
 
 async function main() {
   const backfill = process.argv.includes("--backfill")
-  const slug = process.argv.slice(2).find((a) => !a.startsWith("--"))
+  const hi = process.argv.indexOf("--history")
+  const historyFrom = hi > 0 ? process.argv[hi + 1] : null
+  if (historyFrom !== null && !/^\d{4}-\d{2}-\d{2}$/.test(historyFrom ?? "")) throw new Error("--history needs a start date, e.g. --history 2018-01-01")
+  const slug = process.argv.slice(2).find((a, i, all) => !a.startsWith("--") && all[i - 1] !== "--history")
   let clientId: string | undefined
   if (slug) {
     const { data } = await createAdminClient().from("clients").select("id").eq("slug", slug).single()
     if (!data) throw new Error(`No client with slug "${slug}"`)
     clientId = data.id
+  }
+  if (historyFrom) {
+    console.log(`Windsor history ${historyFrom} to ${daysAgo(1)}${slug ? ` for ${slug}` : ""}`)
+    const failures = await loadHistory({ clientId, from: historyFrom, to: daysAgo(1), onMonth: (l) => console.log(`  ${l}`) })
+    if (failures.length) {
+      console.log(`\n${failures.length} month(s) need a look:`)
+      for (const f of failures) console.log(`  ${f.slice(0, 300)}`)
+      process.exit(1)
+    }
+    return
   }
   const dateFrom = daysAgo(backfill ? 90 : 14)
   const dateTo = daysAgo(1)

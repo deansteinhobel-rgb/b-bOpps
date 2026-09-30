@@ -9,6 +9,7 @@ import { longDate, money, percent, shortDate, whole } from "@/lib/format"
 import { AD_OLD_DAYS, rankAds, type RankedAd } from "@/lib/metrics/ads"
 import { cachedOverview, cachedPerformance } from "@/lib/metrics/cached"
 import { fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
+import { decodeRange, encodeRange, rangeLabel, rangeParams, rangeText } from "@/lib/metrics/range"
 import { resultFieldLines } from "@/lib/metrics/result-fields"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { Hint } from "@/components/hint"
@@ -21,7 +22,7 @@ import { BoardDeck } from "./board-deck"
 import { LandingPages } from "./breakdowns"
 import { CampaignTable, Delta, Investigator, PlatformSplit, Sparkline, TrendPanel } from "./charts"
 import { Controls } from "./controls"
-import { parseDays, parsePlatform } from "./params"
+import { parsePlatform, parseRange } from "./params"
 import { adsForPeriod, boardAds, buildBoard, type BoardKey } from "./boards"
 import { EmbedButton, type EmbedLink } from "./embed-button"
 import { ReportBoard } from "./report-board"
@@ -48,26 +49,30 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   const sp = await searchParams
   const me = await getProfile()
   const defaultDays = me.preferences?.default_days ?? 30
-  const days = parseDays(sp.days, defaultDays)
+  const range = parseRange(sp, defaultDays)
   const platform = parsePlatform(sp.platform)
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, name, logo_url, currency, monthly_kpi_target, ga4_property_id").eq("slug", slug).maybeSingle()
   if (!client) notFound()
   // Access confirmed above (client loaded through RLS), so the shared caches are safe to use.
-  const [perf, all, o] = await Promise.all([cachedPerformance(client.id, days, platform), platform ? cachedPerformance(client.id, days, null) : null, cachedOverview(client.id)])
+  const [perf, all, o] = await Promise.all([cachedPerformance(client.id, range, platform), platform ? cachedPerformance(client.id, range, null) : null, cachedOverview(client.id)])
   if (!perf || !o) return <p className="text-muted-foreground">No ad data yet. An admin can run a Windsor backfill for this client.</p>
   const cur = client.currency
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
   const base = `/clients/${slug}/reporting`
-  const query = [days !== defaultDays && `days=${days}`, platform && `platform=${platform}`].filter(Boolean).join("&")
+  const q = rangeParams(range, new URLSearchParams(), defaultDays)
+  if (platform) q.set("platform", platform)
+  const query = q.toString()
   const twoDaysAgo = new Date(Date.parse(perf.dataThrough) - 864e5).toISOString().slice(0, 10)
-  const { from, to, prevFrom, prevTo } = perf.periods
+  const { from, to, prevFrom, prevTo, compare } = perf.periods
+  const dates = rangeText(from, to, perf.dataThrough)
+  const against = compare ? `against ${rangeText(prevFrom, prevTo, perf.dataThrough)}` : "all time, so nothing to compare with"
 
   // Ads over the period: best and worst per platform, and each board's top ads.
   const [allAds, pages, { data: links }, { data: canShare }, { data: accounts }] = await Promise.all([
     adsForPeriod(supabase, client.id, from, to),
     client.ga4_property_id ? landingPages(supabase, client.id, from, to) : null,
-    supabase.from("report_links").select("id, board, default_days, label, token, created_at, last_viewed_at, created_by_profile_id").eq("client_id", client.id).is("revoked_at", null).order("created_at", { ascending: false }),
+    supabase.from("report_links").select("id, board, default_days, default_range, label, token, created_at, last_viewed_at, created_by_profile_id").eq("client_id", client.id).is("revoked_at", null).order("created_at", { ascending: false }),
     supabase.rpc("can_share_reports", { cid: client.id }),
     supabase.from("client_platform_accounts").select("platform, conversion_fields, lead_fields").eq("client_id", client.id).eq("active", true),
   ])
@@ -91,7 +96,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   const linkViews: EmbedLink[] = (links ?? []).map((l) => ({
     id: l.id,
     board: l.board,
-    days: l.default_days,
+    opens: rangeLabel(decodeRange(l.default_range) ?? { kind: "days", days: l.default_days }),
     label: l.label,
     url: `${appUrl}/embed/report/${l.token}`,
     created: `${shortDate(l.created_at.slice(0, 10))}${nameOf.get(l.created_by_profile_id) ? ` by ${nameOf.get(l.created_by_profile_id)}` : ""}`,
@@ -108,22 +113,21 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
         <SectionNav sections={SECTIONS} />
         <Controls
           base={base}
-          days={days}
+          range={range}
           defaultDays={defaultDays}
           platform={platform}
           platforms={(all ?? perf).platforms.map((p) => ({ platform: p.platform as Platform, spend: p.now.spend }))}
           currency={cur}
-          from={from}
-          to={to}
-          prevFrom={prevFrom}
-          prevTo={prevTo}
+          periods={perf.periods}
+          dataFrom={perf.dataFrom}
+          dataThrough={perf.dataThrough}
         />
         <p className="text-xs text-muted-foreground">Data through {longDate(perf.dataThrough)}. Windsor syncs daily, so figures are up to a day old. The period and platform above apply to the whole page, apart from budget pacing (this month) and ad fatigue (each ad&apos;s first and last 14 days).</p>
       </div>
 
       {/* 1. Overview: the account, then each platform */}
       <section id="overview" className="scroll-mt-28 space-y-4">
-        <SectionHeader title="Overview" description={`${platform ? PLATFORM_LABEL[platform] : "The whole account"}, ${shortDate(from)} – ${shortDate(to)}, against the ${days} days before. Result = conversions + leads.`} />
+        <SectionHeader title="Overview" description={`${platform ? PLATFORM_LABEL[platform] : "The whole account"}, ${dates}, ${against}. Result = conversions + leads.`} />
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-4 xl:grid-cols-7">
           {CARDS.map((k) => (
             <div key={k} className="bg-card px-4 py-3.5">
@@ -202,7 +206,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
 
       {/* 2. Best and worst ad */}
       <section id="best-worst" className="scroll-mt-28 space-y-4">
-        <SectionHeader title="Best and worst ads" description={`${shortDate(from)} – ${shortDate(to)}. Only ads above their account's median spend. Ranked by cost per result when at least two have 3+ results, otherwise by CTR.`} />
+        <SectionHeader title="Best and worst ads" description={`${dates}. Only ads above their account's median spend. Ranked by cost per result when at least two have 3+ results, otherwise by CTR.`} />
         {rankings.length === 0 ? (
           <p className="surface px-4 py-6 text-sm text-muted-foreground">Not enough ad data in this period.</p>
         ) : (
@@ -264,15 +268,15 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
             key: b.key,
             label: b.platform ? PLATFORM_LABEL[b.platform] : "All platforms",
             platform: b.platform,
-            actions: <EmbedButton slug={slug} board={b.key as BoardKey} boardLabel={b.platform ? PLATFORM_LABEL[b.platform] : "All platforms"} days={days} links={linkViews.filter((l) => l.board === b.key)} canShare={Boolean(canShare)} />,
-            node: <ReportBoard board={b} client={{ name: client.name, logoUrl: client.logo_url }} currency={cur} from={from} to={to} prevFrom={prevFrom} prevTo={prevTo} previews={previews} />,
+            actions: <EmbedButton key={encodeRange(range)} slug={slug} board={b.key as BoardKey} boardLabel={b.platform ? PLATFORM_LABEL[b.platform] : "All platforms"} range={range} links={linkViews.filter((l) => l.board === b.key)} canShare={Boolean(canShare)} />,
+            node: <ReportBoard board={b} client={{ name: client.name, logoUrl: client.logo_url }} currency={cur} from={from} to={to} prevFrom={prevFrom} prevTo={prevTo} compare={compare} latest={perf.dataThrough} previews={previews} />,
           }))}
         />
       </section>
 
       {/* 5. The deep dive, for the team */}
       <section id="deep-dive" className="scroll-mt-28 space-y-6">
-        <SectionHeader title="Deep dive" description="Day by day, why the numbers moved, every campaign (click one for its ads, search terms and audiences), and landing pages." />
+        <SectionHeader title="Deep dive" description={`${perf.periods.bucket === "day" ? "Day by day" : perf.periods.bucket === "week" ? "Week by week" : "Month by month"}, why the numbers moved, every campaign (click one for its ads, search terms and audiences), and landing pages.`} />
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
           <TrendPanel daily={perf.daily} prevDaily={perf.prevDaily} currency={cur} />
           <div className="space-y-6">

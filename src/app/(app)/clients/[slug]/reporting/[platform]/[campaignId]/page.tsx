@@ -11,7 +11,8 @@ import { createClient } from "@/lib/supabase/server"
 import { Delta, Investigator, Sparkline, TrendPanel } from "../../charts"
 import { CampaignDetailData } from "../../breakdowns"
 import { Controls } from "../../controls"
-import { parseDays, parsePlatform } from "../../params"
+import { parsePlatform, parseRange } from "../../params"
+import { rangeParams } from "@/lib/metrics/range"
 import { campaignBreakdowns } from "@/lib/metrics/breakdowns"
 import { LoadedInsightSummary } from "../../../insights/summary"
 import { aiConfigured } from "@/lib/ai/claude"
@@ -28,11 +29,11 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
   const platform = parsePlatform(rawPlatform)
   if (!platform) notFound()
   const defaultDays = (await getProfile()).preferences?.default_days ?? 30
-  const days = parseDays((await searchParams).days, defaultDays)
+  const range = parseRange(await searchParams, defaultDays)
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, currency, monthly_kpi_target").eq("slug", slug).maybeSingle()
   if (!client) notFound()
-  const perf = await cachedPerformance(client.id, days, platform, campaignId) // access confirmed above
+  const perf = await cachedPerformance(client.id, range, platform, campaignId) // access confirmed above
   const campaign = perf?.campaigns[0]
   if (!perf || !campaign) notFound()
   const cur = client.currency
@@ -55,7 +56,8 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
     prev: prevBy.get(String(r.ad_id)) ?? null,
   }))
   const previews = await previewsFor(supabase, client.id, ads)
-  const back = `/clients/${slug}/reporting${days !== defaultDays ? `?days=${days}` : ""}`
+  const q = rangeParams(range, new URLSearchParams(), defaultDays).toString()
+  const back = `/clients/${slug}/reporting${q ? `?${q}` : ""}`
 
   return (
     <div className="space-y-6">
@@ -68,7 +70,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
           <h2 className="text-2xl">{campaign.name}</h2>
         </div>
       </div>
-      <Controls base={`/clients/${slug}/reporting/${platform}/${encodeURIComponent(campaignId)}`} days={days} defaultDays={defaultDays} platform={null} from={perf.periods.from} to={perf.periods.to} prevFrom={perf.periods.prevFrom} prevTo={perf.periods.prevTo} />
+      <Controls base={`/clients/${slug}/reporting/${platform}/${encodeURIComponent(campaignId)}`} range={range} defaultDays={defaultDays} platform={null} periods={perf.periods} dataFrom={perf.dataFrom} dataThrough={perf.dataThrough} />
 
       <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-4 xl:grid-cols-7">
         {CARDS.map((k) => (

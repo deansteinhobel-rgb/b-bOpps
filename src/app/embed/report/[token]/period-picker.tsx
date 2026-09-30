@@ -2,33 +2,35 @@
 
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
+import { RangePicker } from "@/components/range-picker"
 import { Segmented } from "@/components/segmented"
+import { QUICK_DAYS, rangeParams, sameRange, type Periods, type RangeSpec } from "@/lib/metrics/range"
 import { cn } from "@/lib/utils"
 
-const PERIODS = [7, 14, 30, 90] as const
-
-/** The embed's period (Dean: whoever views the embed can change the date range). Kept in the URL. */
-export function PeriodPicker({ days }: { days: number }) {
+/**
+ * The embed's dates (Dean: whoever views the embed can change the date range): the quick periods
+ * plus the date range picker with presets and custom dates. Kept in the URL, always explicit, so it
+ * never falls back to the link's default by accident.
+ */
+export function PeriodPicker({ range, periods, dataFrom, dataThrough }: { range: RangeSpec; periods: Periods; dataFrom: string; dataThrough: string }) {
   const router = useRouter()
   const pathname = usePathname()
   const [pending, start] = useTransition()
-  const [view, setView] = useState(days)
-  const [seen, setSeen] = useState(days)
-  if (seen !== days) {
-    setSeen(days)
-    setView(days)
+  const [view, setView] = useState(range)
+  const [seen, setSeen] = useState(range)
+  if (!sameRange(seen, range)) {
+    setSeen(range)
+    setView(range)
+  }
+  const go = (r: RangeSpec) => {
+    if (sameRange(r, view)) return
+    setView(r)
+    start(() => router.replace(`${pathname}?${rangeParams(r, new URLSearchParams(), 0)}`, { scroll: false }))
   }
   return (
-    <div className={cn("transition-opacity", pending && "opacity-60")}>
-      <Segmented
-        label="Period"
-        value={String(view)}
-        options={PERIODS.map((d) => ({ value: String(d), label: `Last ${d} days` }))}
-        onChange={(v) => {
-          setView(Number(v))
-          start(() => router.replace(`${pathname}?days=${v}`, { scroll: false }))
-        }}
-      />
+    <div className={cn("flex flex-wrap items-center gap-2 transition-opacity", pending && "opacity-60")}>
+      <Segmented label="Period" value={view.kind === "days" ? String(view.days) : ""} options={QUICK_DAYS.map((d) => ({ value: String(d), label: `${d}d`, title: `Last ${d} days` }))} onChange={(v) => go({ kind: "days", days: Number(v) })} />
+      <RangePicker range={view} periods={periods} dataFrom={dataFrom} dataThrough={dataThrough} onChange={go} align="start" />
     </div>
   )
 }

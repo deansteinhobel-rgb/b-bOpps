@@ -6,20 +6,26 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
+import { fieldClass } from "@/components/field-class"
+import { encodeRange, PRESET_LABEL, PRESETS, QUICK_DAYS, rangeLabel, type RangeSpec } from "@/lib/metrics/range"
 import type { BoardKey } from "./boards"
 import { createReportLink, turnOffReportLink } from "./embed-actions"
 
-export type EmbedLink = { id: string; board: string; days: number; label: string | null; url: string; created: string; lastViewed: string | null }
-const PERIODS = [7, 14, 30, 90] as const
+export type EmbedLink = { id: string; board: string; opens: string; label: string | null; url: string; created: string; lastViewed: string | null }
 
 /**
  * "Embed in Notion" for one report board (Dean, 2026-09-29): a view-only link to paste into a Notion
  * embed block. The viewer can change the period; the link shows this board and nothing else. Admins,
  * GTM leads and the client's AMs make links and turn them off; everyone on the team can copy them.
  */
-export function EmbedButton({ slug, board, boardLabel, days, links, canShare }: { slug: string; board: BoardKey; boardLabel: string; days: number; links: EmbedLink[]; canShare: boolean }) {
-  const [period, setPeriod] = useState<number>((PERIODS as readonly number[]).includes(days) ? days : 30)
+export function EmbedButton({ slug, board, boardLabel, range, links, canShare }: { slug: string; board: BoardKey; boardLabel: string; range: RangeSpec; links: EmbedLink[]; canShare: boolean }) {
+  // What the embed opens on: the quick periods, the presets, or the dates on screen now.
+  const options = [
+    ...QUICK_DAYS.map((d) => ({ value: String(d), label: `Last ${d} days` })),
+    ...PRESETS.map((p) => ({ value: p, label: PRESET_LABEL[p] })),
+    ...(range.kind === "custom" ? [{ value: encodeRange(range), label: `These dates (${rangeLabel(range)})` }] : []),
+  ]
+  const [opens, setOpens] = useState(encodeRange(range))
   const [label, setLabel] = useState("")
   const [copied, setCopied] = useState<string | null>(null)
   const [pending, start] = useTransition()
@@ -37,7 +43,7 @@ export function EmbedButton({ slug, board, boardLabel, days, links, canShare }: 
   }
   const create = () =>
     start(async () => {
-      const r = await createReportLink(slug, { board, days: period as 7 | 14 | 30 | 90, label: label || undefined })
+      const r = await createReportLink(slug, { board, opens, label: label || undefined })
       if (!r.ok) return void toast.error(r.message ?? "Couldn't create the link.")
       setLabel("")
       toast.success("Link created. Copy it below.")
@@ -61,7 +67,7 @@ export function EmbedButton({ slug, board, boardLabel, days, links, canShare }: 
         <DialogHeader>
           <DialogTitle>Embed “{boardLabel}” in Notion</DialogTitle>
           <DialogDescription>
-            A view-only link to this board. Anyone with it can see the board and change its period, and nothing else in the app. In Notion, type <span className="font-medium text-foreground">/embed</span> and paste the link.
+            A view-only link to this board. Anyone with it can see the board and change its dates, and nothing else in the app. In Notion, type <span className="font-medium text-foreground">/embed</span> and paste the link.
           </DialogDescription>
         </DialogHeader>
 
@@ -69,14 +75,16 @@ export function EmbedButton({ slug, board, boardLabel, days, links, canShare }: 
           <div className="space-y-3 rounded-lg border bg-background/50 p-3">
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Opens on</p>
-                <div role="radiogroup" aria-label="Default period" className="inline-flex rounded-lg border bg-card p-0.5 text-xs">
-                  {PERIODS.map((d) => (
-                    <button key={d} type="button" role="radio" aria-checked={period === d} onClick={() => setPeriod(d)} className={cn("rounded-md px-2.5 py-1 transition-colors", period === d ? "bg-lime font-medium text-primary-foreground" : "text-muted-foreground hover:text-foreground")}>
-                      {d}d
-                    </button>
-                  ))}
-                </div>
+                <label className="space-y-1 text-xs text-muted-foreground">
+                  Opens on
+                  <select value={opens} onChange={(e) => setOpens(e.target.value)} className={`${fieldClass} h-8 w-auto text-foreground`}>
+                    {options.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
               <label className="min-w-40 flex-1 space-y-1 text-xs text-muted-foreground">
                 Note (optional)
@@ -108,7 +116,7 @@ export function EmbedButton({ slug, board, boardLabel, days, links, canShare }: 
                 </div>
                 <p className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
                   <span>
-                    {l.label ? `${l.label} · ` : ""}opens on {l.days} days · made {l.created} · {l.lastViewed ? `last viewed ${l.lastViewed}` : "not viewed yet"}
+                    {l.label ? `${l.label} · ` : ""}opens on {l.opens} · made {l.created} · {l.lastViewed ? `last viewed ${l.lastViewed}` : "not viewed yet"}
                   </span>
                   {canShare && (
                     <button type="button" disabled={pending} onClick={() => turnOff(l)} className="text-rag-red hover:underline disabled:opacity-50">

@@ -266,7 +266,7 @@ export default async function DesignPreview() {
             <div className="border-b">
               <ClientTabs slug="sample" />
             </div>
-            <Controls base="/design" days={30} platform={null} platforms={[{ platform: "linkedin", spend: 3800 }, { platform: "google_ads", spend: 12400 }, { platform: "meta", spend: 3967 }]} currency="USD" from="2026-08-29" to="2026-09-27" prevFrom="2026-07-30" prevTo="2026-08-28" />
+            <Controls base="/design" range={{ kind: "days", days: 30 }} platform={null} platforms={[{ platform: "linkedin", spend: 3800 }, { platform: "google_ads", spend: 12400 }, { platform: "meta", spend: 3967 }]} currency="USD" periods={{ from: "2026-08-29", to: "2026-09-27", prevFrom: "2026-07-30", prevTo: "2026-08-28", days: 30, compare: true, bucket: "day", label: "Last 30 days" }} dataFrom="2018-01-01" dataThrough="2026-09-27" />
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
               <TrendPanel daily={perfDaily} prevDaily={perfPrev} currency="USD" />
               <div className="space-y-6">

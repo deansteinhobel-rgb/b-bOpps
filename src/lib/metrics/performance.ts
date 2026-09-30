@@ -1,10 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { money, percent, whole } from "@/lib/format"
 import { rpcAll } from "@/lib/supabase/rpc-all"
-import { addDays } from "./ads"
+import { addDaysIso, bucketsFor, encodeRange, resolveRange, type Periods, type RangeSpec } from "./range"
 import type { Platform } from "./types"
 
 /** The Performance tab's numbers: a period against the one before it, per platform and campaign. */
+export type { Periods } from "./range"
 
 export type Sums = { spend: number; impressions: number; clicks: number; conversions: number; leads: number }
 export type MetricKey = "spend" | "impressions" | "clicks" | "ctr" | "cpc" | "results" | "cvr" | "cpr"
@@ -61,17 +62,13 @@ export const DRIVERS: Partial<Record<MetricKey, [MetricKey, MetricKey, string]>>
   ctr: ["clicks", "impressions", "÷"],
 }
 
-export type Periods = { from: string; to: string; prevFrom: string; prevTo: string; days: number }
-export function periodsFor(dataThrough: string, days: number): Periods {
-  const to = dataThrough
-  const from = addDays(to, -(days - 1))
-  return { from, to, prevTo: addDays(from, -1), prevFrom: addDays(from, -days), days }
-}
-
 type Row = { platform: Platform; campaign_id: string; campaign_name: string; date: string } & Sums
 export type CampaignPerf = { platform: Platform; campaignId: string; name: string; now: Derived; prev: Derived; daily: { date: string; spend: number; results: number }[]; lastSpendDate: string | null }
 export type Performance = {
   dataThrough: string
+  /** The first day we have data for (the date picker's lower limit, and where All time starts). */
+  dataFrom: string
+  rangeKey: string
   periods: Periods
   now: Derived
   prev: Derived
@@ -83,51 +80,58 @@ export type Performance = {
 
 const num = (v: unknown) => Number(v ?? 0)
 
-/** Loads and aggregates one period and the one before it. `platform` narrows everything. */
-export async function getPerformance(supabase: SupabaseClient, clientId: string, opts: { days: number; platform?: Platform | null; campaignId?: string | null }): Promise<Performance | null> {
-  const { data: range } = await supabase.from("account_data_range").select("data_through").eq("client_id", clientId)
+/**
+ * Loads and aggregates one range and the one before it. `platform` narrows everything. Long ranges
+ * come back by week or month (`periods.bucket`), so `daily` holds one point per bucket.
+ */
+export async function getPerformance(supabase: SupabaseClient, clientId: string, opts: { range: RangeSpec; platform?: Platform | null; campaignId?: string | null }): Promise<Performance | null> {
+  const { data: range } = await supabase.from("account_data_range").select("data_from, data_through").eq("client_id", clientId)
   const dataThrough = (range ?? []).map((r) => r.data_through as string).sort().at(-1)
-  if (!dataThrough) return null
-  const p = periodsFor(dataThrough, opts.days)
-  const data = await rpcAll(supabase, "campaign_daily", { p_client: clientId, p_from: p.prevFrom, p_to: p.to })
-  const rows = data
-    .map((r) => ({ platform: r.platform as Platform, campaign_id: String(r.campaign_id), campaign_name: String(r.campaign_name ?? r.campaign_id), date: String(r.date), spend: num(r.spend), impressions: num(r.impressions), clicks: num(r.clicks), conversions: num(r.conversions), leads: num(r.leads) }))
-    .filter((r) => (!opts.platform || r.platform === opts.platform) && (!opts.campaignId || r.campaign_id === opts.campaignId)) as Row[]
+  const dataFrom = (range ?? []).map((r) => r.data_from as string).sort()[0]
+  if (!dataThrough || !dataFrom) return null
+  const p = resolveRange(opts.range, dataThrough, dataFrom)
+  const load = async (from: string, to: string, bucket: string) =>
+    (await rpcAll(supabase, "campaign_series", { p_client: clientId, p_from: from, p_to: to, p_bucket: bucket }))
+      .map((r) => ({ platform: r.platform as Platform, campaign_id: String(r.campaign_id), campaign_name: String(r.campaign_name ?? r.campaign_id), date: String(r.date), spend: num(r.spend), impressions: num(r.impressions), clicks: num(r.clicks), conversions: num(r.conversions), leads: num(r.leads) }))
+      .filter((r) => (!opts.platform || r.platform === opts.platform) && (!opts.campaignId || r.campaign_id === opts.campaignId)) as Row[]
+  const [nowRows, prevRows, recent] = await Promise.all([
+    load(p.from, p.to, p.bucket),
+    p.compare ? load(p.prevFrom, p.prevTo, p.bucket) : ([] as Row[]),
+    // The last few days by day, for "still spending" whatever the range.
+    load(addDaysIso(dataThrough, -6), dataThrough, "day"),
+  ])
 
-  const inNow = (d: string) => d >= p.from && d <= p.to
   const sum = (list: Row[]) => list.reduce((s, r) => add(s, r), zero())
-  const nowRows = rows.filter((r) => inNow(r.date))
-  const prevRows = rows.filter((r) => !inNow(r.date))
-  const byDay = (list: Row[], from: string, days: number) =>
-    Array.from({ length: days }, (_, i) => {
-      const date = addDays(from, i)
-      return { date, ...derive(sum(list.filter((r) => r.date === date))) }
-    })
+  const nowBuckets = bucketsFor(p.from, p.to, p.bucket)
+  const prevBuckets = bucketsFor(p.prevFrom, p.prevTo, p.bucket)
+  const series = (list: Row[], buckets: string[]) => {
+    const by = new Map<string, Row[]>()
+    for (const r of list) by.set(r.date, [...(by.get(r.date) ?? []), r])
+    return buckets.map((date) => ({ date, ...derive(sum(by.get(date) ?? [])) }))
+  }
+  const rows = [...nowRows, ...prevRows]
+  const lastSpend = new Map<string, string>()
+  for (const r of recent) if (r.spend > 0) lastSpend.set(`${r.platform}|${r.campaign_id}`, r.date)
 
   const platforms = [...new Set(rows.map((r) => r.platform))].map((pl) => ({ platform: pl, now: derive(sum(nowRows.filter((r) => r.platform === pl))), prev: derive(sum(prevRows.filter((r) => r.platform === pl))) }))
   const keys = [...new Set(rows.map((r) => `${r.platform}|${r.campaign_id}`))]
   const campaigns = keys
     .map((k) => {
       const [platform, campaignId] = k.split("|") as [Platform, string]
-      const mine = rows.filter((r) => r.platform === platform && r.campaign_id === campaignId)
-      const now = mine.filter((r) => inNow(r.date))
-      const spent = mine.filter((r) => r.spend > 0).map((r) => r.date).sort()
+      const now = nowRows.filter((r) => r.platform === platform && r.campaign_id === campaignId)
+      const prev = prevRows.filter((r) => r.platform === platform && r.campaign_id === campaignId)
       return {
         platform,
         campaignId,
-        name: mine.at(-1)?.campaign_name ?? campaignId,
+        name: (now.at(-1) ?? prev.at(-1))?.campaign_name ?? campaignId,
         now: derive(sum(now)),
-        prev: derive(sum(mine.filter((r) => !inNow(r.date)))),
-        daily: Array.from({ length: p.days }, (_, i) => {
-          const date = addDays(p.from, i)
-          const s = derive(sum(now.filter((r) => r.date === date)))
-          return { date, spend: s.spend, results: s.results }
-        }),
-        lastSpendDate: spent.at(-1) ?? null,
+        prev: derive(sum(prev)),
+        daily: series(now, nowBuckets).map((d) => ({ date: d.date, spend: d.spend, results: d.results })),
+        lastSpendDate: lastSpend.get(k) ?? null,
       }
     })
     .filter((c) => c.now.spend > 0 || c.now.impressions > 0 || c.prev.spend > 0)
     .sort((a, b) => b.now.spend - a.now.spend)
 
-  return { dataThrough, periods: p, now: derive(sum(nowRows)), prev: derive(sum(prevRows)), daily: byDay(nowRows, p.from, p.days), prevDaily: byDay(prevRows, p.prevFrom, p.days), platforms, campaigns }
+  return { dataThrough, dataFrom, rangeKey: encodeRange(opts.range), periods: p, now: derive(sum(nowRows)), prev: derive(sum(prevRows)), daily: series(nowRows, nowBuckets), prevDaily: series(prevRows, prevBuckets), platforms, campaigns }
 }

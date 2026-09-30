@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { canEdit, getProfile } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
+import { decodeRange, encodeRange } from "@/lib/metrics/range"
 import { BOARD_KEYS } from "./boards"
 
 // View-only report links for Notion (Dean, 2026-09-29). Admins, GTM leads and the client's account
@@ -12,7 +13,8 @@ import { BOARD_KEYS } from "./boards"
 
 const Create = z.object({
   board: z.enum(BOARD_KEYS as [string, ...string[]]),
-  days: z.union([z.literal(7), z.literal(14), z.literal(30), z.literal(90)]),
+  // A quick period ("30"), a preset ("qtd") or fixed dates ("2026-07-01..2026-09-30").
+  opens: z.string().max(30).refine((v) => decodeRange(v) !== null),
   label: z.string().trim().max(120).optional(),
 })
 
@@ -20,16 +22,18 @@ export async function createReportLink(slug: string, raw: z.input<typeof Create>
   const me = await getProfile()
   if (!canEdit(me)) return { ok: false, message: "You have view access, so you can't share reports." }
   const p = Create.safeParse(raw)
-  if (!p.success) return { ok: false, message: "Pick a board and a period." }
+  if (!p.success) return { ok: false, message: "Pick a board and the dates it opens on." }
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id").eq("slug", slug).maybeSingle()
   if (!client) return { ok: false, message: "That client isn't available to you." }
   const { data: allowed } = await supabase.rpc("can_share_reports", { cid: client.id })
   if (!allowed) return { ok: false, message: "Only admins, GTM leads and the client's account managers can share reports." }
+  const opens = decodeRange(p.data.opens)!
   const { error } = await supabase.from("report_links").insert({
     client_id: client.id,
     board: p.data.board,
-    default_days: p.data.days,
+    default_days: opens.kind === "days" ? opens.days : 30,
+    default_range: opens.kind === "days" ? null : encodeRange(opens),
     label: p.data.label || null,
     // 192 random bits: the link is the only key, so it must be unguessable.
     token: randomBytes(24).toString("base64url"),

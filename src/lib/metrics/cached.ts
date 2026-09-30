@@ -5,6 +5,7 @@ import { getInsights, loadInsightInputs } from "@/lib/insights/load"
 import { codeFingerprint, RULES_FINGERPRINT } from "@/lib/insights/rules"
 import { getOverview, getPacing } from "./overview"
 import { getPerformance } from "./performance"
+import { encodeRange, type RangeSpec } from "./range"
 import type { Platform } from "./types"
 
 /**
@@ -21,7 +22,7 @@ import type { Platform } from "./types"
 export const windsorTag = (clientId: string) => `windsor:${clientId}`
 const TTL = 900
 // Bump when the shape of what's cached changes, so an old cached copy is never read.
-const SHAPE = "v5"
+const SHAPE = "v6"
 const CODE = codeFingerprint(getOverview, getPacing, getPerformance, loadInsightInputs, getInsights)
 
 /** When the client's synced data last changed (one small query, outside the cache). */
@@ -37,8 +38,8 @@ export const cachedOverview = async (clientId: string) =>
 export const cachedPacing = async (clientId: string) =>
   unstable_cache(() => getPacing(createAdminClient(), clientId), ["pacing", SHAPE, CODE, clientId, await stamp(clientId)], opts(clientId))()
 
-export const cachedPerformance = async (clientId: string, days: number, platform: Platform | null, campaignId: string | null = null) =>
-  unstable_cache(() => getPerformance(createAdminClient(), clientId, { days, platform, campaignId }), ["performance", SHAPE, CODE, clientId, await stamp(clientId), String(days), platform ?? "all", campaignId ?? ""], opts(clientId))()
+export const cachedPerformance = async (clientId: string, range: RangeSpec, platform: Platform | null, campaignId: string | null = null) =>
+  unstable_cache(() => getPerformance(createAdminClient(), clientId, { range, platform, campaignId }), ["performance", SHAPE, CODE, clientId, await stamp(clientId), encodeRange(range), platform ?? "all", campaignId ?? ""], opts(clientId))()
 
 /** The insight rules' output (Performance phase 3). The team's done / snooze / dismiss log is read live, not cached. */
 export const cachedInsights = async (clientId: string) =>
