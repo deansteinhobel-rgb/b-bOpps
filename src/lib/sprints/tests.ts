@@ -83,43 +83,28 @@ export function successLine(metric: string | null, target: number | null, text: 
   return parts.join(". ") || "Not set"
 }
 
-/** Which team each asset needs, for the brief comment ("What we need from copy / design"). */
-const ASSET_NEEDS: Record<string, { copy?: string; design?: string }> = {
-  ad_copy: { copy: "Ad copy" },
-  ad_creative: { design: "Ad creative" },
-  landing_page: { copy: "Landing page copy", design: "Landing page design" },
-  video: { design: "Video" },
-  lead_form: { copy: "Lead form copy" },
-  email: { copy: "Email copy" },
-  other: { copy: "Other (see the brief)" },
-}
-
 /**
  * The first comment on the Notion brief, written like the team briefs each other (Dean,
- * 2026-09-30): why, what we're testing, what we need from copy and from design, success, deadline.
- * A draft: the person briefing edits it before it's sent. Tagged people are greeted at the top.
+ * 2026-09-30): what we're testing and why, what we need from copy and design (from the pop-up's
+ * "What we need" step, `needsText`), success, deadline. A draft the person briefing can edit.
+ * Tagged people are greeted at the top.
  */
 export function briefComment(opts: {
   sprintNumber: number
-  platform: Platform | null
+  platformLabel: string
   title: string
   hypothesis: string | null
-  assets: string[]
   notes: string | null
+  needs: string | null
   success: string
   deadline: string | null
   appUrl: string
 }) {
-  const platform = opts.platform ? PLATFORM_LABEL[opts.platform] : "several platforms"
-  const copy = opts.assets.flatMap((a) => ASSET_NEEDS[a]?.copy ?? [])
-  const design = opts.assets.flatMap((a) => ASSET_NEEDS[a]?.design ?? [])
-  const list = (items: string[]) => items.map((i) => `• ${i}`).join("\n")
   const parts = [
-    `For Sprint ${opts.sprintNumber} we're testing ${opts.title} on ${platform}.`,
+    `For Sprint ${opts.sprintNumber} we're testing ${opts.title} on ${opts.platformLabel}.`,
     opts.hypothesis ? `Why: ${opts.hypothesis}` : null,
     opts.notes ? opts.notes : null,
-    copy.length ? `What we need from copy:\n${list(copy)}` : null,
-    design.length ? `What we need from design:\n${list(design)}` : null,
+    opts.needs,
     `Success looks like: ${opts.success}`,
     opts.deadline ? `We need it by ${opts.deadline}.` : null,
     `The full plan is in Lumaux: ${opts.appUrl}`,
@@ -140,6 +125,8 @@ export function briefText(opts: {
   deadline: string | null
   owner: string | null
   appUrl: string
+  /** "What we need" from the brief pop-up. */
+  needs?: string | null
 }) {
   const lines = [
     `Paid media test · Sprint ${opts.sprintNumber} (${opts.sprintDates})`,
@@ -148,6 +135,7 @@ export function briefText(opts: {
     `Platform: ${opts.platform ? PLATFORM_LABEL[opts.platform] : "Several platforms"}`,
     `Assets needed: ${opts.assets.length ? opts.assets.map((a) => ASSETS[a] ?? a).join(", ") : "None listed"}`,
     opts.notes ? `Brief: ${opts.notes}` : null,
+    opts.needs ? opts.needs : null,
     `Success looks like: ${opts.success}`,
     `Deadline: ${opts.deadline ?? "Not set"}${opts.owner ? ` · Owner: ${opts.owner}` : ""}`,
     `Set "Master Status" to Client Approved or Production Complete when it's ready to launch.`,

@@ -11,7 +11,8 @@ import { commentBody, createNotionAction } from "@/lib/notion/write"
 import { peopleForClient } from "@/lib/people"
 import { carryTests } from "@/lib/sprints/data"
 import { sprintByNumber } from "@/lib/sprints/periods"
-import { briefComment, briefText, READY_STATUSES, successLine } from "@/lib/sprints/tests"
+import { guessPlatform, NEEDS_PLATFORMS, needsText, type NeedsPlatform } from "@/lib/sprints/brief-needs"
+import { briefText, READY_STATUSES, successLine } from "@/lib/sprints/tests"
 import { createClient } from "@/lib/supabase/server"
 
 // All as the signed-in user (RLS: the client's team and admins). Nothing is deleted. Once a sprint
@@ -83,7 +84,7 @@ export async function planTest(sprintId: string, raw: z.input<typeof Plan>): Pro
 type TestRow = NonNullable<Awaited<ReturnType<typeof loadTest>>["test"]>
 type TestClient = { id: string; slug: string; name: string; currency: string; notion_client_option: string }
 
-function briefParts(test: TestRow, over: { owner: string | null; deadline: string | null }) {
+function briefParts(test: TestRow, over: { owner: string | null; deadline: string | null; needs?: string | null }) {
   const client = test.clients as TestClient
   const sprint = test.sprints as { number: number; start_date: string; end_date: string }
   const appPath = `/clients/${client.slug}/sprint#test-${test.id}`
@@ -94,8 +95,9 @@ function briefParts(test: TestRow, over: { owner: string | null; deadline: strin
   return {
     client,
     appPath,
-    description: briefText({ ...common, sprintDates: `${longDate(sprint.start_date)} – ${longDate(sprint.end_date)}`, deadline, owner: over.owner }),
-    comment: briefComment({ ...common, deadline }),
+    description: briefText({ ...common, sprintDates: `${longDate(sprint.start_date)} – ${longDate(sprint.end_date)}`, deadline, owner: over.owner, needs: over.needs }),
+    /** What the pop-up needs to draft the comment itself (briefComment), as "What we need" changes. */
+    commentParts: { sprintNumber: sprint.number, title: test.title, hypothesis: test.hypothesis, notes: test.brief_notes, success, appUrl },
   }
 }
 
@@ -105,7 +107,8 @@ export type BriefOptions = {
   leadIds: string[]
   dueDate: string | null
   priority: Priority
-  comment: string
+  platform: NeedsPlatform
+  commentParts: { sprintNumber: number; title: string; hypothesis: string | null; notes: string | null; success: string; appUrl: string }
   title: string
   live: boolean
 }
@@ -119,7 +122,7 @@ export async function briefOptions(testId: string): Promise<{ ok: true; options:
   const [workspace, team] = await Promise.all([listNotionPeople().catch(() => []), peopleForClient(supabase, test.client_id)])
   const onTeam = new Set(team.filter((p) => p.onTeam && p.notionUserId).map((p) => p.notionUserId))
   const people = workspace.map((p) => ({ id: p.id, name: p.name, onTeam: onTeam.has(p.id) })).sort((a, b) => Number(b.onTeam) - Number(a.onTeam) || a.name.localeCompare(b.name))
-  const { client, comment } = briefParts(test, { owner: test.owner_name, deadline: test.deadline })
+  const { client, commentParts } = briefParts(test, { owner: test.owner_name, deadline: test.deadline })
   return {
     ok: true,
     options: {
@@ -127,7 +130,8 @@ export async function briefOptions(testId: string): Promise<{ ok: true; options:
       leadIds: test.owner_notion_user_id ? [test.owner_notion_user_id] : [],
       dueDate: test.deadline,
       priority: "Medium",
-      comment,
+      platform: guessPlatform(test.platform, test.title),
+      commentParts,
       title: `${TEST_TITLE_PREFIX}Paid media test: ${test.title}`,
       live: notionWritesLive(client.slug),
     },
@@ -140,6 +144,14 @@ const Brief = z.object({
   priority: z.enum(PRIORITIES),
   tagIds: z.array(z.string().max(60)).max(10),
   comment: z.string().max(10_000),
+  needs: z.object({
+    platform: z.enum(NEEDS_PLATFORMS as [NeedsPlatform, ...NeedsPlatform[]]),
+    formats: z.record(z.string().max(40), z.number().int().min(0).max(50)),
+    leadForm: z.boolean(),
+    leadFormQty: z.number().int().min(0).max(20),
+    notes: z.string().max(3000),
+    designNotes: z.string().max(3000),
+  }),
 })
 
 /**
@@ -162,7 +174,7 @@ export async function briefTest(testId: string, raw: z.input<typeof Brief>): Pro
   if (leads.some((p) => !p) || tags.some((p) => !p)) return fail("Someone you picked isn't in Notion any more. Reload and try again.")
   const owner = leads[0]!
   const leadNames = leads.map((p) => p!.name).join(", ")
-  const { client, appPath, description } = briefParts(test, { owner: leadNames, deadline: b.dueDate })
+  const { client, appPath, description } = briefParts(test, { owner: leadNames, deadline: b.dueDate, needs: needsText(b.needs) })
   const mentions = tags.map((p) => ({ id: p!.id, name: p!.name }))
   const res = await createNotionAction(writeDeps(), {
     client: { id: client.id, slug: client.slug, notion_client_option: client.notion_client_option },
