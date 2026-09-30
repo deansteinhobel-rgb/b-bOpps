@@ -24,6 +24,7 @@ import { loadContentIdeas } from "./_glance/content-ideas-data"
 import { GoalCard, type GoalView } from "./_glance/goal-card"
 import { SectionNav } from "@/components/section-nav"
 import { SpendBreakdown, type PlatformSpend } from "./_glance/spend-breakdown"
+import { GlanceBoard, StagePill } from "./_glance/glance-board"
 import { Timeline } from "./_glance/timeline"
 import { cprTone, paceTone, paceWords } from "./_glance/tones"
 
@@ -149,6 +150,124 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
   const recent = timeline.filter((e) => !e.bulk && Date.parse(e.at) >= weekAgo)
   const recentBy = { team: recent.filter((e) => e.source === "team").length, platform: recent.filter((e) => e.source === "platform").length, app: recent.filter((e) => e.source === "app").length }
 
+  // Each section's full content: inline in the classic layout, in a side panel behind a card in the new one.
+  const changesDetail = (
+    <div className="space-y-4">
+      <p className="text-sm">
+        {recent.length === 0 ? (
+          <span className="text-muted-foreground">Nothing changed in the last 7 days.</span>
+        ) : (
+          <>
+            <span className="font-medium">
+              {recent.length} change{recent.length === 1 ? "" : "s"} in the last 7 days
+            </span>
+            <span className="text-muted-foreground">: {[recentBy.team && `${recentBy.team} logged by the team`, recentBy.platform && `${recentBy.platform} on the platforms`, recentBy.app && `${recentBy.app} in the app`].filter(Boolean).join(", ")}.</span>
+          </>
+        )}
+      </p>
+      <Timeline entries={timeline} pageSize={20} />
+    </div>
+  )
+  const plansDetail = (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="surface overflow-hidden">
+        <div className="space-y-2 border-b px-5 py-4">
+          <p className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+            <span className="font-medium">
+              This sprint: Sprint {period.number} · {shortDate(period.start)} – {shortDate(period.end)}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Day {sprintDay(period, today)} of {SPRINT_DAYS}
+            </span>
+          </p>
+          <span className="block h-1 overflow-hidden rounded-full bg-secondary" aria-hidden>
+            <span className="block h-full rounded-full bg-foreground/50" style={{ width: `${(sprintDay(period, today) / SPRINT_DAYS) * 100}%` }} />
+          </span>
+        </div>
+        {now.length === 0 ? (
+          <p className="px-5 py-6 text-sm text-muted-foreground">Nothing planned yet for this sprint.</p>
+        ) : (
+          <ul className="divide-y">
+            {now.map((t) => (
+              <li key={t.id}>
+                <Link href={`/clients/${slug}/sprint#test-${t.id}`} className="flex items-start gap-3 px-5 py-3 text-sm hover:bg-secondary/30">
+                  <PlatformIcon platform={(t.platform as Platform) ?? null} className="mt-0.5 size-4" />
+                  <span className="min-w-0 flex-1">
+                    <span className="line-clamp-2 leading-snug">{t.title}</span>
+                    <span className="block text-[11px] text-muted-foreground">
+                      {[t.owner_name, t.outcome ? t.outcome.charAt(0).toUpperCase() + t.outcome.slice(1) : t.live_on ? `live since ${shortDate(t.live_on)}` : t.deadline ? `due ${shortDate(t.deadline)}` : null].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                  <StagePill stage={t.stage} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className="space-y-4">
+        <div className="surface p-5 text-sm">
+          <p className="font-medium">Next: Sprint {period.number + 1}</p>
+          <p className="text-xs text-muted-foreground">
+            Starts {shortDate(sprintByNumber(period.number + 1).start)}
+          </p>
+          {nextTests.length ? (
+            <ul className="mt-3 list-disc space-y-1 pl-4">
+              {nextTests.map((t) => (
+                <li key={t.id}>{t.title}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-muted-foreground">Nothing planned yet. Carried-over tests and new plans appear here.</p>
+          )}
+        </div>
+        {previous && (
+          <div className="surface p-5 text-sm">
+            <p className="font-medium">Last: Sprint {previous.number}</p>
+            <p className="text-xs text-muted-foreground">
+              {prevTests.filter((t) => t.outcome === "proven").length} worked · {prevTests.filter((t) => t.outcome === "disproven").length} didn&apos;t · {prevTests.filter((t) => t.outcome === "carried").length} carried over
+            </p>
+            {previous.key_takeaway && <p className="mt-3">{previous.key_takeaway}</p>}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+  const compact = newLayout(me.preferences)
+  if (compact) {
+    return (
+      <GlanceBoard
+        slug={slug}
+        name={client.name}
+        currency={cur}
+        target={target}
+        numbers={numbers}
+        month={numbers ? monthName(numbers.month) : null}
+        budget={budget}
+        expected={expected}
+        goals={goalViews}
+        canEditGoals={isAdmin(me)}
+        platforms={platforms}
+        best={best}
+        tiring={tiring}
+        previews={previews}
+        recent={recent.slice(0, 4)}
+        recentCount={recent.length}
+        recentBy={recentBy}
+        sprint={{ number: period.number, day: sprintDay(period, today), start: period.start, end: period.end }}
+        tests={now}
+        nextCount={nextTests.length}
+        headline={numbers ? <Headline name={client.name} currency={cur} target={target} budget={budget} expected={expected} month={monthName(numbers.month)} spend={numbers.mtd.spend} results={numbers.mtd.results} cpr={numbers.mtd.cpr} compact /> : null}
+        details={{
+          spend: numbers && platforms.length > 0 ? <SpendBreakdown slug={slug} currency={cur} target={target} platforms={platforms} campaigns={numbers.campaigns} total={numbers.mtd.spend} /> : null,
+          ads: through ? <AdsPanel slug={slug} currency={cur} best={best} tiring={tiring} unknown={liveAds.filter((a) => a.firstSeenCapped).length} previews={previews} /> : null,
+          changes: changesDetail,
+          plans: plansDetail,
+        }}
+      />
+    )
+  }
+
   return (
     <div className="space-y-12">
       <SectionNav sections={SECTIONS.filter((x) => (x.id === "spend" ? numbers && platforms.length > 0 : x.id === "ads" ? Boolean(through) : x.id === "content" ? Boolean(ideas) : true))} />
@@ -244,19 +363,7 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
             </Link>
           }
         />
-        <p className="text-sm">
-          {recent.length === 0 ? (
-            <span className="text-muted-foreground">Nothing changed in the last 7 days.</span>
-          ) : (
-            <>
-              <span className="font-medium">
-                {recent.length} change{recent.length === 1 ? "" : "s"} in the last 7 days
-              </span>
-              <span className="text-muted-foreground">: {[recentBy.team && `${recentBy.team} logged by the team`, recentBy.platform && `${recentBy.platform} on the platforms`, recentBy.app && `${recentBy.app} in the app`].filter(Boolean).join(", ")}.</span>
-            </>
-          )}
-        </p>
-        <Timeline entries={timeline} pageSize={20} />
+        {changesDetail}
       </section>
 
       {/* 5. What's planned */}
@@ -270,80 +377,18 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
             </Link>
           }
         />
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <div className="surface overflow-hidden">
-            <div className="space-y-2 border-b px-5 py-4">
-              <p className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-                <span className="font-medium">
-                  This sprint: Sprint {period.number} · {shortDate(period.start)} – {shortDate(period.end)}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Day {sprintDay(period, today)} of {SPRINT_DAYS}
-                </span>
-              </p>
-              <span className="block h-1 overflow-hidden rounded-full bg-secondary" aria-hidden>
-                <span className="block h-full rounded-full bg-foreground/50" style={{ width: `${(sprintDay(period, today) / SPRINT_DAYS) * 100}%` }} />
-              </span>
-            </div>
-            {now.length === 0 ? (
-              <p className="px-5 py-6 text-sm text-muted-foreground">Nothing planned yet for this sprint.</p>
-            ) : (
-              <ul className="divide-y">
-                {now.map((t) => (
-                  <li key={t.id}>
-                    <Link href={`/clients/${slug}/sprint#test-${t.id}`} className="flex items-start gap-3 px-5 py-3 text-sm hover:bg-secondary/30">
-                      <PlatformIcon platform={(t.platform as Platform) ?? null} className="mt-0.5 size-4" />
-                      <span className="min-w-0 flex-1">
-                        <span className="line-clamp-2 leading-snug">{t.title}</span>
-                        <span className="block text-[11px] text-muted-foreground">
-                          {[t.owner_name, t.outcome ? t.outcome.charAt(0).toUpperCase() + t.outcome.slice(1) : t.live_on ? `live since ${shortDate(t.live_on)}` : t.deadline ? `due ${shortDate(t.deadline)}` : null].filter(Boolean).join(" · ")}
-                        </span>
-                      </span>
-                      <StagePill stage={t.stage} />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div className="space-y-4">
-            <div className="surface p-5 text-sm">
-              <p className="font-medium">Next: Sprint {period.number + 1}</p>
-              <p className="text-xs text-muted-foreground">
-                Starts {shortDate(sprintByNumber(period.number + 1).start)}
-              </p>
-              {nextTests.length ? (
-                <ul className="mt-3 list-disc space-y-1 pl-4">
-                  {nextTests.map((t) => (
-                    <li key={t.id}>{t.title}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-3 text-muted-foreground">Nothing planned yet. Carried-over tests and new plans appear here.</p>
-              )}
-            </div>
-            {previous && (
-              <div className="surface p-5 text-sm">
-                <p className="font-medium">Last: Sprint {previous.number}</p>
-                <p className="text-xs text-muted-foreground">
-                  {prevTests.filter((t) => t.outcome === "proven").length} worked · {prevTests.filter((t) => t.outcome === "disproven").length} didn&apos;t · {prevTests.filter((t) => t.outcome === "carried").length} carried over
-                </p>
-                {previous.key_takeaway && <p className="mt-3">{previous.key_takeaway}</p>}
-              </div>
-            )}
-          </div>
-        </div>
+        {plansDetail}
       </section>
     </div>
   )
 }
 
 /** The month in one plain sentence: spend against budget and pace, then results against target. */
-function Headline({ name, currency, target, budget, expected, month, spend, results, cpr }: { name: string; currency: string; target: number | null; budget: number; expected: number; month: string; spend: number; results: number; cpr: number | null }) {
+function Headline({ name, currency, target, budget, expected, month, spend, results, cpr, compact }: { name: string; currency: string; target: number | null; budget: number; expected: number; month: string; spend: number; results: number; cpr: number | null; compact?: boolean }) {
   const pace = budget > 0 ? paceWords(spend, expected, budget) : null
   const paceBad = pace && pace !== "on pace" && (spend > budget || Math.abs(spend / expected - 1) > 0.2)
   return (
-    <p className="max-w-3xl font-heading text-2xl leading-snug sm:text-3xl">
+    <p className={cn("font-heading leading-snug", compact ? "max-w-5xl text-lg sm:text-xl" : "max-w-3xl text-2xl sm:text-3xl")}>
       {name} has spent {money(spend, currency)}
       {budget > 0 ? ` of its ${money(budget, currency)} ${month} budget` : ` in ${month}`}
       {pace && (
@@ -396,14 +441,4 @@ function Delta({ now, before, betterUp = false }: { now: number | null; before: 
   if (pct === null) return <span>–</span>
   const good = betterUp ? pct > 0 : pct < 0
   return <span className={cn("tabular-nums", Math.abs(pct) < 1 ? "" : good ? "text-rag-green" : "text-rag-red")}>{`${pct > 0 ? "+" : ""}${Math.round(pct)}%`}</span>
-}
-
-const STAGE_TONE: Record<string, string> = {
-  live: "border-rag-green/40 bg-rag-green/10 text-rag-green",
-  review: "border-violet/40 bg-violet/10 text-violet",
-  done: "border-foreground/15 text-muted-foreground",
-}
-function StagePill({ stage }: { stage: string }) {
-  const s = STAGES.find((x) => x.key === stage)
-  return <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[11px]", STAGE_TONE[stage] ?? "border-foreground/15 text-foreground/80")}>{s?.label ?? stage}</span>
 }

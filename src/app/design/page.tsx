@@ -27,6 +27,13 @@ import { applyActions, computeInsights, type InsightInputs } from "@/lib/insight
 import { InsightFeed } from "../(app)/clients/[slug]/insights/feed"
 import { Controls } from "../(app)/clients/[slug]/reporting/controls"
 import { ClientTabs } from "../(app)/clients/[slug]/client-tabs"
+import { AdsPanel } from "../(app)/clients/[slug]/_glance/ads-panel"
+import { GlanceBoard } from "../(app)/clients/[slug]/_glance/glance-board"
+import { SpendBreakdown } from "../(app)/clients/[slug]/_glance/spend-breakdown"
+import { Timeline } from "../(app)/clients/[slug]/_glance/timeline"
+import { tiringAds, topAds, type AdStat } from "@/lib/metrics/ads"
+import type { AccountNumbers } from "@/lib/account"
+import type { TimelineEntry } from "@/lib/timeline"
 import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
 
 const blankTest: SprintTest = { id: "", recommendation_id: null, insight_key: null, content_idea_id: null, call_commitment_id: null, platform: null, title: "", hypothesis: null, assets: [], brief_notes: null, success_metric: null, success_target: null, success_text: null, owner_notion_user_id: null, owner_name: null, deadline: null, status: "planned", notion_page_id: null, live_on: null, campaign_ids: [], campaign_names: [], findings_worked: null, findings_blockers: null, findings_notes: null, outcome: null, carry_reason: null, carry_note: null, carried_from_test_id: null, test_kind: null, test_ad_ids: [], lever: null, lever_source: null, created_at: "2026-09-28T09:00:00Z" }
@@ -200,6 +207,44 @@ const sampleHistory = [
   { id: "run-0", status: "ready" as const, created_at: "2026-09-14T09:00:00Z", sprintNumber: 0, thisSprint: false, by: "Sample Person", total: 5, approved: 2, rejected: 3, open: 0 },
 ]
 
+// At a glance, new layout: sample numbers for the cards.
+const tt = (spend: number, results: number) => ({ spend, results, clicks: results * 40, impressions: results * 4000, cpr: results ? spend / results : null })
+const glanceNumbers: AccountNumbers = {
+  dataThrough: "2026-09-29",
+  month: "2026-09-01",
+  daysElapsed: 29,
+  daysInMonth: 30,
+  mtd: tt(109768, 402),
+  lastMonthSameDays: tt(95110, 351),
+  byPlatform: [],
+  campaigns: [
+    { platform: "google_ads", campaignId: "1", name: "Brand search", spend: 42010, results: 188, cpr: 223, lastDate: "2026-09-29" },
+    { platform: "google_ads", campaignId: "2", name: "Generic DNS security", spend: 38005, results: 101, cpr: 376, lastDate: "2026-09-29" },
+    { platform: "linkedin", campaignId: "3", name: "AI Security report, IT decision makers", spend: 24235, results: 73, cpr: 332, lastDate: "2026-09-29" },
+    { platform: "meta", campaignId: "4", name: "Retargeting MQL", spend: 5518, results: 40, cpr: 138, lastDate: "2026-09-29" },
+  ],
+}
+const glancePlatforms = [
+  { platform: "google_ads" as const, spend: 80015, budget: 70000, expected: 67667, results: 289, cpr: 277, lastSpend: 70000, lastCpr: 260 },
+  { platform: "linkedin" as const, spend: 24235, budget: 20000, expected: 19333, results: 73, cpr: 332, lastSpend: 19000, lastCpr: 350 },
+  { platform: "meta" as const, spend: 5518, budget: 15000, expected: 14500, results: 40, cpr: 138, lastSpend: 6000, lastCpr: 150 },
+]
+const glanceAdStats: AdStat[] = [1, 2, 3, 4, 5, 6, 7, 8].flatMap((i) =>
+  (["linkedin", "google_ads", "meta"] as const).map((platform) => ({ platform, external_account_id: "a", ad_id: `${platform}-${i}`, ad_name: `${platform === "google_ads" ? "Search ad" : platform === "meta" ? "Video testimonial" : "AI Security report"} ${i}`, campaign_name: "Sample campaign", spend: 900 + i * 310, impressions: 30000 + i * 900, clicks: 300 + i * 25 + (i % 3) * 40, conversions: 2 + ((i * 7) % 6), leads: i % 2 }))
+)
+const glanceTimeline: TimelineEntry[] = [
+  { id: "1", at: "2026-09-29T10:00:00Z", source: "team", platform: "linkedin", campaign: null, who: "Andrea Sample", kind: "Budget", title: "Moved £2k from Generic to the AI Security report", detail: null },
+  { id: "2", at: "2026-09-28T15:00:00Z", source: "platform", platform: "google_ads", campaign: "Brand search", who: "George Sample", kind: "Keywords", title: "Added 14 negative keywords", detail: null, via: "Google Ads UI" },
+  { id: "3", at: "2026-09-27T09:00:00Z", source: "app", platform: "meta", campaign: null, who: "Dean Steinhobel", kind: "Test", title: "Video testimonial test went live", detail: null },
+  { id: "4", at: "2026-09-25T12:00:00Z", source: "platform", platform: "linkedin", campaign: null, who: null, kind: "Ad", title: "3 ads edited in AI Security report", detail: null },
+]
+const glanceTests = [
+  { id: "g1", title: "LinkedIn conversation ads with the AI Security report", platform: "linkedin", stage: "ready" as const, owner_name: "Andrea", deadline: "2026-10-05", live_on: null, outcome: null },
+  { id: "g2", title: "Meta video testimonial vs single image", platform: "meta", stage: "live" as const, owner_name: "Andrea", deadline: null, live_on: "2026-09-27", outcome: null },
+  { id: "g3", title: "K-12 & Higher Education search ads", platform: "google_ads", stage: "planned" as const, owner_name: "Danny", deadline: "2026-10-09", live_on: null, outcome: null },
+  { id: "g4", title: "Broad match with smart bidding on Generic", platform: "google_ads", stage: "in_production" as const, owner_name: "Kieran", deadline: "2026-10-07", live_on: null, outcome: null },
+]
+
 export default async function DesignPreview() {
   if (process.env.NODE_ENV !== "development") notFound()
   const { data: clients } = await createAdminClient().from("clients").select("slug, name, logo_url").order("name")
@@ -228,6 +273,39 @@ export default async function DesignPreview() {
               </>
             }
           />
+
+          <section className="space-y-4">
+            <SectionHeader title="At a glance (new layout)" description="The month in one line, four cards on one screen, the full section in a side panel on click." />
+            <GlanceBoard
+              slug="sample"
+              name="DNSFilter"
+              currency="USD"
+              target={300}
+              numbers={glanceNumbers}
+              month="September"
+              budget={105000}
+              expected={101500}
+              goals={[{ id: "goal", name: "Activated Free Trials (non PLG)", month: "2026-09-01", monthLabel: "September", value: 243, target: 300, lastMonthLabel: "August", lastMonth: 189, dayOfMonth: 29, daysInMonth: 30, updated: "29 Sept by Dean Steinhobel" }]}
+              canEditGoals={false}
+              platforms={glancePlatforms}
+              best={topAds(glanceAdStats)}
+              tiring={tiringAds(sampleAds)}
+              previews={{}}
+              recent={glanceTimeline}
+              recentCount={9}
+              recentBy={{ team: 3, platform: 5, app: 1 }}
+              sprint={{ number: 1, day: 3, start: "2026-09-28", end: "2026-10-11" }}
+              tests={glanceTests}
+              nextCount={1}
+              headline={<p className="max-w-5xl font-heading text-lg leading-snug sm:text-xl">DNSFilter has spent $109,768 of its $105,000 September budget and is <span className="text-rag-red">4% over the month&apos;s budget</span>. That&apos;s 402 results at <span className="text-rag-green">$273 each</span>, under the $300 target.</p>}
+              details={{
+                spend: <SpendBreakdown slug="sample" currency="USD" target={300} platforms={glancePlatforms} campaigns={glanceNumbers.campaigns} total={glanceNumbers.mtd.spend} />,
+                ads: <AdsPanel slug="sample" currency="USD" best={topAds(glanceAdStats)} tiring={tiringAds(sampleAds)} unknown={0} previews={{}} />,
+                changes: <Timeline entries={glanceTimeline} pageSize={20} />,
+                plans: <p className="text-muted-foreground">The sprint list, next sprint and last sprint go here.</p>,
+              }}
+            />
+          </section>
 
           <section className="space-y-4">
             <SectionHeader title="Clients" description="Cards with logos and platform status." />
