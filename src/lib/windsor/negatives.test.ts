@@ -135,3 +135,23 @@ describe("pushNegativeKeywords", () => {
     expect(calls.at(-1)!.args[0]).toMatchObject({ success: false })
   })
 })
+
+describe("suggested negatives (ICP check)", async () => {
+  const { checkRoot, negativeBlocks } = await import("@/lib/insights/term-review-rules")
+  it("follows Google's matching, with no close variants", () => {
+    expect(negativeBlocks("dns jobs", "EXACT", "dns jobs")).toBe(true)
+    expect(negativeBlocks("dns jobs", "EXACT", "dns job")).toBe(false)
+    expect(negativeBlocks("jobs", "PHRASE", "dnsfilter jobs remote")).toBe(true)
+    expect(negativeBlocks("filter jobs", "PHRASE", "jobs filter")).toBe(false)
+    expect(negativeBlocks("filter jobs", "BROAD", "jobs at dns filter")).toBe(true)
+  })
+  it("marks a negative unsafe when it blocks a term that converted", () => {
+    const seen = [
+      { text: "dns filter free trial", spend: 120, results: 2 },
+      { text: "free dns server", spend: 40, results: 0 },
+      { text: "free dns for home", spend: 25, results: 0 },
+    ]
+    expect(checkRoot({ text: "free", matchType: "PHRASE" }, seen)).toMatchObject({ blocked: 3, unsafe: expect.stringContaining("dns filter free trial") })
+    expect(checkRoot({ text: "free dns", matchType: "PHRASE" }, seen)).toEqual({ blocked: 2, blockedSpend: 65, unsafe: null })
+  })
+})

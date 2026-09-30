@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
-import { getProfile } from "@/lib/auth"
+import { canEdit, getProfile } from "@/lib/auth"
 import { AdThumb } from "@/components/ad-thumb"
 import { PlatformLabel } from "@/components/brand"
 import { cachedPerformance } from "@/lib/metrics/cached"
@@ -21,6 +21,7 @@ import { CampaignAskCard } from "./ask-card"
 import { CampaignAsk } from "./campaign-ask"
 import { canPushNegatives } from "@/lib/windsor/access"
 import { windsorWritesLive } from "@/lib/windsor/mcp"
+import { latestTermReview } from "@/lib/insights/term-review"
 import type { PushedNegative } from "../../breakdowns"
 
 const CARDS: MetricKey[] = ["spend", "impressions", "clicks", "ctr", "cpc", "results", "cpr"]
@@ -179,8 +180,9 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
 
 /** Negative keywords: whether you can add them, whether pushes are live, and what was already added (live pushes only). */
 async function negativesFor(supabase: Awaited<ReturnType<typeof createClient>>, me: Awaited<ReturnType<typeof getProfile>>, clientId: string, slug: string, campaignId: string) {
-  const [canPush, { data: log }] = await Promise.all([
+  const [canPush, review, { data: log }] = await Promise.all([
     canPushNegatives(me, clientId),
+    latestTermReview(supabase, clientId, campaignId),
     supabase.from("platform_write_log").select("payload, created_at").eq("client_id", clientId).eq("platform", "google_ads").eq("campaign_id", campaignId).eq("dry_run", false).eq("success", true).order("created_at", { ascending: false }).limit(200),
   ])
   const pushed: PushedNegative[] = []
@@ -188,5 +190,5 @@ async function negativesFor(supabase: Awaited<ReturnType<typeof createClient>>, 
     const p = (row.payload as { params?: { level?: string; ad_group_id?: string; keywords?: { text: string; match_type: string }[] } } | null)?.params
     for (const k of p?.keywords ?? []) pushed.push({ text: k.text, matchType: k.match_type, adGroupId: p?.level === "ad_group" ? (p.ad_group_id ?? null) : null, at: row.created_at as string })
   }
-  return { slug, campaignId, canPush, live: windsorWritesLive(slug), pushed }
+  return { slug, campaignId, canPush, live: windsorWritesLive(slug), pushed, review, canCheck: canEdit(me) && aiConfigured() }
 }

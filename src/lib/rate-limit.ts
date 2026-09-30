@@ -19,6 +19,7 @@ export const LIMITS = {
   test_read: { max: 30, seconds: 86400, what: "test reads a day" },
   call_notes: { max: 20, seconds: 86400, what: "call note checks a day" },
   negative_push: { max: 30, seconds: 86400, what: "negative keyword pushes a day" },
+  term_review: { max: 12, seconds: 86400, what: "search term checks a day" },
 } as const
 export type LimitKind = keyof typeof LIMITS
 

@@ -23,9 +23,9 @@ const MATCH_HELP: Record<MatchType, string> = {
  * Windsor: the ad group each term came from, exact match, unless you pick otherwise. While live
  * pushes are off it only logs what it would send.
  */
-export function NegativePush({ slug, campaignId, terms, live, open, onOpenChange, onDone }: { slug: string; campaignId: string; terms: NegativeTerm[]; live: boolean; open: boolean; onOpenChange: (o: boolean) => void; onDone: () => void }) {
-  const [level, setLevel] = useState<NegativeLevel>(NEGATIVE_DEFAULTS.level)
-  const [matchType, setMatchType] = useState<MatchType>(NEGATIVE_DEFAULTS.matchType)
+export function NegativePush({ slug, campaignId, terms, live, open, onOpenChange, onDone, campaignOnly = false, initialMatch = NEGATIVE_DEFAULTS.matchType }: { slug: string; campaignId: string; terms: NegativeTerm[]; live: boolean; open: boolean; onOpenChange: (o: boolean) => void; onDone: () => void; /** Shorter negatives from the ICP check: they have no ad group. */ campaignOnly?: boolean; initialMatch?: MatchType }) {
+  const [level, setLevel] = useState<NegativeLevel>(campaignOnly ? "campaign" : NEGATIVE_DEFAULTS.level)
+  const [matchType, setMatchType] = useState<MatchType>(initialMatch)
   const [pending, start] = useTransition()
 
   const groups = new Map<string, { name: string; terms: string[] }>()
@@ -63,6 +63,7 @@ export function NegativePush({ slug, campaignId, terms, live, open, onOpenChange
         </DialogHeader>
 
         <div className="space-y-4">
+          {!campaignOnly && (
           <fieldset className="space-y-1.5">
             <legend className="text-xs text-muted-foreground">Add to</legend>
             <div className="flex gap-1 rounded-lg border p-1">
@@ -78,6 +79,7 @@ export function NegativePush({ slug, campaignId, terms, live, open, onOpenChange
               ))}
             </div>
           </fieldset>
+          )}
           <label className="block space-y-1.5 text-xs text-muted-foreground">
             Match type
             <select value={matchType} onChange={(e) => setMatchType(e.target.value as MatchType)} className={`${fieldClass} h-9 text-foreground`}>

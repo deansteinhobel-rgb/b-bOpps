@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils"
 import { cleanTerm } from "@/lib/windsor/negatives"
 import { Button } from "@/components/ui/button"
 import { NegativePush } from "./negative-push"
+import { TermIcpPanel } from "./term-icp"
+import { MATCH_SOURCE, matchLabel } from "@/lib/insights/search-matching"
+import type { RootNegative, TermReview } from "@/lib/insights/term-review-rules"
 
 /** Impression share parts (validated for the dark surface; always labelled in the legend and tooltip). */
 const IS_COLOR = { won: "#4f8fcf", rank: "#c7802f", budget: "#9a6fd0" }
@@ -200,7 +203,8 @@ type Term = BreakdownRow & { isKeyword: boolean }
 
 /** A negative keyword already sent to Google Ads (live pushes only). adGroupId null = the whole campaign. */
 export type PushedNegative = { text: string; matchType: string; adGroupId: string | null; at: string }
-export type NegativesState = { slug: string; campaignId: string; canPush: boolean; live: boolean; pushed: PushedNegative[] }
+/** Everything the Google search terms table needs to act: pushing negatives, and the ICP check (`review`, `canCheck`). */
+export type NegativesState = { slug: string; campaignId: string; canPush: boolean; live: boolean; pushed: PushedNegative[]; review: TermReview | null; canCheck: boolean }
 
 export function CampaignDetailData({ data, currency, target, negatives = null }: { data: CampaignBreakdowns; currency: string; target: number | null; negatives?: NegativesState | null }) {
   if (data.kind === "google") return <GoogleDetail data={data} currency={currency} target={target} negatives={negatives} />
@@ -215,7 +219,20 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
   const [tab, setTab] = useState<"terms" | "keywords" | "share">("terms")
   const [picked, setPicked] = useState<Set<string>>(() => new Set())
   const [pushOpen, setPushOpen] = useState(false)
+  const [rootPush, setRootPush] = useState<RootNegative[] | null>(null)
+  const [review, setReview] = useState<TermReview | null>(negatives?.review ?? null)
   const canPush = Boolean(negatives?.canPush)
+  const icpFor = useMemo(() => {
+    const m = new Map((review?.terms ?? []).map((t) => [t.term, t]))
+    return (t: Pick<Term, "dim1">) => m.get(cleanTerm(t.dim1)) ?? null
+  }, [review])
+  const kwVerdict = useMemo(() => new Map((review?.keywords ?? []).map((k) => [k.keyword, k])), [review])
+  const aiMax = useMemo(() => {
+    const total = data.terms.reduce((a, t) => a + t.m.spend, 0)
+    const ai = data.terms.filter((t) => t.dim2 === "AI_MAX")
+    const spend = ai.reduce((a, t) => a + t.m.spend, 0)
+    return ai.length ? { terms: new Set(ai.map((t) => cleanTerm(t.dim1))).size, spend, share: total ? spend / total : 0 } : null
+  }, [data.terms])
   const pushedFor = useMemo(() => {
     const m = new Map<string, PushedNegative>()
     for (const p of negatives?.pushed ?? []) m.set(`${p.adGroupId ?? "*"}|${p.text}`, p)
@@ -229,11 +246,16 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
       else n.add(k)
       return n
     })
-  const candidates = data.terms.filter((t) => isNegativeCandidate(t, target) && !pushedFor(t))
+  const keysOf = (rows: Term[]) => [...new Set(rows.filter((t) => !pushedFor(t)).map(termKey))]
+  const candidates = keysOf(data.terms.filter((t) => isNegativeCandidate(t, target)))
+  const offIcp = keysOf(data.terms.filter((t) => icpFor(t)?.verdict === "exclude"))
   const pickedTerms = [...new Map(data.terms.filter((t) => picked.has(termKey(t))).map((t) => [termKey(t), t])).values()]
   const flag = (t: Term) => {
     const done = pushedFor(t)
     if (done) return <span className="rounded-full border border-rag-green/40 px-1.5 py-px text-[10px] text-rag-green" title={`${done.matchType.toLowerCase()} match, ${done.adGroupId ? "this ad group" : "whole campaign"}, ${new Date(done.at).toLocaleDateString("en-GB")}`}>Negative added</span>
+    const icp = icpFor(t)
+    if (icp?.verdict === "exclude") return <span className="rounded-full border border-rag-red/40 bg-rag-red/10 px-1.5 py-px text-[10px] text-rag-red" title={`Off-ICP: ${icp.reason}`}>Off-ICP</span>
+    if (icp?.verdict === "watch") return <span className="rounded-full border border-rag-amber/40 px-1.5 py-px text-[10px] text-rag-amber" title={`Watch: ${icp.reason}`}>Watch</span>
     if (isNegativeCandidate(t, target)) return <span className="rounded-full border border-rag-red/40 px-1.5 py-px text-[10px] text-rag-red">Negative?</span>
     if (!t.isKeyword && t.m.results >= 2) return <span className="rounded-full border border-lime/40 px-1.5 py-px text-[10px] text-lime">Add as keyword?</span>
     if (t.isKeyword) return <span className="text-[10px] text-subtle-foreground">keyword</span>
@@ -253,11 +275,34 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
       : []),
     { key: "term", label: "Search term", value: (r) => r.dim1, render: (r) => <span className="flex items-center gap-2"><span className="max-w-72 truncate" title={r.dim1}>{r.dim1}</span>{flag(r)}</span> },
     { key: "group", label: "Ad group", value: (r) => r.groupName ?? r.groupId, render: (r) => <span className="block max-w-40 truncate text-xs text-muted-foreground" title={r.groupName ?? r.groupId}>{r.groupName ?? r.groupId}</span> },
-    { key: "match", label: "Match", value: (r) => r.dim2, render: (r) => <span className="text-xs text-muted-foreground">{r.dim2.toLowerCase().replace(/_/g, " ")}</span> },
+    {
+      key: "match",
+      label: "Match",
+      value: (r) => r.dim2,
+      render: (r) =>
+        MATCH_SOURCE[r.dim2]?.aiMax ? (
+          <span className="rounded-full border border-violet-400/40 px-1.5 py-px text-[10px] text-violet-300" title={MATCH_SOURCE[r.dim2].hint}>
+            AI Max
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground" title={MATCH_SOURCE[r.dim2]?.hint}>
+            {matchLabel(r.dim2)}
+          </span>
+        ),
+    },
     ...(metricCols(currency) as Col<Term>[]),
   ]
+  const kwFlag = (r: BreakdownRow) => {
+    const v = kwVerdict.get(cleanTerm(r.dim1))
+    if (!v) return null
+    return (
+      <span className={cn("rounded-full border px-1.5 py-px text-[10px]", v.verdict === "pause" ? "border-rag-red/40 text-rag-red" : "border-rag-amber/40 text-rag-amber")} title={`${v.reason} Change it in Google Ads: the app doesn't edit keywords.`}>
+        {v.verdict === "pause" ? "Pause?" : "Review"}
+      </span>
+    )
+  }
   const kwCols: Col<BreakdownRow>[] = [
-    { key: "kw", label: "Keyword", value: (r) => r.dim1, render: (r) => <span className="max-w-72 truncate" title={r.dim1}>{r.dim1}</span> },
+    { key: "kw", label: "Keyword", value: (r) => r.dim1, render: (r) => <span className="flex items-center gap-2"><span className="max-w-72 truncate" title={r.dim1}>{r.dim1}</span>{kwFlag(r)}</span> },
     { key: "match", label: "Match", value: (r) => r.dim2, render: (r) => <span className="text-xs text-muted-foreground">{r.dim2.toLowerCase()}</span> },
     { key: "qs", label: "Quality score", align: "right", value: (r) => (r.extra?.quality_score as number | null) ?? null, render: (r) => { const q = r.extra?.quality_score as number | null; return q ? <span className={cn(q <= 4 && "text-rag-red")}>{q}/10</span> : "–" } },
     ...(metricCols(currency) as Col<BreakdownRow>[]),
@@ -275,13 +320,45 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
           ]}
         />
       </div>
+      {tab === "terms" && negatives && (
+        <TermIcpPanel
+          slug={negatives.slug}
+          campaignId={negatives.campaignId}
+          review={review}
+          onReview={setReview}
+          canCheck={negatives.canCheck}
+          canPush={canPush}
+          currency={currency}
+          aiMax={aiMax}
+          onPushRoots={setRootPush}
+        />
+      )}
+      {negatives && rootPush && (
+        <NegativePush
+          key={rootPush.map((r) => r.text).join("|")}
+          slug={negatives.slug}
+          campaignId={negatives.campaignId}
+          terms={rootPush.map((r) => ({ text: r.text, adGroupId: "", groupName: null }))}
+          campaignOnly
+          initialMatch={rootPush[0]?.matchType ?? "PHRASE"}
+          live={negatives.live}
+          open
+          onOpenChange={(o) => !o && setRootPush(null)}
+          onDone={() => setRootPush(null)}
+        />
+      )}
       {tab === "terms" && canPush && negatives && (
         <div className="flex flex-wrap items-center gap-2 border-b bg-background/40 px-4 py-2 text-xs text-muted-foreground">
           {picked.size === 0 ? (
             <>
               <span>Tick search terms to add them as negative keywords in Google Ads.</span>
+              {offIcp.length > 0 && (
+                <button type="button" onClick={() => setPicked(new Set(offIcp))} className="rounded-full border border-rag-red/40 bg-rag-red/10 px-2 py-0.5 text-rag-red hover:bg-rag-red/20">
+                  Tick the {offIcp.length} off-ICP
+                </button>
+              )}
               {candidates.length > 0 && (
-                <button type="button" onClick={() => setPicked(new Set(candidates.map(termKey)))} className="rounded-full border border-rag-red/40 px-2 py-0.5 text-rag-red hover:bg-rag-red/10">
+                <button type="button" onClick={() => setPicked(new Set(candidates))} className="rounded-full border border-rag-red/40 px-2 py-0.5 text-rag-red hover:bg-rag-red/10">
                   Tick the {candidates.length} marked Negative?
                 </button>
               )}
