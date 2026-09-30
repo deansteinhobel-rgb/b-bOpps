@@ -30,8 +30,24 @@ export const CARRY_REASONS: Record<string, string> = {
   other: "Other",
 }
 
-/** Notion Master Status values that mean a briefed test is ready to launch (Dean). */
-export const READY_STATUSES = ["Client Approved", "Production Complete"]
+/** A brief's two Notion statuses the board follows: Master Status and Status Paid. */
+export type NotionBrief = { master: string | null; paid: string | null }
+
+/**
+ * When a briefed test moves on (Dean, 2026-09-30). Existing options only.
+ *   Ready to launch: Status Paid "Ready for Build" or Master Status "Client Approved".
+ *   Live: Master Status "Production Complete" or Status Paid "Gone Live" (wins over ready).
+ */
+export const READY_WHEN = { master: ["Client Approved"], paid: ["Ready for Build"] }
+export const LIVE_WHEN = { master: ["Production Complete"], paid: ["Gone Live"] }
+
+export function notionStage(b: NotionBrief | null): "ready" | "live" | null {
+  if (!b) return null
+  const hit = (w: { master: string[]; paid: string[] }) => w.master.includes(b.master ?? "") || w.paid.includes(b.paid ?? "")
+  if (hit(LIVE_WHEN)) return "live"
+  if (hit(READY_WHEN)) return "ready"
+  return null
+}
 
 export type TestStatus = "planned" | "briefed" | "ready" | "live" | "review" | "closed"
 export type Stage = "planned" | "in_production" | "ready" | "live" | "review" | "done"
@@ -45,13 +61,18 @@ export const STAGES: { key: Stage; label: string; hint: string }[] = [
   { key: "done", label: "Done", hint: "" },
 ]
 
-/** Where a test sits on the board. A briefed test becomes ready when Notion says so. */
-export function stageOf(t: { status: TestStatus; outcome: string | null }, notionStatus: string | null): Stage {
+/**
+ * Where a test sits on the board. A briefed test follows its Notion brief: ready, then live
+ * (advanceTestsFromNotion also saves that after every Notion sync).
+ */
+export function stageOf(t: { status: TestStatus; outcome: string | null }, brief: NotionBrief | null): Stage {
   if (t.outcome || t.status === "closed") return "done"
   if (t.status === "review") return "review"
   if (t.status === "live") return "live"
+  const fromNotion = notionStage(brief)
+  if ((t.status === "ready" || t.status === "briefed") && fromNotion === "live") return "live"
   if (t.status === "ready") return "ready"
-  if (t.status === "briefed") return notionStatus && READY_STATUSES.includes(notionStatus) ? "ready" : "in_production"
+  if (t.status === "briefed") return fromNotion === "ready" ? "ready" : "in_production"
   return "planned"
 }
 

@@ -12,7 +12,7 @@ import { peopleForClient } from "@/lib/people"
 import { carryTests } from "@/lib/sprints/data"
 import { sprintByNumber } from "@/lib/sprints/periods"
 import { guessPlatform, NEEDS_PLATFORMS, needsText, type NeedsPlatform } from "@/lib/sprints/brief-needs"
-import { briefText, READY_STATUSES, successLine } from "@/lib/sprints/tests"
+import { briefText, notionStage, successLine } from "@/lib/sprints/tests"
 import { createClient } from "@/lib/supabase/server"
 
 // All as the signed-in user (RLS: the client's team and admins). Nothing is deleted. Once a sprint
@@ -213,7 +213,7 @@ export async function markReadyManually(testId: string): Promise<TestResult> {
   if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const { supabase, test, error } = await loadTest(testId)
   if (!test) return fail(error!)
-  if (test.notion_page_id) return fail("This test has a Notion brief: it becomes ready when Notion says Client Approved or Production Complete.")
+  if (test.notion_page_id) return fail("This test has a Notion brief: it becomes ready when Status Paid is Ready for Build or Master Status is Client Approved.")
   if (!["planned", "briefed"].includes(test.status)) return fail("This test is past that stage.")
   await supabase.from("sprint_tests").update({ status: "ready", ready_at: new Date().toISOString() }).eq("id", testId)
   refresh((test.clients as { slug: string }).slug)
@@ -228,10 +228,12 @@ export async function markLive(testId: string, raw: { live_on: string; campaigns
   if (!parsed.success) return fail(parsed.error.issues[0].message)
   const { supabase, test, error } = await loadTest(testId)
   if (!test) return fail(error!)
-  let ready = test.status === "ready"
+  // Ready, or already live (Notion moved it there and the team is now adding the campaigns).
+  let ready = test.status === "ready" || test.status === "live"
   if (!ready && test.status === "briefed" && test.notion_page_id) {
     const { data: page } = await supabase.from("notion_pages_mirror").select("properties").eq("notion_page_id", test.notion_page_id).maybeSingle()
-    ready = READY_STATUSES.includes(String((page?.properties as Record<string, unknown> | undefined)?.["Master Status"] ?? ""))
+    const props = (page?.properties ?? {}) as Record<string, unknown>
+    ready = notionStage({ master: (props["Master Status"] as string) ?? null, paid: (props["Status Paid"] as string) ?? null }) !== null
   }
   if (!ready) return fail("It isn't ready to launch yet.")
   await supabase

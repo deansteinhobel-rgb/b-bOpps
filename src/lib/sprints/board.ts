@@ -9,7 +9,7 @@ import type { TestTotals } from "./tests"
 /** Links on the Notion brief that show "what we created" (url and files properties on the board). */
 const LINK_PROPS = ["Figma Board", "Campaign Folder", "Brief Uploads / Links", "Useful Links", "Proposal Deck"]
 
-export type BriefInfo = { status: string | null; url: string; links: { label: string; href: string | null; text: string }[] }
+export type BriefInfo = { status: string | null; paid: string | null; url: string; links: { label: string; href: string | null; text: string }[] }
 export type Campaign = { platform: Platform; campaign_id: string; campaign_name: string; spend: number; last_date: string }
 
 /** Everything the test cards need beyond the tests themselves. User's client: RLS applies. */
@@ -52,7 +52,7 @@ export async function testBoardData(supabase: SupabaseClient, clientId: string, 
         links.push({ label, href: s.startsWith("http") ? s : null, text: s.startsWith("http") ? new URL(s).hostname.replace(/^www\./, "") : s })
       }
     }
-    briefs[p.notion_page_id] = { status: (props["Master Status"] as string) ?? null, url: p.url, links }
+    briefs[p.notion_page_id] = { status: (props["Master Status"] as string) ?? null, paid: (props["Status Paid"] as string) ?? null, url: p.url, links }
   }
 
   return {

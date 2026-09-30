@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ActionForm } from "@/components/action-form"
+import { NotionSyncBar } from "@/components/notion-sync-bar"
 import { StatusBadge } from "@/components/status-badge"
 import { aiConfigured } from "@/lib/ai/claude"
 import { canEdit, getProfile, isAdmin } from "@/lib/auth"
@@ -8,7 +9,7 @@ import { londonToday } from "@/lib/checks/periods"
 import { longDate, money, oneDp, signedPct } from "@/lib/format"
 import { addDays, pctChange } from "@/lib/metrics/ads"
 import { PLATFORM_LABEL } from "@/lib/metrics/types"
-import { byDue, mirrorItems } from "@/lib/notion/mirror"
+import { byDue, lastNotionSync, minutesAgo, mirrorItems } from "@/lib/notion/mirror"
 import { notionWritesLive } from "@/lib/notion/server"
 import { peopleForClient } from "@/lib/people"
 import { testBoardData } from "@/lib/sprints/board"
@@ -103,10 +104,11 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
   const shown = closed && sprint.summary ? sprint.summary : summary
   const day = sprintDay(period, today)
   const writesLive = notionWritesLive(slug)
+  const notionSynced = tests.some((t) => t.notion_page_id) ? minutesAgo(await lastNotionSync(supabase)) : null
   const platforms = summary.byPlatform.map((p) => p.platform)
   const ownerOptions = owners.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam }))
 
-  const staged = tests.map((t) => ({ t, stage: stageOf(t, t.notion_page_id ? (board.briefs[t.notion_page_id]?.status ?? null) : null) }))
+  const staged = tests.map((t) => ({ t, stage: stageOf(t, t.notion_page_id && board.briefs[t.notion_page_id] ? { master: board.briefs[t.notion_page_id].status, paid: board.briefs[t.notion_page_id].paid } : null) }))
   const inStage = (s: Stage) => staged.filter((x) => x.stage === s)
   const withoutOutcome = tests.filter((t) => !t.outcome).length
 
@@ -217,9 +219,12 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
             <h2 className="text-2xl">Tests this sprint</h2>
             <p className="text-sm text-muted-foreground">Plan on the sprint&apos;s first Monday → brief the team in Notion → launch when approved → add findings → call it.</p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            {tests.length} test{tests.length === 1 ? "" : "s"}
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            {notionSynced && <NotionSyncBar clientSlug={slug} syncedLabel={notionSynced} />}
+            <p className="text-sm text-muted-foreground">
+              {tests.length} test{tests.length === 1 ? "" : "s"}
+            </p>
+          </div>
         </div>
         {!closed && <PlanTestForm sprintId={sprint.id} platforms={platforms} owners={ownerOptions} defaultDeadline={addDays(period.start, 4)} />}
         {tests.length === 0 ? (

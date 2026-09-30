@@ -76,7 +76,9 @@ export async function refreshFromNotion(clientSlug: string): Promise<{ ok: boole
   try {
     const r = await syncNotionMirror()
     revalidatePath(`/clients/${clientSlug}`, "layout")
-    return { ok: true, message: r.pages ? `Updated ${r.pages} page${r.pages === 1 ? "" : "s"} from Notion.` : "Already up to date." }
+    const moved = r.tests.ready + r.tests.live
+    const tests = moved ? ` ${moved} test${moved === 1 ? "" : "s"} moved on (${[r.tests.ready && `${r.tests.ready} ready`, r.tests.live && `${r.tests.live} live`].filter(Boolean).join(", ")}).` : ""
+    return { ok: true, message: (r.pages ? `Updated ${r.pages} page${r.pages === 1 ? "" : "s"} from Notion.` : "Already up to date.") + tests }
   } catch (e) {
     console.error("Refresh from Notion failed", e)
     return { ok: false, message: "Couldn't reach Notion. Try again in a minute." }

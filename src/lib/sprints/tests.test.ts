@@ -1,18 +1,34 @@
 import { describe, expect, it } from "vitest"
-import { evaluate, stageOf, successLine } from "./tests"
+import { evaluate, notionStage, stageOf, successLine } from "./tests"
 
 describe("stageOf", () => {
-  it("moves a briefed test to ready when Notion says Client Approved or Production Complete", () => {
-    expect(stageOf({ status: "briefed", outcome: null }, "Production")).toBe("in_production")
-    expect(stageOf({ status: "briefed", outcome: null }, "Client Approved")).toBe("ready")
-    expect(stageOf({ status: "briefed", outcome: null }, "Production Complete")).toBe("ready")
+  const b = (master: string | null, paid: string | null = null) => ({ master, paid })
+  it("moves a briefed test to ready on Status Paid Ready for Build or Master Status Client Approved", () => {
+    expect(stageOf({ status: "briefed", outcome: null }, b("Production"))).toBe("in_production")
+    expect(stageOf({ status: "briefed", outcome: null }, b("Client Approved"))).toBe("ready")
+    expect(stageOf({ status: "briefed", outcome: null }, b("Production", "Ready for Build"))).toBe("ready")
+    expect(stageOf({ status: "briefed", outcome: null }, b("Production", "Build in Progress"))).toBe("in_production")
     expect(stageOf({ status: "briefed", outcome: null }, null)).toBe("in_production")
+  })
+  it("moves it to live on Master Status Production Complete or Status Paid Gone Live, from briefed or ready", () => {
+    expect(stageOf({ status: "briefed", outcome: null }, b("Production Complete"))).toBe("live")
+    expect(stageOf({ status: "ready", outcome: null }, b("Client Approved", "Gone Live"))).toBe("live")
+    expect(stageOf({ status: "ready", outcome: null }, b("Production"))).toBe("ready")
   })
   it("follows the app's own status after that, and any outcome means done", () => {
     expect(stageOf({ status: "planned", outcome: null }, null)).toBe("planned")
-    expect(stageOf({ status: "live", outcome: null }, "Production Complete")).toBe("live")
-    expect(stageOf({ status: "review", outcome: null }, null)).toBe("review")
+    expect(stageOf({ status: "live", outcome: null }, b("Production"))).toBe("live")
+    expect(stageOf({ status: "review", outcome: null }, b("Production Complete"))).toBe("review")
     expect(stageOf({ status: "live", outcome: "carried" }, null)).toBe("done")
+  })
+})
+
+describe("notionStage", () => {
+  it("live wins over ready, and anything else is neither", () => {
+    expect(notionStage({ master: "Client Approved", paid: "Gone Live" })).toBe("live")
+    expect(notionStage({ master: "Client Approved", paid: null })).toBe("ready")
+    expect(notionStage({ master: "New", paid: "Pending" })).toBeNull()
+    expect(notionStage(null)).toBeNull()
   })
 })
 

@@ -103,8 +103,16 @@ export function TestCard(props: {
       {stage === "in_production" && (
         <div className="space-y-1 rounded-md bg-secondary/60 p-2 text-xs">
           <p>
-            Notion: <strong>{props.brief?.status ?? "not synced yet"}</strong>. Ready to launch once it&apos;s Client Approved or Production Complete.
+            Notion: <strong>{props.brief?.status ?? "not synced yet"}</strong>
+            {props.brief?.paid && (
+              <>
+                {" "}
+                · Status Paid <strong>{props.brief.paid}</strong>
+              </>
+            )}
+            .
           </p>
+          <p className="text-muted-foreground">Ready to launch when Status Paid is Ready for Build or Master Status is Client Approved. Live when it&apos;s Production Complete or Gone Live.</p>
           {props.brief && (
             <a href={props.brief.url} target="_blank" rel="noreferrer" className="underline">
               Open the brief in Notion
@@ -157,6 +165,24 @@ export function TestCard(props: {
           ) : (
             <Button size="sm" onClick={() => setPanel("live")}>
               Mark live
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Notion moved it to live: the team says where it runs, so results can be measured */}
+      {stage === "live" && !t.campaign_ids?.length && !props.readOnly && (
+        <div className="space-y-2 rounded-md bg-rag-amber/10 p-2 text-xs">
+          <p>
+            Live in Notion{t.live_on ? ` since ${longDate(t.live_on)}` : ""}
+            {props.brief?.status || props.brief?.paid ? ` (${[props.brief?.status, props.brief?.paid].filter(Boolean).join(" · ")})` : ""}. Which campaigns is it running in? Pick them so the app can
+            measure it.
+          </p>
+          {panel === "live" ? (
+            <MarkLive campaigns={props.campaigns} today={t.live_on ?? props.today} pending={pending} onCancel={() => setPanel(null)} onSubmit={(live_on, campaigns) => run(() => markLive(t.id, { live_on, campaigns }), () => setPanel(null))} />
+          ) : (
+            <Button size="sm" onClick={() => setPanel("live")}>
+              Pick the campaigns
             </Button>
           )}
         </div>

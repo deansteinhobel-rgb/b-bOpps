@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { dataSourceId, NOTION_VERSION } from "./config"
 import { toMirrorRow, type MirrorRow, type NotionPage } from "./map"
 import { readOnlyNotion } from "./readonly"
+import { advanceTestsFromNotion } from "@/lib/sprints/advance"
 import { throttled } from "./throttle"
 
 const CHUNK = 500
@@ -57,6 +58,9 @@ export async function syncNotionMirror(opts: { full?: boolean } = {}) {
     if (error) throw new Error(`Saving mirror rows: ${error.message}`)
   }
 
+  // Sprint tests follow their Notion brief (our database only; Notion is only read).
+  const tests = await advanceTestsFromNotion(db, rows)
+
   let trashed = 0
   if (full) {
     const seen = new Set(rows.map((r) => r.notion_page_id))
@@ -76,5 +80,5 @@ export async function syncNotionMirror(opts: { full?: boolean } = {}) {
     ...(full ? { last_full_sync_at: startedAt.toISOString() } : {}),
   })
 
-  return { mode: full ? "full" : "incremental", pages: rows.length, trashed, mapped: rows.filter((r) => r.client_id).length }
+  return { mode: full ? "full" : "incremental", pages: rows.length, trashed, mapped: rows.filter((r) => r.client_id).length, tests }
 }
