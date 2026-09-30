@@ -13,6 +13,7 @@ import { isAbx } from "@/lib/metrics/live-ads-export"
 import { fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import { decodeRange, encodeRange, rangeLabel, rangeParams, rangeText } from "@/lib/metrics/range"
 import { resultFieldLines } from "@/lib/metrics/result-fields"
+import { parseSegment, segmentLabel, segmentOf, segmentOptions, segmentsFor, splitBySegment } from "@/lib/metrics/segments"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { Hint } from "@/components/hint"
 import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
@@ -28,6 +29,7 @@ import { parsePlatform, parseRange } from "./params"
 import { adsForPeriod, boardAds, buildBoard, type BoardKey } from "./boards"
 import { EmbedButton, type EmbedLink } from "./embed-button"
 import { ReportBoard } from "./report-board"
+import { SegmentSplit } from "./segment-split"
 
 export const metadata = { title: "Reporting" }
 
@@ -53,17 +55,32 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   const defaultDays = me.preferences?.default_days ?? 30
   const range = parseRange(sp, defaultDays)
   const platform = parsePlatform(sp.platform)
+  // Campaign segments (e.g. Camber's SMB and ABX): narrow the whole page to one, and split them side by side.
+  const segmentDefs = segmentsFor(slug)
+  const segmentOpts = segmentOptions(segmentDefs)
+  const segment = parseSegment(segmentDefs, sp.segment)
+  const seg = segment ? { key: segment, defs: segmentDefs } : null
+  const inSegment = (name: string | null) => !segment || segmentOf(segmentDefs, name) === segment
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, name, logo_url, currency, monthly_kpi_target, ga4_property_id").eq("slug", slug).maybeSingle()
   if (!client) notFound()
   // Access confirmed above (client loaded through RLS), so the shared caches are safe to use.
-  const [perf, all, o] = await Promise.all([cachedPerformance(client.id, range, platform), platform ? cachedPerformance(client.id, range, null) : null, cachedOverview(client.id)])
+  const [perf, all, unsegmented, o] = await Promise.all([
+    cachedPerformance(client.id, range, platform, null, seg),
+    platform ? cachedPerformance(client.id, range, null, null, seg) : null,
+    // The split always shows every segment, so it needs the page without the segment filter.
+    segmentDefs.length && segment ? cachedPerformance(client.id, range, platform) : null,
+    cachedOverview(client.id),
+  ])
   if (!perf || !o) return <p className="text-muted-foreground">No ad data yet. An admin can run a Windsor backfill for this client.</p>
+  const split = segmentDefs.length ? splitBySegment(unsegmented ?? perf, segmentDefs, segmentOpts) : null
+  const segmentName = segment ? segmentLabel(segmentDefs, segment) : null
   const cur = client.currency
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
   const base = `/clients/${slug}/reporting`
   const q = rangeParams(range, new URLSearchParams(), defaultDays)
   if (platform) q.set("platform", platform)
+  if (segment) q.set("segment", segment)
   const query = q.toString()
   const twoDaysAgo = new Date(Date.parse(perf.dataThrough) - 864e5).toISOString().slice(0, 10)
   const { from, to, prevFrom, prevTo, compare } = perf.periods
@@ -83,7 +100,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   const resultLines = resultFieldLines(resultAccounts)
   const hasLeads = resultAccounts.some((a) => a.leads.length > 0)
   const perUnit = (spend: number, n: number) => (n > 0 ? fmt("cpr", spend / n, cur) : "–")
-  const ads = allAds.filter((a) => !platform || a.platform === platform)
+  const ads = allAds.filter((a) => (!platform || a.platform === platform) && inSegment(a.campaign_name))
   const rankings = rankAds(ads)
 
   // The boards: all platforms, then each platform (or just the one picked).
@@ -105,14 +122,17 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
     lastViewed: l.last_viewed_at ? shortDate(l.last_viewed_at.slice(0, 10)) : null,
   }))
 
-  const liveAds = platform ? o.liveAds.filter((a) => a.platform === platform) : o.liveAds
-  const newest = o.newCreatives.filter((a) => !platform || a.platform === platform).slice(0, 12)
+  const liveAds = o.liveAds.filter((a) => (!platform || a.platform === platform) && inSegment(a.campaign_name))
+  const newest = o.newCreatives.filter((a) => (!platform || a.platform === platform) && inSegment(a.campaign_name)).slice(0, 12)
+  const sections = split ? [SECTIONS[0], { id: "segments", label: segmentDefs.map((d) => d.label).join(" vs ") }, ...SECTIONS.slice(1)] : SECTIONS
+  const scopeName = [segmentName, platform ? PLATFORM_LABEL[platform] : null].filter(Boolean).join(" · ")
+  const boardLabel = (p: Platform | null) => [segmentName, p ? PLATFORM_LABEL[p] : "All platforms"].filter(Boolean).join(" · ")
   const previews = await previewsFor(supabase, client.id, [...rankings.flatMap((r) => [r.best, r.worst]).filter((a) => a !== null), ...boardAds(boards, ads), ...liveAds, ...newest])
 
   return (
     <div className="space-y-12">
       <div className="space-y-3">
-        <SectionNav sections={SECTIONS} />
+        <SectionNav sections={sections} />
         <Controls
           base={base}
           range={range}
@@ -123,13 +143,18 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
           periods={perf.periods}
           dataFrom={perf.dataFrom}
           dataThrough={perf.dataThrough}
+          segment={segment}
+          segments={segmentOpts}
         />
-        <p className="text-xs text-muted-foreground">Data through {longDate(perf.dataThrough)}. Windsor syncs daily, so figures are up to a day old. The period and platform above apply to the whole page, apart from budget pacing (this month) and ad fatigue (each ad&apos;s first and last 14 days).</p>
+        <p className="text-xs text-muted-foreground">
+          Data through {longDate(perf.dataThrough)}. Windsor syncs daily, so figures are up to a day old. The period and platform above apply to the whole page, apart from budget pacing (this month) and ad fatigue (each ad&apos;s first and last 14 days).
+          {segmentOpts.length > 0 && ` Segments come from the campaign name (${segmentDefs.map((d) => `${d.label}: ${d.hint.replace(/^Campaigns whose name /, "")}`).join("; ")}) and apply to everything apart from budget pacing and GA4 landing pages.`}
+        </p>
       </div>
 
       {/* 1. Overview: the account, then each platform */}
       <section id="overview" className="scroll-mt-28 space-y-4">
-        <SectionHeader title="Overview" description={`${platform ? PLATFORM_LABEL[platform] : "The whole account"}, ${dates}, ${against}. Result = conversions + leads.`} />
+        <SectionHeader title="Overview" description={`${scopeName || "The whole account"}, ${dates}, ${against}. Result = conversions + leads.`} />
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-4 xl:grid-cols-7">
           {CARDS.map((k) => (
             <div key={k} className="bg-card px-4 py-3.5">
@@ -205,6 +230,17 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
           </div>
         </details>
       </section>
+
+      {/* 1b. Segments side by side (e.g. Camber SMB vs ABX) */}
+      {split && (
+        <section id="segments" className="scroll-mt-28 space-y-4">
+          <SectionHeader
+            title={segmentDefs.map((d) => d.label).join(" vs ")}
+            description={`Each segment's campaigns added up across ${platform ? PLATFORM_LABEL[platform] : "every platform"}, ${dates}, ${against}, with each platform underneath. Pick a segment here or in the toolbar to narrow the whole page to it.`}
+          />
+          <SegmentSplit segments={split} currency={cur} base={base} query={q} active={segment} />
+        </section>
+      )}
 
       {/* 2. Best and worst ad */}
       <section id="best-worst" className="scroll-mt-28 space-y-4">
@@ -282,9 +318,10 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
         <BoardDeck
           boards={boards.map((b) => ({
             key: b.key,
-            label: b.platform ? PLATFORM_LABEL[b.platform] : "All platforms",
+            label: boardLabel(b.platform),
             platform: b.platform,
-            actions: <EmbedButton key={encodeRange(range)} slug={slug} board={b.key as BoardKey} boardLabel={b.platform ? PLATFORM_LABEL[b.platform] : "All platforms"} range={range} links={linkViews.filter((l) => l.board === b.key)} canShare={Boolean(canShare)} />,
+            // View-only links show every campaign, so they're made from the unsegmented boards.
+            actions: segment ? null : <EmbedButton key={encodeRange(range)} slug={slug} board={b.key as BoardKey} boardLabel={b.platform ? PLATFORM_LABEL[b.platform] : "All platforms"} range={range} links={linkViews.filter((l) => l.board === b.key)} canShare={Boolean(canShare)} />,
             node: <ReportBoard board={b} client={{ name: client.name, logoUrl: client.logo_url }} currency={cur} from={from} to={to} prevFrom={prevFrom} prevTo={prevTo} compare={compare} latest={perf.dataThrough} previews={previews} />,
           }))}
         />

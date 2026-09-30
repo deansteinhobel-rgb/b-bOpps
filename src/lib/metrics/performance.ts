@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { money, percent, whole } from "@/lib/format"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { addDaysIso, bucketsFor, encodeRange, resolveRange, type Periods, type RangeSpec } from "./range"
+import { segmentOf, type SegmentDef } from "./segments"
 import type { Platform } from "./types"
 
 /** The Performance tab's numbers: a period against the one before it, per platform and campaign. */
@@ -82,9 +83,10 @@ const num = (v: unknown) => Number(v ?? 0)
 
 /**
  * Loads and aggregates one range and the one before it. `platform` narrows everything. Long ranges
- * come back by week or month (`periods.bucket`), so `daily` holds one point per bucket.
+ * come back by week or month (`periods.bucket`), so `daily` holds one point per bucket. `segment`
+ * keeps one segment's campaigns (by each campaign's latest name, so a rename can't split one).
  */
-export async function getPerformance(supabase: SupabaseClient, clientId: string, opts: { range: RangeSpec; platform?: Platform | null; campaignId?: string | null }): Promise<Performance | null> {
+export async function getPerformance(supabase: SupabaseClient, clientId: string, opts: { range: RangeSpec; platform?: Platform | null; campaignId?: string | null; segment?: { key: string; defs: SegmentDef[] } | null }): Promise<Performance | null> {
   const { data: range } = await supabase.from("account_data_range").select("data_from, data_through").eq("client_id", clientId)
   const dataThrough = (range ?? []).map((r) => r.data_through as string).sort().at(-1)
   const dataFrom = (range ?? []).map((r) => r.data_from as string).sort()[0]
@@ -94,12 +96,22 @@ export async function getPerformance(supabase: SupabaseClient, clientId: string,
     (await rpcAll(supabase, "campaign_series", { p_client: clientId, p_from: from, p_to: to, p_bucket: bucket }))
       .map((r) => ({ platform: r.platform as Platform, campaign_id: String(r.campaign_id), campaign_name: String(r.campaign_name ?? r.campaign_id), date: String(r.date), spend: num(r.spend), impressions: num(r.impressions), clicks: num(r.clicks), conversions: num(r.conversions), leads: num(r.leads) }))
       .filter((r) => (!opts.platform || r.platform === opts.platform) && (!opts.campaignId || r.campaign_id === opts.campaignId)) as Row[]
-  const [nowRows, prevRows, recent] = await Promise.all([
+  const [allNow, allPrev, allRecent] = await Promise.all([
     load(p.from, p.to, p.bucket),
     p.compare ? load(p.prevFrom, p.prevTo, p.bucket) : ([] as Row[]),
     // The last few days by day, for "still spending" whatever the range.
     load(addDaysIso(dataThrough, -6), dataThrough, "day"),
   ])
+  const seg = opts.segment
+  const latestName = new Map<string, { date: string; name: string }>()
+  if (seg)
+    for (const r of [...allPrev, ...allNow, ...allRecent]) {
+      const k = `${r.platform}|${r.campaign_id}`
+      const had = latestName.get(k)
+      if (!had || r.date >= had.date) latestName.set(k, { date: r.date, name: r.campaign_name })
+    }
+  const inSegment = (r: Row) => !seg || segmentOf(seg.defs, latestName.get(`${r.platform}|${r.campaign_id}`)?.name) === seg.key
+  const [nowRows, prevRows, recent] = [allNow.filter(inSegment), allPrev.filter(inSegment), allRecent.filter(inSegment)]
 
   const sum = (list: Row[]) => list.reduce((s, r) => add(s, r), zero())
   const nowBuckets = bucketsFor(p.from, p.to, p.bucket)

@@ -8,6 +8,7 @@ import { FilterChip, Segmented } from "@/components/segmented"
 import { RangePicker } from "@/components/range-picker"
 import { money } from "@/lib/format"
 import { QUICK_DAYS, rangeParams, sameRange, type Periods, type RangeSpec } from "@/lib/metrics/range"
+import type { SegmentOption } from "@/lib/metrics/segments"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { cn } from "@/lib/utils"
 import { PLATFORM_COLOR } from "./charts"
@@ -21,25 +22,27 @@ const PLATFORM_KEYS: Record<string, Platform> = { l: "linkedin", g: "google_ads"
  * sliding highlight, the date range picker (presets and custom dates), platform chips in their
  * platform colour with this range's spend, and "copy link". The URL holds the view; switching shows
  * a loading bar straight away. Keys: 1–4 pick the quick periods, A / L / G / M the platform.
+ * Clients with campaign segments (e.g. Camber's SMB and ABX) also get a segment picker.
  */
-export function Controls({ base, range, defaultDays = 30, platform, platforms, currency, periods, dataFrom, dataThrough }: { base: string; range: RangeSpec; defaultDays?: number; platform: Platform | null; platforms?: PlatformOption[]; currency?: string; periods: Periods; dataFrom: string; dataThrough: string }) {
+export function Controls({ base, range, defaultDays = 30, platform, platforms, currency, periods, dataFrom, dataThrough, segment = null, segments = [] }: { base: string; range: RangeSpec; defaultDays?: number; platform: Platform | null; platforms?: PlatformOption[]; currency?: string; periods: Periods; dataFrom: string; dataThrough: string; segment?: string | null; segments?: SegmentOption[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const [pending, start] = useTransition()
   // Optimistic: the highlight moves on click, before the new numbers arrive.
-  const [view, setView] = useState({ range, platform })
+  const [view, setView] = useState({ range, platform, segment })
   // When the URL catches up (or changes by Back / Forward), follow it.
-  const [seen, setSeen] = useState({ range, platform })
-  if (!sameRange(seen.range, range) || seen.platform !== platform) {
-    setSeen({ range, platform })
-    setView({ range, platform })
+  const [seen, setSeen] = useState({ range, platform, segment })
+  if (!sameRange(seen.range, range) || seen.platform !== platform || seen.segment !== segment) {
+    setSeen({ range, platform, segment })
+    setView({ range, platform, segment })
   }
 
-  const go = (r: RangeSpec, p: Platform | null) => {
-    if (sameRange(r, view.range) && p === view.platform) return
-    setView({ range: r, platform: p })
+  const go = (r: RangeSpec, p: Platform | null, s: string | null = view.segment) => {
+    if (sameRange(r, view.range) && p === view.platform && s === view.segment) return
+    setView({ range: r, platform: p, segment: s })
     const q = rangeParams(r, new URLSearchParams(), defaultDays)
     if (p) q.set("platform", p)
+    if (s) q.set("segment", s)
     start(() => router.push(`${base}${q.size ? `?${q}` : ""}`, { scroll: false }))
   }
 
@@ -90,6 +93,19 @@ export function Controls({ base, range, defaultDays = 30, platform, platforms, c
               </FilterChip>
             ))}
           </div>
+        </>
+      )}
+
+      {segments.length > 0 && (
+        <>
+          <span className="hidden h-5 w-px bg-border sm:block" aria-hidden />
+          <Segmented
+            label="Segment"
+            tone="quiet"
+            value={view.segment ?? "all"}
+            options={[{ value: "all", label: "All segments", title: "Every campaign" }, ...segments.map((s) => ({ value: s.key, label: s.label, title: s.hint }))]}
+            onChange={(v) => go(view.range, view.platform, v === "all" ? null : v)}
+          />
         </>
       )}
 

@@ -6,6 +6,7 @@ import { codeFingerprint, RULES_FINGERPRINT } from "@/lib/insights/rules"
 import { getOverview, getPacing } from "./overview"
 import { getPerformance } from "./performance"
 import { encodeRange, type RangeSpec } from "./range"
+import { segmentsFingerprint, type SegmentDef } from "./segments"
 import type { Platform } from "./types"
 
 /**
@@ -38,8 +39,12 @@ export const cachedOverview = async (clientId: string) =>
 export const cachedPacing = async (clientId: string) =>
   unstable_cache(() => getPacing(createAdminClient(), clientId), ["pacing", SHAPE, CODE, clientId, await stamp(clientId)], opts(clientId))()
 
-export const cachedPerformance = async (clientId: string, range: RangeSpec, platform: Platform | null, campaignId: string | null = null) =>
-  unstable_cache(() => getPerformance(createAdminClient(), clientId, { range, platform, campaignId }), ["performance", SHAPE, CODE, clientId, await stamp(clientId), encodeRange(range), platform ?? "all", campaignId ?? ""], opts(clientId))()
+export const cachedPerformance = async (clientId: string, range: RangeSpec, platform: Platform | null, campaignId: string | null = null, segment: { key: string; defs: SegmentDef[] } | null = null) =>
+  unstable_cache(
+    () => getPerformance(createAdminClient(), clientId, { range, platform, campaignId, segment }),
+    ["performance", SHAPE, CODE, clientId, await stamp(clientId), encodeRange(range), platform ?? "all", campaignId ?? "", segment ? `${segment.key}|${segmentsFingerprint(segment.defs)}` : ""],
+    opts(clientId),
+  )()
 
 /** The insight rules' output (Performance phase 3). The team's done / snooze / dismiss log is read live, not cached. */
 export const cachedInsights = async (clientId: string) =>
