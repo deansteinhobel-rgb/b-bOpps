@@ -43,6 +43,19 @@ const SUBMIT = {
 } as const
 
 type Verdict = { id: string; evidence_ref?: string; evidence?: string }
+/** The model sometimes sends the list as a JSON string (even wrapped as {"happened": [...]}): take either. */
+function happenedList(input: unknown): Verdict[] {
+  let v: unknown = (input as { happened?: unknown } | undefined)?.happened
+  for (let i = 0; i < 2 && typeof v === "string"; i++) {
+    try {
+      v = JSON.parse(v)
+    } catch {
+      return []
+    }
+    if (v && !Array.isArray(v) && typeof v === "object") v = (v as { happened?: unknown }).happened
+  }
+  return Array.isArray(v) ? (v as Verdict[]).filter((x) => x && typeof x.id === "string") : []
+}
 const BATCH = 40
 const LATER_CALL_CHARS = 8000
 
@@ -121,7 +134,7 @@ export async function checkFollowUps(clientId: string) {
     if (msg.stop_reason === "max_tokens") throw new Error("The follow-up check ran out of room; try smaller batches.")
     const use = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use")
     const ids = new Set(batch.map((c) => c.id))
-    for (const v of (use?.input as { happened?: Verdict[] } | undefined)?.happened ?? []) if (ids.has(v.id)) verdicts.set(v.id, v)
+    for (const v of happenedList(use?.input)) if (ids.has(v.id)) verdicts.set(v.id, v)
   }
 
   let acted = 0
