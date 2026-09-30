@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { fmt, type Derived } from "@/lib/metrics/performance"
 import type { BreakdownRow, CampaignBreakdowns, ImpressionShareDay, LandingPage, LinkedInKind } from "@/lib/metrics/breakdowns"
 import { cn } from "@/lib/utils"
@@ -13,13 +13,17 @@ const IS_COLOR = { won: "#4f8fcf", rank: "#c7802f", budget: "#9a6fd0" }
 const pct = (v: number | null | undefined, d = 0) => (v === null || v === undefined ? "–" : `${(v * 100).toFixed(d)}%`)
 const shortDay = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(iso))
 
+const PAGE = 200
+
 type Col<T> = { key: string; label: string; align?: "right"; value: (r: T) => number | string | null; render?: (r: T) => React.ReactNode; className?: string }
 
 /** A sortable, searchable table that shows the first 25 rows and can show the rest. */
 function DataTable<T>({ rows, cols, search, empty, initial, rowKey }: { rows: T[]; cols: Col<T>[]; search?: (r: T) => string; empty: string; initial: string; rowKey: (r: T) => string }) {
   const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({ key: initial, dir: -1 })
   const [q, setQ] = useState("")
-  const [all, setAll] = useState(false)
+  // 25 rows to start; "Show more" opens pages of 200 (Dean, 2026-09-30: never all 1,000 at once).
+  const [page, setPage] = useState<number | null>(null)
+  const tableTop = useRef<HTMLDivElement>(null)
   const shown = useMemo(() => {
     const col = cols.find((c) => c.key === sort.key) ?? cols[0]
     const needle = q.trim().toLowerCase()
@@ -32,9 +36,15 @@ function DataTable<T>({ rows, cols, search, empty, initial, rowKey }: { rows: T[
         return ((x ?? -Infinity) - (y ?? -Infinity)) * sort.dir
       })
   }, [rows, cols, sort, q, search])
-  const list = all ? shown : shown.slice(0, 25)
+  const pages = Math.max(1, Math.ceil(shown.length / PAGE))
+  const current = page === null ? null : Math.min(page, pages - 1) // the search can shrink the list
+  const list = current === null ? shown.slice(0, 25) : shown.slice(current * PAGE, (current + 1) * PAGE)
+  const go = (p: number) => {
+    setPage(p)
+    tableTop.current?.scrollIntoView({ block: "nearest" })
+  }
   return (
-    <div>
+    <div ref={tableTop} className="scroll-mt-24">
       {search && (
         <div className="border-b px-4 py-2">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search" aria-label="Search" className="h-8 w-56 rounded-md border bg-background px-2.5 text-sm outline-none focus:border-foreground/30" />
@@ -74,11 +84,27 @@ function DataTable<T>({ rows, cols, search, empty, initial, rowKey }: { rows: T[
           </tbody>
         </table>
       </div>
-      {shown.length > 25 && (
-        <button type="button" onClick={() => setAll((a) => !a)} className="w-full border-t px-4 py-2 text-xs text-muted-foreground hover:bg-accent/30 hover:text-foreground">
-          {all ? "Show fewer" : `Show all ${shown.length}`}
-        </button>
-      )}
+      {shown.length > 25 &&
+        (current === null ? (
+          <button type="button" onClick={() => setPage(0)} className="w-full border-t px-4 py-2 text-xs text-muted-foreground hover:bg-accent/30 hover:text-foreground">
+            Show {Math.min(PAGE, shown.length)} of {shown.length.toLocaleString("en-GB")}
+          </button>
+        ) : (
+          <div className="flex items-center gap-3 border-t px-4 py-2 text-xs text-muted-foreground">
+            <button type="button" onClick={() => setPage(null)} className="hover:text-foreground">
+              Show fewer
+            </button>
+            <span className="ml-auto tabular-nums">
+              {(current * PAGE + 1).toLocaleString("en-GB")}–{Math.min((current + 1) * PAGE, shown.length).toLocaleString("en-GB")} of {shown.length.toLocaleString("en-GB")}
+            </span>
+            <button type="button" onClick={() => go(current - 1)} disabled={current === 0} className="rounded-md border px-2 py-0.5 hover:text-foreground disabled:opacity-40">
+              ‹ Previous
+            </button>
+            <button type="button" onClick={() => go(current + 1)} disabled={current >= pages - 1} className="rounded-md border px-2 py-0.5 hover:text-foreground disabled:opacity-40">
+              Next ›
+            </button>
+          </div>
+        ))}
     </div>
   )
 }
