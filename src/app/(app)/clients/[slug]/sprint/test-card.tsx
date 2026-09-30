@@ -1,9 +1,11 @@
 "use client"
 
+import { ArrowRightLeft, ExternalLink, Link2, Target } from "lucide-react"
 import { useState, useTransition } from "react"
+import { Avatar, PlatformLabel } from "@/components/brand"
 import { fieldClass } from "@/components/field-class"
-import { PlatformLabel } from "@/components/brand"
 import { Sparkle } from "@/components/fx/sparkle"
+import { Hint } from "@/components/hint"
 import { StatusBadge } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,7 +14,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { longDate, money, oneDp } from "@/lib/format"
 import type { BriefInfo, Campaign } from "@/lib/sprints/board"
 import type { SprintTest } from "@/lib/sprints/data"
-import { ASSETS, CARRY_REASONS, evaluate, METRICS, successLine, type Stage, type TestTotals } from "@/lib/sprints/tests"
+import { daysSince, dueChip } from "@/lib/sprints/stage-style"
+import { ASSETS, CARRY_REASONS, evaluate, METRICS, type Stage, type TestTotals } from "@/lib/sprints/tests"
 import { cn } from "@/lib/utils"
 import { BriefDialog } from "./brief-form"
 import { clearOutcome, markLive, markReadyManually, saveFindings, setOutcome } from "./test-actions"
@@ -24,6 +27,19 @@ const OUTCOME = {
   carried: { label: "Carried over", rag: "amber" },
 } as const
 
+type Fmt = (v: number | null) => string
+
+/** Formats a value in the success metric's unit. */
+function metricFormat(metric: string | null, m: (v: number) => string): Fmt {
+  const unit = metric ? METRICS[metric]?.unit : undefined
+  return (v) => (v === null ? "–" : unit === "money" ? m(v) : unit === "percent" ? `${v.toFixed(2)}%` : oneDp(v))
+}
+
+/**
+ * A test on the sprint board (Dean, 2026-09-30: easier to scan). Top to bottom: platform and due
+ * date, the title, the goal, then one panel for where it is now, and one next step in the footer.
+ * Rules and long explanations sit behind hints; the stage colour lives on the column.
+ */
 export function TestCard(props: {
   test: SprintTest
   stage: Stage
@@ -40,218 +56,296 @@ export function TestCard(props: {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [panel, setPanel] = useState<null | "live" | "findings" | "carry">(null)
   const m = (v: number) => money(v, props.currency)
-  const overdue = t.deadline && t.deadline < props.today && (stage === "planned" || stage === "in_production")
+  const fmt = metricFormat(t.success_metric, m)
+  const def = t.success_metric ? METRICS[t.success_metric] : undefined
+  const due = stage === "planned" || stage === "in_production" || stage === "ready" ? dueChip(t.deadline, props.today) : null
+  const editable = !props.readOnly
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>, after?: () => void) =>
     start(async () => {
       const r = await fn()
       setMsg(r.ok ? (r.message ? { ok: true, text: r.message } : null) : { ok: false, text: r.message ?? "Something went wrong." })
       if (r.ok) after?.()
     })
+  const openLive = () => setPanel("live")
+  const submitLive = (live_on: string, campaigns: { id: string; name: string }[]) => run(() => markLive(t.id, { live_on, campaigns }), () => setPanel(null))
+  const tags = [
+    t.carried_from_test_id && <CarriedTag key="c" />,
+    t.recommendation_id && <PourTag key="p" />,
+    t.insight_key && <OptimiseTag key="o" />,
+    t.content_idea_id && <ContentIdeaTag key="i" />,
+  ].filter(Boolean)
 
-  return (
-    <article id={`test-${t.id}`} className="scroll-mt-6 space-y-3 rounded-lg border bg-card p-4 text-sm">
-      <header className="space-y-1">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <PlatformLabel platform={t.platform} className="text-foreground" />
-          {t.carried_from_test_id && <span>Carried from last sprint</span>}
-          {t.recommendation_id && <PourTag />}
-          {t.insight_key && <OptimiseTag />}
-          {t.content_idea_id && <ContentIdeaTag />}
-        </div>
-        <h3 className="text-base leading-snug font-bold">{t.title}</h3>
-        <p className="text-xs text-muted-foreground">
-          {t.owner_name ?? "No owner"}
-          {t.deadline && (
-            <>
-              {" "}
-              · <span className={cn(overdue && "font-bold text-rag-red")}>due {longDate(t.deadline)}</span>
-            </>
-          )}
-        </p>
-        <p className="text-xs">
-          <span className="text-muted-foreground">Success: </span>
-          {successLine(t.success_metric, t.success_target, t.success_text, m)}
-        </p>
-      </header>
-
-      {/* Planned */}
-      {stage === "planned" && (
-        <div className="space-y-2">
-          {t.assets.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {t.assets.map((a) => (
-                <span key={a} className="rounded-full border px-2 py-0.5 text-xs">
-                  {ASSETS[a] ?? a}
-                </span>
-              ))}
-            </div>
-          )}
-          {!props.readOnly && (
-            <div className="flex flex-wrap gap-2">
-              <BriefDialog testId={t.id} live={props.writesLive} disabled={pending} onDone={(r) => setMsg({ ok: r.ok, text: r.text })} />
-              {!props.writesLive && (
-                <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => markReadyManually(t.id))} title="Test mode: skip Notion and treat the assets as ready">
-                  Mark ready (test mode)
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* In production */}
-      {stage === "in_production" && (
-        <div className="space-y-1 rounded-md bg-secondary/60 p-2 text-xs">
-          <p>
-            Notion: <strong>{props.brief?.status ?? "not synced yet"}</strong>
-            {props.brief?.paid && (
-              <>
-                {" "}
-                · Status Paid <strong>{props.brief.paid}</strong>
-              </>
-            )}
-            .
-          </p>
-          <p className="text-muted-foreground">Ready to launch when Status Paid is Ready for Build or Master Status is Client Approved. Live when it&apos;s Production Complete or Gone Live.</p>
-          {props.brief && (
-            <a href={props.brief.url} target="_blank" rel="noreferrer" className="underline">
-              Open the brief in Notion
-            </a>
-          )}
-          {!t.notion_page_id && !props.readOnly && (
-            <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => markReadyManually(t.id))}>
+  // The one next step for this stage, shown in the footer.
+  let primary: React.ReactNode = null
+  if (editable && panel === null) {
+    if (stage === "planned")
+      primary = (
+        <>
+          {!props.writesLive && (
+            <Button size="sm" variant="ghost" disabled={pending} onClick={() => run(() => markReadyManually(t.id))} title="Test mode: skip Notion and treat the assets as ready">
               Mark ready
             </Button>
           )}
+          <BriefDialog testId={t.id} live={props.writesLive} disabled={pending} onDone={(r) => setMsg({ ok: r.ok, text: r.text })} />
+        </>
+      )
+    else if (stage === "in_production" && !t.notion_page_id)
+      primary = (
+        <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => markReadyManually(t.id))}>
+          Mark ready
+        </Button>
+      )
+    else if (stage === "ready")
+      primary = (
+        <Button size="sm" onClick={openLive}>
+          Mark live
+        </Button>
+      )
+    else if (stage === "live" && t.campaign_ids?.length)
+      primary = (
+        <Button size="sm" onClick={() => setPanel("findings")}>
+          Add findings
+        </Button>
+      )
+  }
+
+  return (
+    <article id={`test-${t.id}`} className="scroll-mt-6 overflow-hidden rounded-xl border bg-card text-sm transition-colors hover:border-foreground/20">
+      <div className="space-y-3 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <PlatformLabel platform={t.platform} className="min-w-0 truncate text-xs text-muted-foreground" />
+          {due && (
+            <span title={due.title} className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ring-1", due.tone)}>
+              {due.text}
+            </span>
+          )}
+          {stage === "live" && t.live_on && (
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-rag-green-bg px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-rag-green ring-1 ring-rag-green/30" title={`Live since ${longDate(t.live_on)}`}>
+              <span className="size-1.5 animate-pulse rounded-full bg-rag-green motion-reduce:animate-none" aria-hidden />
+              Live · day {Math.max(1, daysSince(t.live_on, props.today) + 1)}
+            </span>
+          )}
         </div>
+
+        <h3 className="line-clamp-3 text-[15px] leading-snug font-semibold text-balance" title={t.title}>
+          {t.title}
+        </h3>
+
+        <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground" title={t.owner_name ? `Owner: ${t.owner_name}` : "No owner"}>
+          <Avatar name={t.owner_name ?? "?"} className="size-5 text-[9px]" />
+          <span className="truncate">{t.owner_name ?? "No owner"}</span>
+        </p>
+
+        {tags.length > 0 && <div className="flex flex-wrap gap-1.5">{tags}</div>}
+
+        <Goal test={t} fmt={fmt} />
+
+        {stage === "planned" && t.assets.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {t.assets.map((a) => (
+              <span key={a} className="rounded-md bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                {ASSETS[a] ?? a}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Where it is now */}
+      {stage === "in_production" && (
+        <Panel>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <NotionPill label="Notion" value={props.brief?.status ?? "Not synced yet"} />
+            {props.brief?.paid && <NotionPill label="Paid" value={props.brief.paid} />}
+            <Hint label="When does it move on?">
+              Ready to launch when Status Paid is Ready for Build or Master Status is Client Approved. Live when it&apos;s Production Complete or Gone Live. The board follows Notion every hour.
+            </Hint>
+          </div>
+        </Panel>
       )}
 
-      {/* What we created (from the Notion brief) */}
-      {(stage === "ready" || stage === "live" || stage === "review" || stage === "done") && props.brief && (
-        <div className="space-y-1 text-xs">
-          <p className="text-muted-foreground">
-            What we created ·{" "}
-            <a href={props.brief.url} target="_blank" rel="noreferrer" className="underline">
-              brief in Notion
-            </a>
-          </p>
+      {(stage === "ready" || stage === "review" || stage === "done") && props.brief && (
+        <Panel>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase">What we created</p>
+            <NotionLink href={props.brief.url} />
+          </div>
           {props.brief.links.length ? (
-            <ul className="flex flex-wrap gap-2">
+            <ul className="flex flex-wrap gap-1.5">
               {props.brief.links.map((l, i) => (
-                <li key={i}>
+                <li key={i} className="max-w-full">
                   {l.href ? (
-                    <a href={l.href} target="_blank" rel="noreferrer" className="rounded-full border px-2 py-0.5 underline-offset-2 hover:underline">
-                      {l.label}: {l.text}
+                    <a href={l.href} target="_blank" rel="noreferrer" className="inline-flex max-w-full items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs hover:bg-elevated" title={`${l.label}: ${l.text}`}>
+                      <Link2 className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="truncate">{l.label}</span>
                     </a>
                   ) : (
-                    <span className="rounded-full border px-2 py-0.5">
-                      {l.label}: {l.text}
+                    <span className="inline-flex rounded-md bg-secondary px-2 py-1 text-xs" title={l.text}>
+                      {l.label}
                     </span>
                   )}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-muted-foreground italic">No links on the brief yet (Figma board, campaign folder, useful links).</p>
+            <p className="text-xs text-muted-foreground">No links on the brief yet.</p>
           )}
-        </div>
+        </Panel>
       )}
 
-      {/* Ready to launch */}
-      {stage === "ready" && !props.readOnly && (
-        <div className="space-y-2">
-          {panel === "live" ? (
-            <MarkLive campaigns={props.campaigns} today={props.today} pending={pending} onCancel={() => setPanel(null)} onSubmit={(live_on, campaigns) => run(() => markLive(t.id, { live_on, campaigns }), () => setPanel(null))} />
-          ) : (
-            <Button size="sm" onClick={() => setPanel("live")}>
-              Mark live
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* Notion moved it to live: the team says where it runs, so results can be measured */}
-      {stage === "live" && !t.campaign_ids?.length && !props.readOnly && (
-        <div className="space-y-2 rounded-md bg-rag-amber/10 p-2 text-xs">
-          <p>
-            Live in Notion{t.live_on ? ` since ${longDate(t.live_on)}` : ""}
-            {props.brief?.status || props.brief?.paid ? ` (${[props.brief?.status, props.brief?.paid].filter(Boolean).join(" · ")})` : ""}. Which campaigns is it running in? Pick them so the app can
-            measure it.
+      {stage === "live" && !t.campaign_ids?.length && (
+        <Panel className="bg-rag-amber-bg">
+          <p className="text-xs">
+            <span className="font-medium text-rag-amber">Which campaigns is it running in?</span> Pick them so the app can measure it.
           </p>
-          {panel === "live" ? (
-            <MarkLive campaigns={props.campaigns} today={t.live_on ?? props.today} pending={pending} onCancel={() => setPanel(null)} onSubmit={(live_on, campaigns) => run(() => markLive(t.id, { live_on, campaigns }), () => setPanel(null))} />
-          ) : (
-            <Button size="sm" onClick={() => setPanel("live")}>
+          {editable && panel !== "live" && (
+            <Button size="sm" onClick={openLive}>
               Pick the campaigns
             </Button>
           )}
-        </div>
+        </Panel>
       )}
 
-      {/* Live / review: results */}
-      {(stage === "live" || stage === "review" || stage === "done") && t.live_on && (
-        <Results test={t} results={props.results} money={m} />
-      )}
-      {stage === "live" && !props.readOnly && panel !== "findings" && (
-        <Button size="sm" onClick={() => setPanel("findings")}>
-          Add findings
-        </Button>
-      )}
-      {(panel === "findings" || stage === "review") && !props.readOnly && stage !== "done" && (
-        <Findings test={t} pending={pending} onSave={(f) => run(() => saveFindings(t.id, f), () => setPanel(null))} />
+      {(stage === "live" || stage === "review" || stage === "done") && t.live_on && t.campaign_ids.length > 0 && (
+        <Panel>
+          <Results test={t} results={props.results} money={m} fmt={fmt} label={def?.label} />
+        </Panel>
       )}
 
-      {/* Review: outcome */}
-      {stage === "review" && !props.readOnly && (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">Outcome</p>
+      {stage === "done" && t.outcome && (
+        <Panel>
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge status={OUTCOME[t.outcome].rag} label={OUTCOME[t.outcome].label} />
+            {t.outcome === "carried" && (
+              <span className="text-xs text-muted-foreground">
+                {CARRY_REASONS[t.carry_reason ?? "other"]}
+                {t.carry_note ? `: ${t.carry_note}` : ""}
+              </span>
+            )}
+          </div>
+          <FindingsView test={t} />
+        </Panel>
+      )}
+
+      {/* Forms open in place */}
+      {editable && panel === "live" && (
+        <Panel>
+          <MarkLive campaigns={props.campaigns} today={t.live_on ?? props.today} pending={pending} onCancel={() => setPanel(null)} onSubmit={submitLive} />
+        </Panel>
+      )}
+      {editable && stage !== "done" && (panel === "findings" || stage === "review") && (
+        <Panel>
+          <Findings test={t} pending={pending} onSave={(f) => run(() => saveFindings(t.id, f), () => setPanel(null))} />
+        </Panel>
+      )}
+      {editable && stage === "review" && (
+        <Panel>
+          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Call it</p>
           <div className="flex flex-wrap gap-2">
             {(["proven", "disproven", "inconclusive"] as const).map((o) => (
               <Button key={o} size="sm" variant="outline" disabled={pending} onClick={() => run(() => setOutcome(t.id, { outcome: o, carry_reason: null }))}>
+                <span aria-hidden className={cn("size-1.5 rounded-full", o === "proven" ? "bg-rag-green" : o === "disproven" ? "bg-rag-red" : "bg-rag-na")} />
                 {OUTCOME[o].label}
               </Button>
             ))}
           </div>
-        </div>
+        </Panel>
+      )}
+      {editable && panel === "carry" && (
+        <Panel>
+          <CarryOver
+            pending={pending}
+            onCancel={() => setPanel(null)}
+            onSubmit={(reason, note) => run(() => setOutcome(t.id, { outcome: "carried", carry_reason: reason as "deadline", carry_note: note }), () => setPanel(null))}
+          />
+        </Panel>
       )}
 
-      {/* Done */}
-      {stage === "done" && t.outcome && (
-        <div className="space-y-1">
-          <StatusBadge status={OUTCOME[t.outcome].rag} label={OUTCOME[t.outcome].label} />
-          {t.outcome === "carried" && (
-            <p className="text-xs text-muted-foreground">
-              {CARRY_REASONS[t.carry_reason ?? "other"]}
-              {t.carry_note ? `: ${t.carry_note}` : ""}
-            </p>
-          )}
-          <FindingsView test={t} />
-          {!props.readOnly && (
-            <button type="button" className="text-xs text-muted-foreground underline" disabled={pending} onClick={() => run(() => clearOutcome(t.id))}>
-              Undo outcome
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Carry over: possible at any stage until there's an outcome */}
-      {stage !== "done" && !props.readOnly && (
-        <div>
-          {panel === "carry" ? (
-            <CarryOver pending={pending} onCancel={() => setPanel(null)} onSubmit={(reason, note) => run(() => setOutcome(t.id, { outcome: "carried", carry_reason: reason as "deadline", carry_note: note }), () => setPanel(null))} />
-          ) : (
-            <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setPanel("carry")}>
-              Carry over to next sprint
-            </button>
-          )}
-        </div>
-      )}
       {msg && (
-        <p className={cn("text-xs", msg.ok ? "text-rag-green" : "text-rag-red")} role="status">
+        <p className={cn("border-t px-4 py-2 text-xs", msg.ok ? "text-rag-green" : "text-rag-red")} role="status">
           {msg.text}
         </p>
       )}
+
+      {editable && (
+        <footer className="flex items-center gap-2 border-t px-3 py-2">
+          {stage === "in_production" && props.brief && (
+            <span className="pl-1">
+              <NotionLink href={props.brief.url} />
+            </span>
+          )}
+          <div className="ml-auto flex items-center gap-1">
+            {primary}
+            {stage !== "done" && panel !== "carry" && (
+              <Button size="icon-sm" variant="ghost" onClick={() => setPanel("carry")} title="Carry over to next sprint" aria-label="Carry over to next sprint" className="text-muted-foreground">
+                <ArrowRightLeft className="size-3.5" aria-hidden />
+              </Button>
+            )}
+            {stage === "done" && (
+              <button type="button" className="text-xs text-muted-foreground hover:text-foreground hover:underline" disabled={pending} onClick={() => run(() => clearOutcome(t.id))}>
+                Undo outcome
+              </button>
+            )}
+          </div>
+        </footer>
+      )}
     </article>
+  )
+}
+
+function Panel({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("space-y-2 border-t bg-elevated/40 px-4 py-3", className)}>{children}</div>
+}
+
+/** The success goal: the measurable target as a chip, the words under it. */
+function Goal({ test: t, fmt }: { test: SprintTest; fmt: Fmt }) {
+  const def = t.success_metric ? METRICS[t.success_metric] : undefined
+  const hasTarget = Boolean(def) && t.success_target !== null
+  if (!hasTarget && !t.success_text) return <p className="text-xs text-muted-foreground italic">No success measure set</p>
+  return (
+    <div className="space-y-1.5">
+      {def && hasTarget && (
+        <p className="inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-1 text-xs">
+          <Target className="size-3.5 text-muted-foreground" aria-hidden />
+          <span className="text-muted-foreground">{def.label}</span>
+          <strong className="font-semibold">
+            {def.lowerIsBetter ? "≤" : "≥"} {fmt(t.success_target)}
+          </strong>
+        </p>
+      )}
+      {t.success_text && (
+        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground" title={t.success_text}>
+          {!hasTarget && <Target className="mr-1 inline size-3.5 align-[-2px]" aria-hidden />}
+          {t.success_text}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function NotionPill({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-lavender/10 px-2 py-0.5 text-[11px] ring-1 ring-lavender/25">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-lavender">{value}</span>
+    </span>
+  )
+}
+
+function NotionLink({ href }: { href: string }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" title="Open the brief in Notion" className="inline-flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground hover:text-foreground hover:underline">
+      Notion brief <ExternalLink className="size-3" aria-hidden />
+    </a>
+  )
+}
+
+function CarriedTag() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-rag-amber/35 bg-rag-amber-bg px-2 py-0.5 text-[11px] font-medium text-rag-amber" title="Carried over from the last sprint">
+      <ArrowRightLeft className="size-3" aria-hidden />
+      Carried over
+    </span>
   )
 }
 
@@ -295,34 +389,46 @@ function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns
   )
 }
 
-function Results({ test: t, results, money }: { test: SprintTest; results?: TestTotals; money: (v: number) => string }) {
+/** Live results: the success metric big and coloured against its target, then spend, results and clicks. */
+function Results({ test: t, results, money, fmt, label }: { test: SprintTest; results?: TestTotals; money: (v: number) => string; fmt: Fmt; label?: string }) {
   const ev = results ? evaluate(t.success_metric, t.success_target, results) : null
   const def = t.success_metric ? METRICS[t.success_metric] : undefined
-  const fmt = (v: number | null) => (v === null ? "–" : def?.unit === "money" ? money(v) : def?.unit === "percent" ? `${v.toFixed(2)}%` : oneDp(v))
+  if (!results || results.days === 0) return <p className="text-xs text-muted-foreground">No data yet. Windsor syncs daily.</p>
+  const gap = ev?.value != null && t.success_target ? Math.round(((ev.value - t.success_target) / t.success_target) * 100) : null
+  const tone = ev?.meets === true ? "text-rag-green" : ev?.meets === false ? "text-rag-red" : "text-foreground"
   return (
-    <div className="space-y-1 rounded-md bg-secondary/60 p-2 text-xs">
-      <p>
-        Live since {longDate(t.live_on!)}
-        {results?.days ? ` · ${results.days} day${results.days === 1 ? "" : "s"} of data${results.data_through ? ` (through ${longDate(results.data_through)})` : ""}` : ""}
-      </p>
-      {t.campaign_ids.length === 0 ? (
-        <p className="text-muted-foreground">No campaigns linked, so results can&apos;t be measured automatically.</p>
-      ) : !results || results.days === 0 ? (
-        <p className="text-muted-foreground">No data yet. Windsor syncs daily.</p>
-      ) : (
-        <>
-          <p>
-            {money(results.spend)} spend · {oneDp(ev?.results ?? 0)} results · {results.clicks} clicks
-          </p>
-          {def && (
-            <p className="flex items-center gap-2">
-              {def.label}: <strong>{fmt(ev?.value ?? null)}</strong> vs target {fmt(t.success_target)}
-              {ev?.meets !== null && ev?.meets !== undefined && <StatusBadge status={ev.meets ? "green" : "red"} label={ev.meets ? "On target" : "Not yet"} />}
-            </p>
-          )}
-        </>
+    <div className="space-y-3">
+      {def && (
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <p className="text-[11px] text-muted-foreground">{label}</p>
+            <p className={cn("text-2xl leading-tight font-semibold tabular-nums", tone)}>{fmt(ev?.value ?? null)}</p>
+          </div>
+          <div className="text-right text-[11px] text-muted-foreground">
+            <p>target {fmt(t.success_target)}</p>
+            {gap !== null && gap !== 0 && (
+              <p className={tone}>
+                {Math.abs(gap)}% {gap > 0 ? "above" : "below"}
+              </p>
+            )}
+          </div>
+        </div>
       )}
-      {t.campaign_names.length > 0 && <p className="line-clamp-2 text-muted-foreground">Campaigns: {t.campaign_names.join("; ")}</p>}
+      <dl className="grid grid-cols-3 gap-2 text-xs">
+        {[
+          ["Spend", money(results.spend)],
+          ["Results", oneDp(ev?.results ?? 0)],
+          ["Clicks", String(results.clicks)],
+        ].map(([k, v]) => (
+          <div key={k} className="rounded-md bg-secondary px-2 py-1.5">
+            <dt className="text-[10px] text-muted-foreground">{k}</dt>
+            <dd className="font-medium tabular-nums">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-[11px] text-muted-foreground" title={t.campaign_names.join("\n")}>
+        {results.days} day{results.days === 1 ? "" : "s"} of data{results.data_through ? ` to ${longDate(results.data_through)}` : ""} · {t.campaign_names.length} campaign{t.campaign_names.length === 1 ? "" : "s"}
+      </p>
     </div>
   )
 }

@@ -11,6 +11,11 @@ import { CheckDeck } from "../(app)/clients/[slug]/checks/check-deck"
 import { FatiguePanel } from "../(app)/clients/[slug]/fatigue-panel"
 import { PacingPanel } from "../(app)/clients/[slug]/pacing-panel"
 import { AiPanel } from "../(app)/clients/[slug]/sprint/ai-panel"
+import { TestBoard } from "../(app)/clients/[slug]/sprint/test-board"
+import { TestCard } from "../(app)/clients/[slug]/sprint/test-card"
+import type { BriefInfo } from "@/lib/sprints/board"
+import type { SprintTest } from "@/lib/sprints/data"
+import type { Stage } from "@/lib/sprints/tests"
 import { WinePour } from "@/components/fx/wine-pour"
 import { CampaignTable, Investigator, PlatformSplit, TrendPanel } from "../(app)/clients/[slug]/reporting/charts"
 import { derive } from "@/lib/metrics/performance"
@@ -22,6 +27,23 @@ import { InsightFeed } from "../(app)/clients/[slug]/insights/feed"
 import { Controls } from "../(app)/clients/[slug]/reporting/controls"
 import { ClientTabs } from "../(app)/clients/[slug]/client-tabs"
 import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
+
+const blankTest: SprintTest = { id: "", recommendation_id: null, insight_key: null, content_idea_id: null, platform: null, title: "", hypothesis: null, assets: [], brief_notes: null, success_metric: null, success_target: null, success_text: null, owner_notion_user_id: null, owner_name: null, deadline: null, status: "planned", notion_page_id: null, live_on: null, campaign_ids: [], campaign_names: [], findings_worked: null, findings_blockers: null, findings_notes: null, outcome: null, carry_reason: null, carry_note: null, carried_from_test_id: null, created_at: "2026-09-28T09:00:00Z" }
+const sampleTests: { t: SprintTest; stage: Stage }[] = [
+  { stage: "planned", t: { ...blankTest, id: "p1", platform: "linkedin", title: "Thought Leader Ads from the CTO vs brand posts", assets: ["ad_copy", "ad_creative"], success_metric: "ctr", success_target: 0.8, owner_name: "Andrea Restrepo", deadline: "2026-10-02", recommendation_id: "r" } },
+  { stage: "in_production", t: { ...blankTest, id: "i1", status: "briefed", notion_page_id: "n1", title: 'CTA on creatives: "Free Trial" vs "Book a demo" and "Contact us"', success_metric: "cost_per_result", success_target: 300, success_text: "Lead quality at least as good as competitive takeout", owner_name: "Andrea Restrepo", deadline: "2026-09-29" } },
+  { stage: "in_production", t: { ...blankTest, id: "i2", status: "briefed", notion_page_id: "n2", platform: "google_ads", title: "Updating Creatives for DG | Display | Free Trial Vertical to include more of the ads that are currently working.", success_metric: "cost_per_result", success_target: 100, success_text: "$110 is the current cost per result for our top performing ad. We want to improve that with the new creatives", owner_name: "Dean Steinhobel", deadline: "2026-10-16" } },
+  { stage: "ready", t: { ...blankTest, id: "r1", status: "ready", notion_page_id: "n3", platform: "linkedin", title: "LinkedIn conversation ads with the AI Security report and Book a demo / Free Trial CTAs", success_metric: "cost_per_result", success_target: 300, success_text: "Report engagers booking demos or starting trials", owner_name: "Dean Steinhobel", deadline: "2026-10-16" } },
+  { stage: "live", t: { ...blankTest, id: "l1", status: "live", title: "Bing Performance Max, with a landing page that only accepts business emails", success_text: "Business-email leads at or below $300 each", owner_name: "Andrea Restrepo", live_on: "2026-09-28", carried_from_test_id: "x" } },
+  { stage: "live", t: { ...blankTest, id: "l2", status: "live", platform: "meta", title: "Scale Meta retargeting into the unused budget, with static image variants", success_metric: "cost_per_result", success_target: 150, success_text: "About $13k spent over the two weeks at or below $150 per result, and at least 80 results that pass a quick CRM quality check", owner_name: "Dean Steinhobel", live_on: "2026-09-29", campaign_ids: ["c1"], campaign_names: ["dnsf_dg_2026-09_paid-social_meta_msp-target-campaign"], recommendation_id: "r" } },
+  { stage: "done", t: { ...blankTest, id: "d1", status: "closed", platform: "google_ads", title: "Exact-match brand terms only on the Brand campaign", success_metric: "cost_per_result", success_target: 80, owner_name: "Andrea Restrepo", outcome: "proven", live_on: "2026-09-14", findings_worked: "Cost per result fell from $96 to $71 with no drop in volume.", insight_key: "k" } },
+]
+const sampleBrief = (id: string): BriefInfo => ({
+  status: id === "r1" ? "Client Approved" : "New",
+  paid: id === "i2" ? "In Build" : null,
+  url: "https://www.notion.so/",
+  links: id === "r1" ? [{ label: "Figma Board", href: "https://www.figma.com/", text: "Conversation ad flow" }, { label: "Campaign Folder", href: "https://drive.google.com/", text: "Drive" }] : [],
+})
 
 const def = (key: string, name: string): CheckDefinition => ({ id: key, key, name, cadence: "weekly", owner_role: "specialist", pre_loaded: null, instructions: "Sample instructions for the design preview.", what_to_record: "What you found", not_applicable_when: null, flag_immediately_when: null, guide: "Green = fine. Amber = watch. Red = act now.", sort_order: 1 })
 const res = (id: string, status: CheckResult["status"]): CheckResult => ({ id, check_definition_id: id, status, findings: status ? "Sample findings" : null, flagged_to_profile_id: null, flagged_at: null, checked_by_profile_id: null, checked_at: status ? "2026-09-28T10:00:00Z" : null, notion_action_page_id: null, auto_data: null })
@@ -304,6 +326,27 @@ export default async function DesignPreview() {
               owners={[{ id: "u1", name: "Andrea Restrepo", onTeam: true }]}
               defaultDeadline="2026-10-02"
               currency="USD"
+            />
+          </section>
+
+          <section className="space-y-4">
+            <SectionHeader title="Sprint board" description="Sample tests at every stage." />
+            <TestBoard
+              items={sampleTests}
+              card={(t, stage) => (
+                <TestCard
+                  key={t.id}
+                  test={t}
+                  stage={stage}
+                  brief={t.notion_page_id ? sampleBrief(t.id) : undefined}
+                  results={t.campaign_ids.length ? { spend: 344, impressions: 21000, clicks: 90, conversions: 1, leads: 1, days: 1, data_through: "2026-09-29" } : undefined}
+                  campaigns={[]}
+                  currency="USD"
+                  readOnly={false}
+                  writesLive
+                  today="2026-09-30"
+                />
+              )}
             />
           </section>
 

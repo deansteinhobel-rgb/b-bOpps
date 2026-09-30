@@ -16,7 +16,7 @@ import { testBoardData } from "@/lib/sprints/board"
 import { cachedSprintNumbers, ensureSprint, loadSprintDetails, type Sprint } from "@/lib/sprints/data"
 import { suggestChanges } from "@/lib/sprints/detect"
 import { sprintByNumber, sprintDay, sprintOf, SPRINT_DAYS } from "@/lib/sprints/periods"
-import { CARRY_REASONS, STAGES, stageOf, type Stage } from "@/lib/sprints/tests"
+import { CARRY_REASONS, stageOf, type Stage } from "@/lib/sprints/tests"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
@@ -25,6 +25,7 @@ import { ChangeLog } from "./change-log"
 import { CloseSprint } from "./close-sprint"
 import { EditableText } from "./editable-text"
 import { PlanTestForm } from "./plan-test-form"
+import { TestBoard } from "./test-board"
 import { TestCard } from "./test-card"
 
 export default async function SprintPage({ params, searchParams }: PageProps<"/clients/[slug]/sprint">) {
@@ -109,7 +110,6 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
   const ownerOptions = owners.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam }))
 
   const staged = tests.map((t) => ({ t, stage: stageOf(t, t.notion_page_id && board.briefs[t.notion_page_id] ? { master: board.briefs[t.notion_page_id].status, paid: board.briefs[t.notion_page_id].paid } : null) }))
-  const inStage = (s: Stage) => staged.filter((x) => x.stage === s)
   const withoutOutcome = tests.filter((t) => !t.outcome).length
 
   const knownKeys = new Set(changes.map((c) => c.detected_key).filter(Boolean))
@@ -230,23 +230,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
         {tests.length === 0 ? (
           <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No tests planned yet. Plan one to get the sprint going.</p>
         ) : (
-          <div className="grid gap-4 overflow-x-auto pb-2 md:grid-cols-3 xl:grid-cols-5">
-            {STAGES.filter((s) => s.key !== "done").map((s) => (
-              <div key={s.key} className="min-w-64 space-y-3">
-                <div className="flex items-baseline justify-between border-b pb-1">
-                  <h3 className="text-sm font-bold">{s.label}</h3>
-                  <span className="text-xs text-muted-foreground">{inStage(s.key).length}</span>
-                </div>
-                {inStage(s.key).map(({ t, stage }) => card(t, stage))}
-              </div>
-            ))}
-          </div>
-        )}
-        {inStage("done").length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold">Done ({inStage("done").length})</h3>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{inStage("done").map(({ t, stage }) => card(t, stage))}</div>
-          </div>
+          <TestBoard items={staged} card={card} />
         )}
       </section>
 
