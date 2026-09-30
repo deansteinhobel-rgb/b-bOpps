@@ -9,7 +9,9 @@ import { longDate, money, percent, shortDate, whole } from "@/lib/format"
 import { AD_OLD_DAYS, rankAds, type RankedAd } from "@/lib/metrics/ads"
 import { cachedOverview, cachedPerformance } from "@/lib/metrics/cached"
 import { fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
+import { resultFieldLines } from "@/lib/metrics/result-fields"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
+import { Hint } from "@/components/hint"
 import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
@@ -62,12 +64,18 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   const { from, to, prevFrom, prevTo } = perf.periods
 
   // Ads over the period: best and worst per platform, and each board's top ads.
-  const [allAds, pages, { data: links }, { data: canShare }] = await Promise.all([
+  const [allAds, pages, { data: links }, { data: canShare }, { data: accounts }] = await Promise.all([
     adsForPeriod(supabase, client.id, from, to),
     client.ga4_property_id ? landingPages(supabase, client.id, from, to) : null,
     supabase.from("report_links").select("id, board, default_days, label, token, created_at, last_viewed_at, created_by_profile_id").eq("client_id", client.id).is("revoked_at", null).order("created_at", { ascending: false }),
     supabase.rpc("can_share_reports", { cid: client.id }),
+    supabase.from("client_platform_accounts").select("platform, conversion_fields, lead_fields").eq("client_id", client.id).eq("active", true),
   ])
+  // What counts as a result, per platform, for the Results and Cost per result tiles (Dean).
+  const resultAccounts = (accounts ?? []).filter((a) => !platform || a.platform === platform).map((a) => ({ platform: a.platform as Platform, conversions: a.conversion_fields ?? [], leads: a.lead_fields ?? [] }))
+  const resultLines = resultFieldLines(resultAccounts)
+  const hasLeads = resultAccounts.some((a) => a.leads.length > 0)
+  const perUnit = (spend: number, n: number) => (n > 0 ? fmt("cpr", spend / n, cur) : "–")
   const ads = allAds.filter((a) => !platform || a.platform === platform)
   const rankings = rankAds(ads)
 
@@ -119,8 +127,25 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-4 xl:grid-cols-7">
           {CARDS.map((k) => (
             <div key={k} className="bg-card px-4 py-3.5">
-              <dt className="text-xs text-muted-foreground">{METRIC[k].label}</dt>
+              <dt className="flex items-center gap-1 text-xs text-muted-foreground">
+                {METRIC[k].label}
+                {(k === "results" || k === "cpr") && resultLines.length > 0 && (
+                  <Hint label="What counts as a result?">
+                    A result is a conversion or a lead. {resultLines.join(". ")}.
+                  </Hint>
+                )}
+              </dt>
               <dd className={cn("mt-1 font-heading text-2xl leading-none tabular-nums", k === "cpr" && target && perf.now.cpr !== null && (perf.now.cpr <= target ? "text-rag-green" : perf.now.cpr <= target * 1.2 ? "text-rag-amber" : "text-rag-red"))}>{fmt(k, perf.now[k], cur)}</dd>
+              {k === "results" && (
+                <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
+                  {whole(perf.now.conversions)} conv.{hasLeads && ` · ${whole(perf.now.leads)} leads`}
+                </p>
+              )}
+              {k === "cpr" && (
+                <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
+                  {perUnit(perf.now.spend, perf.now.conversions)} / conv.{hasLeads && ` · ${perUnit(perf.now.spend, perf.now.leads)} / lead`}
+                </p>
+              )}
               <div className="mt-2 flex items-end justify-between gap-2">
                 <Delta k={k} now={perf.now[k]} before={perf.prev[k]} />
                 <Sparkline values={perf.daily.map((d) => d[k])} className="h-6 w-20" />
@@ -151,6 +176,11 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
                       <td key={k} className="px-4 py-3 text-right">
                         <span className={cn(k === "cpr" && target && p.now.cpr !== null && (p.now.cpr <= target ? "text-rag-green" : p.now.cpr <= target * 1.2 ? "text-rag-amber" : "text-rag-red"))}>{fmt(k, p.now[k], cur)}</span>
                         <Delta k={k} now={p.now[k]} before={p.prev[k]} className="ml-2" />
+                        {k === "results" && p.platform !== "google_ads" && (
+                          <span className="block text-xs text-muted-foreground">
+                            {whole(p.now.conversions)} conv. · {whole(p.now.leads)} leads
+                          </span>
+                        )}
                       </td>
                     ))}
                   </tr>
