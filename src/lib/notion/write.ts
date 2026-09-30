@@ -12,7 +12,7 @@
  * for those clients), 3) updates the log with the result, 4) upserts the mirror so the UI shows the
  * new action straight away. If the log can't be written, Notion is never called.
  */
-import { ACTION_DEFAULTS, APP_CREATED_PREFIX, briefTitle, PROP, TEST_BRIEF_STATUS_CONTENT, TEST_TITLE_PREFIX, type Priority } from "./config"
+import { ACTION_DEFAULTS, APP_CREATED_PREFIX, briefTitle, PROP, TEST_BRIEF_STATUS_CONTENT, type Priority } from "./config"
 import { toMirrorRow, type NotionPage } from "./map"
 
 export type ActionInput = {
@@ -139,11 +139,7 @@ export function validateActionInput(input: ActionInput): string | null {
 export function buildActionPayload(input: ActionInput, env: Pick<WriteDeps["env"], "dataSourceId" | "appUrl">): ActionPayload {
   const createdByName = input.createdBy.full_name ?? input.createdBy.email
   const leads = [...new Set([input.owner.notion_user_id, ...(input.coLeadIds ?? [])].filter((id): id is string => Boolean(id)))]
-  const title = input.sprintTestId
-    ? briefTitle(input.title)
-    : input.title.trim().startsWith(TEST_TITLE_PREFIX.trim())
-      ? input.title.trim()
-      : `${TEST_TITLE_PREFIX}${input.title.trim()}`.trim()
+  const title = input.sprintTestId ? briefTitle(input.title) : input.title.trim()
   const properties: Record<string, unknown> = {
     [PROP.title]: { title: richText(title) },
     [PROP.client]: { select: { name: input.client.notion_client_option } },

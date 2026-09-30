@@ -39,13 +39,7 @@ export type Priority = (typeof PRIORITIES)[number]
 /** A sprint test brief goes straight to the copywriter (Dean, 2026-09-30). An existing option. */
 export const TEST_BRIEF_STATUS_CONTENT = "Ready for Copy"
 
-/**
- * Every page the app creates starts with this while we test live writes (Dean, 2026-09-30), so
- * the team can tell test rows apart. Set to "" when the app goes properly live.
- */
-export const TEST_TITLE_PREFIX = "[TEST Lumaux] "
-
-/** Sprint test briefs are named "Lumaux | Paid Media | {test name}" (Dean, 2026-09-30), with no test prefix. */
+/** Sprint test briefs are named "Lumaux | Paid Media | {test name}" (Dean, 2026-09-30). */
 export const BRIEF_TITLE_PREFIX = "Lumaux | Paid Media | "
 export const briefTitle = (testTitle: string) => `${BRIEF_TITLE_PREFIX}${testTitle.trim()}`.slice(0, 200)
 
