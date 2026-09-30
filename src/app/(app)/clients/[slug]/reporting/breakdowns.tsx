@@ -213,6 +213,7 @@ export function CampaignDetailData({ data, currency, target, negatives = null }:
 }
 
 const termKey = (t: Pick<Term, "groupId" | "dim1">) => `${t.groupId}|${t.dim1}`
+const MIN_TERM_SPEND = 5
 const isNegativeCandidate = (t: Term, target: number | null) => target !== null && t.m.results === 0 && t.m.spend >= 2 * target
 
 function GoogleDetail({ data, currency, target, negatives }: { data: Extract<CampaignBreakdowns, { kind: "google" }>; currency: string; target: number | null; negatives: NegativesState | null }) {
@@ -247,9 +248,16 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
       return n
     })
   const keysOf = (rows: Term[]) => [...new Set(rows.filter((t) => !pushedFor(t)).map(termKey))]
-  const candidates = keysOf(data.terms.filter((t) => isNegativeCandidate(t, target)))
-  const offIcp = keysOf(data.terms.filter((t) => icpFor(t)?.verdict === "exclude"))
-  const pickedTerms = [...new Map(data.terms.filter((t) => picked.has(termKey(t))).map((t) => [termKey(t), t])).values()]
+  // Only search terms with more than 5 (the client's currency) behind them in the period, per ad group (Dean, 2026-09-30).
+  const visible = useMemo(() => {
+    const spendBy = new Map<string, number>()
+    for (const t of data.terms) spendBy.set(termKey(t), (spendBy.get(termKey(t)) ?? 0) + t.m.spend)
+    return data.terms.filter((t) => (spendBy.get(termKey(t)) ?? 0) > MIN_TERM_SPEND)
+  }, [data.terms])
+  const hidden = new Set(data.terms.map(termKey)).size - new Set(visible.map(termKey)).size
+  const candidates = keysOf(visible.filter((t) => isNegativeCandidate(t, target)))
+  const offIcp = keysOf(visible.filter((t) => icpFor(t)?.verdict === "exclude"))
+  const pickedTerms = [...new Map(visible.filter((t) => picked.has(termKey(t))).map((t) => [termKey(t), t])).values()]
   const flag = (t: Term) => {
     const done = pushedFor(t)
     if (done) return <span className="rounded-full border border-rag-green/40 px-1.5 py-px text-[10px] text-rag-green" title={`${done.matchType.toLowerCase()} match, ${done.adGroupId ? "this ad group" : "whole campaign"}, ${new Date(done.at).toLocaleDateString("en-GB")}`}>Negative added</span>
@@ -314,7 +322,7 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
           value={tab}
           onChange={setTab}
           tabs={[
-            { key: "terms", label: data.termsTotal > data.terms.length ? "Search terms (top 1,000 by spend)" : "Search terms", count: data.termsTotal },
+            { key: "terms", label: `Search terms over ${fmt("spend", MIN_TERM_SPEND, currency)}`, count: new Set(visible.map(termKey)).size },
             { key: "keywords", label: "Keywords", count: data.keywords.length },
             { key: "share", label: "Impression share" },
           ]}
@@ -382,7 +390,13 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
           <NegativePush slug={negatives.slug} campaignId={negatives.campaignId} terms={pickedTerms.map((t) => ({ text: t.dim1, adGroupId: t.groupId, groupName: t.groupName }))} live={negatives.live} open={pushOpen} onOpenChange={setPushOpen} onDone={() => setPicked(new Set())} />
         </div>
       )}
-      {tab === "terms" && <DataTable rows={data.terms} cols={termCols} search={(r) => r.dim1} empty="No search terms in this period." initial="spend" rowKey={(r) => `${r.groupId}|${r.dim1}|${r.dim2}`} />}
+      {tab === "terms" && <DataTable rows={visible} cols={termCols} search={(r) => r.dim1} empty={`No search terms over ${fmt("spend", MIN_TERM_SPEND, currency)} in this period.`} initial="spend" rowKey={(r) => `${r.groupId}|${r.dim1}|${r.dim2}`} />}
+      {tab === "terms" && (hidden > 0 || data.termsTotal > data.terms.length) && (
+        <p className="border-t px-4 py-2 text-[11px] text-muted-foreground">
+          {hidden > 0 && `${hidden.toLocaleString("en-GB")} search terms with ${fmt("spend", MIN_TERM_SPEND, currency)} or less are hidden.`}
+          {data.termsTotal > data.terms.length && ` Only the top 1,000 by spend are loaded.`}
+        </p>
+      )}
       {tab === "keywords" && <DataTable rows={data.keywords} cols={kwCols} search={(r) => r.dim1} empty="No keywords in this period." initial="spend" rowKey={(r) => `${r.groupId}|${r.dim1}|${r.dim2}`} />}
       {tab === "share" && <ImpressionShare days={data.share} />}
     </div>
