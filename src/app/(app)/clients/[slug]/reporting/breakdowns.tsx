@@ -4,6 +4,9 @@ import { useMemo, useState } from "react"
 import { fmt, type Derived } from "@/lib/metrics/performance"
 import type { BreakdownRow, CampaignBreakdowns, ImpressionShareDay, LandingPage, LinkedInKind } from "@/lib/metrics/breakdowns"
 import { cn } from "@/lib/utils"
+import { cleanTerm } from "@/lib/windsor/negatives"
+import { Button } from "@/components/ui/button"
+import { NegativePush } from "./negative-push"
 
 /** Impression share parts (validated for the dark surface; always labelled in the legend and tooltip). */
 const IS_COLOR = { won: "#4f8fcf", rank: "#c7802f", budget: "#9a6fd0" }
@@ -169,22 +172,61 @@ function ImpressionShare({ days }: { days: ImpressionShareDay[] }) {
 
 type Term = BreakdownRow & { isKeyword: boolean }
 
-export function CampaignDetailData({ data, currency, target }: { data: CampaignBreakdowns; currency: string; target: number | null }) {
-  if (data.kind === "google") return <GoogleDetail data={data} currency={currency} target={target} />
+/** A negative keyword already sent to Google Ads (live pushes only). adGroupId null = the whole campaign. */
+export type PushedNegative = { text: string; matchType: string; adGroupId: string | null; at: string }
+export type NegativesState = { slug: string; campaignId: string; canPush: boolean; live: boolean; pushed: PushedNegative[] }
+
+export function CampaignDetailData({ data, currency, target, negatives = null }: { data: CampaignBreakdowns; currency: string; target: number | null; negatives?: NegativesState | null }) {
+  if (data.kind === "google") return <GoogleDetail data={data} currency={currency} target={target} negatives={negatives} />
   if (data.kind === "linkedin") return <LinkedInDetail data={data} currency={currency} />
   return <MetaDetail data={data} currency={currency} />
 }
 
-function GoogleDetail({ data, currency, target }: { data: Extract<CampaignBreakdowns, { kind: "google" }>; currency: string; target: number | null }) {
+const termKey = (t: Pick<Term, "groupId" | "dim1">) => `${t.groupId}|${t.dim1}`
+const isNegativeCandidate = (t: Term, target: number | null) => target !== null && t.m.results === 0 && t.m.spend >= 2 * target
+
+function GoogleDetail({ data, currency, target, negatives }: { data: Extract<CampaignBreakdowns, { kind: "google" }>; currency: string; target: number | null; negatives: NegativesState | null }) {
   const [tab, setTab] = useState<"terms" | "keywords" | "share">("terms")
+  const [picked, setPicked] = useState<Set<string>>(() => new Set())
+  const [pushOpen, setPushOpen] = useState(false)
+  const canPush = Boolean(negatives?.canPush)
+  const pushedFor = useMemo(() => {
+    const m = new Map<string, PushedNegative>()
+    for (const p of negatives?.pushed ?? []) m.set(`${p.adGroupId ?? "*"}|${p.text}`, p)
+    return (t: Term) => m.get(`${t.groupId}|${cleanTerm(t.dim1)}`) ?? m.get(`*|${cleanTerm(t.dim1)}`) ?? null
+  }, [negatives])
+  const toggle = (t: Term) =>
+    setPicked((s) => {
+      const n = new Set(s)
+      const k = termKey(t)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
+  const candidates = data.terms.filter((t) => isNegativeCandidate(t, target) && !pushedFor(t))
+  const pickedTerms = [...new Map(data.terms.filter((t) => picked.has(termKey(t))).map((t) => [termKey(t), t])).values()]
   const flag = (t: Term) => {
-    if (target !== null && t.m.results === 0 && t.m.spend >= 2 * target) return <span className="rounded-full border border-rag-red/40 px-1.5 py-px text-[10px] text-rag-red">Negative?</span>
+    const done = pushedFor(t)
+    if (done) return <span className="rounded-full border border-rag-green/40 px-1.5 py-px text-[10px] text-rag-green" title={`${done.matchType.toLowerCase()} match, ${done.adGroupId ? "this ad group" : "whole campaign"}, ${new Date(done.at).toLocaleDateString("en-GB")}`}>Negative added</span>
+    if (isNegativeCandidate(t, target)) return <span className="rounded-full border border-rag-red/40 px-1.5 py-px text-[10px] text-rag-red">Negative?</span>
     if (!t.isKeyword && t.m.results >= 2) return <span className="rounded-full border border-lime/40 px-1.5 py-px text-[10px] text-lime">Add as keyword?</span>
     if (t.isKeyword) return <span className="text-[10px] text-subtle-foreground">keyword</span>
     return null
   }
   const termCols: Col<Term>[] = [
+    ...(canPush
+      ? ([
+          {
+            key: "pick",
+            label: "",
+            value: (r) => (picked.has(termKey(r)) ? 1 : 0),
+            render: (r) => <input type="checkbox" checked={picked.has(termKey(r))} onChange={() => toggle(r)} disabled={Boolean(pushedFor(r))} aria-label={`Pick "${r.dim1}"`} className="size-3.5 accent-lime" />,
+            className: "w-8",
+          },
+        ] as Col<Term>[])
+      : []),
     { key: "term", label: "Search term", value: (r) => r.dim1, render: (r) => <span className="flex items-center gap-2"><span className="max-w-72 truncate" title={r.dim1}>{r.dim1}</span>{flag(r)}</span> },
+    { key: "group", label: "Ad group", value: (r) => r.groupName ?? r.groupId, render: (r) => <span className="block max-w-40 truncate text-xs text-muted-foreground" title={r.groupName ?? r.groupId}>{r.groupName ?? r.groupId}</span> },
     { key: "match", label: "Match", value: (r) => r.dim2, render: (r) => <span className="text-xs text-muted-foreground">{r.dim2.toLowerCase().replace(/_/g, " ")}</span> },
     ...(metricCols(currency) as Col<Term>[]),
   ]
@@ -207,6 +249,36 @@ function GoogleDetail({ data, currency, target }: { data: Extract<CampaignBreakd
           ]}
         />
       </div>
+      {tab === "terms" && canPush && negatives && (
+        <div className="flex flex-wrap items-center gap-2 border-b bg-background/40 px-4 py-2 text-xs text-muted-foreground">
+          {picked.size === 0 ? (
+            <>
+              <span>Tick search terms to add them as negative keywords in Google Ads.</span>
+              {candidates.length > 0 && (
+                <button type="button" onClick={() => setPicked(new Set(candidates.map(termKey)))} className="rounded-full border border-rag-red/40 px-2 py-0.5 text-rag-red hover:bg-rag-red/10">
+                  Tick the {candidates.length} marked Negative?
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="text-foreground">{pickedTerms.length} ticked</span>
+              <button type="button" onClick={() => setPicked(new Set())} className="hover:text-foreground">
+                Clear
+              </button>
+            </>
+          )}
+          <span className="ml-auto flex items-center gap-2">
+            {!negatives.live && <span className="rounded-full border border-rag-amber/30 px-2 py-0.5 text-rag-amber">Test mode</span>}
+            {picked.size > 0 && (
+              <Button size="sm" onClick={() => setPushOpen(true)}>
+                Add as negatives
+              </Button>
+            )}
+          </span>
+          <NegativePush slug={negatives.slug} campaignId={negatives.campaignId} terms={pickedTerms.map((t) => ({ text: t.dim1, adGroupId: t.groupId, groupName: t.groupName }))} live={negatives.live} open={pushOpen} onOpenChange={setPushOpen} onDone={() => setPicked(new Set())} />
+        </div>
+      )}
       {tab === "terms" && <DataTable rows={data.terms} cols={termCols} search={(r) => r.dim1} empty="No search terms in this period." initial="spend" rowKey={(r) => `${r.groupId}|${r.dim1}|${r.dim2}`} />}
       {tab === "keywords" && <DataTable rows={data.keywords} cols={kwCols} search={(r) => r.dim1} empty="No keywords in this period." initial="spend" rowKey={(r) => `${r.groupId}|${r.dim1}|${r.dim2}`} />}
       {tab === "share" && <ImpressionShare days={data.share} />}
