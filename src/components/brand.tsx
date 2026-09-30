@@ -64,12 +64,25 @@ export function ClientLogo({ name, logoUrl, size = "sm", className }: { name: st
   return <span className={cn(tile, "bg-elevated font-bold text-foreground")}>{initials}</span>
 }
 
+/** The mark: an L (like a chart's axes) with a rising line graph through it. The graph's lime halo
+ *  keeps it readable where it crosses the L. Same drawing as src/app/icon.svg. */
+function LumauxGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 3.5V19.5H20.5" stroke="currentColor" strokeWidth="3.2" />
+      <path d="M2.5 16.5L8 11.5L12 14L20.5 5" stroke="var(--color-lime, #e4ff1a)" strokeWidth="4.6" />
+      <path d="M2.5 16.5L8 11.5L12 14L20.5 5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="20.5" cy="5" r="1.9" fill="currentColor" />
+    </svg>
+  )
+}
+
 /** "Lumaux" wordmark with the B&B endorsement. */
 export function AppMark({ compact }: { compact?: boolean }) {
   return (
     <span className="flex items-center gap-2.5">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-lime font-heading text-lg leading-none text-ink" aria-hidden>
-        S
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-lime text-ink" aria-hidden>
+        <LumauxGlyph className="size-6" />
       </span>
       {!compact && (
         <span className="leading-tight">
