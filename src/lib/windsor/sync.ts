@@ -1,6 +1,6 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { fetchAccountMetrics, type WindsorAccount } from "./client"
+import { fetchAccountMetrics, reconcileAccount, type WindsorAccount } from "./client"
 
 const CHUNK = 500
 
@@ -43,6 +43,9 @@ export async function syncWindsor(opts: { clientId?: string; accountId?: string;
           )
         if (upErr) throw new Error(`Saving rows: ${upErr.message}`)
       }
+      // Rows are saved either way (they're still Windsor's best answer), but a gap fails the run.
+      const gap = await reconcileAccount(account, opts.dateFrom, opts.dateTo, rows)
+      if (gap) throw new Error(gap)
       results.push({ client_id: account.client_id, account: `${account.platform} ${account.external_account_id}`, rows: rows.length })
       if (run) await db.from("windsor_sync_runs").update({ rows_upserted: rows.length, success: true, finished_at: new Date().toISOString() }).eq("id", run.id)
     } catch (e) {
