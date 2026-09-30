@@ -1,3 +1,4 @@
+import { Download } from "lucide-react"
 import { notFound } from "next/navigation"
 import { AdThumb, ViewAdLink } from "@/components/ad-thumb"
 import { PlatformIcon, PlatformLabel } from "@/components/brand"
@@ -8,6 +9,7 @@ import { landingPages } from "@/lib/metrics/breakdowns"
 import { longDate, money, percent, shortDate, whole } from "@/lib/format"
 import { AD_OLD_DAYS, rankAds, type RankedAd } from "@/lib/metrics/ads"
 import { cachedOverview, cachedPerformance } from "@/lib/metrics/cached"
+import { isAbx } from "@/lib/metrics/live-ads-export"
 import { fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import { decodeRange, encodeRange, rangeLabel, rangeParams, rangeText } from "@/lib/metrics/range"
 import { resultFieldLines } from "@/lib/metrics/result-fields"
@@ -232,6 +234,20 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
         <SectionHeader
           title="Ad fatigue"
           description={`Every live ad: its first 14 days against its last 14 days. First seen is red when it's over ${AD_OLD_DAYS} days ago; the last 14 days are red when worse. Age counts from the first day with impressions in our data (from ${longDate(o.dataFrom)}), because Windsor can't see creative edits.`}
+          actions={
+            o.liveAds.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {o.liveAds.some((a) => isAbx(a.campaign_name)) && (
+                  <a href={`${base}/live-ads?abx=1`} download className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground">
+                    <Download className="size-3.5" aria-hidden /> Export live ABX ads
+                  </a>
+                )}
+                <a href={`${base}/live-ads`} download className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground">
+                  <Download className="size-3.5" aria-hidden /> Export all live ads
+                </a>
+              </div>
+            )
+          }
         />
         <FatiguePanel ads={liveAds} previews={previews} currency={cur} />
         <div className="space-y-3">
