@@ -101,7 +101,8 @@ export async function loadHistory(opts: { clientId?: string; from: string; to: s
     metaStart.setUTCMonth(metaStart.getUTCMonth() - META_MONTHS, 1)
     const start = account.windsor_connector === "facebook" && isoDate(metaStart) > opts.from ? isoDate(metaStart) : opts.from
     let empty = 0
-    // Newest month first, so we can stop after a year with no data (the account didn't exist yet).
+    // Newest month first, so we can stop after two years with no data (the account didn't exist yet;
+    // a shorter stop missed DNSFilter Meta, paused from Oct 2024 to Oct 2025).
     const months: string[] = []
     for (let m = `${opts.to.slice(0, 7)}-01`; m >= `${start.slice(0, 7)}-01`; ) {
       months.push(m)
@@ -135,7 +136,7 @@ export async function loadHistory(opts: { clientId?: string; from: string; to: s
       const spend = rows.reduce((s, r) => s + r.spend, 0)
       if (!rows.length || spend === 0) {
         opts.onMonth?.(`${name} ${from.slice(0, 7)} no data`)
-        if (++empty >= 12) break
+        if (++empty >= 24) break
         continue
       }
       empty = 0
