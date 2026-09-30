@@ -1,8 +1,10 @@
 import { AppSidebar } from "@/components/app-sidebar"
+import { CallReminders } from "@/components/call-followups"
 import { Starfield } from "@/components/fx/starfield"
 import { NewsChat } from "@/components/news-chat"
 import { aiConfigured } from "@/lib/ai/claude"
-import { getProfile, isAdmin, ROLE_LABEL } from "@/lib/auth"
+import { canEdit, getProfile, isAdmin, ROLE_LABEL } from "@/lib/auth"
+import { remindersFor } from "@/lib/calls/load"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 
@@ -14,6 +16,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const animations = profile.preferences?.animations !== false
   // Sidebar clients: the ones this person can see (RLS), with their logos.
   const { data: clients } = profile.role ? await supabase.from("clients").select("slug, name, logo_url").eq("active", true).order("name") : { data: [] }
+  // Things said on client calls a week ago with no sign of them since, for the clients you work on.
+  const reminders = canEdit(profile) ? await remindersFor(supabase, profile.id).catch(() => []) : []
 
   return (
     <div className={cn("flex min-h-dvh flex-col lg:flex-row", !animations && "reduce-fx")}>
@@ -43,6 +47,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         </div>
       </main>
       {profile.role && aiConfigured() && <NewsChat />}
+      {reminders.length > 0 && <CallReminders reminders={reminders} canEdit />}
     </div>
   )
 }

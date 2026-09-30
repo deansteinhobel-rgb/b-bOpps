@@ -93,6 +93,7 @@ export function TestCard(props: {
     t.recommendation_id && <PourTag key="p" />,
     t.insight_key && <OptimiseTag key="o" />,
     t.content_idea_id && <ContentIdeaTag key="i" />,
+    t.call_commitment_id && <CallTag key="c" />,
   ].filter(Boolean)
 
   // The one next step for this stage, shown in the footer.
@@ -697,6 +698,17 @@ export function OptimiseTag({ className }: { className?: string }) {
         <path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8l1-5.5Z" />
       </svg>
       Optimise now
+    </span>
+  )
+}
+
+export function CallTag({ className }: { className?: string }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full border border-[#f0a6ca]/40 bg-[#f0a6ca]/10 px-2 py-0.5 text-[11px] font-medium text-[#f0a6ca]", className)} title="Planned from something said on a client call">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden>
+        <path d="M3 2.5h2.5l1 3-1.5 1a7 7 0 0 0 4.5 4.5l1-1.5 3 1V13a1 1 0 0 1-1 1A11 11 0 0 1 2 3.5a1 1 0 0 1 1-1Z" />
+      </svg>
+      From a call
     </span>
   )
 }

@@ -239,3 +239,21 @@ const andreaArchived = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(
 const deanArchived = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`select id from public.sprint_tests where id = '${t1[0].id}'`))
 const archivedRow = await q(`select id from public.sprint_tests where id = '${t1[0].id}'`)
 console.log(andreaArchived.length === 0 && deanArchived.length === 0 && archivedRow.length === 1 ? "archived tests are hidden, not deleted: OK" : "FAIL: archived test visibility")
+
+// Client calls (call notes read from Notion) and what was said on them: the server writes calls and
+// commitments; the client's team (not viewers, not other clients' teams) logs what they did about one.
+const call = await q(`insert into public.client_calls (client_id, source, title, call_date) values ('11111111-1111-1111-1111-111111111111', 'manual', 'Weekly sync', '2026-09-23') returning id`)
+const said = await q(`insert into public.call_commitments (client_id, call_id, kind, title, said_on) values ('11111111-1111-1111-1111-111111111111', '${call[0].id}', 'try', 'Try thought leader ads', '2026-09-23') returning id`)
+const andreaCalls = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select id from public.client_calls"))
+const dannyCalls = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select id from public.call_commitments"))
+console.log(andreaCalls.length === 1 && dannyCalls.length === 0 ? "calls are read by the client's team only: OK" : "FAIL: call visibility")
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.client_calls (client_id, source, title, call_date) values ('11111111-1111-1111-1111-111111111111', 'manual', 'x', '2026-09-23')`)); console.log("FAIL: team member wrote a call directly") } catch { console.log("only the server writes calls: OK") }
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.call_commitments (client_id, call_id, kind, title, said_on) values ('11111111-1111-1111-1111-111111111111', '${call[0].id}', 'idea', 'x', '2026-09-23')`)); console.log("FAIL: team member wrote a commitment directly") } catch { console.log("only the server writes commitments: OK") }
+const done = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.call_commitment_actions (client_id, commitment_id, action, profile_id) values ('11111111-1111-1111-1111-111111111111', '${said[0].id}', 'done', 'aaaaaaaa-0000-0000-0000-000000000002') returning id`))
+console.log(done.length === 1 ? "team member marks a call follow-up done: OK" : "FAIL: couldn't log a follow-up")
+try { await as(vera, () => q(`insert into public.call_commitment_actions (client_id, commitment_id, action, profile_id) values ('11111111-1111-1111-1111-111111111111', '${said[0].id}', 'done', '${vera}')`)); console.log("FAIL: viewer logged a follow-up") } catch { console.log("viewer can't log call follow-ups: OK") }
+try { await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`insert into public.call_commitment_actions (client_id, commitment_id, action, profile_id) values ('11111111-1111-1111-1111-111111111111', '${said[0].id}', 'done', 'aaaaaaaa-0000-0000-0000-000000000003')`)); console.log("FAIL: other client's AM logged a follow-up") } catch { console.log("other clients' team can't log call follow-ups: OK") }
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.call_commitment_actions (client_id, commitment_id, action, profile_id) values ('11111111-1111-1111-1111-111111111111', '${said[0].id}', 'done', 'aaaaaaaa-0000-0000-0000-000000000001')`)); console.log("FAIL: logged a follow-up as someone else") } catch { console.log("follow-ups are logged as yourself: OK") }
+const callDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("with a as (delete from public.call_commitment_actions returning id), b as (delete from public.call_commitments returning id), c as (delete from public.client_calls returning id) select (select count(*) from a) + (select count(*) from b) + (select count(*) from c) as n"))
+const callUpd = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.call_commitments set title = 'x' returning id"))
+console.log(Number(callDel[0].n) === 0 && callUpd.length === 0 ? "calls and follow-ups can't be changed or deleted: OK" : "FAIL: call data changed or deleted")

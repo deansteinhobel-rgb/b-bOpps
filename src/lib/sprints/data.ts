@@ -152,6 +152,7 @@ export async function carryTests(supabase: SupabaseClient, fromSprintId: string,
       recommendation_id: t.recommendation_id, // keeps the "Pour a Sprint" link
       insight_key: t.insight_key, // and the "Optimise now" one
       content_idea_id: t.content_idea_id, // and the content idea
+      call_commitment_id: t.call_commitment_id, // and the client call it came from
       test_kind: t.test_kind,
       test_ad_ids: t.test_ad_ids,
     }))
@@ -170,6 +171,8 @@ export type SprintTest = {
   insight_key: string | null
   /** Set when the test was planned from a content idea (At a glance). */
   content_idea_id: string | null
+  /** Set when the test came from something said on a client call (Brain tab). */
+  call_commitment_id: string | null
   platform: Platform | null
   title: string
   hypothesis: string | null

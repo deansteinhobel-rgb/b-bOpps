@@ -23,7 +23,8 @@
     "sync:breakdowns": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-breakdowns.ts",
     "dev:signin": "tsx --env-file=.env.local scripts/dev-signin.ts",
     "sync:changes": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-changes.ts",
-    "ideas:content": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/content-ideas.ts"
+    "ideas:content": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/content-ideas.ts",
+    "sync:calls": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-calls.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

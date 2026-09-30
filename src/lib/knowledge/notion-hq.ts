@@ -21,16 +21,16 @@ const MAX_PAGE_CHARS = 40_000
 const MAX_DB_ROWS = 150
 
 type Candidate = { id: string; kind: "page" | "database"; title: string; path: string; lastEdited: string | null }
-type Block = { id: string; type: string; has_children: boolean; [k: string]: unknown }
-type RichText = { plain_text: string; href?: string | null }
+export type Block = { id: string; type: string; has_children: boolean; [k: string]: unknown }
+export type RichText = { plain_text: string; href?: string | null }
 
-function notion() {
+export function notion() {
   const token = process.env.NOTION_TOKEN
   if (!token) throw new Error("NOTION_TOKEN is not set")
   return readOnlyNotion(token, NOTION_VERSION)
 }
 
-async function children(n: Client, id: string): Promise<Block[]> {
+export async function children(n: Client, id: string): Promise<Block[]> {
   const out: Block[] = []
   let cursor: string | undefined
   do {
@@ -41,11 +41,11 @@ async function children(n: Client, id: string): Promise<Block[]> {
   return out
 }
 
-const rt = (a: RichText[] | undefined) => (a ?? []).map((x) => (x.href && !x.plain_text.startsWith("http") ? `${x.plain_text} (${x.href})` : x.plain_text)).join("")
+export const rt = (a: RichText[] | undefined) => (a ?? []).map((x) => (x.href && !x.plain_text.startsWith("http") ? `${x.plain_text} (${x.href})` : x.plain_text)).join("")
 // Blocks that can hold sub-pages in an HQ layout. Lists, tables and quotes are skipped during
 // discovery (their text is still read when the page itself is read).
-const CONTAINERS = new Set(["toggle", "column_list", "column", "callout", "heading_1", "heading_2", "heading_3", "synced_block"])
-const titleOf = (b: Block) => String((b[b.type] as { title?: string })?.title ?? "Untitled").trim() || "Untitled"
+export const CONTAINERS = new Set(["toggle", "column_list", "column", "callout", "heading_1", "heading_2", "heading_3", "synced_block"])
+export const titleOf = (b: Block) => String((b[b.type] as { title?: string })?.title ?? "Untitled").trim() || "Untitled"
 
 /**
  * Every page and database under the HQ, through toggles and columns: the HQ's own pages, plus the
@@ -75,7 +75,7 @@ export async function discoverHq(rootId: string): Promise<Candidate[]> {
 }
 
 /** A page as markdown-ish text, including its sub-pages (one level) and inline databases. */
-async function pageText(n: Client, id: string, depth = 0): Promise<string> {
+export async function pageText(n: Client, id: string, depth = 0): Promise<string> {
   const lines: string[] = []
   async function render(blocks: Block[], indent: string) {
     for (const b of blocks) {
@@ -111,8 +111,8 @@ async function pageText(n: Client, id: string, depth = 0): Promise<string> {
   return lines.join("\n").trim().slice(0, MAX_PAGE_CHARS)
 }
 
-type Prop = { type: string; [k: string]: unknown }
-function propText(p: Prop): string {
+export type Prop = { type: string; [k: string]: unknown }
+export function propText(p: Prop): string {
   const v = p[p.type] as unknown
   switch (p.type) {
     case "title": case "rich_text": return rt(v as RichText[])
