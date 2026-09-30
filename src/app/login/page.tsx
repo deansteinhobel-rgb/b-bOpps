@@ -16,8 +16,6 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <main className="relative flex min-h-dvh items-center justify-center gap-16 overflow-hidden px-4">
       <Starfield count={110} />
-      {/* Soft lime glow, echoing the website's hero */}
-      <div aria-hidden className="pointer-events-none absolute -top-40 left-1/2 size-[640px] -translate-x-1/2 rounded-full bg-lime/10 blur-3xl" />
       <div className="relative w-full max-w-sm shrink-0 space-y-8">
         <AppMark />
         <div className="space-y-2">
