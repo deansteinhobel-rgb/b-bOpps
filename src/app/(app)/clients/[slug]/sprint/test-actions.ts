@@ -220,10 +220,14 @@ export async function markReadyManually(testId: string): Promise<TestResult> {
   return { ok: true }
 }
 
-export async function markLive(testId: string, raw: { live_on: string; campaigns: { id: string; name: string }[] }): Promise<TestResult> {
+export async function markLive(testId: string, raw: { live_on: string; campaigns: { id: string; name: string }[]; kind?: "new_campaign" | "change" | null }): Promise<TestResult> {
   if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const parsed = z
-    .object({ live_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the live date."), campaigns: z.array(z.object({ id: z.string().max(100), name: z.string().max(400) })).max(30) })
+    .object({
+      live_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick the live date."),
+      campaigns: z.array(z.object({ id: z.string().max(100), name: z.string().max(400) })).max(30),
+      kind: z.enum(["new_campaign", "change"]).nullish(),
+    })
     .safeParse(raw)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
   const { supabase, test, error } = await loadTest(testId)
@@ -238,8 +242,33 @@ export async function markLive(testId: string, raw: { live_on: string; campaigns
   if (!ready) return fail("It isn't ready to launch yet.")
   await supabase
     .from("sprint_tests")
-    .update({ status: "live", live_on: parsed.data.live_on, campaign_ids: parsed.data.campaigns.map((c) => c.id), campaign_names: parsed.data.campaigns.map((c) => c.name) })
+    .update({
+      status: "live",
+      live_on: parsed.data.live_on,
+      campaign_ids: parsed.data.campaigns.map((c) => c.id),
+      campaign_names: parsed.data.campaigns.map((c) => c.name),
+      ...(parsed.data.kind ? { test_kind: parsed.data.kind } : {}),
+    })
     .eq("id", testId)
+  refresh((test.clients as { slug: string }).slug)
+  return { ok: true }
+}
+
+/**
+ * How a live test is measured (Dean, 2026-09-30): new campaign or a change to one, and for a change
+ * the test ads (empty = every ad first seen on or after the live date).
+ */
+export async function setTestSetup(testId: string, raw: { kind: "new_campaign" | "change"; adIds: string[] }): Promise<TestResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
+  const parsed = z.object({ kind: z.enum(["new_campaign", "change"]), adIds: z.array(z.string().max(100)).max(100) }).safeParse(raw)
+  if (!parsed.success) return fail(parsed.error.issues[0].message)
+  const { supabase, test, error } = await loadTest(testId)
+  if (!test) return fail(error!)
+  const { error: e } = await supabase
+    .from("sprint_tests")
+    .update({ test_kind: parsed.data.kind, test_ad_ids: parsed.data.kind === "change" ? [...new Set(parsed.data.adIds)] : [] })
+    .eq("id", testId)
+  if (e) return fail("Couldn't save that. Try again.")
   refresh((test.clients as { slug: string }).slug)
   return { ok: true }
 }

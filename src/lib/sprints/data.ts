@@ -152,6 +152,8 @@ export async function carryTests(supabase: SupabaseClient, fromSprintId: string,
       recommendation_id: t.recommendation_id, // keeps the "Pour a Sprint" link
       insight_key: t.insight_key, // and the "Optimise now" one
       content_idea_id: t.content_idea_id, // and the content idea
+      test_kind: t.test_kind,
+      test_ad_ids: t.test_ad_ids,
     }))
   if (rows.length) {
     const { error } = await supabase.from("sprint_tests").insert(rows)
@@ -191,6 +193,10 @@ export type SprintTest = {
   carry_reason: string | null
   carry_note: string | null
   carried_from_test_id: string | null
+  /** new_campaign or change (null = not said yet; the results work it out). */
+  test_kind: "new_campaign" | "change" | null
+  /** A change test's ads, picked by hand (empty = every ad first seen on or after the live date). */
+  test_ad_ids: string[]
   created_at: string
 }
 

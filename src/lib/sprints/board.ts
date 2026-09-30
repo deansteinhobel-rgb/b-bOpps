@@ -3,7 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { londonToday } from "@/lib/checks/periods"
 import { addDays } from "@/lib/metrics/ads"
 import type { Platform } from "@/lib/metrics/types"
+import { previewsFor, type PreviewMap } from "@/lib/previews"
 import type { SprintTest } from "./data"
+import type { TestDetail } from "./results"
+import { loadTestDetail } from "./test-results"
 import type { TestTotals } from "./tests"
 
 /** Links on the Notion brief that show "what we created" (url and files properties on the board). */
@@ -13,7 +16,7 @@ export type BriefInfo = { status: string | null; paid: string | null; url: strin
 export type Campaign = { platform: Platform; campaign_id: string; campaign_name: string; spend: number; last_date: string }
 
 /** Everything the test cards need beyond the tests themselves. User's client: RLS applies. */
-export async function testBoardData(supabase: SupabaseClient, clientId: string, tests: SprintTest[]) {
+export async function testBoardData(supabase: SupabaseClient, clientId: string, tests: SprintTest[], opts: { currency: string; targetCpr: number | null }) {
   const pageIds = tests.map((t) => t.notion_page_id).filter(Boolean) as string[]
   const today = londonToday()
   const [{ data: pages }, { data: campaigns }, results] = await Promise.all([
@@ -41,6 +44,14 @@ export async function testBoardData(supabase: SupabaseClient, clientId: string, 
     ),
   ])
 
+  // Live and review tests with campaigns: the full results for the card's verdict and the side panel.
+  const measured = tests.filter((t) => t.live_on && t.campaign_ids.length && !t.outcome && (t.status === "live" || t.status === "review"))
+  const detailList = await Promise.all(measured.map(async (t) => [t.id, await loadTestDetail(supabase, clientId, t, { today, ...opts })] as const))
+  const details: Record<string, TestDetail> = {}
+  for (const [id, d] of detailList) if (d) details[id] = d
+  const previewAds = Object.values(details).flatMap((d) => [...d.testAds, ...d.otherAds.slice(0, 10)])
+  const previews: PreviewMap = previewAds.length ? await previewsFor(supabase, clientId, previewAds) : {}
+
   const briefs: Record<string, BriefInfo> = {}
   for (const p of pages ?? []) {
     const props = p.properties as Record<string, unknown>
@@ -58,6 +69,8 @@ export async function testBoardData(supabase: SupabaseClient, clientId: string, 
   return {
     briefs,
     results: Object.fromEntries(results) as Record<string, TestTotals>,
+    details,
+    previews,
     campaigns: ((campaigns ?? []) as Record<string, unknown>[]).map((c) => ({
       platform: c.platform as Platform,
       campaign_id: c.campaign_id as string,

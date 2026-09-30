@@ -1,6 +1,7 @@
 "use client"
 
-import { ArrowRightLeft, ExternalLink, Link2, Target } from "lucide-react"
+import { ArrowRightLeft, ChevronRight, ExternalLink, Link2, Target } from "lucide-react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"
 import { Avatar, PlatformLabel } from "@/components/brand"
 import { fieldClass } from "@/components/field-class"
@@ -14,11 +15,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { longDate, money, oneDp } from "@/lib/format"
 import type { BriefInfo, Campaign } from "@/lib/sprints/board"
 import type { SprintTest } from "@/lib/sprints/data"
+import type { PreviewMap } from "@/lib/previews"
+import { TEST_KINDS, type TestDetail, type TestKind } from "@/lib/sprints/results"
 import { daysSince, dueChip } from "@/lib/sprints/stage-style"
 import { ASSETS, CARRY_REASONS, evaluate, METRICS, type Stage, type TestTotals } from "@/lib/sprints/tests"
 import { cn } from "@/lib/utils"
 import { BriefDialog } from "./brief-form"
 import { clearOutcome, markLive, markReadyManually, saveFindings, setOutcome } from "./test-actions"
+import { TestPanel, VerdictChip } from "./test-panel"
 
 const OUTCOME = {
   proven: { label: "Proven", rag: "green" },
@@ -50,11 +54,25 @@ export function TestCard(props: {
   readOnly: boolean
   writesLive: boolean
   today: string
+  /** Live results for the side panel (live and review tests with campaigns). */
+  detail?: TestDetail
+  previews?: PreviewMap
 }) {
   const { test: t, stage } = props
   const [pending, start] = useTransition()
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [panel, setPanel] = useState<null | "live" | "findings" | "carry">(null)
+  // The results panel is in the URL (?test=<id>), so a link opens it.
+  const router = useRouter()
+  const pathname = usePathname()
+  const params = useSearchParams()
+  const resultsOpen = Boolean(props.detail) && params.get("test") === t.id
+  const setResultsOpen = (open: boolean) => {
+    const next = new URLSearchParams(params.toString())
+    if (open) next.set("test", t.id)
+    else next.delete("test")
+    router.replace(`${pathname}${next.size ? `?${next}` : ""}`, { scroll: false })
+  }
   const m = (v: number) => money(v, props.currency)
   const fmt = metricFormat(t.success_metric, m)
   const def = t.success_metric ? METRICS[t.success_metric] : undefined
@@ -67,7 +85,7 @@ export function TestCard(props: {
       if (r.ok) after?.()
     })
   const openLive = () => setPanel("live")
-  const submitLive = (live_on: string, campaigns: { id: string; name: string }[]) => run(() => markLive(t.id, { live_on, campaigns }), () => setPanel(null))
+  const submitLive = (live_on: string, campaigns: { id: string; name: string }[], kind: TestKind | null) => run(() => markLive(t.id, { live_on, campaigns, kind }), () => setPanel(null))
   const tags = [
     t.carried_from_test_id && <CarriedTag key="c" />,
     t.recommendation_id && <PourTag key="p" />,
@@ -102,7 +120,11 @@ export function TestCard(props: {
         </Button>
       )
     else if (stage === "live" && t.campaign_ids?.length)
-      primary = (
+      primary = props.detail ? (
+        <Button size="sm" onClick={() => setResultsOpen(true)}>
+          View results
+        </Button>
+      ) : (
         <Button size="sm" onClick={() => setPanel("findings")}>
           Add findings
         </Button>
@@ -128,7 +150,13 @@ export function TestCard(props: {
         </div>
 
         <h3 className="line-clamp-3 text-[15px] leading-snug font-semibold text-balance" title={t.title}>
-          {t.title}
+          {props.detail ? (
+            <button type="button" className="text-left hover:underline focus-visible:underline focus-visible:outline-none" onClick={() => setResultsOpen(true)}>
+              {t.title}
+            </button>
+          ) : (
+            t.title
+          )}
         </h3>
 
         <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground" title={t.owner_name ? `Owner: ${t.owner_name}` : "No owner"}>
@@ -208,6 +236,13 @@ export function TestCard(props: {
 
       {(stage === "live" || stage === "review" || stage === "done") && t.live_on && t.campaign_ids.length > 0 && (
         <Panel>
+          {props.detail && (
+            <button type="button" onClick={() => setResultsOpen(true)} className="-mx-1 flex w-[calc(100%+0.5rem)] items-center gap-2 rounded-md px-1 py-0.5 text-left hover:bg-secondary" title="Open the results">
+              <VerdictChip kind={props.detail.verdict.kind} />
+              <span className="line-clamp-2 min-w-0 flex-1 text-[11px] text-muted-foreground">{props.detail.verdict.reason}</span>
+              <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+            </button>
+          )}
           <Results test={t} results={props.results} money={m} fmt={fmt} label={def?.label} />
         </Panel>
       )}
@@ -289,6 +324,26 @@ export function TestCard(props: {
           </div>
         </footer>
       )}
+      {props.detail && (
+        <TestPanel
+          open={resultsOpen}
+          onOpenChange={setResultsOpen}
+          test={t}
+          detail={props.detail}
+          previews={props.previews ?? {}}
+          currency={props.currency}
+          editable={editable}
+          today={props.today}
+          onAddFindings={
+            stage === "live"
+              ? () => {
+                  setResultsOpen(false)
+                  setPanel("findings")
+                }
+              : undefined
+          }
+        />
+      )}
     </article>
   )
 }
@@ -349,8 +404,9 @@ function CarriedTag() {
   )
 }
 
-function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns: Campaign[]; today: string; pending: boolean; onSubmit: (liveOn: string, c: { id: string; name: string }[]) => void; onCancel: () => void }) {
+function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns: Campaign[]; today: string; pending: boolean; onSubmit: (liveOn: string, c: { id: string; name: string }[], kind: TestKind | null) => void; onCancel: () => void }) {
   const [liveOn, setLiveOn] = useState(today)
+  const [kind, setKind] = useState<TestKind | null>(null)
   const [chosen, setChosen] = useState<string[]>([])
   const [filter, setFilter] = useState("")
   const shown = campaigns.filter((c) => !filter || c.campaign_name.toLowerCase().includes(filter.toLowerCase())).slice(0, 25)
@@ -360,6 +416,20 @@ function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns
         <Label htmlFor="live-on">Live from</Label>
         <Input id="live-on" type="date" value={liveOn} onChange={(e) => setLiveOn(e.target.value)} />
       </div>
+      <fieldset className="space-y-1">
+        <legend className="text-xs">What kind of test is it?</legend>
+        <div className="grid gap-1.5">
+          {(Object.keys(TEST_KINDS) as TestKind[]).map((k) => (
+            <label key={k} className={cn("flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-xs", kind === k && "border-lime/60 bg-lime/5")}>
+              <input type="radio" name="test-kind" className="mt-0.5" checked={kind === k} onChange={() => setKind(k)} />
+              <span>
+                <span className="font-medium">{TEST_KINDS[k].label}</span>
+                <span className="block text-[11px] text-muted-foreground">{TEST_KINDS[k].hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <div className="space-y-1">
         <p className="text-xs">Which campaigns is it running in? (so the app can measure it)</p>
         <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter campaigns…" aria-label="Filter campaigns" />
@@ -377,7 +447,7 @@ function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns
       </div>
       <div className="flex gap-2">
         <Sparkle>
-          <Button size="sm" disabled={pending} onClick={() => onSubmit(liveOn, campaigns.filter((c) => chosen.includes(c.campaign_id)).map((c) => ({ id: c.campaign_id, name: c.campaign_name })))}>
+          <Button size="sm" disabled={pending} onClick={() => onSubmit(liveOn, campaigns.filter((c) => chosen.includes(c.campaign_id)).map((c) => ({ id: c.campaign_id, name: c.campaign_name })), kind)}>
             It&apos;s live
           </Button>
         </Sparkle>

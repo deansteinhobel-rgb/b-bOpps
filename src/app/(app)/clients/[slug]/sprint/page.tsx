@@ -97,7 +97,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
     }
   })
   const { changes, history, previous, tests } = details
-  const board = await testBoardData(supabase, client.id, tests)
+  const board = await testBoardData(supabase, client.id, tests, { currency: client.currency, targetCpr: client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target) })
   const { summary, events, detectionDaily } = numbers
   const closed = Boolean(sprint.closed_at)
   const cur = client.currency
@@ -125,6 +125,8 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
       stage={stage}
       brief={t.notion_page_id ? board.briefs[t.notion_page_id] : undefined}
       results={board.results[t.id]}
+      detail={board.details[t.id]}
+      previews={board.previews}
       campaigns={board.campaigns.filter((c) => !t.platform || c.platform === t.platform)}
       currency={cur}
       readOnly={closed}

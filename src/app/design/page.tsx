@@ -15,6 +15,7 @@ import { TestBoard } from "../(app)/clients/[slug]/sprint/test-board"
 import { TestCard } from "../(app)/clients/[slug]/sprint/test-card"
 import type { BriefInfo } from "@/lib/sprints/board"
 import type { SprintTest } from "@/lib/sprints/data"
+import type { TestDetail } from "@/lib/sprints/results"
 import type { Stage } from "@/lib/sprints/tests"
 import { WinePour } from "@/components/fx/wine-pour"
 import { CampaignTable, Investigator, PlatformSplit, TrendPanel } from "../(app)/clients/[slug]/reporting/charts"
@@ -28,7 +29,7 @@ import { Controls } from "../(app)/clients/[slug]/reporting/controls"
 import { ClientTabs } from "../(app)/clients/[slug]/client-tabs"
 import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
 
-const blankTest: SprintTest = { id: "", recommendation_id: null, insight_key: null, content_idea_id: null, platform: null, title: "", hypothesis: null, assets: [], brief_notes: null, success_metric: null, success_target: null, success_text: null, owner_notion_user_id: null, owner_name: null, deadline: null, status: "planned", notion_page_id: null, live_on: null, campaign_ids: [], campaign_names: [], findings_worked: null, findings_blockers: null, findings_notes: null, outcome: null, carry_reason: null, carry_note: null, carried_from_test_id: null, created_at: "2026-09-28T09:00:00Z" }
+const blankTest: SprintTest = { id: "", recommendation_id: null, insight_key: null, content_idea_id: null, platform: null, title: "", hypothesis: null, assets: [], brief_notes: null, success_metric: null, success_target: null, success_text: null, owner_notion_user_id: null, owner_name: null, deadline: null, status: "planned", notion_page_id: null, live_on: null, campaign_ids: [], campaign_names: [], findings_worked: null, findings_blockers: null, findings_notes: null, outcome: null, carry_reason: null, carry_note: null, carried_from_test_id: null, test_kind: null, test_ad_ids: [], created_at: "2026-09-28T09:00:00Z" }
 const sampleTests: { t: SprintTest; stage: Stage }[] = [
   { stage: "planned", t: { ...blankTest, id: "p1", platform: "linkedin", title: "Thought Leader Ads from the CTO vs brand posts", assets: ["ad_copy", "ad_creative"], success_metric: "ctr", success_target: 0.8, owner_name: "Andrea Restrepo", deadline: "2026-10-02", recommendation_id: "r" } },
   { stage: "in_production", t: { ...blankTest, id: "i1", status: "briefed", notion_page_id: "n1", title: 'CTA on creatives: "Free Trial" vs "Book a demo" and "Contact us"', success_metric: "cost_per_result", success_target: 300, success_text: "Lead quality at least as good as competitive takeout", owner_name: "Andrea Restrepo", deadline: "2026-09-29" } },
@@ -38,6 +39,29 @@ const sampleTests: { t: SprintTest; stage: Stage }[] = [
   { stage: "live", t: { ...blankTest, id: "l2", status: "live", platform: "meta", title: "Scale Meta retargeting into the unused budget, with static image variants", success_metric: "cost_per_result", success_target: 150, success_text: "About $13k spent over the two weeks at or below $150 per result, and at least 80 results that pass a quick CRM quality check", owner_name: "Dean Steinhobel", live_on: "2026-09-29", campaign_ids: ["c1"], campaign_names: ["dnsf_dg_2026-09_paid-social_meta_msp-target-campaign"], recommendation_id: "r" } },
   { stage: "done", t: { ...blankTest, id: "d1", status: "closed", platform: "google_ads", title: "Exact-match brand terms only on the Brand campaign", success_metric: "cost_per_result", success_target: 80, owner_name: "Andrea Restrepo", outcome: "proven", live_on: "2026-09-14", findings_worked: "Cost per result fell from $96 to $71 with no drop in volume.", insight_key: "k" } },
 ]
+const tot = (spend: number, impressions: number, clicks: number, conversions: number, leads = 0) => ({ spend, impressions, clicks, conversions, leads })
+const sampleAd = (id: string, name: string, first: string, t: ReturnType<typeof tot>) => ({ platform: "meta", external_account_id: "a", ad_id: id, campaign_id: "c1", name, first_seen: first, totals: t })
+const sampleDetail: TestDetail = {
+  kind: "change",
+  kindGuessed: true,
+  metric: "cost_per_result",
+  target: 150,
+  live: { from: "2026-09-22", to: "2026-09-29", days: 8 },
+  before: { from: "2026-09-14", to: "2026-09-21", days: 8 },
+  daily: Array.from({ length: 16 }, (_, i) => ({ date: `2026-09-${String(14 + i).padStart(2, "0")}`, spend: i < 8 ? 150 + (i % 3) * 20 : 260 + (i % 4) * 30, results: i < 8 ? i % 2 : 1 + (i % 3) })),
+  testAds: [sampleAd("n1", "Static: 'Stop DNS threats before they start' v2", "2026-09-22", tot(820, 41000, 390, 7, 1)), sampleAd("n2", "Static: MSP margin calculator", "2026-09-23", tot(610, 30000, 250, 3))],
+  otherAds: [sampleAd("o1", "Carousel: Product tour", "2026-06-02", tot(700, 52000, 300, 3))],
+  adsPicked: false,
+  testAdsTotals: tot(1430, 71000, 640, 10, 1),
+  comparisons: [
+    { label: "The test ads", against: "the campaign's other ads, same days", now: tot(1430, 71000, 640, 10, 1), then: tot(700, 52000, 300, 3) },
+    { label: "The campaign", against: "the 8 days before it went live", now: tot(2130, 123000, 940, 13, 1), then: tot(1300, 90000, 610, 5) },
+    { label: "Meta", against: "the 8 days before", now: tot(3900, 240000, 1500, 19, 2), then: tot(3100, 210000, 1300, 14, 1) },
+    { label: "The whole account", against: "the 8 days before", now: tot(15200, 610000, 6100, 61, 9), then: tot(14800, 600000, 5900, 58, 8) },
+  ],
+  verdict: { kind: "working", reason: "Cost per result $130, on target ($150). 44% better than before." },
+}
+
 const sampleBrief = (id: string): BriefInfo => ({
   status: id === "r1" ? "Client Approved" : "New",
   paid: id === "i2" ? "In Build" : null,
@@ -339,6 +363,7 @@ export default async function DesignPreview() {
                   test={t}
                   stage={stage}
                   brief={t.notion_page_id ? sampleBrief(t.id) : undefined}
+                  detail={t.id === "l2" ? sampleDetail : undefined}
                   results={t.campaign_ids.length ? { spend: 344, impressions: 21000, clicks: 90, conversions: 1, leads: 1, days: 1, data_through: "2026-09-29" } : undefined}
                   campaigns={[]}
                   currency="USD"
