@@ -69,7 +69,7 @@ export type WriteResult =
   | { status: "failed"; logId: number | null; payload: ActionPayload | null; error: string }
 
 export type ActionPayload = { parent: { data_source_id: string }; properties: Record<string, unknown> }
-export type RichTextItem = { type: "text"; text: { content: string } } | { type: "mention"; mention: { user: { id: string } } }
+export type RichTextItem = { type: "text"; text: { content: string; link?: { url: string } } } | { type: "mention"; mention: { user: { id: string } } }
 export type CommentPayload = { parent: { page_id: string }; rich_text: RichTextItem[] }
 
 const MAX_TEXT = 2000 // Notion's limit per rich text item
@@ -90,12 +90,27 @@ export function commentBody(text: string, mentions: Mention[]) {
   return missing.length ? `Hey ${missing.map((p) => `@${p.name}`).join(", ")}\n\n${body}` : body
 }
 
-/** The comment's rich text: every "@Name" of a tagged person becomes a Notion mention (which notifies them). */
+const URL_RE = /https?:\/\/[^\s<>"]+/g
+const TRAILING_PUNCT = /[.,;:!?)\]']+$/ // "see https://x.com/a." links to https://x.com/a
+
+/** The comment's rich text: every URL becomes a link, and every "@Name" of a tagged person becomes a Notion mention (which notifies them). */
 export function commentRichText(text: string, mentions: Mention[]): RichTextItem[] {
   const people = uniquePeople(mentions).sort((a, b) => b.name.length - a.name.length) // longest name first
   const out: RichTextItem[] = []
-  const pushText = (t: string) => {
+  const pushPlain = (t: string) => {
     for (let i = 0; i < t.length; i += MAX_TEXT) out.push({ type: "text", text: { content: t.slice(i, i + MAX_TEXT) } })
+  }
+  // Notion only makes text clickable when it's sent with a link, so every http(s) URL becomes one.
+  const pushText = (t: string) => {
+    let last = 0
+    for (const m of t.matchAll(URL_RE)) {
+      const url = m[0].replace(TRAILING_PUNCT, "")
+      if (m.index > last) pushPlain(t.slice(last, m.index))
+      if (url.length <= MAX_TEXT) out.push({ type: "text", text: { content: url, link: { url } } })
+      else pushPlain(url)
+      last = m.index + url.length
+    }
+    if (last < t.length) pushPlain(t.slice(last))
   }
   let rest = commentBody(text, mentions)
   while (rest) {

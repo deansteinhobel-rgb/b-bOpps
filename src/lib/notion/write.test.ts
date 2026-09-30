@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { createNotionAction, type ActionInput, type WriteDb, type WriteDeps } from "./write"
+import { commentRichText, createNotionAction, type ActionInput, type WriteDb, type WriteDeps } from "./write"
 
 // A fake Supabase that records every call, in order.
 function fakeDb(opts: { failLogInsert?: boolean } = {}) {
@@ -295,5 +295,19 @@ describe("createNotionAction: test briefs with a comment (Dean, 2026-09-30)", ()
     await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, { ...brief, comment: { text: "  ", mentions: [] } })
     expect(notion.comments.create).not.toHaveBeenCalled()
     expect(calls.filter((c) => c.op === "insert")).toHaveLength(1)
+  })
+})
+
+describe("commentRichText links", () => {
+  it("makes every URL a clickable link, leaving trailing punctuation as text", () => {
+    const rt = commentRichText("Template: https://docs.google.com/x/edit?id=1. Figma (https://figma.com/f/abc) @Kieran Smith", [{ id: "notion-kieran", name: "Kieran Smith" }])
+    expect(rt).toEqual([
+      { type: "text", text: { content: "Template: " } },
+      { type: "text", text: { content: "https://docs.google.com/x/edit?id=1", link: { url: "https://docs.google.com/x/edit?id=1" } } },
+      { type: "text", text: { content: ". Figma (" } },
+      { type: "text", text: { content: "https://figma.com/f/abc", link: { url: "https://figma.com/f/abc" } } },
+      { type: "text", text: { content: ") " } },
+      { type: "mention", mention: { user: { id: "notion-kieran" } } },
+    ])
   })
 })
