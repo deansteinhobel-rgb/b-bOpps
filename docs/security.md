@@ -11,7 +11,10 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
   route needs a session (`src/proxy.ts`), except `/login`, `/auth/*`, the scheduled jobs and report
   embeds (below).
 - **Scheduled jobs** (`/api/cron/*`) skip the login redirect and check `Authorization: Bearer
-  $CRON_SECRET` themselves. Without the secret they answer 401.
+  $CRON_SECRET` themselves. Without the secret they answer 401. Supabase Cron (pg_cron + pg_net)
+  calls them too; it reads the same secret from Supabase Vault (`cron_secret`) at run time, so it
+  is never stored in a migration or the repo. Rotating `CRON_SECRET` means updating Vercel and the
+  Vault secret (`vault.update_secret`) together.
 - **Database**: row-level security on every table, scoped by client team; admin-only writes where
   it matters; no deletes. Tested offline with `pnpm test:db` (runs in CI).
 - **Secrets** stay server-side (`.env.local`, git-ignored; Vercel environment variables). Nothing
