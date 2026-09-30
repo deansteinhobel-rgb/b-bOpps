@@ -41,7 +41,7 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
       checked={feed.checked}
       previews={previews}
       owners={people.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam }))}
-      live={notionWritesLive()}
+      live={notionWritesLive(slug)}
       defaultDue={addDays(today, 3)}
       sprintNumber={sprintOf(today).number}
       openKey={typeof i === "string" ? i : null}

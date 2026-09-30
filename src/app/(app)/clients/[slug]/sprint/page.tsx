@@ -102,7 +102,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
   const shown = closed && sprint.summary ? sprint.summary : summary
   const day = sprintDay(period, today)
-  const writesLive = notionWritesLive()
+  const writesLive = notionWritesLive(slug)
   const platforms = summary.byPlatform.map((p) => p.platform)
   const ownerOptions = owners.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam }))
 

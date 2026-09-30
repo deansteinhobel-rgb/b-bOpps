@@ -198,3 +198,102 @@ describe("createNotionAction: live write (mocked Notion)", () => {
     expect(res.status).toBe("created")
   })
 })
+
+describe("createNotionAction: test briefs with a comment (Dean, 2026-09-30)", () => {
+  const brief: ActionInput = {
+    ...input,
+    checkResultId: null,
+    sprintTestId: "test-1",
+    coLeadIds: ["notion-kieran", "notion-andrea"],
+    priority: "Medium",
+    comment: { text: "We've seen good results from education on Google.\n\nCc @Kieran Carmon", mentions: [{ id: "notion-ash", name: "Ashleigh Clack" }, { id: "notion-kieran", name: "Kieran Carmon" }] },
+  }
+  const withComments = (fail = false) => {
+    const n = fakeNotion()
+    return { ...n, comments: { create: vi.fn(async () => (fail ? Promise.reject(new Error("restricted_resource")) : { id: "comment-1" })) } }
+  }
+
+  it("labels the title [TEST Lumaux], sets Status Content to Ready for Copy, priority and every project lead", async () => {
+    const { db } = fakeDb()
+    const notion = withComments()
+    await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, brief)
+    const sent = (notion.pages.create.mock.calls[0] as unknown[])[0] as { properties: Record<string, unknown> }
+    expect(sent.properties["Project"]).toEqual({ title: [{ type: "text", text: { content: "[TEST Lumaux] Camber: Meta overspend" } }] })
+    expect(sent.properties["Status Content"]).toEqual({ select: { name: "Ready for Copy" } })
+    expect(sent.properties["Priority"]).toEqual({ select: { name: "Medium" } })
+    expect(sent.properties["Project Lead"]).toEqual({ people: [{ id: "notion-andrea" }, { id: "notion-kieran" }] })
+  })
+
+  it("comments on the new page only, logged before the call, with tagged people as mentions", async () => {
+    const { db, calls } = fakeDb()
+    const notion = withComments()
+    const res = await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, brief)
+    expect(res.status).toBe("created")
+    expect(calls.map((c) => `${c.table}.${c.op}`)).toEqual([
+      "notion_write_log.insert",
+      "notion_write_log.update",
+      "notion_pages_mirror.upsert",
+      "sprint_tests.update",
+      "notion_write_log.insert",
+      "notion_write_log.update",
+    ])
+    expect(calls[4].args[0]).toMatchObject({ operation: "create_comment", endpoint: "POST /v1/comments", dry_run: false })
+    const sent = (notion.comments.create.mock.calls[0] as unknown[])[0] as { parent: unknown; rich_text: unknown[] }
+    expect(sent.parent).toEqual({ page_id: "page-1" })
+    // Ashleigh isn't named in the text, so she's greeted; Kieran is named, so he's mentioned in place.
+    expect(sent.rich_text).toEqual([
+      { type: "text", text: { content: "Hey " } },
+      { type: "mention", mention: { user: { id: "notion-ash" } } },
+      { type: "text", text: { content: "\n\nWe've seen good results from education on Google.\n\nCc " } },
+      { type: "mention", mention: { user: { id: "notion-kieran" } } },
+    ])
+    expect(res.status === "created" && res.comment?.status).toBe("created")
+  })
+
+  it("keeps the page if the comment fails, and says so", async () => {
+    const { db, calls } = fakeDb()
+    const res = await createNotionAction({ db, notion: withComments(true), env: env({ writesEnabled: true, dryRun: false }) }, brief)
+    expect(res.status).toBe("created")
+    expect(res.status === "created" && res.comment).toMatchObject({ status: "failed", error: "restricted_resource" })
+    expect(calls.at(-1)!.args[0]).toMatchObject({ success: false })
+  })
+
+  it("dry run: logs the page and the comment, calls nothing", async () => {
+    const { db, calls } = fakeDb()
+    const notion = withComments()
+    const res = await createNotionAction({ db, notion, env: env() }, brief)
+    expect(res.status).toBe("dry_run")
+    expect(notion.pages.create).not.toHaveBeenCalled()
+    expect(notion.comments.create).not.toHaveBeenCalled()
+    expect(calls.map((c) => `${c.table}.${c.op}`)).toEqual(["notion_write_log.insert", "notion_write_log.update", "notion_write_log.insert", "notion_write_log.update"])
+    expect(calls[2].args[0]).toMatchObject({ operation: "create_comment", dry_run: true })
+  })
+
+  it("NOTION_LIVE_CLIENTS: a client not on the list stays a dry run with both switches on", async () => {
+    const { db } = fakeDb()
+    const notion = withComments()
+    const res = await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false, liveClients: ["dnsfilter"] }) }, brief)
+    expect(res.status).toBe("dry_run")
+    expect(notion.pages.create).not.toHaveBeenCalled()
+    expect(notion.comments.create).not.toHaveBeenCalled()
+  })
+
+  it("NOTION_LIVE_CLIENTS: a client on the list is written", async () => {
+    const { db } = fakeDb()
+    const notion = withComments()
+    const res = await createNotionAction(
+      { db, notion, env: env({ writesEnabled: true, dryRun: false, liveClients: ["dnsfilter"] }) },
+      { ...brief, client: { id: "client-dnsf", slug: "dnsfilter", notion_client_option: "DNSFilter" } },
+    )
+    expect(res.status).toBe("created")
+    expect(notion.comments.create).toHaveBeenCalledTimes(1)
+  })
+
+  it("an empty comment sends no comment", async () => {
+    const { db, calls } = fakeDb()
+    const notion = withComments()
+    await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, { ...brief, comment: { text: "  ", mentions: [] } })
+    expect(notion.comments.create).not.toHaveBeenCalled()
+    expect(calls.filter((c) => c.op === "insert")).toHaveLength(1)
+  })
+})

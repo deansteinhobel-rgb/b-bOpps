@@ -48,7 +48,7 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
   const actionIds = runs.flatMap((r) => r?.items.map((i) => i.result.notion_action_page_id).filter(Boolean) ?? []) as string[]
   const notionIdByProfile = new Map((profiles ?? []).map((p) => [p.id, p.notion_user_id as string | null]))
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
-  const live = notionWritesLive()
+  const live = notionWritesLive(slug)
   const defaultDue = addDays(londonToday(), 7)
 
   // Pre-loaded numbers (live and saved) for every check shown, and the ad previews they mention.

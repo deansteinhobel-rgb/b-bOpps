@@ -14,7 +14,9 @@ import type { BriefInfo, Campaign } from "@/lib/sprints/board"
 import type { SprintTest } from "@/lib/sprints/data"
 import { ASSETS, CARRY_REASONS, evaluate, METRICS, successLine, type Stage, type TestTotals } from "@/lib/sprints/tests"
 import { cn } from "@/lib/utils"
-import { briefTest, clearOutcome, markLive, markReadyManually, saveFindings, setOutcome } from "./test-actions"
+import { BriefForm } from "./brief-form"
+import type { BriefPerson } from "./test-actions"
+import { clearOutcome, markLive, markReadyManually, saveFindings, setOutcome } from "./test-actions"
 
 const OUTCOME = {
   proven: { label: "Proven", rag: "green" },
@@ -37,8 +39,8 @@ export function TestCard(props: {
   const { test: t, stage } = props
   const [pending, start] = useTransition()
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [preview, setPreview] = useState<Record<string, unknown> | null>(null)
-  const [panel, setPanel] = useState<null | "live" | "findings" | "carry">(null)
+  const [preview, setPreview] = useState<{ properties: Record<string, unknown>; comment?: string; people: BriefPerson[] } | null>(null)
+  const [panel, setPanel] = useState<null | "brief" | "live" | "findings" | "carry">(null)
   const m = (v: number) => money(v, props.currency)
   const overdue = t.deadline && t.deadline < props.today && (stage === "planned" || stage === "in_production")
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>, after?: () => void) =>
@@ -86,22 +88,23 @@ export function TestCard(props: {
               ))}
             </div>
           )}
-          {!props.readOnly && (
+          {!props.readOnly && panel === "brief" && (
+            <BriefForm
+              testId={t.id}
+              onCancel={() => setPanel(null)}
+              onDone={(r) => {
+                setPanel(null)
+                setPreview(r.preview ?? null)
+                setMsg({ ok: r.ok, text: r.text })
+              }}
+            />
+          )}
+          {!props.readOnly && panel !== "brief" && (
             <div className="flex flex-wrap gap-2">
               <Sparkle>
-              <Button
-                size="sm"
-                disabled={pending}
-                onClick={() =>
-                  start(async () => {
-                    const r = await briefTest(t.id)
-                    if (r.dryRun) setPreview((r.payload as { properties: Record<string, unknown> }).properties)
-                    setMsg({ ok: r.ok, text: r.message ?? (r.ok ? "Done" : "Couldn't brief.") })
-                  })
-                }
-              >
-                {pending ? "Working…" : props.writesLive ? "Brief the team in Notion" : "Test: preview the Notion brief"}
-              </Button>
+                <Button size="sm" disabled={pending} onClick={() => setPanel("brief")}>
+                  {props.writesLive ? "Brief the team in Notion" : "Brief the team (test mode)"}
+                </Button>
               </Sparkle>
               {!props.writesLive && (
                 <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => markReadyManually(t.id))} title="Test mode: skip Notion and treat the assets as ready">
@@ -110,7 +113,7 @@ export function TestCard(props: {
               )}
             </div>
           )}
-          {preview && <BriefPreview properties={preview} />}
+          {preview && <BriefPreview {...preview} />}
         </div>
       )}
 
@@ -244,7 +247,7 @@ export function TestCard(props: {
   )
 }
 
-function BriefPreview({ properties }: { properties: Record<string, unknown> }) {
+function BriefPreview({ properties, comment, people }: { properties: Record<string, unknown>; comment?: string; people: BriefPerson[] }) {
   const text = (v: unknown): string => {
     const o = v as Record<string, unknown>
     if ("title" in o || "rich_text" in o) return ((o.title ?? o.rich_text) as { text: { content: string } }[]).map((x) => x.text.content).join("")
@@ -252,7 +255,7 @@ function BriefPreview({ properties }: { properties: Record<string, unknown> }) {
     if ("status" in o) return (o.status as { name: string }).name
     if ("date" in o) return (o.date as { start: string }).start
     if ("url" in o) return String(o.url)
-    if ("people" in o) return "Owner (Notion user)"
+    if ("people" in o) return (o.people as { id: string }[]).map((p) => people.find((x) => x.id === p.id)?.name ?? "Notion user").join(", ")
     return ""
   }
   return (
@@ -266,6 +269,12 @@ function BriefPreview({ properties }: { properties: Record<string, unknown> }) {
           </div>
         ))}
       </dl>
+      {comment && (
+        <>
+          <p className="mt-3 mb-1 text-muted-foreground">Then this comment on it:</p>
+          <p className="break-words whitespace-pre-line">{comment}</p>
+        </>
+      )}
     </div>
   )
 }

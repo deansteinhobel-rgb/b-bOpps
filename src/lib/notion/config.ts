@@ -17,6 +17,7 @@ export const PROP = {
   parent: "Parent item", // relation
   priority: "Priority", // select
   statusPaid: "Status Paid", // select
+  statusContent: "Status Content", // select
 } as const
 
 /**
@@ -30,6 +31,29 @@ export const ACTION_DEFAULTS = {
   status: "New",
   productionType: "Paid Media",
 } as const
+
+/** Existing Priority options (never add new ones). */
+export const PRIORITIES = ["High", "Medium", "Low"] as const
+export type Priority = (typeof PRIORITIES)[number]
+
+/** A sprint test brief goes straight to the copywriter (Dean, 2026-09-30). An existing option. */
+export const TEST_BRIEF_STATUS_CONTENT = "Ready for Copy"
+
+/**
+ * Every page the app creates starts with this while we test live writes (Dean, 2026-09-30), so
+ * the team can tell test rows apart. Set to "" when the app goes properly live.
+ */
+export const TEST_TITLE_PREFIX = "[TEST Lumaux] "
+
+/**
+ * NOTION_LIVE_CLIENTS (comma-separated client slugs, e.g. "dnsfilter"): while it's set, live writes
+ * only happen for those clients; every other client stays a dry run. Unset means no restriction
+ * (the two main switches still apply).
+ */
+export function liveClientSlugs(raw = process.env.NOTION_LIVE_CLIENTS): string[] | null {
+  const list = (raw ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
+  return list.length ? list : null
+}
 
 /** Prefix on "Brief Submitted by" that marks a row as created by this app. */
 export const APP_CREATED_PREFIX = "B&B Ops app · "

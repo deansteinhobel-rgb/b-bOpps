@@ -2,12 +2,17 @@ import "server-only"
 import { Client } from "@notionhq/client"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { postToSlack } from "@/lib/slack"
-import { dataSourceId, NOTION_VERSION } from "./config"
+import { dataSourceId, liveClientSlugs, NOTION_VERSION } from "./config"
 import type { WriteDb, WriteDeps } from "./write"
 
-/** Both switches must be flipped by Dean before anything reaches Notion. */
-export function notionWritesLive() {
-  return process.env.NOTION_WRITES_ENABLED === "true" && process.env.NOTION_DRY_RUN === "false"
+/**
+ * Both switches must be flipped by Dean before anything reaches Notion. Pass a client slug to also
+ * apply NOTION_LIVE_CLIENTS (while it's set, only those clients are written for real).
+ */
+export function notionWritesLive(clientSlug?: string) {
+  const on = process.env.NOTION_WRITES_ENABLED === "true" && process.env.NOTION_DRY_RUN === "false"
+  const only = liveClientSlugs()
+  return on && (!clientSlug || !only || only.includes(clientSlug.toLowerCase()))
 }
 
 /**
@@ -25,6 +30,7 @@ export function writeDeps(): WriteDeps {
       dryRun: process.env.NOTION_DRY_RUN !== "false",
       dataSourceId: dataSourceId(),
       appUrl: process.env.APP_URL ?? "http://localhost:3000",
+      liveClients: liveClientSlugs(),
     },
     notifySlack: postToSlack,
   }

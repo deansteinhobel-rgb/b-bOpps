@@ -59,7 +59,7 @@ export async function loadTimeline(supabase: SupabaseClient, admin: SupabaseClie
       .limit(1500),
     supabase.from("sprint_tests").select("id, title, platform, status, live_on, outcome, updated_at, owner_name, campaign_names, sprints(number)").eq("client_id", client.id).or(`live_on.gte.${since},updated_at.gte.${sinceIso}`),
     supabase.from("insight_actions").select("id, rule, action, items, note, created_at, snapshot, profiles(full_name, email)").eq("client_id", client.id).gte("created_at", sinceIso).in("action", ["done", "briefed", "tested"]),
-    admin.from("notion_write_log").select("id, operation, success, dry_run, created_at, payload, profiles(full_name, email)").eq("client_id", client.id).gte("created_at", sinceIso),
+    admin.from("notion_write_log").select("id, operation, success, dry_run, created_at, payload, profiles(full_name, email)").eq("client_id", client.id).neq("operation", "create_comment").gte("created_at", sinceIso),
   ])
   const person = (p: unknown) => {
     const x = p as { full_name: string | null; email: string } | null

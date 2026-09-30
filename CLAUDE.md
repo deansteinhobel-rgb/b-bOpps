@@ -29,6 +29,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - No deletes, ever. No edits to pages the app didn't create.
 - Every write goes through one server-side function. It logs to `notion_write_log` first, calls Notion, updates the log with the result, then upserts `notion_pages_mirror`.
 - `NOTION_DRY_RUN=true` means log only. It defaults to true in development.
+- **Comments** (Dean, 2026-09-30): the app may add one comment to a page it has just created (the test brief). Reading comments comes later.
 - The UI reads the mirror, never Notion live. Show "synced X minutes ago" and an "Open in Notion" link. Properties only, no page bodies.
 
 ## Decisions from Phase 0 answers (2026-09-28)
@@ -151,7 +152,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Two-week sprints, **the same fortnight for every client**, on alternate Mondays from **Sprint 1 = Mon 28 Sep 2026** (`src/lib/sprints/periods.ts`). One sprint per client.
 - **The unit is a test** (`sprint_tests`). The flow, shown as a board on the Sprint tab:
   1. **Planned** on the sprint's first Monday: platform, what we're testing, assets to brief in, what success looks like (metric + target and/or words), owner, deadline.
-  2. **Brief the team**: creates ONE Master Production row via `createNotionAction` (operation `create_test_brief`, Production Type "Paid Media", status "New", Project Lead = owner, due = deadline, the full plan in Description, QA Document = link to the test). Dry run by default like every Notion write.
+  2. **Brief the team** (`brief-form.tsx`, Dean 2026-09-30): a form asks the Project Lead(s) (Notion workspace people, the owner first), due date, Priority (High/Medium/Low), people to tag and the comment (drafted by `briefComment`: why, what we need from copy / from design, success, deadline). It creates ONE Master Production row via `createNotionAction` (operation `create_test_brief`, title prefixed **"[TEST Lumaux] "** (`TEST_TITLE_PREFIX`, on every app-created row while we test), Production Type "Paid Media", status "New", **Status Content "Ready for Copy"**, the full plan in Description, QA Document = link to the test), then **one comment on that new page** (operation `create_comment`, its own log row; tagged people become Notion mentions, anyone not named with "@Full Name" gets "Hey @Name" at the top). Content writer, designer and paid owner are left for the team. Dry run by default like every Notion write; **`NOTION_LIVE_CLIENTS`** (slugs, `dnsfilter` for the first test) limits live writes to those clients. The app never comments on pages it didn't just create.
   3. **Ready to launch** happens automatically when the brief's Master Status is **"Client Approved" or "Production Complete"** (`READY_STATUSES`). The card shows "what we created" from the brief's links (Figma Board, Campaign Folder, Brief Uploads / Links, Useful Links, Proposal Deck). In test mode, or for a brief made outside the app, "Mark ready" does it by hand.
   4. **Mark live**: live date plus the campaigns it runs in (picked from Windsor), so results vs the success target are measured automatically (`campaign_totals`).
   5. **Findings**: what worked, the blocker, notes.
