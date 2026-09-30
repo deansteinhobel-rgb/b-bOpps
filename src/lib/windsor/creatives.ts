@@ -6,10 +6,11 @@ import type { Platform } from "./client"
 /**
  * Ad previews. Windsor gives image URLs for Meta, LinkedIn and Google image/display ads (Google
  * search ads are text only). Meta and LinkedIn URLs expire after about a week, so the first time we
- * see an image we copy it into the private "ad-previews" bucket and keep our copy.
+ * see an image we copy it into the private "ad-previews" bucket and keep our copy. Links: Meta's
+ * shareable preview, and LinkedIn's post URL (public, and the only preview we have for document ads).
  */
 const PREVIEW: Record<string, { id: string; images: string[]; link?: string; type?: string }> = {
-  linkedin: { id: "creative_id", images: ["creative_thumbnail"], type: "creative_content_data_share_ad_context_ad_type" },
+  linkedin: { id: "creative_id", images: ["creative_thumbnail"], link: "ad_post_url", type: "creative_content_data_share_ad_context_ad_type" },
   facebook: { id: "ad_id", images: ["image_url", "thumbnail_url"], link: "ad_preview_shareable_link" },
   google_ads: { id: "ad_id", images: ["ad_image_ad_image_url", "ad_responsive_display_ad_marketing_images_1", "ad_multi_asset_ad_marketing_images_1"], type: "ad_type" },
 }
@@ -51,6 +52,8 @@ const assets = (v: unknown) =>
   parseList(v)
     .map((x) => (typeof x === "string" ? { text: x, pinned: null } : { text: String((x as { text?: unknown }).text ?? ""), pinned: ((x as { pinnedField?: unknown }).pinnedField as string) ?? null }))
     .filter((x) => x.text)
+/** Only https links on the platforms' own domains; anything else is dropped rather than shown. */
+const isLink = (v: unknown) => typeof v === "string" && /^https:\/\/([a-z0-9-]+\.)*(facebook\.com|fb\.me|linkedin\.com)\//i.test(v)
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null)
 
 export function toTextAd(r: Record<string, unknown>): TextAd | null {
@@ -81,7 +84,7 @@ async function fetchPreviews(account: Account, dateFrom: string, dateTo: string)
     byAd.set(adId, {
       ad_id: adId,
       source_url: img ?? prev?.source_url ?? null,
-      preview_link: (cfg.link && typeof r[cfg.link] === "string" ? (r[cfg.link] as string) : null) ?? prev?.preview_link ?? null,
+      preview_link: (cfg.link && isLink(r[cfg.link]) ? (r[cfg.link] as string) : null) ?? prev?.preview_link ?? null,
       ad_type: (cfg.type && typeof r[cfg.type] === "string" ? (r[cfg.type] as string) : null) ?? prev?.ad_type ?? null,
       // Only Google rows carry text_ad, so an upsert for other platforms never touches the column.
       ...(account.windsor_connector === "google_ads" ? { text_ad: textAds.get(adId) ?? prev?.text_ad ?? null } : {}),

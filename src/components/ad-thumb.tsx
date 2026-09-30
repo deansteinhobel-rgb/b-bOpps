@@ -9,16 +9,28 @@ const SIZE = { sm: "size-10", md: "size-16", lg: "size-28", card: "aspect-square
 
 /**
  * Saved preview image, a mock Google result for search ads, or a tile naming the ad type. Hovering
- * an image or search ad shows it large; Meta ads also link to Meta's real preview.
+ * an image or search ad shows it large. Meta ads link to Meta's preview, LinkedIn ads to the post
+ * (for document ads, which Windsor has no image for, that link is the only preview).
  */
 export function AdThumb({ preview, alt, size = "md", className }: { preview?: Preview; alt: string; size?: keyof typeof SIZE; className?: string }) {
   const tile = cn("shrink-0 overflow-hidden rounded-md border bg-elevated", SIZE[size], className)
   if (!preview?.src && preview?.textAd) return <SearchAdThumb ad={preview.textAd} alt={alt} className={cn(tile, "border-transparent")} size={size} />
-  if (!preview?.src && size === "card") return <CardPlaceholder kind={preview?.textOnly ? "Text ad" : (preview?.kind ?? null)} alt={alt} className={tile} />
+  const site = preview?.link ? linkSite(preview.link) : null
+  if (!preview?.src && size === "card") {
+    const card = <CardPlaceholder kind={preview?.textOnly ? "Text ad" : (preview?.kind ?? null)} alt={alt} className={cn(tile, site && "transition-colors group-hover/card:border-foreground/30 hover:border-foreground/30")} site={site} />
+    return site ? <a href={preview!.link!} target="_blank" rel="noreferrer" className="block" aria-label={`${alt}: open the ad in ${site}`}>{card}</a> : card
+  }
   if (!preview?.src) {
     const label = preview?.textOnly ? "Text ad" : (preview?.kind ?? "No preview")
+    const cls = cn(tile, "flex items-center justify-center p-1 text-center text-[10px] leading-tight text-muted-foreground")
+    if (site)
+      return (
+        <a href={preview!.link!} target="_blank" rel="noreferrer" className={cn(cls, "transition-colors hover:border-foreground/30 hover:text-foreground")} aria-label={`${alt}: ${label}, open it in ${site}`} title={`Open in ${site}`}>
+          {label}
+        </a>
+      )
     return (
-      <span className={cn(tile, "flex items-center justify-center p-1 text-center text-[10px] leading-tight text-muted-foreground")} aria-label={preview?.kind ? `${label}, no image from Windsor` : label} title={preview?.kind ? "Windsor has no image for this ad type" : undefined}>
+      <span className={cls} aria-label={preview?.kind ? `${label}, no image from Windsor` : label} title={preview?.kind ? "Windsor has no image for this ad type" : undefined}>
         {label}
       </span>
     )
@@ -37,24 +49,34 @@ export function AdThumb({ preview, alt, size = "md", className }: { preview?: Pr
     <HoverCard>
       <HoverCardTrigger
         delay={150}
-        render={preview.link ? <a href={preview.link} target="_blank" rel="noreferrer" className={cn("shrink-0", size === "card" && "block")} aria-label={`${alt}: view the ad in Meta`} /> : <span className={cn("shrink-0", size === "card" && "block")} tabIndex={0} />}
+        render={preview.link ? <a href={preview.link} target="_blank" rel="noreferrer" className={cn("shrink-0", size === "card" && "block")} aria-label={`${alt}: view the ad in ${site}`} /> : <span className={cn("shrink-0", size === "card" && "block")} tabIndex={0} />}
       >
         {image}
       </HoverCardTrigger>
       <HoverCardContent side="right" className="w-[min(380px,85vw)] border-border bg-popover p-2">
         <img src={preview.src} alt={alt} className="max-h-[70vh] w-full rounded-md object-contain" />
         <p className="mt-2 line-clamp-2 px-1 text-xs text-muted-foreground">{alt}</p>
-        {preview.link && <p className="px-1 pb-1 text-xs text-foreground">Click to open the ad in Meta</p>}
+        {site && <p className="px-1 pb-1 text-xs text-foreground">Click to open the ad in {site}</p>}
       </HoverCardContent>
     </HoverCard>
   )
 }
 
+/** Which platform a preview link opens on. */
+function linkSite(link: string) {
+  try {
+    return /(^|\.)linkedin\.com$/i.test(new URL(link).hostname) ? "LinkedIn" : "Meta"
+  } catch {
+    return "Meta"
+  }
+}
+
 export function ViewAdLink({ preview }: { preview?: Preview }) {
   if (!preview?.link) return null
+  const site = linkSite(preview.link)
   return (
     <a href={preview.link} target="_blank" rel="noreferrer" className="text-xs text-muted-foreground underline hover:text-foreground">
-      View ad
+      {preview.src || site === "Meta" ? "View ad" : `Open in ${site}`}
     </a>
   )
 }
@@ -125,19 +147,20 @@ export function SearchAdMock({ ad, className }: { ad: TextAd; className?: string
 }
 
 /** Card-size tile for ads Windsor has no image for: a document-style cover with the ad type. */
-function CardPlaceholder({ kind, alt, className }: { kind: string | null; alt: string; className: string }) {
+function CardPlaceholder({ kind, alt, className, site }: { kind: string | null; alt: string; className: string; site?: string | null }) {
   return (
     <span
       className={cn(className, "flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-elevated to-card text-muted-foreground")}
       role="img"
       aria-label={`${alt}: ${kind ?? "no preview"}`}
-      title={kind ? "Windsor has no image for this ad type" : undefined}
+      title={site ? `Open in ${site}` : kind ? "Windsor has no image for this ad type" : undefined}
     >
       <svg viewBox="0 0 40 48" className="h-14 w-12 text-foreground/35" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
         <path d="M4 2h22l10 10v34H4z" />
         <path d="M26 2v10h10M10 22h20M10 28h20M10 34h13" />
       </svg>
       <span className="text-[11px] uppercase tracking-wider">{kind ?? "No preview"}</span>
+      {site && <span className="text-[11px] text-foreground/70 underline underline-offset-2">Open in {site} ↗</span>}
     </span>
   )
 }
