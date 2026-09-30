@@ -28,7 +28,7 @@ function contentSecurityPolicy(nonce: string, frameAncestors = "'none'") {
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob: ${supabase} https://www.google.com https://*.gstatic.com`,
     `media-src 'self' blob: ${supabase}`,
-    `font-src 'self' data:`,
+    `font-src 'self' data: ${supabase}`,
     `connect-src 'self' ${supabase} ${supabase.replace(/^https/, "wss")}${turnstile}${dev ? " ws:" : ""}`,
     `worker-src 'self' blob:`,
     turnstile ? `frame-src${turnstile}` : `frame-src 'none'`,
@@ -98,5 +98,5 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Everything except static files and images.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?|otf|ttf)$).*)"],
 }

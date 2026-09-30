@@ -189,7 +189,7 @@ function BriefPanel({ slug, brief, sources, canAdmin }: { slug: string; brief: B
         <div className="brief-prose space-y-1 px-5 py-4 text-sm leading-relaxed">
           <ReactMarkdown
             components={{
-              h2: ({ children }) => <h3 className="mt-5 mb-2 border-b pb-1.5 text-xs font-semibold tracking-wide text-lime uppercase first:mt-0">{children}</h3>,
+              h2: ({ children }) => <h3 className="mt-5 mb-2 border-b pb-1.5 text-xs font-semibold text-lime first:mt-0">{children}</h3>,
               h3: ({ children }) => <h4 className="mt-3 mb-1 text-sm font-semibold">{children}</h4>,
               ul: ({ children }) => <ul className="space-y-1.5">{children}</ul>,
               li: ({ children }) => <li className="relative pl-4 before:absolute before:top-2 before:left-0 before:size-1 before:rounded-full before:bg-foreground/40">{children}</li>,

@@ -129,7 +129,7 @@ export function InsightFeed(props: {
       <ClaudeTake {...props} onOpen={openInsight} />
 
       {/* Summary: the open queue by category. Clicking one filters the list. */}
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border lg:grid-cols-4">
         {(Object.keys(CATEGORY) as Category[]).map((c) => {
           const active = category === c
           return (
@@ -598,7 +598,7 @@ function ClaudeTake(p: Parameters<typeof InsightFeed>[0] & { onOpen: (key: strin
 
   if (!p.review && !p.canReview) return null
   return (
-    <section className="relative overflow-hidden rounded-xl border border-lime/25 bg-gradient-to-br from-lime/[0.07] via-card to-card p-5">
+    <section className="relative overflow-hidden rounded-lg border border-lime/25 bg-gradient-to-br from-lime/[0.07] via-card to-card p-5">
       <div aria-hidden className="pointer-events-none absolute -top-20 -right-10 size-56 rounded-full bg-lime/10 blur-3xl" />
       <div className="relative flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1.5">

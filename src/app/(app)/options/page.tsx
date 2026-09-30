@@ -74,7 +74,7 @@ export default async function OptionsPage({ searchParams }: PageProps<"/options"
               </>
             )}
           </p>
-          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-3 lg:grid-cols-5">
+          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 lg:grid-cols-5">
             {stats.stats.map((s) => (
               <div key={s.key} className="bg-card px-4 py-4">
                 <dt className="text-xs text-muted-foreground">{s.label}</dt>

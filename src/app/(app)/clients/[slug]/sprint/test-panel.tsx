@@ -93,7 +93,7 @@ export function TestPanel(props: {
 
           <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
             {/* Verdict */}
-            <section className={cn("rounded-xl p-4 ring-1", verdictTone.box)} aria-label="Verdict">
+            <section className={cn("rounded-lg p-4 ring-1", verdictTone.box)} aria-label="Verdict">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
                   <p className={cn("flex items-center gap-2 text-base font-semibold", verdictTone.text)}>
@@ -123,7 +123,7 @@ export function TestPanel(props: {
                   The account rows are context: if everything moved, the test probably didn&apos;t cause it.
                 </Hint>
               </h3>
-              <div className="divide-y rounded-xl border bg-card">
+              <div className="divide-y rounded-lg border bg-card">
                 {d.comparisons.map((c, i) => {
                   const now = metricValue(d.metric, c.now)
                   const then = c.then ? metricValue(d.metric, c.then) : null
@@ -178,7 +178,7 @@ export function TestPanel(props: {
                 </p>
               )}
               {d.otherAds.length > 0 && (
-                <details className="group rounded-xl border">
+                <details className="group rounded-lg border">
                   <summary className="cursor-pointer list-none px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground">
                     The campaign&apos;s other ads, same days ({d.otherAds.length}) <span className="group-open:hidden">▸</span>
                     <span className="hidden group-open:inline">▾</span>
@@ -195,7 +195,7 @@ export function TestPanel(props: {
             {/* What we're testing */}
             <section className="space-y-2 text-xs" aria-label="What we're testing">
               <h3 className="text-sm font-semibold">What we&apos;re testing</h3>
-              <dl className="space-y-2 rounded-xl border bg-card p-4">
+              <dl className="space-y-2 rounded-lg border bg-card p-4">
                 {t.hypothesis && <Row k="Hypothesis" v={t.hypothesis} />}
                 <Row k="Success" v={successLine(t.success_metric, t.success_target, t.success_text, m)} />
                 {t.assets.length > 0 && <Row k="Assets" v={t.assets.map((a) => ASSETS[a] ?? a).join(", ")} />}
@@ -262,7 +262,7 @@ function ClaudeRead({ testId, editable }: { testId: string; editable: boolean })
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-violet/30 bg-violet/5 p-4" aria-label="Claude's read" aria-busy={state === "loading"}>
+    <section className="space-y-3 rounded-lg border border-violet/30 bg-violet/5 p-4" aria-label="Claude's read" aria-busy={state === "loading"}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold">
           <Sparkles className="size-4 text-violet" aria-hidden />
@@ -350,7 +350,7 @@ function DayBars({ label, data, liveFrom, format }: { label: string; data: { dat
 
 function AdList({ ads, previews, metric, fmt, money: m }: { ads: TestAd[]; previews: PreviewMap; metric: string; fmt: (v: number | null) => string; money: (v: number) => string }) {
   return (
-    <ul className="divide-y rounded-xl border bg-card">
+    <ul className="divide-y rounded-lg border bg-card">
       {ads.map((a) => (
         <li key={adPreviewKey(a)} className="flex items-center gap-3 px-3 py-2.5">
           <AdThumb preview={previews[adPreviewKey(a)] as Preview | undefined} alt={a.name} size="sm" />
@@ -387,7 +387,7 @@ function Setup({ test: t, detail: d }: { test: SprintTest; detail: TestDetail })
       setMsg(r.ok ? "Saved. The numbers update in a moment." : (r.message ?? "Couldn't save that."))
     })
   return (
-    <section className="space-y-3 rounded-xl border p-4" aria-label="How it's measured">
+    <section className="space-y-3 rounded-lg border p-4" aria-label="How it's measured">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold">
           How it&apos;s measured

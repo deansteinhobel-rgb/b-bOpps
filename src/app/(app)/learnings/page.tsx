@@ -188,7 +188,7 @@ function FilterPill({ href, active, label, count, dot }: { href: string; active:
 function Finding({ tone, label, text }: { tone: "green" | "red"; label: string; text: string | null }) {
   return (
     <div className={cn("rounded-md border-l-2 bg-card px-3 py-2.5", tone === "green" ? "border-l-rag-green" : "border-l-rag-red")}>
-      <p className="text-[11px] tracking-wide text-muted-foreground uppercase">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p className={cn("mt-1 text-sm leading-relaxed", !text && "text-subtle-foreground italic")}>{text ?? "None recorded"}</p>
     </div>
   )
@@ -197,7 +197,7 @@ function Finding({ tone, label, text }: { tone: "green" | "red"; label: string; 
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{label}</dt>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-0.5 leading-relaxed">{value}</dd>
     </div>
   )

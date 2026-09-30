@@ -84,10 +84,10 @@ export function NewsChat() {
   }
 
   return (
-    <div className="fixed right-4 bottom-4 z-40 flex h-[min(620px,calc(100dvh-2rem))] w-[min(420px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-card shadow-2xl shadow-black/50" role="dialog" aria-label="Paid media news">
+    <div className="fixed right-4 bottom-4 z-40 flex h-[min(620px,calc(100dvh-2rem))] w-[min(420px,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border bg-card shadow-2xl shadow-black/50" role="dialog" aria-label="Paid media news">
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div>
-          <p className="font-heading text-lg leading-tight">The news cellar</p>
+          <p className="font-heading text-xl leading-tight">The news cellar</p>
           <p className="text-[11px] text-muted-foreground">Google · Bing · LinkedIn · Meta · Reddit · ChatGPT Ads · X, fresh from the web</p>
         </div>
         <button type="button" onClick={() => setOpen(false)} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Close">

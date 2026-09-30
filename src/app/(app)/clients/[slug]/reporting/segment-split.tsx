@@ -78,7 +78,7 @@ export function SegmentSplit({ segments, currency, base, query, active, platform
                 {ROWS.map((k) => (
                   <div key={k}>
                     <dt className="text-xs text-muted-foreground">{k === "cpr" ? "Cost / result" : METRIC[k].label}</dt>
-                    <dd className="mt-0.5 font-heading text-lg leading-tight tabular-nums">{fmt(k, s.now[k], currency)}</dd>
+                    <dd className="mt-0.5 font-heading text-xl leading-tight tabular-nums">{fmt(k, s.now[k], currency)}</dd>
                     <Delta k={k} now={s.now[k]} before={s.prev[k]} />
                   </div>
                 ))}
@@ -133,7 +133,7 @@ export function SegmentSplit({ segments, currency, base, query, active, platform
 export function SegmentDetail({ segment, platform, platforms, base, query, children }: { segment: SegmentOption; platform: Platform | null; platforms: Platform[]; base: string; query: URLSearchParams; children: React.ReactNode }) {
   const tabs: (Platform | null)[] = [null, ...platforms]
   return (
-    <div id="segment-detail" className="scroll-mt-28 space-y-4 rounded-xl border p-4" style={{ borderColor: tint(segment.color, 45), background: tint(segment.color, 4) }}>
+    <div id="segment-detail" className="scroll-mt-28 space-y-4 rounded-lg border p-4" style={{ borderColor: tint(segment.color, 45), background: tint(segment.color, 4) }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="flex items-center gap-2 text-base font-semibold">
           <span className="size-2.5 rounded-full" style={{ background: segment.color }} aria-hidden />

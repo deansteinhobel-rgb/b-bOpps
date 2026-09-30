@@ -106,7 +106,7 @@ export function GoalCard({ slug, goal, canEdit }: { slug: string; goal: GoalView
         {/* The numbers */}
         <div className="min-w-0 flex-1 space-y-3">
           <div>
-            <p className="text-xs font-medium tracking-wide text-lime uppercase">Main goal · {goal.monthLabel}</p>
+            <p className="text-xs font-medium text-lime">Main goal · {goal.monthLabel}</p>
             <h3 className="mt-1 text-xl font-semibold">{goal.name}</h3>
           </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">

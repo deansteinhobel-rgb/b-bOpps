@@ -23,6 +23,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className={cn("flex min-h-dvh flex-col lg:flex-row", !animations && "reduce-fx")}>
+      <a href="#main" className="sr-only rounded-full bg-lime px-4 py-2 text-sm font-medium text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50">
+        Skip to content
+      </a>
       {animations && <Starfield />}
       <AppSidebar
         clients={clients ?? []}
@@ -34,7 +37,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         hasRole={Boolean(profile.role)}
         lens={newLayout(profile.preferences) ? lensOf(profile.preferences, profile.role) : null}
       />
-      <main className="min-w-0 flex-1">
+      <main id="main" className="min-w-0 flex-1">
         <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-8 lg:py-10">
           {profile.role ? (
             children

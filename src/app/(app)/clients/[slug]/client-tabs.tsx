@@ -66,7 +66,7 @@ export function ClientTabs({ slug, groups }: { slug: string; groups?: TabGroup[]
           aria-hidden
         />
         {/* Active pill. */}
-        {pill && <span className="pointer-events-none absolute inset-y-0 rounded-full bg-lime shadow-[0_0_0_1px_rgba(228,255,26,0.25),0_4px_14px_-4px_rgba(228,255,26,0.45)] transition-all duration-300 ease-[cubic-bezier(0.3,1.3,0.5,1)] motion-reduce:transition-none" style={pill} aria-hidden />}
+        {pill && <span className="pointer-events-none absolute inset-y-0 rounded-full bg-lime transition-all duration-300 ease-[cubic-bezier(0.3,1.3,0.5,1)] motion-reduce:transition-none" style={pill} aria-hidden />}
         {tabs.map((t) => {
           const isActive = active === t.label
           return (
@@ -99,7 +99,7 @@ export function ClientTabs({ slug, groups }: { slug: string; groups?: TabGroup[]
       {group.items.map((i) => {
         const on = matches(pathname, i.href)
         return (
-          <Link key={i.href} href={base + i.href} aria-current={on ? "page" : undefined} className={cn("rounded-md px-2.5 py-1 text-xs whitespace-nowrap transition-colors", on ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground")}>
+          <Link key={i.href} href={base + i.href} aria-current={on ? "page" : undefined} className={cn("rounded-full border px-3 py-1 text-xs whitespace-nowrap transition-colors", on ? "pill-active font-medium" : "border-transparent text-muted-foreground hover:border-border hover:text-foreground")}>
             {i.label}
           </Link>
         )

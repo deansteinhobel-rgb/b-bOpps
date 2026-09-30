@@ -136,7 +136,7 @@ export function TestCard(props: {
   }
 
   return (
-    <article id={`test-${t.id}`} className="scroll-mt-6 overflow-hidden rounded-xl border bg-card text-sm transition-colors hover:border-foreground/20">
+    <article id={`test-${t.id}`} className="scroll-mt-6 overflow-hidden rounded-lg border bg-card text-sm transition-colors hover:border-foreground/20">
       <div className="space-y-3 p-4">
         <div className="flex items-center justify-between gap-2">
           <PlatformLabel platform={t.platform} className="min-w-0 truncate text-xs text-muted-foreground" />
@@ -201,7 +201,7 @@ export function TestCard(props: {
       {(stage === "ready" || stage === "review" || stage === "done") && props.brief && (
         <Panel>
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] font-medium tracking-wide whitespace-nowrap text-muted-foreground uppercase">What we created</p>
+            <p className="text-xs font-medium whitespace-nowrap text-muted-foreground">What we created</p>
             <NotionLink href={props.brief.url} />
           </div>
           {props.brief.links.length ? (
@@ -281,7 +281,7 @@ export function TestCard(props: {
       )}
       {editable && stage === "review" && (
         <Panel>
-          <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Call it</p>
+          <p className="text-xs font-medium text-muted-foreground">Call it</p>
           <div className="flex flex-wrap gap-2">
             {(["proven", "disproven", "inconclusive"] as const).map((o) => (
               <Button key={o} size="sm" variant="outline" disabled={pending} onClick={() => run(() => setOutcome(t.id, { outcome: o, carry_reason: null }))}>

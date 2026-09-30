@@ -297,7 +297,7 @@ export default async function DesignPreview() {
               sprint={{ number: 1, day: 3, start: "2026-09-28", end: "2026-10-11" }}
               tests={glanceTests}
               nextCount={1}
-              headline={<p className="max-w-5xl font-heading text-lg leading-snug sm:text-xl">DNSFilter has spent $109,768 of its $105,000 September budget and is <span className="text-rag-red">4% over the month&apos;s budget</span>. That&apos;s 402 results at <span className="text-rag-green">$273 each</span>, under the $300 target.</p>}
+              headline={<p className="max-w-5xl font-heading text-xl leading-snug sm:text-xl">DNSFilter has spent $109,768 of its $105,000 September budget and is <span className="text-rag-red">4% over the month&apos;s budget</span>. That&apos;s 402 results at <span className="text-rag-green">$273 each</span>, under the $300 target.</p>}
               details={{
                 spend: <SpendBreakdown slug="sample" currency="USD" target={300} platforms={glancePlatforms} campaigns={glanceNumbers.campaigns} total={glanceNumbers.mtd.spend} />,
                 ads: <AdsPanel slug="sample" currency="USD" best={topAds(glanceAdStats)} tiring={tiringAds(sampleAds)} unknown={0} previews={{}} />,

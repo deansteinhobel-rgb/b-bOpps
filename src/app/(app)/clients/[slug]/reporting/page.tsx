@@ -160,7 +160,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
       {/* 1. Overview: the account, then each platform */}
       <section id="overview" className="scroll-mt-28 space-y-4">
         <SectionHeader title="Overview" description={`${scopeName || "The whole account"}, ${dates}, ${against}. Result = conversions + leads.`} />
-        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-4 xl:grid-cols-7">
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-4 xl:grid-cols-7">
           {CARDS.map((k) => (
             <div key={k} className="bg-card px-4 py-3.5">
               <dt className="flex items-center gap-1 text-xs text-muted-foreground">

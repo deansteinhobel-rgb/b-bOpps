@@ -15,6 +15,10 @@
   --color-lime: var(--lime);
   --color-violet: var(--violet);
   --color-lavender: var(--lavender);
+  --color-pink: var(--pink);
+  --color-ember: var(--ember);
+  --color-body: var(--body);
+  --color-border-strong: var(--border-strong);
   --color-rag-green: var(--rag-green);
   --color-rag-green-bg: var(--rag-green-bg);
   --color-rag-amber: var(--rag-amber);
@@ -61,54 +65,72 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Lumaux by Bordeaux & Burgundy: dark, like bordeauxandburgundy.com.
-   Near-black surfaces, warm off-white text, the lime brand accent, serif page titles.
-   Lime is the brand accent only. It never means "green" status; RAG colors are separate. */
+/* MADE Avenue is licensed, so it isn't in the (public) repo: production loads it from the public
+   "brand" bucket (`pnpm upload:font`); public/fonts/ is a git-ignored local copy for development. */
+@font-face {
+  font-family: "MADE Avenue";
+  src: url("/fonts/MADEAvenue-Regular.otf") format("opentype"),
+    url("https://mazdffcxbgfspjemqhqx.supabase.co/storage/v1/object/public/brand/fonts/MADEAvenue-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Lumaux by Bordeaux & Burgundy, on George's B&B design system (2026-10-01): a well-set magazine
+   spread on a dark screen. The page is #1a1a1a; boxes are black with a 1px hairline and a 12px
+   radius; titles are white, prose light gray, quiet text #91969c. One yellow, used as a signal
+   (primary buttons, the active tab, focus, one chart series), never as a background.
+   Lime never means "green" status; RAG colors are separate. No all caps anywhere. */
 :root {
   color-scheme: dark;
   --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-heading: "MADE Avenue", Georgia, serif;
+  --font-heading: "MADE Avenue", Georgia, "Times New Roman", serif;
 
-  --ink: #0a0a0a;
+  --ink: #1a1a1a;
   --lime: #e4ff1a;
-  --lavender: #b8bae8;
+  --pink: #ff3d8a;
+  --ember: #e8552f;
+  --lavender: #c9b8e0;
   --violet: #8b8ee0;
-  --paper: #f0eeea;
+  --paper: #ffffff;
 
-  --background: #080808;
-  --foreground: #f2f1ed;
-  --card: #131313;
-  --card-foreground: #f2f1ed;
-  --popover: #181818;
-  --popover-foreground: #f2f1ed;
-  --elevated: #1d1d1d;
+  --background: #1a1a1a;
+  --foreground: #ffffff;
+  --body: #c7c7c7;
+  --card: #000000;
+  --card-foreground: #ffffff;
+  --popover: #0f0f0f;
+  --popover-foreground: #ffffff;
+  --elevated: #262626;
   --primary: var(--lime);
-  --primary-foreground: #0a0a0a;
-  --secondary: #1e1e1e;
-  --secondary-foreground: #f2f1ed;
-  --muted: #1e1e1e;
-  --muted-foreground: #a3a29c;
-  --subtle-foreground: #6f6e69;
-  --accent: #222222;
-  --accent-foreground: #f2f1ed;
+  --primary-foreground: #1a1a1a;
+  --secondary: #262626;
+  --secondary-foreground: #ffffff;
+  --muted: #242424;
+  --muted-foreground: #91969c;
+  --subtle-foreground: #6c7076;
+  --accent: #262626;
+  --accent-foreground: #ffffff;
   --destructive: #f87171;
-  --border: #2b2b2b;
-  --input: #343434;
+  --border: #333333;
+  --border-strong: #5e6165;
+  --input: #3a3a3a;
   --ring: var(--lime);
-  --chart-1: #8b8ee0;
-  --chart-2: #e84fcf;
-  --chart-3: #b8bae8;
-  --chart-4: #cc50e8;
-  --chart-5: #5a5a5a;
-  --radius: 0.625rem;
+  /* Data colors in order: accent, accent-2, accent-3, then a receding neutral. */
+  --chart-1: #e4ff1a;
+  --chart-2: #ff3d8a;
+  --chart-3: #e8552f;
+  --chart-4: #9aa0a6;
+  --chart-5: #5e6165;
+  --radius: 0.75rem;
 
-  --sidebar: #0d0d0d;
-  --sidebar-foreground: #f2f1ed;
+  --sidebar: #000000;
+  --sidebar-foreground: #ffffff;
   --sidebar-primary: var(--lime);
-  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-primary-foreground: #1a1a1a;
   --sidebar-accent: #1a1a1a;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #1f1f1f;
+  --sidebar-border: #262626;
   --sidebar-ring: var(--lime);
 
   /* Status (RAG), tuned for dark. Deliberately not lime. */
@@ -131,18 +153,30 @@
   }
   html {
     @apply font-sans;
+    scrollbar-color: var(--input) transparent;
   }
 }
 
 @layer base {
-  /* Serif for page and section titles; the rest of the UI stays in Helvetica. */
+  /* MADE Avenue for page and section titles only (never below 20px, never body copy); Helvetica
+     Neue for everything else. Tight leading, slightly negative tracking, as in the decks. */
   h1, h2 {
     font-family: var(--font-heading);
     font-weight: 400;
-    letter-spacing: -0.015em;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
   }
   h3 {
     font-weight: 600;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  /* Numbers line up in tables. */
+  table {
+    font-variant-numeric: tabular-nums;
   }
   ::selection {
     background: var(--lime);
@@ -150,12 +184,38 @@
   }
 }
 
-/* Small uppercase labels, as on the website */
+/* A small quiet label above a title or a group (sentence case: B&B never sets anything in caps). */
 @utility eyebrow {
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  font-size: 0.75rem;
+  line-height: 1rem;
   color: var(--muted-foreground);
+}
+
+/* Paragraph copy in the design system's body gray (titles and numbers stay white). */
+@utility prose-body {
+  color: var(--body);
+}
+
+/* The B&B pill: a small outlined chip that labels things (bold is used here and nowhere else). */
+@utility pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.5rem;
+  padding-inline: 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+/* An active pill: the design system's gray-to-black fill with white text. */
+@utility pill-active {
+  border-color: var(--border-strong);
+  background: linear-gradient(180deg, #4a4a4a, #000000);
+  color: var(--foreground);
 }
 
 /* A quiet surface for grouped content (cards, lists). */

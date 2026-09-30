@@ -231,7 +231,7 @@ function AdsSummary({ best, tiring, previews, currency }: { best: ReturnType<typ
   return (
     <span className="block space-y-3">
       <span className="block">
-        <span className="block text-[11px] tracking-wide text-muted-foreground uppercase">Working well</span>
+        <span className="block text-xs text-muted-foreground">Working well</span>
         {top.length === 0 ? (
           <span className="mt-1.5 block text-sm text-muted-foreground">Not enough ad data yet.</span>
         ) : (

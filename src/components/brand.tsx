@@ -86,8 +86,8 @@ export function AppMark({ compact }: { compact?: boolean }) {
       </span>
       {!compact && (
         <span className="leading-tight">
-          <span className="block font-heading text-[17px] text-foreground">Lumaux</span>
-          <span className="block text-[9px] tracking-[0.1em] whitespace-nowrap text-muted-foreground uppercase">by Bordeaux &amp; Burgundy</span>
+          <span className="block font-heading text-xl leading-none text-foreground">Lumaux</span>
+          <span className="block text-[11px] whitespace-nowrap text-muted-foreground">by Bordeaux &amp; Burgundy</span>
         </span>
       )}
     </span>

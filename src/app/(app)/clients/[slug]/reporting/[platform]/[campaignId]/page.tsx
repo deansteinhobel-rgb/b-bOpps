@@ -80,7 +80,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
       </div>
       <Controls base={`/clients/${slug}/reporting/${platform}/${encodeURIComponent(campaignId)}`} range={range} defaultDays={defaultDays} platform={null} periods={perf.periods} dataFrom={perf.dataFrom} dataThrough={perf.dataThrough} />
 
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-4 xl:grid-cols-7">
+      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-4 xl:grid-cols-7">
         {CARDS.map((k) => (
           <div key={k} className="bg-card px-4 py-3.5">
             <dt className="text-xs text-muted-foreground">{METRIC[k].label}</dt>

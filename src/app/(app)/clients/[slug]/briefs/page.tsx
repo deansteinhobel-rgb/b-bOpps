@@ -103,7 +103,7 @@ export default async function BriefsPage({ params, searchParams }: PageProps<"/c
         <div className="space-y-6">
           {groups.map((g) => (
             <section key={g.key} className="space-y-2">
-              <h3 className="flex items-center gap-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                 <span className={cn("size-1.5 rounded-full", g.tone === "lime" ? "bg-lime" : g.tone === "violet" ? "bg-violet" : g.tone === "green" ? "bg-rag-green" : g.tone === "amber" ? "bg-rag-amber" : "bg-rag-na")} />
                 {g.label}
                 <span className="text-subtle-foreground">{g.items.length}</span>

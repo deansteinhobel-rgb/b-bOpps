@@ -287,7 +287,7 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
               <GoalCard key={g.id} slug={slug} goal={g} canEdit={isAdmin(me)} />
             ))}
 
-            <dl className="grid gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-3">
+            <dl className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3">
               <Tile label="Spent" hint="What we've paid the ad platforms this month, against the month's budget." value={money(numbers.mtd.spend, cur)}>
                 {budget > 0 ? (
                   <span className="block space-y-1.5">

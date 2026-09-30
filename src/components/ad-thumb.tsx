@@ -159,7 +159,7 @@ function CardPlaceholder({ kind, alt, className, site }: { kind: string | null; 
         <path d="M4 2h22l10 10v34H4z" />
         <path d="M26 2v10h10M10 22h20M10 28h20M10 34h13" />
       </svg>
-      <span className="text-[11px] uppercase tracking-wider">{kind ?? "No preview"}</span>
+      <span className="text-xsr">{kind ?? "No preview"}</span>
       {site && <span className="text-[11px] text-foreground/70 underline underline-offset-2">Open in {site} ↗</span>}
     </span>
   )

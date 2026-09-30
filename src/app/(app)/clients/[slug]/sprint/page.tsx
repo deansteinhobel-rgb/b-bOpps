@@ -243,7 +243,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
           <h2 className="text-2xl">Sprint review</h2>
           <p className="text-sm text-muted-foreground">Built from the tests. Add the key takeaway, then close the sprint.</p>
         </div>
-        <div className="space-y-4 rounded-xl border border-lime/25 bg-card p-4 sm:p-6">
+        <div className="space-y-4 rounded-lg border border-lime/25 bg-card p-4 sm:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="font-heading text-2xl">Sprint {period.number} review</p>
             <p className="text-xs text-muted-foreground">
@@ -408,7 +408,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
 function Box({ title, accent, children }: { title: string; accent?: boolean; children: React.ReactNode }) {
   return (
     <div className="overflow-hidden rounded-lg border bg-background/60 text-sm text-foreground">
-      <p className={cn("border-b px-4 py-2.5 text-xs font-medium tracking-wide uppercase", accent ? "border-lime/30 text-lime" : "text-muted-foreground")}>{title}</p>
+      <p className={cn("border-b px-4 py-2.5 text-xs font-medium", accent ? "border-lime/30 text-lime" : "text-muted-foreground")}>{title}</p>
       <div className="p-4">{children}</div>
     </div>
   )

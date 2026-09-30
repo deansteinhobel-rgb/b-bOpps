@@ -69,7 +69,7 @@ export function RangePicker({ range, periods, dataFrom, dataThrough, onChange, a
       </button>
 
       {open && (
-        <div id={id} role="dialog" aria-label="Date range" className={cn("absolute top-full z-50 mt-1.5 flex w-[min(30rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-popover text-sm shadow-xl sm:flex-row", align === "end" ? "right-0" : "left-0")}>
+        <div id={id} role="dialog" aria-label="Date range" className={cn("absolute top-full z-50 mt-1.5 flex w-[min(30rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border bg-popover text-sm shadow-xl sm:flex-row", align === "end" ? "right-0" : "left-0")}>
           <ul className="grid grid-cols-2 gap-0.5 border-b p-1.5 sm:w-44 sm:grid-cols-1 sm:border-r sm:border-b-0">
             {PRESETS.map((p) => {
               const active = range.kind === "preset" && range.preset === p

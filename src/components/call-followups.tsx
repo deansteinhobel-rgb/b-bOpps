@@ -119,7 +119,7 @@ export function CallReminders({ reminders, canEdit }: { reminders: Reminder[]; c
   }
   const r = reminders[Math.min(index, reminders.length - 1)]
   return (
-    <aside role="status" aria-live="polite" className="animate-in fade-in slide-in-from-bottom-4 fixed bottom-4 left-4 z-40 w-[min(26rem,calc(100vw-2rem))] rounded-xl border border-lime/30 bg-elevated shadow-2xl shadow-black/60 lg:left-64">
+    <aside role="status" aria-live="polite" className="animate-in fade-in slide-in-from-bottom-4 fixed bottom-4 left-4 z-40 w-[min(26rem,calc(100vw-2rem))] rounded-lg border border-lime/30 bg-elevated shadow-2xl shadow-black/60 lg:left-64">
       <div className="flex items-center gap-2 border-b px-4 py-2.5">
         <Phone className="size-3.5 text-lime" aria-hidden />
         <p className="flex-1 text-xs font-medium">Said on a call, no sign of it yet</p>

@@ -137,10 +137,10 @@ export function AskChat({ aiReady }: { aiReady: boolean }) {
 
   const starters = active === "campaign" ? CAMPAIGN_STARTERS : NEWS_STARTERS
   return (
-    <div className="fixed right-4 bottom-4 z-40 flex h-[min(640px,calc(100dvh-2rem))] w-[min(440px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border bg-card shadow-2xl shadow-black/50" role="dialog" aria-label="Ask">
+    <div className="fixed right-4 bottom-4 z-40 flex h-[min(640px,calc(100dvh-2rem))] w-[min(440px,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border bg-card shadow-2xl shadow-black/50" role="dialog" aria-label="Ask">
       <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
         <div className="min-w-0 space-y-2">
-          <p className="font-heading text-lg leading-tight">Ask</p>
+          <p className="font-heading text-xl leading-tight">Ask</p>
           {campaign && (
             <div className="flex gap-1" role="radiogroup" aria-label="Ask about">
               {(

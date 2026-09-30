@@ -253,7 +253,7 @@ function PourHero({ canGenerate, aiReady, busy, onPour, error, again, note }: { 
   const dripping = t > 3.4
   return (
     <div className="relative" onMouseEnter={hover.enter} onMouseLeave={hover.leave}>
-    <section className="group/pour relative isolate overflow-hidden rounded-xl p-px">
+    <section className="group/pour relative isolate overflow-hidden rounded-lg p-px">
       {/* Traveling glow border */}
       <div aria-hidden className="pour-border absolute top-1/2 left-1/2 -z-10 size-[250%] -translate-x-1/2 -translate-y-1/2 opacity-60 transition-opacity duration-500 group-hover/pour:opacity-100" />
       <div className="relative overflow-hidden rounded-[11px] bg-card">
@@ -532,11 +532,11 @@ function Detail({ rec: r, rank, tab, canEdit, owners, defaultDeadline, currency 
 
             <div className="grid gap-4 rounded-lg border-l-2 border-lime/60 bg-background/50 py-3 pr-4 pl-4 sm:grid-cols-2">
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-subtle-foreground">Expected impact</p>
+                <p className="text-xs text-subtle-foreground">Expected impact</p>
                 <p className="mt-1 text-sm">{r.expected_impact ? withSymbols(r.expected_impact) : `${cap(r.impact ?? r.confidence ?? "medium")} impact`}</p>
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wide text-subtle-foreground">Success looks like</p>
+                <p className="text-xs text-subtle-foreground">Success looks like</p>
                 <p className="mt-1 text-sm">{withSymbols(successLine(r.success_metric, r.success_target, r.success_text, (v) => money(v, currency)))}</p>
               </div>
             </div>

@@ -63,7 +63,7 @@ export function CheckCard(props: {
     })
 
   return (
-    <article id={`check-${r.id}`} className={cn("scroll-mt-6 rounded-xl border bg-card p-5 shadow-[0_1px_0_0_rgb(255_255_255/0.04)_inset]", r.status === "red" && "border-rag-red/40")}>
+    <article id={`check-${r.id}`} className={cn("scroll-mt-6 rounded-lg border bg-card p-5 shadow-[0_1px_0_0_rgb(255_255_255/0.04)_inset]", r.status === "red" && "border-rag-red/40")}>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-xl">{d.name}</h3>

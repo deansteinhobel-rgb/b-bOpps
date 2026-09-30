@@ -6,6 +6,7 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { setLens } from "@/app/(app)/options/actions"
 import { AppMark, Avatar, ClientLogo } from "@/components/brand"
+import { CommandMenu, Kbd, useShortcutLabel } from "@/components/command-menu"
 import { Segmented } from "@/components/segmented"
 import { clientHome, type Lens } from "@/lib/lens"
 import { cn } from "@/lib/utils"
@@ -20,8 +21,10 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-        active ? "bg-sidebar-accent text-foreground" : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
+        "relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors",
+        active
+          ? "bg-sidebar-accent text-foreground before:absolute before:inset-y-1.5 before:-left-3 before:w-0.5 before:rounded-full before:bg-lime"
+          : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground",
       )}
     >
       {children}
@@ -102,7 +105,7 @@ function NavBody({ clients, hasRole, pathname, lens }: Props & { pathname: strin
           </NavLink>
         </div>
       )}
-      <Link href="/clients" className={cn("block px-2.5 pb-1 text-[10px] tracking-[0.14em] uppercase transition-colors hover:text-foreground", pathname === "/clients" ? "text-foreground" : "text-subtle-foreground")}>
+      <Link href="/clients" className={cn("block px-2.5 pb-1.5 text-xs font-medium transition-colors hover:text-foreground", pathname === "/clients" ? "text-foreground" : "text-muted-foreground")}>
         Clients
       </Link>
       {clients.map((c) => (
@@ -146,7 +149,7 @@ function Profile({ name, roleLabel, profileId, avatarUrl, active }: { name: stri
         </span>
       </Link>
       <form action="/auth/signout" method="post">
-        <button type="submit" className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-sidebar-accent hover:text-foreground">
+        <button type="submit" className="rounded-full px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground">
           Sign out
         </button>
       </form>
@@ -157,12 +160,18 @@ function Profile({ name, roleLabel, profileId, avatarUrl, active }: { name: stri
 /** Left sidebar on desktop; a compact top bar with a menu on small screens. */
 export function AppSidebar(props: Props) {
   const pathname = usePathname()
+  const [jump, setJump] = useState(false)
   return (
     <>
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4 lg:flex">
-        <Link href={props.lens ? "/" : "/clients"} className="mb-6 px-1.5">
+        <Link href={props.lens ? "/" : "/clients"} className="mb-5 px-1.5">
           <AppMark />
         </Link>
+        {props.hasRole && (
+          <div className="mb-5">
+            <JumpButton onClick={() => setJump(true)} />
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto">
           <NavBody {...props} pathname={pathname} />
         </div>
@@ -172,21 +181,54 @@ export function AppSidebar(props: Props) {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-sidebar-border bg-sidebar/95 px-4 py-3 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-sidebar-border bg-sidebar/95 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur lg:hidden">
         <Link href={props.lens ? "/" : "/clients"}>
           <AppMark />
         </Link>
-        <details className="group relative">
-          <summary className="cursor-pointer list-none rounded-md border px-3 py-1.5 text-sm">Menu</summary>
-          <div className="absolute right-0 mt-2 w-64 space-y-4 rounded-lg border bg-popover p-3 shadow-xl">
-            <NavBody {...props} pathname={pathname} />
-            <div className="space-y-3 border-t pt-3">
-              <BottomNav {...props} pathname={pathname} />
-              <Profile name={props.name} roleLabel={props.roleLabel} profileId={props.profileId} avatarUrl={props.avatarUrl} active={pathname === `/people/${props.profileId}`} />
+        <div className="flex items-center gap-2">
+          {props.hasRole && (
+            <button type="button" onClick={() => setJump(true)} aria-label="Jump to a client or page" className="flex size-8 items-center justify-center rounded-full border text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
+              <SearchIcon className="size-3.5" />
+            </button>
+          )}
+          <details className="group relative">
+            <summary className="cursor-pointer list-none rounded-full border px-3.5 py-1.5 text-sm transition-colors hover:border-border-strong group-open:border-border-strong [&::-webkit-details-marker]:hidden">Menu</summary>
+            <div className="absolute right-0 mt-2 max-h-[calc(100dvh-5rem)] w-64 space-y-4 overflow-y-auto rounded-lg border bg-popover p-3 shadow-xl">
+              <NavBody {...props} pathname={pathname} />
+              <div className="space-y-3 border-t pt-3">
+                <BottomNav {...props} pathname={pathname} />
+                <Profile name={props.name} roleLabel={props.roleLabel} profileId={props.profileId} avatarUrl={props.avatarUrl} active={pathname === `/people/${props.profileId}`} />
+              </div>
             </div>
-          </div>
-        </details>
+          </details>
+        </div>
       </header>
+      {props.hasRole && <CommandMenu open={jump} onOpenChange={setJump} clients={props.clients} isAdmin={props.isAdmin} lens={props.lens} profileId={props.profileId} />}
     </>
+  )
+}
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden>
+      <circle cx="7" cy="7" r="5" />
+      <path d="m11 11 3 3" />
+    </svg>
+  )
+}
+
+/** Opens "Jump to" (the command menu), styled as a search field. */
+function JumpButton({ onClick }: { onClick: () => void }) {
+  const shortcut = useShortcutLabel()
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-full border bg-sidebar-accent/50 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+    >
+      <SearchIcon className="size-3.5 shrink-0" />
+      <span className="flex-1 text-left">Jump to…</span>
+      <Kbd>{shortcut}</Kbd>
+    </button>
   )
 }
