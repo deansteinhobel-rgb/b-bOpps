@@ -5,6 +5,7 @@ import { NewsChat } from "@/components/news-chat"
 import { aiConfigured } from "@/lib/ai/claude"
 import { canEdit, getProfile, isAdmin, ROLE_LABEL } from "@/lib/auth"
 import { remindersFor } from "@/lib/calls/load"
+import { lensOf, newLayout } from "@/lib/lens"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 
@@ -30,6 +31,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         roleLabel={profile.role ? ROLE_LABEL[profile.role] : null}
         isAdmin={isAdmin(profile)}
         hasRole={Boolean(profile.role)}
+        lens={newLayout(profile.preferences) ? lensOf(profile.preferences, profile.role) : null}
       />
       <main className="min-w-0 flex-1">
         <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-8 lg:py-10">

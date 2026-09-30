@@ -3,8 +3,10 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useLayoutEffect, useRef, useState } from "react"
+import type { TabGroup } from "@/lib/lens"
 import { cn } from "@/lib/utils"
 
+// The classic layout's tabs. The new layout passes `groups` instead (src/lib/lens.ts).
 const TABS = [
   { href: "", label: "At a glance" },
   { href: "/reporting", label: "Reporting" },
@@ -17,15 +19,22 @@ const TABS = [
 
 type Box = { left: number; width: number }
 
+type Tab = { href: string; label: string; match: string[] }
+const classicTabs: Tab[] = TABS.map((t) => ({ ...t, match: [t.href] }))
+const groupTabs = (groups: TabGroup[]): Tab[] => groups.map((g) => ({ href: g.items[0].href, label: g.label, match: g.items.map((i) => i.href) }))
+
 /**
  * The client's section tabs, Stripe style (Dean): a lime pill sits behind the active tab and slides
  * to the next one on click, and a soft pill follows the pointer on hover. The active tab follows the
- * click straight away, then the URL.
+ * click straight away, then the URL. In the new layout each tab is a group (Do, Overview, Performance,
+ * Plan, Know); a group with several pages gets a quiet second row under it.
  */
-export function ClientTabs({ slug }: { slug: string }) {
+export function ClientTabs({ slug, groups }: { slug: string; groups?: TabGroup[] }) {
   const pathname = usePathname()
   const base = `/clients/${slug}`
-  const activeFor = (path: string) => TABS.find((t) => t.href && path.startsWith(base + t.href))?.label ?? (path === base ? "At a glance" : null)
+  const tabs = groups ? groupTabs(groups) : classicTabs
+  const matches = (path: string, href: string) => (href ? path === base + href || path.startsWith(`${base + href}/`) : path === base)
+  const activeFor = (path: string) => tabs.find((t) => t.match.some((m) => m && matches(path, m)))?.label ?? tabs.find((t) => t.match.includes("") && path === base)?.label ?? null
   const [clicked, setClicked] = useState<{ label: string; from: string } | null>(null)
   const active = clicked && clicked.from === pathname ? clicked.label : activeFor(pathname)
 
@@ -47,7 +56,7 @@ export function ClientTabs({ slug }: { slug: string }) {
     return () => ro.disconnect()
   }, [active])
 
-  return (
+  const main = (
     <nav className="relative -mx-1 flex overflow-x-auto px-1 pb-3 [scrollbar-width:none]" aria-label="Client sections" onMouseLeave={() => setHover(null)}>
       <div className="relative flex">
         {/* Hover pill: follows the pointer, hidden over the active tab. */}
@@ -58,7 +67,7 @@ export function ClientTabs({ slug }: { slug: string }) {
         />
         {/* Active pill. */}
         {pill && <span className="pointer-events-none absolute inset-y-0 rounded-full bg-lime shadow-[0_0_0_1px_rgba(228,255,26,0.25),0_4px_14px_-4px_rgba(228,255,26,0.45)] transition-all duration-300 ease-[cubic-bezier(0.3,1.3,0.5,1)] motion-reduce:transition-none" style={pill} aria-hidden />}
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           const isActive = active === t.label
           return (
             <Link
@@ -83,5 +92,24 @@ export function ClientTabs({ slug }: { slug: string }) {
         })}
       </div>
     </nav>
+  )
+  const group = groups?.find((g) => g.label === active)
+  const sub = group && group.items.length > 1 && (
+    <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-3 [scrollbar-width:none]" aria-label={`${group.label} pages`}>
+      {group.items.map((i) => {
+        const on = matches(pathname, i.href)
+        return (
+          <Link key={i.href} href={base + i.href} aria-current={on ? "page" : undefined} className={cn("rounded-md px-2.5 py-1 text-xs whitespace-nowrap transition-colors", on ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground")}>
+            {i.label}
+          </Link>
+        )
+      })}
+    </nav>
+  )
+  return (
+    <>
+      {main}
+      {sub}
+    </>
   )
 }

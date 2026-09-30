@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { savePreferences, sendFeedback } from "./actions"
 
-type Prefs = { default_days: 7 | 14 | 30 | 90 | number; optimise_order: "claude" | "priority"; start_page: string; animations: boolean }
+type Prefs = { default_days: 7 | 14 | 30 | 90 | number; optimise_order: "claude" | "priority"; start_page: string; animations: boolean; layout: "classic" | "new"; lens: "hands_on" | "overview" }
 
 /** Preferences that change how the app behaves for you. */
 export function PreferencesForm({ clients, defaults }: { clients: { slug: string; name: string }[]; defaults: Prefs }) {
@@ -19,9 +19,35 @@ export function PreferencesForm({ clients, defaults }: { clients: { slug: string
   const dirty = JSON.stringify(p) !== JSON.stringify(defaults)
   return (
     <section className="surface max-w-3xl divide-y">
+      <Pref title="Layout" hint="New: a Today list of everything to act on, tabs grouped into Do, Overview, Performance, Plan and Know, and one Ask button. Classic: the layout as it was. Switch back any time.">
+        <Segmented
+          label="Layout"
+          tone="quiet"
+          value={p.layout}
+          onChange={(v) => setP({ ...p, layout: v })}
+          options={[
+            { value: "classic", label: "Classic" },
+            { value: "new", label: "New" },
+          ]}
+        />
+      </Pref>
+      {p.layout === "new" && (
+        <Pref title="Lens" hint="Hands-on: you work in the ad platforms; the app opens on Today and clients open on Do. Overview: you read performance and plan; clients open on the overview. Also in the sidebar.">
+          <Segmented
+            label="Lens"
+            tone="quiet"
+            value={p.lens}
+            onChange={(v) => setP({ ...p, lens: v })}
+            options={[
+              { value: "hands_on", label: "Hands-on" },
+              { value: "overview", label: "Overview" },
+            ]}
+          />
+        </Pref>
+      )}
       <Pref title="Open the app on" hint="Where you land after signing in.">
         <select className={`${fieldClass} w-64`} value={p.start_page} onChange={(e) => setP({ ...p, start_page: e.target.value })}>
-          <option value="clients">All clients</option>
+          <option value="clients">{p.layout === "new" && p.lens === "hands_on" ? "Today" : "All clients"}</option>
           {clients.map((c) => (
             <option key={c.slug} value={c.slug}>
               {c.name}

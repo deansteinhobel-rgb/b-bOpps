@@ -1,12 +1,18 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { useState, useTransition } from "react"
+import { toast } from "sonner"
+import { setLens } from "@/app/(app)/options/actions"
 import { AppMark, Avatar, ClientLogo } from "@/components/brand"
+import { Segmented } from "@/components/segmented"
+import { clientHome, type Lens } from "@/lib/lens"
 import { cn } from "@/lib/utils"
 
 export type SidebarClient = { slug: string; name: string; logo_url: string | null }
-type Props = { clients: SidebarClient[]; name: string; roleLabel: string | null; isAdmin: boolean; hasRole: boolean; profileId: string; avatarUrl: string | null }
+/** `lens` is set in the new layout only (null = classic). */
+type Props = { clients: SidebarClient[]; name: string; roleLabel: string | null; isAdmin: boolean; hasRole: boolean; profileId: string; avatarUrl: string | null; lens: Lens | null }
 
 function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
   return (
@@ -24,6 +30,11 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
 }
 
 const Icon = {
+  today: (
+    <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 5.5l1.5 1.5L8 4.5M4 10.5L5.5 12 8 9.5M4 15.5L5.5 17 8 14.5M11 6h5M11 11h5M11 16h5" />
+    </svg>
+  ),
   learnings: (
     <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
       <path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9zM8 17h4" strokeLinecap="round" />
@@ -44,16 +55,58 @@ const Icon = {
   ),
 }
 
+/**
+ * Hands-on / Overview (new layout): the same app through two lenses. Saved on your profile, so the
+ * home page, the order of the client tabs and where client links open all follow it.
+ */
+function LensSwitch({ lens }: { lens: Lens }) {
+  const router = useRouter()
+  const [value, setValue] = useState(lens)
+  const [, start] = useTransition()
+  return (
+    <div className="px-1" title="Hands-on: Today and Do first. Overview: performance and planning first. Everything stays reachable in both.">
+      <Segmented
+        label="Lens"
+        tone="quiet"
+        value={value}
+        onChange={(v) => {
+          setValue(v)
+          start(async () => {
+            const r = await setLens(v)
+            if (!r.ok) {
+              setValue(lens)
+              return void toast.error(r.message ?? "Couldn't switch.")
+            }
+            router.refresh()
+          })
+        }}
+        options={[
+          { value: "hands_on", label: "Hands-on" },
+          { value: "overview", label: "Overview" },
+        ]}
+      />
+    </div>
+  )
+}
+
 /** The client list (Dean: no separate "Clients" item; the heading links to all clients). */
-function NavBody({ clients, hasRole, pathname }: Props & { pathname: string }) {
+function NavBody({ clients, hasRole, pathname, lens }: Props & { pathname: string }) {
   if (!hasRole) return null
   return (
     <nav className="space-y-0.5" aria-label="Clients">
+      {lens && (
+        <div className="mb-4 space-y-3">
+          <LensSwitch lens={lens} />
+          <NavLink href="/today" active={pathname.startsWith("/today")}>
+            {Icon.today} Today
+          </NavLink>
+        </div>
+      )}
       <Link href="/clients" className={cn("block px-2.5 pb-1 text-[10px] tracking-[0.14em] uppercase transition-colors hover:text-foreground", pathname === "/clients" ? "text-foreground" : "text-subtle-foreground")}>
         Clients
       </Link>
       {clients.map((c) => (
-        <NavLink key={c.slug} href={`/clients/${c.slug}`} active={pathname.startsWith(`/clients/${c.slug}`)}>
+        <NavLink key={c.slug} href={lens ? clientHome(c.slug, lens) : `/clients/${c.slug}`} active={pathname.startsWith(`/clients/${c.slug}`)}>
           <ClientLogo name={c.name} logoUrl={c.logo_url} size="xs" />
           <span className="truncate">{c.name}</span>
         </NavLink>
@@ -107,7 +160,7 @@ export function AppSidebar(props: Props) {
   return (
     <>
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4 lg:flex">
-        <Link href="/clients" className="mb-6 px-1.5">
+        <Link href={props.lens ? "/" : "/clients"} className="mb-6 px-1.5">
           <AppMark />
         </Link>
         <div className="flex-1 overflow-y-auto">
@@ -120,7 +173,7 @@ export function AppSidebar(props: Props) {
       </aside>
 
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-sidebar-border bg-sidebar/95 px-4 py-3 backdrop-blur lg:hidden">
-        <Link href="/clients">
+        <Link href={props.lens ? "/" : "/clients"}>
           <AppMark />
         </Link>
         <details className="group relative">

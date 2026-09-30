@@ -15,7 +15,21 @@ const Prefs = z.object({
   optimise_order: z.enum(["claude", "priority"]),
   start_page: z.string().regex(/^[a-z0-9-]+$/).max(80),
   animations: z.boolean(),
+  layout: z.enum(["classic", "new"]).optional(),
+  lens: z.enum(["hands_on", "overview"]).optional(),
 })
+
+/** The sidebar's Hands-on / Overview switch (new layout): saved on your own profile. */
+export async function setLens(lens: "hands_on" | "overview"): Promise<OptionsResult> {
+  const l = z.enum(["hands_on", "overview"]).safeParse(lens)
+  if (!l.success) return fail("Pick Hands-on or Overview.")
+  const me = await getProfile()
+  const supabase = await createClient()
+  const { error } = await supabase.from("profiles").update({ preferences: { ...me.preferences, lens: l.data } }).eq("id", me.id)
+  if (error) return fail("Couldn't save.")
+  revalidatePath("/", "layout")
+  return { ok: true }
+}
 
 /** Save your preferences (profiles.preferences, your own row only). */
 export async function savePreferences(raw: z.input<typeof Prefs>): Promise<OptionsResult> {

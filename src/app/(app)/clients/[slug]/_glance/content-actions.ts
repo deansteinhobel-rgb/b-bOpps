@@ -79,6 +79,7 @@ export async function planContentIdea(slug: string, runId: string, ideaId: strin
   if (error || !test) return fail("Couldn't create the test.")
   await l.supabase.from("content_idea_actions").insert({ client_id: l.clientId, run_id: runId, idea_id: i.id, action: "planned", sprint_test_id: test.id, snapshot: i, profile_id: me.id })
   revalidatePath(`/clients/${slug}`)
+  revalidatePath(`/clients/${slug}/ideas`)
   revalidatePath(`/clients/${slug}/sprint`)
   return { ok: true, message: `Planned in Sprint ${sprint.number}.`, url: `/clients/${slug}/sprint#test-${test.id}` }
 }
@@ -95,5 +96,6 @@ export async function markContentIdea(slug: string, runId: string, ideaId: strin
   const { error } = await l.supabase.from("content_idea_actions").insert({ client_id: l.clientId, run_id: runId, idea_id: ideaId, action, reason: r.data || null, snapshot: l.idea, profile_id: me.id })
   if (error) return fail("Couldn't save that.")
   revalidatePath(`/clients/${slug}`)
+  revalidatePath(`/clients/${slug}/ideas`)
   return { ok: true }
 }

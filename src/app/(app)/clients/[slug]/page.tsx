@@ -4,6 +4,7 @@ import { PlatformIcon } from "@/components/brand"
 import { Hint } from "@/components/hint"
 import { getAccountNumbers } from "@/lib/account"
 import { getProfile, isAdmin } from "@/lib/auth"
+import { newLayout } from "@/lib/lens"
 import { londonToday } from "@/lib/checks/periods"
 import { money, shortDate, whole } from "@/lib/format"
 import { addDays, tiringAds, topAds, type AdStat } from "@/lib/metrics/ads"
@@ -15,11 +16,11 @@ import { STAGES, stageOf, type TestStatus } from "@/lib/sprints/tests"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { createClient } from "@/lib/supabase/server"
-import { peopleForClient } from "@/lib/people"
 import { loadTimeline } from "@/lib/timeline"
 import { cn } from "@/lib/utils"
 import { AdsPanel } from "./_glance/ads-panel"
-import { ContentIdeas, type IdeaRun, type IdeaState } from "./_glance/content-ideas"
+import { ContentIdeas } from "./_glance/content-ideas"
+import { loadContentIdeas } from "./_glance/content-ideas-data"
 import { GoalCard, type GoalView } from "./_glance/goal-card"
 import { SectionNav } from "@/components/section-nav"
 import { SpendBreakdown, type PlatformSpend } from "./_glance/spend-breakdown"
@@ -120,25 +121,9 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
   const tiring = tiringAds(liveAds)
   const previews = await previewsFor(supabase, client.id, [...best.flatMap((p) => p.ads), ...tiring.slice(0, 6)])
 
-  // Content ideas: the latest finished run, one in progress, what the team did with each idea, and who can own a test.
-  const tenMinutesAgo = new Date(Date.parse(new Date().toISOString()) - 10 * 60_000).toISOString()
-  const [{ data: ideaRun }, { data: ideaRunning }, { data: canEditClient }, people] = await Promise.all([
-    supabase.from("content_idea_runs").select("id, headline, working, ideas, avoid, finished_at, requested_by_profile_id").eq("client_id", client.id).eq("status", "ready").is("archived_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("content_idea_runs").select("id, progress").eq("client_id", client.id).eq("status", "generating").gte("created_at", tenMinutesAgo).limit(1).maybeSingle(),
-    supabase.rpc("can_edit_client", { cid: client.id }),
-    peopleForClient(supabase, client.id),
-  ])
-  const { data: ideaActions } = ideaRun ? await supabase.from("content_idea_actions").select("idea_id, action, reason, sprint_test_id, created_at").eq("run_id", ideaRun.id).order("created_at") : { data: [] }
-  const ideaStates: Record<string, IdeaState> = {}
-  for (const a of ideaActions ?? []) {
-    if (a.action === "reopened") delete ideaStates[a.idea_id]
-    else ideaStates[a.idea_id] = { action: a.action as IdeaState["action"], reason: a.reason, testUrl: a.sprint_test_id ? `/clients/${slug}/sprint#test-${a.sprint_test_id}` : null }
-  }
-  const ideaBy = ideaRun?.requested_by_profile_id ? people.find((p) => p.profileId === ideaRun.requested_by_profile_id)?.name : null
-  const ideaView: IdeaRun | null = ideaRun
-    ? { id: ideaRun.id, headline: ideaRun.headline, working: ideaRun.working as IdeaRun["working"], ideas: ideaRun.ideas as IdeaRun["ideas"], avoid: ideaRun.avoid as IdeaRun["avoid"], when: `${shortDate((ideaRun.finished_at ?? today).slice(0, 10))}${ideaBy ? ` for ${ideaBy}` : ""}` }
-    : null
-  const ideaDeadline = [addDays(today, 7), period.end].sort()[0]
+  // Content ideas: on this page in the classic layout; the new layout has them under Plan › Content ideas.
+  const withIdeas = !newLayout(me.preferences)
+  const ideas = withIdeas && through ? await loadContentIdeas(supabase, client, today) : null
 
   const testsOf = (id?: string) => (tests ?? []).filter((t) => t.sprint_id === id)
   const now = testsOf(current?.id)
@@ -166,7 +151,7 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
 
   return (
     <div className="space-y-12">
-      <SectionNav sections={SECTIONS.filter((x) => (x.id === "spend" ? numbers && platforms.length > 0 : x.id === "ads" || x.id === "content" ? Boolean(through) : true))} />
+      <SectionNav sections={SECTIONS.filter((x) => (x.id === "spend" ? numbers && platforms.length > 0 : x.id === "ads" ? Boolean(through) : x.id === "content" ? Boolean(ideas) : true))} />
 
       {/* 1. Summary: how the month is going, in one sentence and three numbers */}
       <section id="summary" className="scroll-mt-28 space-y-5">
@@ -241,20 +226,10 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
       )}
 
       {/* 3b. Content ideas: what content works for whom, and what to make next */}
-      {through && (
+      {ideas && (
         <section id="content" className="scroll-mt-28 space-y-4">
           <Heading title="Content ideas" description="Which content is working and for whom, and Claude's ideas for content, ads and angles to brief in or test, each matched to the audience it's for." />
-          <ContentIdeas
-            slug={slug}
-            currency={cur}
-            run={ideaView}
-            running={ideaRunning ? { id: ideaRunning.id, progress: ideaRunning.progress } : null}
-            states={ideaStates}
-            owners={people.filter((p) => p.notionUserId && p.onTeam).map((p) => ({ notionUserId: p.notionUserId!, name: p.name }))}
-            canRun={Boolean(canEditClient)}
-            canEdit={Boolean(canEditClient)}
-            deadline={ideaDeadline}
-          />
+          <ContentIdeas slug={slug} currency={cur} {...ideas} />
         </section>
       )}
 

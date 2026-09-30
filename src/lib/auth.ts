@@ -13,6 +13,10 @@ export type Preferences = {
   start_page?: string
   /** Background effects and animations (starfield, pours, sliding highlights). */
   animations?: boolean
+  /** "new" = the Hands-on / Overview layout; anything else = the classic one (the rollback switch). */
+  layout?: "classic" | "new"
+  /** Hands-on or Overview (new layout). Unset = from your role (see lensOf). */
+  lens?: "hands_on" | "overview"
 }
 export type Profile = { id: string; email: string; full_name: string | null; role: AppRole | null; notion_user_id: string | null; avatar_url: string | null; preferences: Preferences }
 
