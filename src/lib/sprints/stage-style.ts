@@ -1,7 +1,7 @@
 import type { Stage } from "./tests"
 
 /**
- * Each board stage's colour (Dean, 2026-09-30: easier to scan). Brand secondaries and neutrals,
+ * Each board stage's color (Dean, 2026-09-30: easier to scan). Brand secondaries and neutrals,
  * never lime (that's for actions) and not RAG on its own, so a stage never reads as good or bad.
  * A plain module: the server page and the client card both use it.
  */
@@ -16,7 +16,7 @@ export const STAGE_STYLE: Record<Stage, { dot: string; bar: string; ring: string
 
 const dayDiff = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5)
 
-/** "Due in 2d", "3d overdue", "Due 16 Oct": relative when it's close, coloured when it needs attention. */
+/** "Due in 2d", "3d overdue", "Due 16 Oct": relative when it's close, colored when it needs attention. */
 export function dueChip(due: string | null, today: string) {
   if (!due) return null
   const d = dayDiff(today, due)

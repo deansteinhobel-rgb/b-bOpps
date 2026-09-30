@@ -29,13 +29,13 @@ for (const [clientId, c] of clients) {
   const t = await labelTests(clientId)
   total.input_tokens += t.usage.input_tokens
   total.output_tokens += t.usage.output_tokens
-  console.log(`${c.name}: ${t.labelled} test levers`)
+  console.log(`${c.name}: ${t.labeled} test levers`)
   if (flag("--tests")) continue
   const started = Date.now()
-  const a = await labelAds(clientId, { max, force: flag("--force"), onBatch: (done, left) => console.log(`  ${c.name}: ${done} ads labelled, ${left} to go (${Math.round((Date.now() - started) / 1000)}s)`) })
+  const a = await labelAds(clientId, { max, force: flag("--force"), onBatch: (done, left) => console.log(`  ${c.name}: ${done} ads labeled, ${left} to go (${Math.round((Date.now() - started) / 1000)}s)`) })
   total.input_tokens += a.usage.input_tokens
   total.output_tokens += a.usage.output_tokens
-  console.log(`${c.name}: ${a.labelled} ads labelled${a.left ? `, ${a.left} left` : ""}`)
+  console.log(`${c.name}: ${a.labeled} ads labeled${a.left ? `, ${a.left} left` : ""}`)
 }
 // Claude Opus 5.5: $4 / $20 per million input / output tokens.
 console.log(`Tokens: ${total.input_tokens} in, ${total.output_tokens} out (about $${((total.input_tokens * 4 + total.output_tokens * 20) / 1e6).toFixed(2)})`)

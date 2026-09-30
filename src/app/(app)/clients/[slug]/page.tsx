@@ -331,7 +331,7 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
       {/* 2. Where the money went */}
       {numbers && platforms.length > 0 && (
         <section id="spend" className="scroll-mt-28 space-y-4">
-          <Heading title="Where the money went" description={`${monthName(numbers.month)} so far, by platform and by campaign. Colours compare cost per result with the ${money(target, cur)} target: green under it, amber up to 20% over, red further.`} />
+          <Heading title="Where the money went" description={`${monthName(numbers.month)} so far, by platform and by campaign. Colors compare cost per result with the ${money(target, cur)} target: green under it, amber up to 20% over, red further.`} />
           <SpendBreakdown slug={slug} currency={cur} target={target} platforms={platforms} campaigns={numbers.campaigns} total={numbers.mtd.spend} />
         </section>
       )}

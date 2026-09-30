@@ -130,7 +130,7 @@ export function suggestTier(platform: string, field: string): ResultTier | null 
   return null
 }
 
-/** The lever a test made from an "Optimise now" insight pulls, by rule. Unclear ones are left for Claude. */
+/** The lever a test made from an "Optimize now" insight pulls, by rule. Unclear ones are left for Claude. */
 const INSIGHT_LEVERS: Record<string, Lever> = {
   keywords: "audience",
   negatives: "audience",

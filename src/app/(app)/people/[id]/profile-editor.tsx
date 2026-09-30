@@ -12,7 +12,7 @@ import { removeAvatar, updateProfile, uploadAvatar } from "../actions"
 
 type Details = { full_name: string; job_title: string; phone: string; location: string; timezone: string; bio: string }
 
-/** Shrinks a picture to a 256px square WebP in the browser (centre crop), so uploads stay small. */
+/** Shrinks a picture to a 256px square WebP in the browser (center crop), so uploads stay small. */
 async function toSquareWebp(file: File): Promise<Blob> {
   const bitmap = await createImageBitmap(file)
   const side = Math.min(bitmap.width, bitmap.height)
@@ -93,7 +93,7 @@ export function ProfileEditor({ profileId, own, name, avatarUrl, defaults }: { p
           </select>
         </Field>
         <Field label="About" className="sm:col-span-2">
-          <Textarea rows={4} value={d.bio} onChange={set("bio")} placeholder="What you work on, and anything the team should know (working hours, specialisms)." />
+          <Textarea rows={4} value={d.bio} onChange={set("bio")} placeholder="What you work on, and anything the team should know (working hours, specialties)." />
         </Field>
       </div>
 

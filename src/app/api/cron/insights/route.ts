@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 export const maxDuration = 300
 
 /**
- * Claude's daily review of each client's Optimise now feed (performance phase 4). Run it after the
+ * Claude's daily review of each client's Optimize now feed (performance phase 4). Run it after the
  * morning Windsor and breakdown syncs, a few times (e.g. hourly 06:00-08:00): each run reviews the
  * clients whose last review is over 20 hours old, oldest first, within ~4 minutes.
  * Requires `Authorization: Bearer $CRON_SECRET`.

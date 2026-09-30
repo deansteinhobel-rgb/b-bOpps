@@ -254,7 +254,7 @@ function PourHero({ canGenerate, aiReady, busy, onPour, error, again, note }: { 
   return (
     <div className="relative" onMouseEnter={hover.enter} onMouseLeave={hover.leave}>
     <section className="group/pour relative isolate overflow-hidden rounded-xl p-px">
-      {/* Travelling glow border */}
+      {/* Traveling glow border */}
       <div aria-hidden className="pour-border absolute top-1/2 left-1/2 -z-10 size-[250%] -translate-x-1/2 -translate-y-1/2 opacity-60 transition-opacity duration-500 group-hover/pour:opacity-100" />
       <div className="relative overflow-hidden rounded-[11px] bg-card">
         <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-lime/10 blur-3xl transition-colors duration-700 group-hover/pour:bg-lime/20" />

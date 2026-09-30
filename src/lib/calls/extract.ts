@@ -58,9 +58,9 @@ const SUBMIT = {
 type Item = { existing_id?: string; earlier_id?: string; kind: CommitmentKind; title: string; detail: string; quote: string; platform: string; owner_side: "bb" | "client" | "both"; owner_name?: string; due?: string; already_done: boolean }
 type Earlier = { id: string; title: string; said_on: string }
 
-const system = (client: string, team: string) => `You read client call notes for Bordeaux & Burgundy (B&B), a B2B performance marketing agency, so the ideas and decisions from calls don't get forgotten. The client is ${client}.
+const system = (client: string, team: string) => `You read client call notes for Bordeaux & Burgundy (B&B), a B2B performance marketing agency, so the ideas and decisions from calls don't get forgotten. The client is ${client}. Write in US English (optimize, color, program, center).
 B&B people on this account: ${team || "unknown"}. Anyone else named is usually the client's side.
-- Summarise the call for a paid media strategist: what the client wants, decisions, changes, worries.
+- Summarize the call for a paid media strategist: what the client wants, decisions, changes, worries.
 - List what's worth remembering: ideas to try or test, things to turn off, changes to campaigns, budgets, targeting, tracking or process, and things to look into or set up. An idea floated but not agreed is kind "idea". Keep separate things separate.
 - Leave out routine production updates on content already in progress (a draft in review, amends, approvals, scheduling approved assets, sharing something for sign-off): those are tracked as briefs in Notion. Leave out meeting logistics (sharing notes, booking calls).
 - The "Actions" section of the notes, when there is one, is the most reliable list, but ideas often come up in the discussion.

@@ -24,7 +24,7 @@ const DO: TabGroup = {
   label: "Do",
   items: [
     { href: "/do", label: "To do" },
-    { href: "/insights", label: "Optimise now" },
+    { href: "/insights", label: "Optimize now" },
     { href: "/checks", label: "Checks" },
   ],
 }

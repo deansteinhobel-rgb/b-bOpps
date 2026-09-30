@@ -345,7 +345,7 @@ function HqSources({ slug, hqPageId, pages, canAdmin }: { slug: string; hqPageId
           <p className="text-xs text-muted-foreground">
             {hqPageId ? (
               <>
-                Read only. {on.length} of {pages.length} pages count towards the brief.{" "}
+                Read only. {on.length} of {pages.length} pages count toward the brief.{" "}
                 <a href={url(hqPageId)} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
                   Open the HQ
                 </a>

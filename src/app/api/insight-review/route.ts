@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server"
 // A review takes about a minute and runs after the response (see `after`), within this limit.
 export const maxDuration = 300
 
-/** "Ask Claude to review" on Optimise now. GTM leads and admins only. Returns the review id to poll. */
+/** "Ask Claude to review" on Optimize now. GTM leads and admins only. Returns the review id to poll. */
 export async function POST(request: Request) {
   const me = await getProfile()
   if (!isAdmin(me)) return NextResponse.json({ error: "Only GTM leads and admins can run a review." }, { status: 403 })

@@ -155,12 +155,12 @@ async function inspectDataSource(dsId: string) {
   }
   for (const [pname, counts] of Object.entries(spread)) {
     const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 15)
-    const labelled: string[] = []
+    const labeled: string[] = []
     for (const [k, n] of top) {
-      labelled.push(`${k.startsWith("rel:") ? await pageTitle(k.slice(4)) : k} (${n})`)
+      labeled.push(`${k.startsWith("rel:") ? await pageTitle(k.slice(4)) : k} (${n})`)
     }
     const more = Object.keys(counts).length > 15 ? ` ... +${Object.keys(counts).length - 15} more` : ""
-    console.log(`    ${JSON.stringify(pname)}: ${labelled.join(", ")}${more}`)
+    console.log(`    ${JSON.stringify(pname)}: ${labeled.join(", ")}${more}`)
   }
 
   const mapping = propose(props)

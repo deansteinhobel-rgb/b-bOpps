@@ -1,5 +1,5 @@
 /**
- * The "Optimise now" rules (Performance phase 3). Pure functions: no database or network access.
+ * The "Optimize now" rules (Performance phase 3). Pure functions: no database or network access.
  * Thresholds confirmed by Dean (2026-09-29), including the refinements added in phase 3. Each insight carries `items`
  * (search terms, companies, a week...) so that done / dismissed can hide what was handled while
  * anything new brings the insight back (see applyActions).
@@ -21,7 +21,7 @@ export type RuleKey =
   | "li_not_icp" | "icp_terms"
 
 /** `campaigns`: where the item was seen (LinkedIn companies); `flag`: a short warning shown beside it. */
-/** `campaigns`: where the item was seen (LinkedIn companies); `flag`: a short tag beside it, `flagTone` its colour. */
+/** `campaigns`: where the item was seen (LinkedIn companies); `flag`: a short tag beside it, `flagTone` its color. */
 export type InsightItem = { id: string; label: string; note?: string; spend?: number; flag?: string; flagTone?: "bad" | "good" | "warn"; reason?: string; campaigns?: string[] }
 export type Insight = {
   key: string
@@ -172,7 +172,7 @@ export function completeThrough(campaigns: CampaignDays[], platform: Platform, t
 export const effectiveThrough = (input: InsightInputs): Partial<Record<Platform, string>> =>
   Object.fromEntries(Object.entries(input.dataThrough).map(([p, d]) => [p, completeThrough(input.campaigns, p as Platform, d!)]))
 
-/** Something to capitalise on: shown first, in its own section, with a lime dot and border (Dean). */
+/** Something to capitalize on: shown first, in its own section, with a lime dot and border (Dean). */
 export const isOpportunity = (i: Pick<Insight, "category" | "rule">) => i.category === "opportunity" || i.rule === "li_strong_segments"
 
 export function computeInsights(raw: InsightInputs): Insight[] {
@@ -709,8 +709,8 @@ function metaInsights(input: InsightInputs, money: (v: number) => string): Insig
         campaignId: a.campaignId,
         campaignName: a.campaignName,
         title: limited ? `"${a.adsetName}" is learning limited` : `"${a.adsetName}" has been learning all week`,
-        why: `It isn't getting the ~50 optimisation events a week Meta needs to leave learning (${round1(a.m.results)} results in the last 7 days on ${money(a.m.spend)}).`,
-        todo: "Consolidate ad sets, broaden the audience, raise the budget, or optimise for an earlier, more frequent event.",
+        why: `It isn't getting the ~50 optimization events a week Meta needs to leave learning (${round1(a.m.results)} results in the last 7 days on ${money(a.m.spend)}).`,
+        todo: "Consolidate ad sets, broaden the audience, raise the budget, or optimize for an earlier, more frequent event.",
         numbers: [
           { label: "Results (7 days)", value: round1(a.m.results) },
           { label: "Spend (7 days)", value: money(a.m.spend) },

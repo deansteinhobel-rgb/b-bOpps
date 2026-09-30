@@ -7,7 +7,7 @@ const ERRORS: Record<string, string> = {
   link: "That sign-in link has expired or was already used. Request a new one.",
   domain: "Only Bordeaux & Burgundy accounts can sign in.",
   google: "Google sign-in didn't start. Try again, or use the email link.",
-  denied: "Google sign-in was cancelled, or that account can't sign in here. Use your Bordeaux & Burgundy Google account.",
+  denied: "Google sign-in was canceled, or that account can't sign in here. Use your Bordeaux & Burgundy Google account.",
   setup: "Sign-in isn't set up on this server yet. Tell an admin.",
 }
 

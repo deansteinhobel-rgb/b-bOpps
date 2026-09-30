@@ -25,7 +25,7 @@ export async function sendMagicLink(_prev: LoginState, form: FormData): Promise<
   // Only allow redirects back into this app.
   const next = safePath(form.get("next"), "/")
   // The magic link must point at our own domain. In production that's APP_URL only: the Host header
-  // can be forged. (Supabase's redirect allow-list is the second line of defence.)
+  // can be forged. (Supabase's redirect allow-list is the second line of defense.)
   const h = await headers()
   const origin = process.env.APP_URL ?? (process.env.NODE_ENV === "production" ? null : `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`)
   if (!origin) {

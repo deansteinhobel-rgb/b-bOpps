@@ -63,9 +63,9 @@ export function PreferencesForm({ clients, defaults }: { clients: { slug: string
           options={(["7", "14", "30", "90"] as const).map((d) => ({ value: d, label: `${d} days` }))}
         />
       </Pref>
-      <Pref title="Optimise now order" hint="Claude's ranking from the daily review, or severity and money at stake.">
+      <Pref title="Optimize now order" hint="Claude's ranking from the daily review, or severity and money at stake.">
         <Segmented
-          label="Optimise now order"
+          label="Optimize now order"
           tone="quiet"
           value={p.optimise_order}
           onChange={(v) => setP({ ...p, optimise_order: v })}

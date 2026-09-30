@@ -13,7 +13,7 @@ import { loadInsightInputs } from "./load"
 import { computeInsights, isOpportunity, RULES } from "./rules"
 
 /**
- * Performance phase 4: Claude's daily review of a client's "Optimise now" feed (see the
+ * Performance phase 4: Claude's daily review of a client's "Optimize now" feed (see the
  * insight_reviews migration for what it writes). No web tools: it reads our numbers, the client brief
  * and the Notion briefs we already mirror. Nothing is written anywhere but insight_reviews.
  */
@@ -25,7 +25,7 @@ export const AWARENESS_GOALS = ["awareness", "engagement"]
 
 const SUBMIT = {
   name: "submit_review",
-  description: "Submit the review of this client's Optimise now feed. Call it exactly once, at the end.",
+  description: "Submit the review of this client's Optimize now feed. Call it exactly once, at the end.",
   input_schema: {
     type: "object",
     properties: {
@@ -87,10 +87,10 @@ type Submitted = {
   goals: { platform: Platform; campaign_id: string; goal: string; note: string }[]
 }
 
-const system = (today: string) => `You are the senior paid media strategist inside "Lumaux", the internal app of Bordeaux & Burgundy (a B2B performance marketing agency). Today is ${today}.
+const system = (today: string) => `You are the senior paid media strategist inside "Lumaux", the internal app of Bordeaux & Burgundy (a B2B performance marketing agency). Today is ${today}. Write in US English (optimize, color, program, center).
 Rules have already flagged issues and opportunities in this client's ad accounts. Your job:
 1. Rank the open insights for the team: money at stake, how fixable, and how it fits the client's goals and targets in the brief. Opportunities matter as much as problems.
-2. Judge each LinkedIn company that clicked against the ICP in the client brief (industry, size, type of organisation). Competitors, agencies, recruiters, students' universities, the client itself and obviously unrelated industries are not ICP. Use "unsure" when the brief doesn't settle it; don't guess.
+2. Judge each LinkedIn company that clicked against the ICP in the client brief (industry, size, type of organization). Competitors, agencies, recruiters, students' universities, the client itself and obviously unrelated industries are not ICP. Use "unsure" when the brief doesn't settle it; don't guess.
 3. Judge each costly search term: "clash" when it's plainly for something the client doesn't sell, a job search, a free/DIY intent the client can't serve, or a different audience from the ICP; "relevant" when it fits; "unsure" otherwise. Brand terms are relevant.
 4. Work out each campaign's goal from its name, the Notion briefs listed and the client brief. The name often encodes it (e.g. "lg" lead gen, "rt"/"remarketing" retargeting, "free-trial", event names).
 The team's must-knows win over everything else. Only use what's given; never invent numbers. Write in plain UK English, with currency symbols ($, £, €), never "USD". Call submit_review once, at the end.`

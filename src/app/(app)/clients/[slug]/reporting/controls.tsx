@@ -20,7 +20,7 @@ const PLATFORM_KEYS: Record<string, Platform> = { l: "linkedin", g: "google_ads"
 /**
  * The Reporting toolbar (Dean: modern, easy on the eye, quick to act): quick 7/14/30/90 days with a
  * sliding highlight, the date range picker (presets and custom dates), platform chips in their
- * platform colour with this range's spend, and "copy link". The URL holds the view; switching shows
+ * platform color with this range's spend, and "copy link". The URL holds the view; switching shows
  * a loading bar straight away. Keys: 1–4 pick the quick periods, A / L / G / M the platform.
  * Clients with campaign segments (e.g. Camber's SMB and ABX) also get a segment picker.
  */

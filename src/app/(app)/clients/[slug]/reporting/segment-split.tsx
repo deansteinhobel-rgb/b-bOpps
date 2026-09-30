@@ -27,7 +27,7 @@ function viewHref(base: string, query: URLSearchParams, segment: string | null, 
 
 /**
  * SMB vs ABX (Dean, 2026-09-30): each segment's campaigns added up across every platform, side by
- * side in its own colour, with a row per platform. Clicking a segment or one of its platforms picks
+ * side in its own color, with a row per platform. Clicking a segment or one of its platforms picks
  * it for the whole page and opens its campaigns and ads underneath (`SegmentDetail`).
  */
 export function SegmentSplit({ segments, currency, base, query, active, platform }: { segments: SegmentTotals[]; currency: string; base: string; query: URLSearchParams; active: string | null; platform: Platform | null }) {

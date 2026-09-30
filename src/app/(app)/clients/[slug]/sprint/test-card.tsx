@@ -43,7 +43,7 @@ function metricFormat(metric: string | null, m: (v: number) => string): Fmt {
 /**
  * A test on the sprint board (Dean, 2026-09-30: easier to scan). Top to bottom: platform and due
  * date, the title, the goal, then one panel for where it is now, and one next step in the footer.
- * Rules and long explanations sit behind hints; the stage colour lives on the column.
+ * Rules and long explanations sit behind hints; the stage color lives on the column.
  */
 export function TestCard(props: {
   test: SprintTest
@@ -92,7 +92,7 @@ export function TestCard(props: {
   const tags = [
     t.carried_from_test_id && <CarriedTag key="c" />,
     t.recommendation_id && <PourTag key="p" />,
-    t.insight_key && <OptimiseTag key="o" />,
+    t.insight_key && <OptimizeTag key="o" />,
     t.content_idea_id && <ContentIdeaTag key="i" />,
     t.call_commitment_id && <CallTag key="c" />,
   ].filter(Boolean)
@@ -553,7 +553,7 @@ function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns
   )
 }
 
-/** Live results: the success metric big and coloured against its target, then spend, results and clicks. */
+/** Live results: the success metric big and colored against its target, then spend, results and clicks. */
 function Results({ test: t, results, money, fmt, label }: { test: SprintTest; results?: TestTotals; money: (v: number) => string; fmt: Fmt; label?: string }) {
   const ev = results ? evaluate(t.success_metric, t.success_target, results) : null
   const def = t.success_metric ? METRICS[t.success_metric] : undefined
@@ -685,7 +685,7 @@ export function PourTag({ className }: { className?: string }) {
   )
 }
 
-/** Tag for tests made from an "Optimise now" insight. */
+/** Tag for tests made from an "Optimize now" insight. */
 export function ContentIdeaTag({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-1 rounded-full border border-lavender/40 bg-lavender/10 px-2 py-0.5 text-[11px] font-medium text-lavender", className)} title="Planned from a content idea on At a glance">
@@ -697,13 +697,13 @@ export function ContentIdeaTag({ className }: { className?: string }) {
   )
 }
 
-export function OptimiseTag({ className }: { className?: string }) {
+export function OptimizeTag({ className }: { className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full border border-violet/40 bg-violet/10 px-2 py-0.5 text-[11px] font-medium text-violet", className)} title="Made from an Optimise now insight">
+    <span className={cn("inline-flex items-center gap-1 rounded-full border border-violet/40 bg-violet/10 px-2 py-0.5 text-[11px] font-medium text-violet", className)} title="Made from an Optimize now insight">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden>
         <path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8l1-5.5Z" />
       </svg>
-      Optimise now
+      Optimize now
     </span>
   )
 }

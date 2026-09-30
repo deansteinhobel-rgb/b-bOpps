@@ -63,7 +63,7 @@
 
 /* Lumaux by Bordeaux & Burgundy: dark, like bordeauxandburgundy.com.
    Near-black surfaces, warm off-white text, the lime brand accent, serif page titles.
-   Lime is the brand accent only. It never means "green" status; RAG colours are separate. */
+   Lime is the brand accent only. It never means "green" status; RAG colors are separate. */
 :root {
   color-scheme: dark;
   --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -219,7 +219,7 @@
 @media (prefers-reduced-motion: reduce) {
   .wine-float, .wine-wave, .wine-stream, .wine-bubble, .pour-in, .pour-border, .wine-fall, .wine-hang { animation: none; }
 }
-/* The "Pour me a sprint" banner's slowly travelling glow border. */
+/* The "Pour me a sprint" banner's slowly traveling glow border. */
 @keyframes pour-border {
   to { transform: rotate(360deg); }
 }

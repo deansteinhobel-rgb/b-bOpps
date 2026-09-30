@@ -35,7 +35,7 @@ export function TestBoard<T extends { id: string }>({ items, card }: { items: { 
   )
 }
 
-/** A column's head: stage colour, name, count and what happens there, over a colour rule. */
+/** A column's head: stage color, name, count and what happens there, over a color rule. */
 function StageHeader({ stage, label, hint, count }: { stage: Stage; label: string; hint: string; count: number }) {
   return (
     <div className="space-y-2">

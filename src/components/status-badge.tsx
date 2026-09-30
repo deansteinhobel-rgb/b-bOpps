@@ -11,7 +11,7 @@ const STYLE: Record<Rag, { name: string; className: string; dot: string }> = {
 }
 
 /**
- * Status in colour. Green/amber/red show the colour alone (Dean: no need to spell it out); the name is
+ * Status in color. Green/amber/red show the color alone (Dean: no need to spell it out); the name is
  * kept for screen readers and as a tooltip. Pass `label` to add words (e.g. "Proven", "On target").
  */
 export function StatusBadge({ status, label, className }: { status: Rag; label?: string; className?: string }) {
@@ -32,7 +32,7 @@ export function StatusBadge({ status, label, className }: { status: Rag; label?:
   )
 }
 
-/** Just the coloured dot, for dense rows. */
+/** Just the colored dot, for dense rows. */
 export function StatusDot({ status, className }: { status: Rag; className?: string }) {
   return <span role="img" aria-label={STYLE[status].name} title={STYLE[status].name} className={cn("inline-block size-2 shrink-0 rounded-full", STYLE[status].dot, className)} />
 }

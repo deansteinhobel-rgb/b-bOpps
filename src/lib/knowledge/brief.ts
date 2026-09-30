@@ -22,7 +22,7 @@ export const BRIEF_HEADINGS = [
 
 type Source = { id: string; source: "notion" | "note" | "file"; title: string; path: string | null; category: string | null; content: string | null; updated_at: string; file_path: string | null; file_type: string | null }
 
-/** Everything the brain holds for a client that counts towards the brief. */
+/** Everything the brain holds for a client that counts toward the brief. */
 export async function brainSources(clientId: string) {
   const db = createAdminClient()
   const { data } = await db
@@ -56,7 +56,7 @@ const digestOf = (sources: Source[], calls: Call[] = []) =>
     .update([...sources.map((s) => `${s.id}:${s.updated_at}:${s.content?.length ?? 0}`), ...calls.map((c) => `call:${c.id}:${c.updated_at}`)].sort().join("|"))
     .digest("hex")
 
-const system = (today: string, client: string) => `You keep the "client brain" for ${client} at Bordeaux & Burgundy, a B2B performance marketing agency. Today is ${today}.
+const system = (today: string, client: string) => `You keep the "client brain" for ${client} at Bordeaux & Burgundy, a B2B performance marketing agency. Today is ${today}. Write in US English (optimize, color, program, center).
 From the sources (the client's GTM HQ pages in Notion, notes from calls with the client, team notes and uploaded files), write a client brief that a paid media strategist can read in five minutes before planning a two-week sprint of ad tests.
 
 Use exactly these sections, as markdown "## " headings, in this order:

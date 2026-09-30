@@ -4,7 +4,7 @@ import { syncNotionMirror } from "@/lib/notion/sync"
 export const maxDuration = 60
 
 /**
- * Notion mirror sync. Read-only towards Notion.
+ * Notion mirror sync. Read-only toward Notion.
  *   GET /api/cron/notion          incremental (every 15 minutes)
  *   GET /api/cron/notion?full=1   full reconcile (nightly), marks vanished pages as trashed
  * Requires `Authorization: Bearer $CRON_SECRET`.

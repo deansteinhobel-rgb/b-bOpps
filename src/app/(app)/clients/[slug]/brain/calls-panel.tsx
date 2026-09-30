@@ -35,7 +35,7 @@ const inTab: Record<Tab, CommitmentState[]> = { attention: ["due"], open: ["open
 
 /**
  * Client calls (Dean, 2026-09-30): the client's call notes, read from Notion as they land (hourly,
- * read only), each summarised by Claude, and everything said on them that someone should act on. A
+ * read only), each summarized by Claude, and everything said on them that someone should act on. A
  * week after the call, anything with no sign of it in the app or Notion pops up for the team.
  */
 export function CallsPanel(props: { slug: string; clientName: string; source: CallSource; sourceTitle: string | null; suggestions: { id: string; title: string; path: string | null }[]; calls: Call[]; followUps: FollowUp[]; canAdmin: boolean; canEdit: boolean; aiReady: boolean }) {
@@ -82,7 +82,7 @@ export function CallsPanel(props: { slug: string; clientName: string; source: Ca
                 <a href={notionUrl(props.source.id)} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
                   {props.sourceTitle ?? "Notion"}
                 </a>{" "}
-                every hour, read only{props.source.checkedAt ? `, last checked ${minsAgo(props.source.checkedAt)}` : ""}. Claude summarises each call for the brain and keeps track of what we said we&apos;d do. Anything with no sign of it a week later pops up for the team.
+                every hour, read only{props.source.checkedAt ? `, last checked ${minsAgo(props.source.checkedAt)}` : ""}. Claude summarizes each call for the brain and keeps track of what we said we&apos;d do. Anything with no sign of it a week later pops up for the team.
               </>
             ) : (
               `Link where ${props.clientName}'s call notes live in Notion. Claude reads every call (and the history), adds it to the brain, and reminds the team about anything said on a call that hasn't happened a week later.`

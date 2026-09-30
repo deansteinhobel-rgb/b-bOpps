@@ -1,4 +1,4 @@
-/** Feature ideas and bug reports (Options → Admin → Feedback): status labels and colours. */
+/** Feature ideas and bug reports (Options → Admin → Feedback): status labels and colors. */
 export const FEEDBACK_STATUS: Record<string, { label: string; cls: string }> = {
   new: { label: "New", cls: "border-foreground/20 text-muted-foreground" },
   planned: { label: "Planned", cls: "border-violet/40 bg-violet/10 text-violet" },

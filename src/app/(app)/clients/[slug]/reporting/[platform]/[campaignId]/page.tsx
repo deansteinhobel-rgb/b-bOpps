@@ -97,7 +97,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
         <TrendPanel daily={perf.daily} prevDaily={perf.prevDaily} currency={cur} />
         <div className="space-y-6">
           <Suspense fallback={null}>
-            <LoadedInsightSummary slug={slug} clientId={client.id} currency={cur} platform={platform} campaignId={campaignId} title="Optimise this campaign" />
+            <LoadedInsightSummary slug={slug} clientId={client.id} currency={cur} platform={platform} campaignId={campaignId} title="Optimize this campaign" />
           </Suspense>
           <Investigator now={perf.now} prev={perf.prev} currency={cur} />
           {(tests ?? []).length > 0 && (

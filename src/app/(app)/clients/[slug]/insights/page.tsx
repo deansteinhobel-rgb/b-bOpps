@@ -11,10 +11,10 @@ import { sprintOf } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
 import { InsightFeed } from "./feed"
 
-export const metadata = { title: "Optimise now" }
+export const metadata = { title: "Optimize now" }
 
 /**
- * "Optimise now" (Performance phase 3): what to fix or try, from rules over our Windsor data.
+ * "Optimize now" (Performance phase 3): what to fix or try, from rules over our Windsor data.
  * Nothing is written to the ad platforms; the team acts in the platform and logs it here.
  */
 export default async function InsightsPage({ params, searchParams }: PageProps<"/clients/[slug]/insights">) {

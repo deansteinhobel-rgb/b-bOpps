@@ -108,7 +108,7 @@ export function GlanceBoard(p: {
             id="spend"
             title="Where the money went"
             meta={`${p.month} so far`}
-            detailDescription={`${p.month} so far, by platform and by campaign. Colours compare cost per result with the ${money(p.target, cur)} target: green under it, amber up to 20% over, red further.`}
+            detailDescription={`${p.month} so far, by platform and by campaign. Colors compare cost per result with the ${money(p.target, cur)} target: green under it, amber up to 20% over, red further.`}
             summary={<SpendSummary platforms={p.platforms} currency={cur} target={p.target} />}
             detail={p.details.spend}
           />

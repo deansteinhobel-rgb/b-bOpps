@@ -10,7 +10,7 @@ import { change, DRIVERS, fmt, METRIC, tone, type Derived, type MetricKey } from
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { cn } from "@/lib/utils"
 
-/** Platform colours (validated for the dark surface: lightness band, chroma, colour-blind separation). Always shown with the platform's logo and name. */
+/** Platform colors (validated for the dark surface: lightness band, chroma, color-blind separation). Always shown with the platform's logo and name. */
 export const PLATFORM_COLOR: Record<Platform, string> = { linkedin: "#7f6ae0", google_ads: "#869a14", meta: "#cf4f86" }
 
 

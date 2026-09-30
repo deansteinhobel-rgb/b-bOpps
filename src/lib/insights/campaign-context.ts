@@ -90,7 +90,7 @@ export async function buildCampaignContext(db: SupabaseClient, clientId: string,
     out.push(`\n## Ad sets (latest day's reach, frequency, learning stage)`, ...detail.adsets.slice(0, 8).map((r) => `- ${r.groupName ?? r.dim1} | ${money(r.m.spend)} | ${r.m.results} results | ${JSON.stringify(r.extra ?? {})}`))
   }
 
-  out.push(`\n## Open "Optimise now" insights for this campaign`, ...(insights.length ? insights.map((i) => `- [${RULES[i.rule].label}] ${withSymbols(i.title)}: ${withSymbols(i.why)}`) : ["(none)"]))
+  out.push(`\n## Open "Optimize now" insights for this campaign`, ...(insights.length ? insights.map((i) => `- [${RULES[i.rule].label}] ${withSymbols(i.title)}: ${withSymbols(i.why)}`) : ["(none)"]))
   if (tests?.length) out.push(`\n## Sprint tests in this campaign`, ...tests.map((t) => `- Sprint ${(t.sprints as unknown as { number: number } | null)?.number ?? "?"}: ${t.title} (${t.outcome ?? t.status})${t.findings_worked ? `. Worked: ${t.findings_worked}` : ""}${t.findings_blockers ? `. Blocker: ${t.findings_blockers}` : ""}`))
   out.push(`\n${await briefForPrompt(clientId)}`)
   return { text: out.join("\n"), name, week: weekOf(through), through }

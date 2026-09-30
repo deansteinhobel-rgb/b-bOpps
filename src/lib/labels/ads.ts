@@ -12,7 +12,7 @@ import { AD_CONTENT_TYPES, AD_FORMATS, AD_HOOKS, AD_OFFERS } from "@/lib/taxonom
  * Claude's label for every ad (Dean, 2026-09-30): format, content type, offer, hook, topic and who
  * it speaks to, from fixed lists so ads compare across clients. It looks at our saved image and the
  * ad copy where we have them, otherwise the ad and campaign names (which often encode the offer,
- * audience and format). Each label keeps a digest of what Claude saw, so an ad is labelled again
+ * audience and format). Each label keeps a digest of what Claude saw, so an ad is labeled again
  * only when that changes. Writes ad_labels only.
  */
 export const LABEL_MODEL = "claude-opus-5-5"
@@ -55,7 +55,7 @@ const SUBMIT = {
 
 type Label = { key: string; format: string; content_type: string; offer: string; hook: string; topic: string; audience: string; summary: string; confidence: string }
 
-const SYSTEM = `You label B2B paid media ads for Bordeaux & Burgundy, a B2B performance marketing agency, so ads can be compared across clients. For each ad, pick from the fixed lists: its format, what the content is, what it asks people to do, and its hook. Add a short topic, who it speaks to (only if the ad or its naming says so), and a one-line summary.
+const SYSTEM = `You label B2B paid media ads for Bordeaux & Burgundy, a B2B performance marketing agency, so ads can be compared across clients. For each ad, pick from the fixed lists: its format, what the content is, what it asks people to do, and its hook. Add a short topic, who it speaks to (only if the ad or its naming says so), and a one-line summary. Write in US English (optimize, color, program, center).
 
 How to read an ad:
 - Look at the image first when there is one, then the ad copy, then the names. Campaign and ad names often encode offer | audience | targeting | format | objective, e.g. "dnsf_dg_2026-09_paid-social_meta_msp-target-campaign".
@@ -88,7 +88,7 @@ function describe(key: string, a: Ad) {
   return `[${key}] ${PLATFORM_LABEL[a.platform]} | ad: ${oneLine(a.ad_name) || a.ad_id} | campaign: ${oneLine(a.campaign_name) || "–"} | type: ${a.ad_type ?? "–"}${copy}`
 }
 
-/** Every ad the client has spent on (all time, most spend first), with what we know about it, minus the ones already labelled from the same input. */
+/** Every ad the client has spent on (all time, most spend first), with what we know about it, minus the ones already labeled from the same input. */
 async function adsToLabel(db: ReturnType<typeof createAdminClient>, clientId: string, force: boolean) {
   const [totals, { data: creatives }, { data: labels }] = await Promise.all([
     rpcAll<{ platform: Platform; external_account_id: string; ad_id: string; ad_name: string | null; campaign_name: string | null; spend: number }>(db, "ad_totals", { p_client: clientId, p_from: "2000-01-01", p_to: "2100-01-01" }),
@@ -178,7 +178,7 @@ async function labelBatch(db: ReturnType<typeof createAdminClient>, clientId: st
 }
 
 /**
- * Labels a client's unlabelled (or changed) ads, most spend first, until `max` ads are done or the
+ * Labels a client's unlabeled (or changed) ads, most spend first, until `max` ads are done or the
  * time runs out. Image ads go 8 to a request, the rest 30.
  */
 export async function labelAds(clientId: string, opts: { max?: number; stopAt?: number; force?: boolean; onBatch?: (done: number, left: number) => void } = {}) {
@@ -190,13 +190,13 @@ export async function labelAds(clientId: string, opts: { max?: number; stopAt?: 
   const batches: Ad[][] = []
   for (let i = 0; i < images.length; i += IMAGE_BATCH) batches.push(images.slice(i, i + IMAGE_BATCH))
   for (let i = 0; i < rest.length; i += TEXT_BATCH) batches.push(rest.slice(i, i + TEXT_BATCH))
-  let labelled = 0
+  let labeled = 0
   let left = todo.length
   for (const batch of batches) {
     if (opts.stopAt && Date.now() > opts.stopAt) break
-    labelled += await labelBatch(db, clientId, batch, usage)
+    labeled += await labelBatch(db, clientId, batch, usage)
     left -= batch.length
-    opts.onBatch?.(labelled, left)
+    opts.onBatch?.(labeled, left)
   }
-  return { labelled, left, usage }
+  return { labeled, left, usage }
 }

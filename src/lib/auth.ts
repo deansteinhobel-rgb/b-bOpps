@@ -7,7 +7,7 @@ export type AppRole = "admin" | "gtm_lead" | "am" | "specialist" | "viewer"
 export type Preferences = {
   /** Performance tab period when the URL doesn't say (7, 14, 30 or 90). */
   default_days?: number
-  /** Optimise now: Claude's order or the rules' priority. */
+  /** Optimize now: Claude's order or the rules' priority. */
   optimise_order?: "claude" | "priority"
   /** Where the app opens: "clients" (all clients) or a client slug. */
   start_page?: string

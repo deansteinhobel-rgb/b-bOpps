@@ -75,7 +75,7 @@ export function Segmented<T extends string>({
   )
 }
 
-/** A filter chip: a colour tint when active (e.g. the platform's colour), a quiet hover otherwise. */
+/** A filter chip: a color tint when active (e.g. the platform's color), a quiet hover otherwise. */
 export function FilterChip({ active, color, onClick, title, children }: { active: boolean; color?: string; onClick: () => void; title?: string; children: React.ReactNode }) {
   return (
     <button

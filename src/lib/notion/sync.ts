@@ -10,7 +10,7 @@ import { throttled } from "./throttle"
 const CHUNK = 500
 
 /**
- * Mirrors the Master Production board into notion_pages_mirror. READ-ONLY towards Notion: it uses
+ * Mirrors the Master Production board into notion_pages_mirror. READ-ONLY toward Notion: it uses
  * the guarded client, so a write here would throw before any request is sent.
  *
  * Incremental (default): pages edited since the last sync (minus a minute of overlap), oldest first.

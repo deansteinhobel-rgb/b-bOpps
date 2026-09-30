@@ -149,7 +149,7 @@ export async function testFromInsight(slug: string, key: string, raw: z.input<ty
   const i = l.insight
   const items = i.items.filter((x) => l.chosen.includes(x.id))
   const notes = [
-    `From "Optimise now" (${RULES[i.rule].label})${i.campaignName ? `, campaign ${i.campaignName}` : ""}: ${i.why}`,
+    `From "Optimize now" (${RULES[i.rule].label})${i.campaignName ? `, campaign ${i.campaignName}` : ""}: ${i.why}`,
     `What to do: ${i.todo}`,
     items.length ? `${i.itemsLabel ?? "Items"}:\n${items.map((x) => `- ${x.label}${x.note ? ` (${x.note})` : ""}${x.campaigns?.length ? ` [seen in: ${x.campaigns.join("; ")}]` : ""}`).join("\n")}` : null,
   ]

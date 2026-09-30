@@ -37,8 +37,8 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
         title={first ? `Today, ${first}` : "Today"}
         description={
           items.length
-            ? `${items.length} thing${items.length === 1 ? "" : "s"} to act on across ${clientCount} client${clientCount === 1 ? "" : "s"}${attention ? `, ${attention} needing attention` : ""}. From Optimise now, checks, calls, the sprint and pacing.`
-            : "Everything to act on across your clients: Optimise now, checks, calls, the sprint and pacing."
+            ? `${items.length} thing${items.length === 1 ? "" : "s"} to act on across ${clientCount} client${clientCount === 1 ? "" : "s"}${attention ? `, ${attention} needing attention` : ""}. From Optimize now, checks, calls, the sprint and pacing.`
+            : "Everything to act on across your clients: Optimize now, checks, calls, the sprint and pacing."
         }
         actions={
           isAdmin(me) &&

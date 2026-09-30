@@ -1,5 +1,5 @@
 /**
- * Client brain: read each client's Notion GTM HQ into client_knowledge. READ ONLY towards Notion.
+ * Client brain: read each client's Notion GTM HQ into client_knowledge. READ ONLY toward Notion.
  *   pnpm sync:hq                 # changed pages only
  *   pnpm sync:hq --force         # re-read every included page
  *   pnpm sync:hq --link camber=<page id>   # link a client's HQ page first

@@ -149,7 +149,7 @@ const sampleCampaigns: CampaignPacing[] = [
  * without signing in. Returns 404 in production. Reads only client names and public logo URLs.
  */
 
-// "Optimise now" on made-up numbers (never real client data), run through the real rules.
+// "Optimize now" on made-up numbers (never real client data), run through the real rules.
 const day = (n: number) => new Date(Date.parse("2026-09-27") - n * 864e5).toISOString().slice(0, 10)
 const days90 = (f: (n: number) => { spend: number; impressions: number; clicks: number; results: number }) => Array.from({ length: 90 }, (_, n) => ({ date: day(89 - n), ...f(89 - n) }))
 const sampleInputs: InsightInputs = {
@@ -252,7 +252,7 @@ export default async function DesignPreview() {
   const rows = [
     { t: "Increase budget on the Google Search brand campaign", o: "proven", c: 1, p: "google_ads" as const, f: "More conversions and a lower cost per conversion, up to ~$1,500/day." },
     { t: "Hard push on free trials to a cold audience on all platforms", o: "disproven", c: 1, p: null, f: "Bad quality traffic and few activated trials." },
-    { t: "Mock: ABX personalised ads to named enterprise accounts", o: "proven", c: 0, p: "linkedin" as const, f: "Roughly double CTR among target accounts." },
+    { t: "Mock: ABX personalized ads to named enterprise accounts", o: "proven", c: 0, p: "linkedin" as const, f: "Roughly double CTR among target accounts." },
     { t: "Mock: SMB lead gen: Meta instant forms vs landing page", o: "inconclusive", c: 0, p: "meta" as const, f: "Cheaper leads, but quality unclear." },
   ]
   const dot = { proven: "bg-rag-green", disproven: "bg-rag-red", inconclusive: "bg-rag-na" } as const
@@ -381,7 +381,7 @@ export default async function DesignPreview() {
           </section>
 
           <section className="space-y-4">
-            <SectionHeader title="Optimise now" description="The real rules on made-up numbers." />
+            <SectionHeader title="Optimize now" description="The real rules on made-up numbers." />
             <InsightFeed slug="sample" clientName="Sample Co" currency="USD" target={300} insights={sampleFeed} dataThrough={day(0)} checked={[{ platform: "google_ads", through: day(0) }, { platform: "linkedin", through: day(0) }, { platform: "meta", through: day(0) }, { platform: "ga4", through: day(0) }]} previews={{}} owners={[{ id: "00000000-0000-0000-0000-000000000000", name: "Sample Person", onTeam: true }]} live={false} defaultDue="2026-10-02" sprintNumber={1} openKey={null} review={{ id: "x", headline: "Sample: the Non-Brand campaign is losing most searches to Ad Rank while its keyword opportunities go untargeted. Fix rank first; it's the most spend at stake.", startHere: sampleFeed.filter((i) => i.state === "open").slice(0, 3).map((i) => ({ key: i.key, why: "Sample reason: the most money at stake and a quick fix." })), at: "2026-09-29T07:00:00Z" }} reviewRunning={null} lastReviewFailed={null} canReview aiReady />
           </section>
 

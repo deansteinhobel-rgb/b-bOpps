@@ -50,7 +50,7 @@ const SUBMIT = {
   },
 }
 
-const system = (today: string) => `You are a senior B2B paid search specialist at Bordeaux & Burgundy. Today is ${today}. You're checking which searches one Google Ads campaign is paying for against the client's ideal customer profile (ICP) and offer, so the team can add negative keywords.
+const system = (today: string) => `You are a senior B2B paid search specialist at Bordeaux & Burgundy. Today is ${today}. You're checking which searches one Google Ads campaign is paying for against the client's ideal customer profile (ICP) and offer, so the team can add negative keywords. Write in US English (optimize, color, program, center).
 
 ${MATCHING_PRIMER}
 

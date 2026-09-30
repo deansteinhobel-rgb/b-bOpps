@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     try {
       const tests = await labelTests(clientId)
       const ads = await labelAds(clientId, { max: 80, stopAt })
-      results.push({ clientId, tests: tests.labelled, ads: ads.labelled, adsLeft: ads.left })
+      results.push({ clientId, tests: tests.labeled, ads: ads.labeled, adsLeft: ads.left })
     } catch (e) {
       results.push({ clientId, error: e instanceof Error ? e.message : String(e) })
     }

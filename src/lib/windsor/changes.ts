@@ -317,7 +317,7 @@ export async function syncLinkedInChanges(a: Account, from: string, to: string) 
 
 /** A campaign's status moved on since the last check (from the daily status sync; LinkedIn only, because Google and Meta log it themselves). */
 export async function recordStatusChange(x: { client_id: string; platform: "linkedin"; external_account_id: string; campaign_id: string; campaign_name: string | null; from: string; to: string }) {
-  const words: Record<string, string> = { ACTIVE: "active", PAUSED: "paused", ARCHIVED: "archived", COMPLETED: "completed", CANCELED: "cancelled", DRAFT: "draft" }
+  const words: Record<string, string> = { ACTIVE: "active", PAUSED: "paused", ARCHIVED: "archived", COMPLETED: "completed", CANCELED: "canceled", DRAFT: "draft" }
   const at = new Date().toISOString()
   await createAdminClient()
     .from("platform_changes")

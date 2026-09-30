@@ -15,7 +15,7 @@ const NOTION_FRAME_ANCESTORS = "https://notion.so https://www.notion.so https://
  * nonce per request (Next adds it to its own scripts), no framing (clickjacking), no plugins, forms
  * post back here only. Images, uploads and storage are allowed from our Supabase project, and
  * favicons (source chips) from Google. Inline style attributes are allowed: the UI sets widths and
- * colours inline, and styles can't run code.
+ * colors inline, and styles can't run code.
  */
 function contentSecurityPolicy(nonce: string, frameAncestors = "'none'") {
   const dev = process.env.NODE_ENV === "development"

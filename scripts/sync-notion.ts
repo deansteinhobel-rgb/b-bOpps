@@ -1,5 +1,5 @@
 /**
- * Run the Notion mirror sync from the command line. READ-ONLY towards Notion.
+ * Run the Notion mirror sync from the command line. READ-ONLY toward Notion.
  *   pnpm sync:notion          # incremental (a full sync the first time)
  *   pnpm sync:notion --full   # full reconcile
  */

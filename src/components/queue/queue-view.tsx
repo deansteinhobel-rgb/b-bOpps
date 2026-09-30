@@ -16,11 +16,11 @@ const GROUPS: { key: QueueGroup; title: string; hint: string }[] = [
   { key: "attention", title: "Needs attention", hint: "Reds, overspend, things promised on calls, tests waiting on a build." },
   { key: "opportunity", title: "Opportunities", hint: "Worth doing: keywords to add, budget-capped winners, ads doing better." },
   { key: "week", title: "This week", hint: "Checks to do and the next step for this sprint's tests." },
-  { key: "later", title: "When there's time", hint: "Lower-priority items from Optimise now and next month's checks." },
+  { key: "later", title: "When there's time", hint: "Lower-priority items from Optimize now and next month's checks." },
 ]
 const SOURCES: { value: "all" | QueueSource; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "insight", label: "Optimise now" },
+  { value: "insight", label: "Optimize now" },
   { value: "check", label: "Checks" },
   { value: "test", label: "Sprint" },
   { value: "call", label: "Calls" },

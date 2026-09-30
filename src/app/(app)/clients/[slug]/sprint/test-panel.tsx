@@ -28,7 +28,7 @@ const NEXT: Record<string, string> = { keep_running: "Keep running", scale: "Sca
 
 const adPreviewKey = (a: TestAd) => `${a.platform}|${a.external_account_id}|${a.ad_id}`
 
-/** The verdict as a small coloured chip (board cards and the panel). */
+/** The verdict as a small colored chip (board cards and the panel). */
 export function VerdictChip({ kind, className }: { kind: VerdictKind; className?: string }) {
   const v = VERDICTS[kind]
   const t = TONE[v.tone]

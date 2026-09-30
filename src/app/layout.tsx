@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   await headers()
   return (
-    <html lang="en-GB" className="h-full antialiased">
+    <html lang="en-US" className="h-full antialiased">
       <body className="flex min-h-full flex-col">
         <TooltipProvider>{children}</TooltipProvider>
         <Toaster />

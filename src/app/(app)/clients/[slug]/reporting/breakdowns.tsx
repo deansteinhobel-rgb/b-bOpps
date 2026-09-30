@@ -11,7 +11,7 @@ import { TermIcpPanel } from "./term-icp"
 import { MATCH_SOURCE, matchLabel } from "@/lib/insights/search-matching"
 import type { RootNegative, TermReview } from "@/lib/insights/term-review-rules"
 
-/** Impression share parts (validated for the dark surface; always labelled in the legend and tooltip). */
+/** Impression share parts (validated for the dark surface; always labeled in the legend and tooltip). */
 const IS_COLOR = { won: "#4f8fcf", rank: "#c7802f", budget: "#9a6fd0" }
 const pct = (v: number | null | undefined, d = 0) => (v === null || v === undefined ? "–" : `${(v * 100).toFixed(d)}%`)
 const shortDay = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(iso))

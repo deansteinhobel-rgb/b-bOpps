@@ -17,7 +17,7 @@ const Act = z.discriminatedUnion("kind", [
 export async function queueAct(raw: z.input<typeof Act>, action: "done" | "snoozed"): Promise<{ ok: boolean; message?: string }> {
   if (!canEdit(await getProfile())) return { ok: false, message: VIEW_ONLY }
   const a = Act.safeParse(raw)
-  if (!a.success || (action !== "done" && action !== "snoozed")) return { ok: false, message: "That item isn't recognised." }
+  if (!a.success || (action !== "done" && action !== "snoozed")) return { ok: false, message: "That item isn't recognized." }
   const r = a.data.kind === "insight" ? await logInsight(a.data.slug, a.data.key, { action, items: [], days: 7 }) : await actOnFollowUp(a.data.id, { action, days: 7 })
   if (r.ok) revalidatePath("/today")
   return { ok: r.ok, message: r.message }

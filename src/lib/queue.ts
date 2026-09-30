@@ -31,7 +31,7 @@ export type QueueItem = {
   platform: Platform | "ga4" | null
   title: string
   detail: string | null
-  /** Short context under the title: "Optimise now · Search terms", "Weekly checks". */
+  /** Short context under the title: "Optimize now · Search terms", "Weekly checks". */
   meta: string
   /** A due or age chip: "Due Sun 4 Oct", "3d overdue", "said 9 days ago". */
   when: { text: string; tone: "red" | "amber" | "na" } | null
@@ -48,7 +48,7 @@ const INSIGHTS_PER_CLIENT = 4
 const OPPORTUNITIES_PER_CLIENT = 3
 const CALLS_PER_CLIENT = 5
 
-export const SOURCE_LABEL: Record<QueueSource, string> = { insight: "Optimise now", check: "Checks", call: "From a call", test: "Sprint", pacing: "Pacing" }
+export const SOURCE_LABEL: Record<QueueSource, string> = { insight: "Optimize now", check: "Checks", call: "From a call", test: "Sprint", pacing: "Pacing" }
 
 const dayDiff = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5)
 const dueWhen = (due: string, today: string): QueueItem["when"] => {
@@ -89,9 +89,9 @@ async function clientQueue(
   const items: QueueItem[] = []
   const push = (i: Omit<QueueItem, "client">) => items.push({ ...i, client })
 
-  // 1. Optimise now: open insights (not snoozed, not in hand), in Claude's order where there is one.
+  // 1. Optimize now: open insights (not snoozed, not in hand), in Claude's order where there is one.
   // Only the top few per client (Claude's "start here" first), or the list stops being read: the
-  // rest are one row pointing to Optimise now.
+  // rest are one row pointing to Optimize now.
   const open = (feed?.insights ?? []).filter((i) => i.state === "open").sort((a, b) => (a.claude?.rank ?? 1e3) - (b.claude?.rank ?? 1e3) || (b.atStake ?? 0) - (a.atStake ?? 0))
   const startHere = new Set((feed?.review?.startHere ?? []).map((x) => x.key))
   const fixes = open.filter((i) => !isOpportunity(i))
@@ -124,8 +124,8 @@ async function clientQueue(
       group: "later",
       tone: "na",
       platform: null,
-      title: `${more} more in Optimise now`,
-      detail: "Lower in Claude's order or the rules' priority. Open Optimise now for the full list.",
+      title: `${more} more in Optimize now`,
+      detail: "Lower in Claude's order or the rules' priority. Open Optimize now for the full list.",
       meta: SOURCE_LABEL.insight,
       when: null,
       href: `${base}/insights`,

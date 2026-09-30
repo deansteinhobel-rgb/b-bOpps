@@ -1,4 +1,4 @@
-/** Colour and wording rules shared by At a glance (plain module: used by server and client components). */
+/** Color and wording rules shared by At a glance (plain module: used by server and client components). */
 
 /** Green on target, amber within 20% over, red further off. */
 export const cprTone = (cpr: number | null, target: number | null) =>

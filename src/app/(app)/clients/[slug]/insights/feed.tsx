@@ -119,7 +119,7 @@ export function InsightFeed(props: {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
-          <h2 className="text-2xl">Optimise now</h2>
+          <h2 className="text-2xl">Optimize now</h2>
           <p className="text-sm text-muted-foreground">
             What to fix or try, from the last 30 days of numbers{props.dataThrough ? ` (data to ${props.dataThrough})` : ""}. Make the change in the platform, then mark it done here.
           </p>
@@ -196,7 +196,7 @@ export function InsightFeed(props: {
         <section className="space-y-2">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
             <span className="size-2 rounded-full bg-lime" aria-hidden />
-            Opportunities <span className="text-xs font-normal text-muted-foreground">{opportunities.length} · things to capitalise on</span>
+            Opportunities <span className="text-xs font-normal text-muted-foreground">{opportunities.length} · things to capitalize on</span>
           </h3>
           <div className="surface divide-y overflow-hidden">{opportunities.map(row)}</div>
         </section>
@@ -222,7 +222,7 @@ export function InsightFeed(props: {
             ))}
             {attention.length === 0 && opportunities.length === 0 && clear.length === 0 && (
               <p className="px-5 py-12 text-center text-sm text-muted-foreground">
-                {view === "open" ? (props.insights.some((i) => i.state === "open") ? "Nothing here with these filters." : "Nothing to optimise right now. Nice.") : "Nothing here."}
+                {view === "open" ? (props.insights.some((i) => i.state === "open") ? "Nothing here with these filters." : "Nothing to optimize right now. Nice.") : "Nothing here."}
               </p>
             )}
           </div>
@@ -321,7 +321,7 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
   }
 
   const itemLines = chosen.map((x) => `- ${x.label}${x.note ? ` (${x.note})` : ""}${x.campaigns?.length ? `\n  Seen in: ${x.campaigns.join("; ")}` : ""}`).join("\n")
-  const description = [`${i.why}`, `What to do: ${i.todo}`, i.listed && chosen.length ? `${i.itemsLabel ?? "Items"}:\n${itemLines}` : null, i.campaignName ? `Campaign: ${i.campaignName} (${platformName(i.platform)})` : null, `From "Optimise now" in Lumaux (${rule.label}).`]
+  const description = [`${i.why}`, `What to do: ${i.todo}`, i.listed && chosen.length ? `${i.itemsLabel ?? "Items"}:\n${itemLines}` : null, i.campaignName ? `Campaign: ${i.campaignName} (${platformName(i.platform)})` : null, `From "Optimize now" in Lumaux (${rule.label}).`]
     .filter(Boolean)
     .join("\n\n")
   const shortTitle = `${p.clientName}: ${i.title}${i.campaignName ? ` (${i.campaignName})` : ""}`.slice(0, 200)

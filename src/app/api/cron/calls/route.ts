@@ -9,7 +9,7 @@ export const maxDuration = 300
 
 /**
  * Client call notes, every hour (Supabase Cron `call-notes-hourly`): reads new and edited call notes
- * from Notion (read only), has Claude summarise them and pull out what was said, and once a day per
+ * from Notion (read only), has Claude summarize them and pull out what was said, and once a day per
  * client checks whether those things have happened. Each run stays within ~4 minutes; a long history
  * carries on in the next run. Requires `Authorization: Bearer $CRON_SECRET`.
  */

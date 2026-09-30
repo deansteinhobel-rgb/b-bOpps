@@ -1,5 +1,5 @@
 /**
- * Campaign segments (Dean, 2026-09-30): some clients run separate programmes whose campaigns sit
+ * Campaign segments (Dean, 2026-09-30): some clients run separate programs whose campaigns sit
  * side by side on every platform, e.g. Camber's SMB and ABX (account-based, named "ABM" on LinkedIn).
  * The campaign name says which one a campaign belongs to, so a segment is a rule on the name.
  * Anything no rule matches is "Other" (brand search, retargeting, events...). A plain module, so the
@@ -16,8 +16,8 @@ export const OTHER_SEGMENT = "other"
 const OTHER_COLOR = "#8a8a8a"
 
 /**
- * Colours (Dean, 2026-09-30: tell SMB and ABX apart at a glance): sky and orange, clear of the
- * platform colours (LinkedIn purple, Google olive, Meta pink), lime and each other on dark.
+ * Colors (Dean, 2026-09-30: tell SMB and ABX apart at a glance): sky and orange, clear of the
+ * platform colors (LinkedIn purple, Google olive, Meta pink), lime and each other on dark.
  */
 const CLIENT_SEGMENTS: Record<string, SegmentDef[]> = {
   camber: [
