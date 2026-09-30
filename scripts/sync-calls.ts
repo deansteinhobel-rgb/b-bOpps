@@ -34,7 +34,7 @@ for (const c of clients ?? []) {
   while (s.remaining > 0) s = await syncCallNotes(c.id)
   console.log(`  ${c.slug}: ${s.found} calls found, ${s.read} read (${((Date.now() - t) / 1000).toFixed(0)}s)`)
   if (args.includes("--no-ai")) continue
-  const e = await extractPending(c.id, { parallel: 4 })
+  const e = await extractPending(c.id)
   console.log(`  ${c.slug}: ${e.extracted} read by Claude (${((Date.now() - t) / 1000).toFixed(0)}s)`)
   const f = await checkFollowUps(c.id)
   console.log(`  ${c.slug}: ${f.checked} open follow-ups checked, ${f.acted} seen happening, ${f.due} new reminders`)

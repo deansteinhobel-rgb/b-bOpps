@@ -84,7 +84,8 @@ export async function remindersFor(supabase: SupabaseClient, profileId: string) 
   if (!ids.length) return []
   const from = new Date(Date.now() - (REMIND_WINDOW_DAYS + 60) * 86_400_000).toISOString().slice(0, 10)
   const { data } = await supabase.from("call_commitments").select(COLS).in("client_id", ids).is("superseded_at", null).is("acted_at", null).neq("owner_side", "client").gte("said_on", from).order("said_on")
-  const items = (await withState(supabase, (data ?? []) as Row[])).filter((f) => f.state === "due")
+  // The most recent few: a long queue of reminders stops being read. The rest are on the Brain tab.
+  const items = (await withState(supabase, (data ?? []) as Row[])).filter((f) => f.state === "due").sort((a, b) => b.saidOn.localeCompare(a.saidOn)).slice(0, 8)
   if (!items.length) return []
   const { data: clients } = await supabase.from("clients").select("id, slug, name, logo_url").in("id", [...new Set(items.map((i) => i.clientId))])
   const byId = new Map((clients ?? []).map((c) => [c.id, c]))
