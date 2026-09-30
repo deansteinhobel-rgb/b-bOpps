@@ -4,6 +4,7 @@ import { claude } from "@/lib/ai/claude"
 import { londonToday } from "@/lib/checks/periods"
 import { withSymbols } from "@/lib/format"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { AD_CONTENT_TYPES } from "@/lib/taxonomy"
 import { buildContentContext } from "./context"
 
 /**
@@ -14,7 +15,8 @@ import { buildContentContext } from "./context"
  */
 export const CONTENT_MODEL = "claude-opus-5-5"
 
-export const CONTENT_TYPES = ["Whitepaper", "Guide", "Report", "Case study", "Webinar", "Event", "Blog", "Checklist", "Assessment / tool", "Calculator", "Demo / trial", "Product", "Video", "Thought leadership", "Other"] as const
+/** The same list the ad labels use (src/lib/taxonomy.ts), so content ideas and ads line up. */
+export const CONTENT_TYPES = AD_CONTENT_TYPES
 export const IDEA_KINDS = ["new_content", "repurpose", "new_angle", "new_audience", "new_format"] as const
 export const IDEA_KIND_LABEL: Record<(typeof IDEA_KINDS)[number], string> = {
   new_content: "New content piece",

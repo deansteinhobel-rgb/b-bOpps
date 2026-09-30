@@ -8,6 +8,7 @@ import { windsorTag } from "@/lib/metrics/cached"
 import { listNotionPeople } from "@/lib/notion/users"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { DEAL_SIZE_BANDS, INDUSTRIES, isResultTier, REGIONS, SALES_MOTIONS } from "@/lib/taxonomy"
 import { CONNECTORS, DEFAULT_FIELDS } from "@/lib/windsor/accounts"
 import { syncCreatives } from "@/lib/windsor/creatives"
 import { syncWindsor } from "@/lib/windsor/sync"
@@ -38,7 +39,14 @@ const ClientInput = z.object({
   website: z.string().trim().max(200).optional().transform((v) => (v ? v.replace(/^https?:\/\//, "").replace(/\/$/, "") : null)),
   logo_url: z.string().trim().max(1000).optional().transform((v) => v || undefined).refine((v) => !v || /^https:\/\//.test(v), "Logo URL must start with https://"),
   active: z.boolean(),
+  // Labels for comparing clients (src/lib/taxonomy.ts). Blank = not set.
+  industry: z.enum(INDUSTRIES).nullable(),
+  sub_industry: z.string().trim().max(120).optional().transform((v) => v || null),
+  sales_motion: z.enum(Object.keys(SALES_MOTIONS) as [string, ...string[]]).nullable(),
+  deal_size_band: z.enum(Object.keys(DEAL_SIZE_BANDS) as [string, ...string[]]).nullable(),
+  regions: z.array(z.enum(Object.keys(REGIONS) as [string, ...string[]])),
 })
+const orNull = (v: FormDataEntryValue | null) => (v ? String(v) : null)
 
 export async function saveClient(_prev: FormState, form: FormData): Promise<FormState> {
   await requireAdmin()
@@ -53,6 +61,11 @@ export async function saveClient(_prev: FormState, form: FormData): Promise<Form
     website: form.get("website") ?? "",
     logo_url: form.get("logo_url") ?? "",
     active: form.get("active") === "on",
+    industry: orNull(form.get("industry")),
+    sub_industry: form.get("sub_industry") ?? "",
+    sales_motion: orNull(form.get("sales_motion")),
+    deal_size_band: orNull(form.get("deal_size_band")),
+    regions: form.getAll("regions").map(String),
   })
   if (!parsed.success) return fail(parsed.error.issues[0].message)
   // A blank logo field keeps the current logo (e.g. the one fetched from the website).
@@ -132,20 +145,34 @@ export async function addAccount(_prev: FormState, form: FormData): Promise<Form
 }
 
 export async function updateAccount(_prev: FormState, form: FormData): Promise<FormState> {
-  await requireAdmin()
+  const me = await requireAdmin()
   const budget = optionalNumber.safeParse(form.get("monthly_budget"))
   if (!budget.success) return fail("Budget must be a number.")
   const supabase = await createClient()
-  const { error } = await supabase
+  const conversion_fields = fields(form.get("conversion_fields"))
+  const lead_fields = fields(form.get("lead_fields"))
+  const { data: account, error } = await supabase
     .from("client_platform_accounts")
-    .update({
-      monthly_budget: budget.data,
-      conversion_fields: fields(form.get("conversion_fields")),
-      lead_fields: fields(form.get("lead_fields")),
-      active: form.get("active") === "on",
-    })
+    .update({ monthly_budget: budget.data, conversion_fields, lead_fields, active: form.get("active") === "on" })
     .eq("id", String(form.get("id")))
-  if (error) return fail(error.message)
+    .select("id, client_id")
+    .single()
+  if (error || !account) return fail(error?.message ?? "Couldn't save.")
+
+  // Standard tier per field (fields named tier|<field>). Blank leaves a field unmapped; a mapping for a
+  // field no longer on the account stays as history (nothing is deleted).
+  const tiers = []
+  for (const field of new Set([...conversion_fields, ...lead_fields])) {
+    const tier = form.get(`tier|${field}`)
+    if (!tier) continue
+    if (!isResultTier(tier)) return fail(`Unknown tier for ${field}.`)
+    const description = String(form.get(`tierdesc|${field}`) ?? "").trim().slice(0, 200) || null
+    tiers.push({ client_id: account.client_id, account_id: account.id, field, tier, description, updated_by_profile_id: me.id })
+  }
+  if (tiers.length) {
+    const { error: e2 } = await supabase.from("conversion_field_tiers").upsert(tiers, { onConflict: "account_id,field" })
+    if (e2) return fail(e2.message)
+  }
   revalidateTag("windsor", { expire: 0 })
   revalidatePath("/admin/clients", "layout")
   revalidatePath("/clients", "layout")

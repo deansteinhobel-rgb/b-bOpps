@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ASSETS, METRICS } from "@/lib/sprints/tests"
 import { londonToday } from "@/lib/checks/periods"
+import { isLever, LEVER_KEYS, LEVERS } from "@/lib/taxonomy"
 import { claude, MODEL, SOURCE_GUIDE, WATCHED_PLATFORMS, WEB_SAFETY, webTools } from "./claude"
 import { buildSprintContext } from "./context"
 
@@ -37,10 +38,11 @@ const SUBMIT: Anthropic.Tool = {
         maxItems: 5,
         items: {
           type: "object",
-          required: ["platform", "title", "summary", "impact", "expected_impact", "evidence", "hypothesis", "assets", "why_data", "confidence", "effort"],
+          required: ["platform", "title", "lever", "summary", "impact", "expected_impact", "evidence", "hypothesis", "assets", "why_data", "confidence", "effort"],
           properties: {
             platform: { type: "string", enum: [...REC_PLATFORMS] },
             title: { type: "string", description: "What we're testing, in under 10 words. Starts with a verb." },
+            lever: { type: "string", enum: LEVER_KEYS, description: `The one thing the test changes: ${LEVER_KEYS.map((k) => `${k} = ${LEVERS[k].label}`).join("; ")}.` },
             summary: { type: "string", description: "The one-line reason to do this, under 20 words, e.g. 'Meta is at 41% of pace while retargeting costs $92 per result.'" },
             impact: { type: "string", enum: ["low", "medium", "high"], description: "Likely effect on the client's main KPI if it works." },
             expected_impact: { type: "string", description: "What we'd gain, under 10 words, e.g. '+40 results at ~$150 each' or 'Cut ~$3.4k of wasted spend'." },
@@ -75,6 +77,7 @@ type Submitted = {
   recommendations: {
     platform: string
     title: string
+    lever?: string
     hypothesis: string
     assets: string[]
     brief_notes?: string
@@ -177,6 +180,7 @@ export async function generateSprintPlan(runId: string) {
       position: i,
       platform: (REC_PLATFORMS as readonly string[]).includes(r.platform) ? r.platform : "several",
       title: String(r.title).slice(0, 200),
+      lever: isLever(r.lever) ? r.lever : null,
       hypothesis: r.hypothesis?.slice(0, 1000) ?? null,
       assets: (r.assets ?? []).filter((a) => a in ASSETS),
       brief_notes: r.brief_notes?.slice(0, 3000) || null,

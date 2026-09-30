@@ -1,6 +1,7 @@
 import { fieldClass } from "@/components/field-class"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { DEAL_SIZE_BANDS, INDUSTRIES, REGIONS, SALES_MOTIONS } from "@/lib/taxonomy"
 
 export type ClientValues = {
   id?: string
@@ -13,6 +14,11 @@ export type ClientValues = {
   monthly_kpi_target: number | null
   slack_channel: string | null
   active: boolean
+  industry?: string | null
+  sub_industry?: string | null
+  sales_motion?: string | null
+  deal_size_band?: string | null
+  regions?: string[] | null
 }
 
 /** Fields shared by "New client" and "Edit client". Notion options come from the mirrored board. */
@@ -64,6 +70,64 @@ export function ClientFields({ values, notionOptions, taken }: { values?: Client
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="active" defaultChecked={v?.active ?? true} /> Active
       </label>
+
+      <fieldset className="space-y-3 border-t pt-4 sm:col-span-2">
+        <legend className="sr-only">Labels for comparing clients</legend>
+        <div>
+          <p className="text-sm font-semibold">Labels for comparing clients</p>
+          <p className="text-xs text-muted-foreground">Used to compare what works across clients (by industry, sales motion, deal size and market). Fixed lists, so they line up.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label htmlFor="industry">Industry</Label>
+            <select id="industry" name="industry" defaultValue={v?.industry ?? ""} className={fieldClass}>
+              <option value="">Not set</option>
+              {INDUSTRIES.map((i) => (
+                <option key={i} value={i}>
+                  {i}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="sub_industry">Niche (optional)</Label>
+            <Input id="sub_industry" name="sub_industry" defaultValue={v?.sub_industry ?? ""} maxLength={120} placeholder="e.g. DNS security for MSPs" />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="sales_motion">Sales motion</Label>
+            <select id="sales_motion" name="sales_motion" defaultValue={v?.sales_motion ?? ""} className={fieldClass}>
+              <option value="">Not set</option>
+              {Object.entries(SALES_MOTIONS).map(([k, m]) => (
+                <option key={k} value={k}>
+                  {m.label}: {m.hint}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="deal_size_band">Typical deal size (annual contract value, in $)</Label>
+            <select id="deal_size_band" name="deal_size_band" defaultValue={v?.deal_size_band ?? ""} className={fieldClass}>
+              <option value="">Not set</option>
+              {Object.entries(DEAL_SIZE_BANDS).map(([k, label]) => (
+                <option key={k} value={k}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm">Markets they sell into</p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(REGIONS).map(([k, label]) => (
+              <label key={k} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-lime has-checked:bg-lime has-checked:text-ink">
+                <input type="checkbox" className="sr-only" name="regions" value={k} defaultChecked={v?.regions?.includes(k)} />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
+      </fieldset>
     </div>
   )
 }

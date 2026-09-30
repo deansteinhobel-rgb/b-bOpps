@@ -257,3 +257,20 @@ try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into publ
 const callDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("with a as (delete from public.call_commitment_actions returning id), b as (delete from public.call_commitments returning id), c as (delete from public.client_calls returning id) select (select count(*) from a) + (select count(*) from b) + (select count(*) from c) as n"))
 const callUpd = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.call_commitments set title = 'x' returning id"))
 console.log(Number(callDel[0].n) === 0 && callUpd.length === 0 ? "calls and follow-ups can't be changed or deleted: OK" : "FAIL: call data changed or deleted")
+
+// Benchmark labels (Dean, 2026-09-30): ad labels are server-written and read by the client's team;
+// conversion tiers are read by the team and set by admins only; neither can be deleted.
+const acct = await q(`insert into public.client_platform_accounts (client_id, platform, windsor_connector, external_account_id) values ('11111111-1111-1111-1111-111111111111', 'linkedin', 'linkedin', 'rls-1') returning id`)
+await q(`insert into public.ad_labels (client_id, platform, external_account_id, ad_id, format, content_type, offer, hook, basis, confidence, input_digest, model) values ('11111111-1111-1111-1111-111111111111', 'linkedin', 'rls-1', 'ad-1', 'Document', 'Report', 'Download', 'Stat / data', 'image', 'high', 'x', 'test')`)
+const andreaLabels = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select id from public.ad_labels"))
+const dannyLabels = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select id from public.ad_labels"))
+console.log(andreaLabels.length === 1 && dannyLabels.length === 0 ? "ad labels are read by the client's team only: OK" : "FAIL: ad label visibility")
+try { await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.ad_labels (client_id, platform, external_account_id, ad_id, format, content_type, offer, hook, basis, confidence, input_digest, model) values ('11111111-1111-1111-1111-111111111111', 'linkedin', 'rls-1', 'ad-2', 'Video', 'Other', 'Other', 'Other', 'name', 'low', 'x', 'test')`)); console.log("FAIL: signed-in user wrote an ad label") } catch { console.log("only the server writes ad labels: OK") }
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.conversion_field_tiers (client_id, account_id, field, tier) values ('11111111-1111-1111-1111-111111111111', '${acct[0].id}', 'oneclickleads', 'lead')`)); console.log("FAIL: specialist set a conversion tier") } catch { console.log("only admins set conversion tiers: OK") }
+const tier = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.conversion_field_tiers (client_id, account_id, field, tier) values ('11111111-1111-1111-1111-111111111111', '${acct[0].id}', 'oneclickleads', 'lead') returning id`))
+const andreaTiers = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select id from public.conversion_field_tiers"))
+console.log(tier.length === 1 && andreaTiers.length === 1 ? "admins set conversion tiers, the team reads them: OK" : "FAIL: conversion tier write or read")
+try { await q(`insert into public.conversion_field_tiers (client_id, account_id, field, tier) values ('11111111-1111-1111-1111-111111111111', '${acct[0].id}', 'x', 'hot_lead')`); console.log("FAIL: unknown tier accepted") } catch { console.log("conversion tiers come from the fixed list: OK") }
+const labelDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("with a as (delete from public.ad_labels returning id), b as (delete from public.conversion_field_tiers returning id) select (select count(*) from a) + (select count(*) from b) as n"))
+console.log(Number(labelDel[0].n) === 0 ? "labels and tiers can't be deleted: OK" : "FAIL: label or tier deleted")
+try { await q(`update public.clients set regions = '{mars}' where id = '11111111-1111-1111-1111-111111111111'`); console.log("FAIL: unknown region accepted") } catch { console.log("client regions come from the fixed list: OK") }

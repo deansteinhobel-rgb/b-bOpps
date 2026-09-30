@@ -12,6 +12,7 @@ import { peopleForClient } from "@/lib/people"
 import { ensureSprint } from "@/lib/sprints/data"
 import { sprintOf } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
+import { leverForInsight } from "@/lib/taxonomy"
 
 // What the team does with an insight. All as the signed-in user (RLS: the client's team and
 // admins), logged append-only in insight_actions. Nothing is written to the ad platforms (Dean:
@@ -164,6 +165,7 @@ export async function testFromInsight(slug: string, key: string, raw: z.input<ty
       hypothesis: p.data.hypothesis || null,
       assets: [],
       brief_notes: notes.slice(0, 3000),
+      success_metric: i.rule === "ctr_up" ? "ctr" : "cost_per_result",
       success_text: p.data.success_text,
       owner_notion_user_id: owner?.notionUserId ?? null,
       owner_name: owner?.name ?? null,
@@ -171,6 +173,8 @@ export async function testFromInsight(slug: string, key: string, raw: z.input<ty
       created_by_profile_id: me.id,
       campaign_ids: i.campaignId ? [i.campaignId] : [],
       insight_key: key,
+      lever: leverForInsight(i.rule),
+      lever_source: leverForInsight(i.rule) ? "rule" : null,
     })
     .select("id")
     .single()

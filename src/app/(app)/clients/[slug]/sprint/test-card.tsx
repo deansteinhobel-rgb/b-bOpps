@@ -19,9 +19,10 @@ import type { PreviewMap } from "@/lib/previews"
 import { TEST_KINDS, type TestDetail, type TestKind } from "@/lib/sprints/results"
 import { daysSince, dueChip } from "@/lib/sprints/stage-style"
 import { ASSETS, CARRY_REASONS, evaluate, METRICS, type Stage, type TestTotals } from "@/lib/sprints/tests"
+import { isLever, LEVER_KEYS, LEVERS } from "@/lib/taxonomy"
 import { cn } from "@/lib/utils"
 import { BriefDialog } from "./brief-form"
-import { clearOutcome, markLive, markReadyManually, renameTest, saveFindings, setOutcome } from "./test-actions"
+import { clearOutcome, markLive, markReadyManually, renameTest, saveFindings, setOutcome, setTestLever } from "./test-actions"
 import { TestPanel, VerdictChip } from "./test-panel"
 
 const OUTCOME = {
@@ -164,7 +165,12 @@ export function TestCard(props: {
           <span className="truncate">{t.owner_name ?? "No owner"}</span>
         </p>
 
-        {tags.length > 0 && <div className="flex flex-wrap gap-1.5">{tags}</div>}
+        {(tags.length > 0 || editable || t.lever) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <LeverChip testId={t.id} lever={t.lever} source={t.lever_source} editable={editable} />
+            {tags}
+          </div>
+        )}
 
         <Goal test={t} fmt={fmt} />
 
@@ -710,5 +716,63 @@ export function CallTag({ className }: { className?: string }) {
       </svg>
       From a call
     </span>
+  )
+}
+
+/**
+ * The lever the test pulls (Dean, 2026-09-30: so tests compare across clients). Editors pick it
+ * from the fixed list; a lever set by Claude or a rule shows "suggested" until someone confirms it.
+ */
+function LeverChip({ testId, lever, source, editable }: { testId: string; lever: string | null; source: string | null; editable: boolean }) {
+  const [value, setValue] = useState(lever ?? "")
+  const [pending, start] = useTransition()
+  const [error, setError] = useState(false)
+  const def = isLever(value) ? LEVERS[value] : null
+  const guessed = Boolean(def) && source !== "person"
+  if (!editable)
+    return def ? (
+      <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground" title={`Lever: ${def.hint}`}>
+        <Target className="size-3" aria-hidden />
+        {def.label}
+      </span>
+    ) : null
+  return (
+    <label
+      className={cn(
+        "relative inline-flex cursor-pointer items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground focus-within:border-foreground/40",
+        def ? "border-transparent bg-secondary" : "border-dashed",
+        error && "border-rag-red",
+      )}
+      title={def ? `Lever: ${def.hint}${guessed ? " (suggested, pick to confirm)" : ""}` : "What does this test change? Pick one, so tests compare across clients."}
+    >
+      <Target className="size-3" aria-hidden />
+      <span>{def ? def.label : "Set the lever"}</span>
+      {guessed && <span className="text-[10px] opacity-70">· suggested</span>}
+      <select
+        aria-label="Lever"
+        className="absolute inset-0 cursor-pointer opacity-0"
+        value={value}
+        disabled={pending}
+        onChange={(e) => {
+          const next = e.target.value
+          const before = value
+          setValue(next)
+          start(async () => {
+            const r = await setTestLever(testId, next)
+            setError(!r.ok)
+            if (!r.ok) setValue(before)
+          })
+        }}
+      >
+        <option value="" disabled>
+          What does this test change?
+        </option>
+        {LEVER_KEYS.map((k) => (
+          <option key={k} value={k}>
+            {LEVERS[k].label}
+          </option>
+        ))}
+      </select>
+    </label>
   )
 }

@@ -14,6 +14,7 @@ import { sprintByNumber } from "@/lib/sprints/periods"
 import { guessPlatform, NEEDS_PLATFORMS, needsText, type NeedsPlatform } from "@/lib/sprints/brief-needs"
 import { briefText, notionStage, successLine } from "@/lib/sprints/tests"
 import { createClient } from "@/lib/supabase/server"
+import { LEVER_KEYS } from "@/lib/taxonomy"
 
 // All as the signed-in user (RLS: the client's team and admins). Nothing is deleted. Once a sprint
 // is closed its tests are read-only.
@@ -41,7 +42,8 @@ const Plan = z.object({
   hypothesis: z.string().trim().max(1000).optional().default(""),
   assets: z.array(z.string().max(40)).max(10),
   brief_notes: z.string().trim().max(3000).optional().default(""),
-  success_metric: z.string().max(40).nullable(),
+  lever: z.enum(LEVER_KEYS as [string, ...string[]], { message: "Pick what the test changes (the lever)." }),
+  success_metric: z.string().max(40),
   success_target: z.preprocess((v) => (v === "" || v === null || v === undefined ? null : Number(v)), z.number().nonnegative().nullable()),
   success_text: z.string().trim().max(500).optional().default(""),
   owner_notion_user_id: z.string().max(60).nullable(),
@@ -68,6 +70,8 @@ export async function planTest(sprintId: string, raw: z.input<typeof Plan>): Pro
     hypothesis: p.hypothesis || null,
     assets: p.assets,
     brief_notes: p.brief_notes || null,
+    lever: p.lever,
+    lever_source: "person",
     success_metric: p.success_metric,
     success_target: p.success_target,
     success_text: p.success_text || null,
@@ -269,6 +273,19 @@ export async function setTestSetup(testId: string, raw: { kind: "new_campaign" |
     .update({ test_kind: parsed.data.kind, test_ad_ids: parsed.data.kind === "change" ? [...new Set(parsed.data.adIds)] : [] })
     .eq("id", testId)
   if (e) return fail("Couldn't save that. Try again.")
+  refresh((test.clients as { slug: string }).slug)
+  return { ok: true }
+}
+
+/** Sets the lever a test pulls (open sprints; anyone who can edit the client). Marks it as a person's pick. */
+export async function setTestLever(testId: string, raw: string): Promise<TestResult> {
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
+  const parsed = z.enum(LEVER_KEYS as [string, ...string[]]).safeParse(raw)
+  if (!parsed.success) return fail("Pick a lever from the list.")
+  const { supabase, test, error } = await loadTest(testId)
+  if (!test) return fail(error!)
+  const { error: e } = await supabase.from("sprint_tests").update({ lever: parsed.data, lever_source: "person" }).eq("id", testId)
+  if (e) return fail("Couldn't save the lever. Try again.")
   refresh((test.clients as { slug: string }).slug)
   return { ok: true }
 }

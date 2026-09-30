@@ -9,13 +9,14 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { ASSETS, METRICS } from "@/lib/sprints/tests"
+import { LEVER_KEYS, LEVERS } from "@/lib/taxonomy"
 import { planTest } from "./test-actions"
 
 export type Owner = { id: string | null; name: string; onTeam: boolean }
 
 /** Plan a test in under a minute: platform, what, what to brief in, what success looks like, who, by when. */
 export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline }: { sprintId: string; platforms: Platform[]; owners: Owner[]; defaultDeadline: string }) {
-  const empty = { platform: (platforms[0] ?? "") as string, title: "", hypothesis: "", assets: [] as string[], brief_notes: "", success_metric: "cost_per_result", success_target: "", success_text: "", owner: "", deadline: defaultDeadline }
+  const empty = { platform: (platforms[0] ?? "") as string, title: "", lever: "", hypothesis: "", assets: [] as string[], brief_notes: "", success_metric: "cost_per_result", success_target: "", success_text: "", owner: "", deadline: defaultDeadline }
   const [f, setF] = useState(empty)
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,10 +34,11 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline }: {
       const r = await planTest(sprintId, {
         platform: (f.platform || null) as Platform | null,
         title: f.title,
+        lever: f.lever,
         hypothesis: f.hypothesis,
         assets: f.assets,
         brief_notes: f.brief_notes,
-        success_metric: f.success_target ? f.success_metric : null,
+        success_metric: f.success_metric,
         success_target: f.success_target,
         success_text: f.success_text,
         owner_notion_user_id: f.owner || null,
@@ -72,6 +74,19 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline }: {
       </div>
 
       <fieldset className="space-y-1">
+        <legend className="text-sm">What it changes (the lever)</legend>
+        <div className="flex flex-wrap gap-2">
+          {LEVER_KEYS.map((k) => (
+            <label key={k} title={LEVERS[k].hint} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-lime has-checked:bg-lime has-checked:text-ink">
+              <input type="radio" name="t-lever" className="sr-only" checked={f.lever === k} onChange={() => setF({ ...f, lever: k })} />
+              {LEVERS[k].label}
+            </label>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">{f.lever ? LEVERS[f.lever as keyof typeof LEVERS].hint : "Pick the one thing the test changes, so we can compare tests across clients."}</p>
+      </fieldset>
+
+      <fieldset className="space-y-1">
         <legend className="text-sm">What to brief in</legend>
         <div className="flex flex-wrap gap-2">
           {Object.entries(ASSETS).map(([k, v]) => (
@@ -88,7 +103,9 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline }: {
       </div>
 
       <div className="space-y-1">
-        <p className="text-sm">What success looks like</p>
+        <p className="text-sm">
+          What success looks like <span className="text-muted-foreground">(the metric is always saved, so tests compare; the target is optional if you describe it)</span>
+        </p>
         <div className="grid gap-3 sm:grid-cols-[14rem_9rem_1fr]">
           <select aria-label="Success metric" className={fieldClass} value={f.success_metric} onChange={(e) => setF({ ...f, success_metric: e.target.value })}>
             {Object.entries(METRICS).map(([k, m]) => (
@@ -126,7 +143,7 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline }: {
       </details>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={submit} disabled={pending || !f.title.trim()}>
+        <Button onClick={submit} disabled={pending || !f.title.trim() || !f.lever}>
           {pending ? "Saving…" : "Save test"}
         </Button>
         <Button variant="ghost" onClick={() => setOpen(false)}>

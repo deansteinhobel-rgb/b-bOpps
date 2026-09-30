@@ -155,6 +155,8 @@ export async function carryTests(supabase: SupabaseClient, fromSprintId: string,
       call_commitment_id: t.call_commitment_id, // and the client call it came from
       test_kind: t.test_kind,
       test_ad_ids: t.test_ad_ids,
+      lever: t.lever,
+      lever_source: t.lever_source,
     }))
   if (rows.length) {
     const { error } = await supabase.from("sprint_tests").insert(rows)
@@ -198,6 +200,9 @@ export type SprintTest = {
   carried_from_test_id: string | null
   /** new_campaign or change (null = not said yet; the results work it out). */
   test_kind: "new_campaign" | "change" | null
+  /** What the test changes (src/lib/taxonomy.ts LEVERS), and who set it: person, claude or rule. */
+  lever: string | null
+  lever_source: string | null
   /** A change test's ads, picked by hand (empty = every ad first seen on or after the live date). */
   test_ad_ids: string[]
   created_at: string

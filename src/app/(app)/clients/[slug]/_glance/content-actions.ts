@@ -8,6 +8,7 @@ import { peopleForClient } from "@/lib/people"
 import { ensureSprint } from "@/lib/sprints/data"
 import { sprintOf } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
+import { leverForIdea } from "@/lib/taxonomy"
 
 // What the team does with a content idea (Dean, 2026-09-29): plan it as a sprint test, or say it's
 // not for us (with a reason Claude reads next time). As the signed-in user (RLS: the client's team),
@@ -67,12 +68,15 @@ export async function planContentIdea(slug: string, runId: string, ideaId: strin
       hypothesis: `${i.content_type} for ${i.audience}: ${i.hook}`.slice(0, 1000),
       assets: [`${i.content_type}: ${i.topic}`.slice(0, 200)],
       brief_notes: notes.slice(0, 3000),
+      success_metric: "cost_per_result",
       success_text: p.data.success_text,
       owner_notion_user_id: owner?.notionUserId ?? null,
       owner_name: owner?.name ?? null,
       deadline: p.data.deadline,
       created_by_profile_id: me.id,
       content_idea_id: i.id,
+      lever: leverForIdea(i.kind),
+      lever_source: leverForIdea(i.kind) ? "rule" : null,
     })
     .select("id")
     .single()

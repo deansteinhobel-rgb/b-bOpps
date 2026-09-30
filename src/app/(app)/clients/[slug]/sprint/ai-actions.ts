@@ -5,6 +5,7 @@ import { z } from "zod"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { peopleForClient } from "@/lib/people"
 import { createClient } from "@/lib/supabase/server"
+import { isLever } from "@/lib/taxonomy"
 
 // Review → approve / reject for Claude's sprint suggestions. GTM leads and admins only (checked
 // here and by RLS). Approving creates a planned test; nothing goes to Notion until someone clicks
@@ -78,7 +79,7 @@ export async function approveRecommendation(id: string, raw: { owner_notion_user
       hypothesis: r.hypothesis,
       assets: r.assets,
       brief_notes: notes.slice(0, 3000) || null,
-      success_metric: r.success_target === null ? null : r.success_metric,
+      success_metric: r.success_metric ?? "cost_per_result",
       success_target: r.success_target,
       success_text: r.success_text,
       owner_notion_user_id: owner?.notionUserId ?? null,
@@ -86,6 +87,8 @@ export async function approveRecommendation(id: string, raw: { owner_notion_user
       deadline: raw.deadline,
       created_by_profile_id: l.me.id,
       recommendation_id: r.id,
+      lever: isLever(r.lever) ? r.lever : null,
+      lever_source: isLever(r.lever) ? "claude" : null,
     })
     .select("id")
     .single()

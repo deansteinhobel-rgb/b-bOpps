@@ -9,6 +9,7 @@ import { londonToday } from "@/lib/checks/periods"
 import { money } from "@/lib/format"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { createClient } from "@/lib/supabase/server"
+import { RESULT_TIERS, suggestTier } from "@/lib/taxonomy"
 import { listWindsorAccounts } from "@/lib/windsor/accounts"
 import { addAccount, addTeamMember, saveBudgets, saveClient, updateAccount } from "../../actions"
 import { ClientFields } from "../client-fields"
@@ -29,13 +30,14 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
 
   const thisMonth = londonToday().slice(0, 8) + "01"
   const months = [thisMonth, nextMonth(thisMonth)]
-  const [{ data: allClients }, { data: optionRows }, { data: team }, { data: invites }, { data: accounts }, { data: budgets }, windsor] = await Promise.all([
+  const [{ data: allClients }, { data: optionRows }, { data: team }, { data: invites }, { data: accounts }, { data: budgets }, { data: tiers }, windsor] = await Promise.all([
     supabase.from("clients").select("notion_client_option"),
     supabase.from("notion_pages_mirror").select("client_option:properties->>Client").eq("in_trash", false).limit(5000),
     supabase.from("client_team_invites").select("email, role, team_invites(full_name)").eq("client_id", client.id).is("removed_at", null),
     supabase.from("team_invites").select("email, full_name").order("full_name"),
     supabase.from("client_platform_accounts").select("*").eq("client_id", client.id).order("platform"),
     supabase.from("client_budgets").select("platform, month, amount").eq("client_id", client.id).eq("campaign_id", "").in("month", months),
+    supabase.from("conversion_field_tiers").select("account_id, field, tier, description").eq("client_id", client.id),
     listWindsorAccounts().catch(() => null),
   ])
   const notionOptions = [...new Set((optionRows ?? []).map((r) => r.client_option as string | null).filter(Boolean) as string[])].sort()
@@ -44,6 +46,7 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
   const platforms = [...new Set((accounts ?? []).filter((a) => a.active).map((a) => a.platform as Platform))]
   const budgetFor = (p: string, m: string) => budgets?.find((b) => b.platform === p && b.month === m)?.amount
   const defaultFor = (p: string) => (accounts ?? []).filter((a) => a.platform === p && a.active).reduce((s, a) => s + Number(a.monthly_budget ?? 0), 0)
+  const tierFor = (accountId: string, field: string) => tiers?.find((t) => t.account_id === accountId && t.field === field)
   const monthLabel = (m: string) => new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(m))
 
   return (
@@ -135,6 +138,34 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
                   <Input id={`l-${a.id}`} name="lead_fields" defaultValue={(a.lead_fields as string[]).join(", ")} />
                 </div>
               </div>
+              {[...(a.conversion_fields as string[]), ...(a.lead_fields as string[])].length > 0 && (
+                <div className="space-y-2 rounded-md border border-dashed p-3">
+                  <p className="text-sm font-semibold">
+                    What each field counts{" "}
+                    <span className="font-normal text-muted-foreground">(a standard tier, so results compare across clients)</span>
+                  </p>
+                  {[...new Set([...(a.conversion_fields as string[]), ...(a.lead_fields as string[])])].map((field) => {
+                    const saved = tierFor(a.id, field)
+                    const hint = suggestTier(a.platform, field)
+                    return (
+                      <div key={field} className="grid items-center gap-2 sm:grid-cols-[minmax(0,1fr)_12rem_minmax(0,1.4fr)]">
+                        <code className="truncate text-xs" title={field}>
+                          {field}
+                        </code>
+                        <select name={`tier|${field}`} defaultValue={saved?.tier ?? ""} className={fieldClass} aria-label={`Tier for ${field}`}>
+                          <option value="">{hint ? `Not mapped (suggested: ${RESULT_TIERS[hint].label})` : "Not mapped"}</option>
+                          {Object.entries(RESULT_TIERS).map(([k, t]) => (
+                            <option key={k} value={k} title={t.hint}>
+                              {t.label}
+                            </option>
+                          ))}
+                        </select>
+                        <Input name={`tierdesc|${field}`} defaultValue={saved?.description ?? ""} maxLength={200} placeholder="What it is, e.g. demo request form" aria-label={`What ${field} is`} />
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" name="active" defaultChecked={a.active} /> Active (synced and shown)
               </label>

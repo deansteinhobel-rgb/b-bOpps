@@ -41,6 +41,10 @@
       "schedule": "30 5 * * *"
     },
     {
+      "path": "/api/cron/labels",
+      "schedule": "15 6 * * *"
+    },
+    {
       "path": "/api/cron/insights",
       "schedule": "0 6 * * *"
     },

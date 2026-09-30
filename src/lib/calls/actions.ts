@@ -123,8 +123,9 @@ export async function planFollowUp(id: string): Promise<CallResult> {
       title: item.title.slice(0, 200),
       assets: [],
       brief_notes: notes.slice(0, 3000),
+      success_metric: "cost_per_result",
       created_by_profile_id: me.id,
-      call_commitment_id: id,
+      call_commitment_id: id, // lever: left for the person or Claude's nightly labels
     })
     .select("id")
     .single()
