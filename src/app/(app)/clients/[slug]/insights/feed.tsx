@@ -252,14 +252,17 @@ function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
   const campaignHref = i.campaignId && i.platform !== "ga4" ? `/clients/${p.slug}/reporting/${i.platform}/${encodeURIComponent(i.campaignId)}` : null
   return (
     <div id={`insight-${i.key}`} className={cn("border-l-2 border-transparent", isOpportunity(i) && "border-l-lime bg-lime/[0.03]", open && "bg-secondary/25")}>
-      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-secondary/40">
+      {/* The title is the toggle; its click area stretches over the whole row, and the campaign name sits above it as a link. */}
+      <div className="relative flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-secondary/40">
         <span className={cn("mt-2 size-2 shrink-0 rounded-full", isOpportunity(i) ? "bg-lime" : SEVERITY[i.severity].dot)} title={isOpportunity(i) ? "Opportunity" : SEVERITY[i.severity].label}>
           <span className="sr-only">{isOpportunity(i) ? "Opportunity" : SEVERITY[i.severity].label}</span>
         </span>
         <Icon platform={i.platform} className="mt-0.5" />
         <span className="min-w-0 flex-1 space-y-0.5">
           <span className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-snug">
-            {i.title}
+            <button type="button" onClick={onToggle} aria-expanded={open} className="text-left outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-lime/60 focus-visible:after:ring-inset">
+              {i.title}
+            </button>
             {isOpportunity(i) && <span className="rounded-full border border-lime/40 bg-lime/10 px-1.5 py-px text-[10px] font-medium text-lime">Opportunity</span>}
           </span>
           {i.claude?.whyNow && i.state === "open" && (
@@ -270,7 +273,18 @@ function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
           )}
           <span className="block truncate text-xs text-muted-foreground">
             {RULES[i.rule].label}
-            {i.campaignName && <> · {i.campaignName}</>}
+            {i.campaignName && (
+              <>
+                {" · "}
+                {campaignHref ? (
+                  <Link href={campaignHref} className="relative z-10 underline-offset-2 hover:text-foreground hover:underline" title="Open the campaign">
+                    {i.campaignName}
+                  </Link>
+                ) : (
+                  i.campaignName
+                )}
+              </>
+            )}
             {i.handledCount > 0 && i.state === "open" && <> · {i.handledCount} handled</>}
             {i.state === "snoozed" && i.snoozedUntil && <> · snoozed to {i.snoozedUntil}</>}
           </span>
@@ -284,7 +298,7 @@ function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
         <span className={cn("mt-1 text-xs text-muted-foreground transition-transform", open && "rotate-90")} aria-hidden>
           ›
         </span>
-      </button>
+      </div>
       {open && <InsightDetail i={i} campaignHref={campaignHref} {...p} />}
     </div>
   )
