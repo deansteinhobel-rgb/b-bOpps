@@ -93,7 +93,7 @@ function LensSwitch({ lens }: { lens: Lens }) {
 }
 
 /** Clients in the list to see how they look, not set up yet (Dean, 2026-10-01). */
-const COMING_SOON = new Set(["drillsense", "filevine", "star-space"])
+const COMING_SOON = new Set(["drillsense", "filevine"])
 
 /** The client list (Dean: no separate "Clients" item; the heading links to all clients). */
 function NavBody({ clients, hasRole, pathname, lens }: Props & { pathname: string }) {
