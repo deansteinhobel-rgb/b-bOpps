@@ -25,6 +25,10 @@ const NOT_YET = /coming up|upcoming|scheduled|to be booked|planned/i
 // Nor do calls that didn't happen.
 const DIDNT_HAPPEN = /cancel|rescheduled|no.?show/i
 const MAX_ROWS = 1000
+// A row body shorter than this with a Notion link is a pointer to the notes, not the notes.
+const STUB_CHARS = 400
+const LINKED_UNREADABLE = "The notes are on a linked page Lumaux can't open:"
+const RETRY_LINKED_MS = 6 * 3_600_000
 
 type Row = { id: string; title: string; date: string; status: string | null; props: string; lastEdited: string; links: string[] }
 
@@ -245,18 +249,20 @@ export async function syncCallNotes(clientId: string, opts: { full?: boolean; bu
       await db.from("client_calls").update(fields).eq("id", k.id)
     }
   }
-  // Keep the properties text for reading (Summary, attendees...).
-  const propsById = new Map(rows.map((r) => [norm(r.id), r.props]))
+  // Keep the properties text for reading (Summary, attendees...), and the row's links.
+  const propsById = new Map(rows.map((r) => [norm(r.id), { props: r.props, links: r.links }]))
 
   // Read every call whose notes are new or edited since they were last read, newest first.
   const { data: todo } = await db
     .from("client_calls")
-    .select("id, notion_page_id, title, call_date, notion_status, last_edited_time, synced_at, content_digest")
+    .select("id, notion_page_id, title, call_date, notion_status, last_edited_time, synced_at, content_digest, extract_error")
     .eq("client_id", clientId)
     .eq("source", "notion")
     .is("removed_at", null)
     .order("call_date", { ascending: false })
-  const stale = (todo ?? []).filter((c) => !c.synced_at || (c.last_edited_time && c.last_edited_time > c.synced_at))
+  // Notes on a linked page we couldn't open are tried again every few hours (until it's shared).
+  const retry = (c: { synced_at: string | null; extract_error: string | null }) => c.extract_error?.startsWith(LINKED_UNREADABLE) && c.synced_at && Date.now() - Date.parse(c.synced_at) > RETRY_LINKED_MS
+  const stale = (todo ?? []).filter((c) => !c.synced_at || (c.last_edited_time && c.last_edited_time > c.synced_at) || retry(c))
   let read = 0
   for (const c of stale) {
     if (opts.budgetMs && Date.now() - started > opts.budgetMs) break
@@ -268,15 +274,31 @@ export async function syncCallNotes(clientId: string, opts: { full?: boolean; bu
       continue
     }
     try {
-      let props = propsById.get(norm(c.notion_page_id!))
-      if (props === undefined) {
+      let row = propsById.get(norm(c.notion_page_id!))
+      if (row === undefined) {
         const p = (await throttled(() => n.pages.retrieve({ page_id: c.notion_page_id! }))) as unknown as Page
-        props = rowOf(p).props
+        row = rowOf(p)
       }
-      const body = await pageText(n, c.notion_page_id!)
-      const content = [props, body].filter(Boolean).join("\n\n").trim()
+      let body = await pageText(n, c.notion_page_id!)
+      // A row that's only a pointer (NAM: "Original transcript: …" and a "Client log entry" link):
+      // the notes are on the linked page, so read that.
+      let unreadable = false
+      if (body.trim().length < STUB_CHARS && row.links.length) {
+        for (const l of row.links) {
+          const linked = await pageText(n, l).catch(() => null)
+          if (linked === null) unreadable = true
+          else if (linked.trim().length > body.trim().length) body = linked
+        }
+        if (body.trim().length >= STUB_CHARS) unreadable = false
+      }
+      if (unreadable) {
+        await db.from("client_calls").update({ synced_at: now, extract_status: "skipped", extract_error: `${LINKED_UNREADABLE} share the linked page in Notion with the Lumaux connection.` }).eq("id", c.id)
+        read++
+        continue
+      }
+      const content = [row.props, body].filter(Boolean).join("\n\n").trim()
       const d = digest(content)
-      const changed = d !== c.content_digest
+      const changed = d !== c.content_digest || Boolean(c.extract_error)
       await db
         .from("client_calls")
         .update({ content, content_chars: content.length, content_digest: d, synced_at: now, updated_at: now, ...(changed ? { extract_status: content.length < 80 ? "skipped" : "pending", extract_error: null } : {}) })
