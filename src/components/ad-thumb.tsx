@@ -1,5 +1,11 @@
 "use client"
 /* eslint-disable @next/next/no-img-element -- signed, short-lived Supabase Storage URLs; next/image adds nothing here */
+import { Popover } from "@base-ui/react/popover"
+import { useRouter } from "next/navigation"
+import { useState, useTransition } from "react"
+import { toast } from "sonner"
+import { addAdPostLink } from "@/app/(app)/ad-post-actions"
+import { Button } from "@/components/ui/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
 import type { Preview, TextAd } from "@/lib/previews"
 import { cn } from "@/lib/utils"
@@ -16,6 +22,9 @@ export function AdThumb({ preview, alt, size = "md", className }: { preview?: Pr
   const tile = cn("shrink-0 overflow-hidden rounded-md border bg-elevated", SIZE[size], className)
   if (!preview?.src && preview?.textAd) return <SearchAdThumb ad={preview.textAd} alt={alt} className={cn(tile, "border-transparent")} size={size} />
   const site = preview?.link ? linkSite(preview.link) : null
+  // A LinkedIn ad Windsor gave nothing for (thought leader ads): the team can add the post link. Not on
+  // small tiles, which sit inside clickable cards.
+  if (!preview?.src && !site && preview?.addPost && size !== "sm") return <AddPostTile addPost={preview.addPost} alt={alt} className={tile} size={size} />
   if (!preview?.src && size === "card") {
     const card = <CardPlaceholder kind={preview?.textOnly ? "Text ad" : (preview?.kind ?? null)} alt={alt} className={cn(tile, site && "transition-colors group-hover/card:border-foreground/30 hover:border-foreground/30")} site={site} />
     return site ? <a href={preview!.link!} target="_blank" rel="noreferrer" className="block" aria-label={`${alt}: open the ad in ${site}`}>{card}</a> : card
@@ -162,5 +171,75 @@ function CardPlaceholder({ kind, alt, className, site }: { kind: string | null; 
       <span className="text-xsr">{kind ?? "No preview"}</span>
       {site && <span className="text-[11px] text-foreground/70 underline underline-offset-2">Open in {site} ↗</span>}
     </span>
+  )
+}
+
+/**
+ * "Add post" on a LinkedIn ad Windsor has no post, title or image for (thought leader ads): paste
+ * the post's link once, and the app keeps it and copies the post's image.
+ */
+function AddPostTile({ addPost, alt, className, size }: { addPost: NonNullable<Preview["addPost"]>; alt: string; className: string; size: keyof typeof SIZE }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [link, setLink] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [pending, start] = useTransition()
+  const save = () =>
+    start(async () => {
+      setError(null)
+      const r = await addAdPostLink({ ...addPost, link })
+      if (!r.ok) return setError(r.message)
+      toast.success(r.message)
+      setOpen(false)
+      router.refresh()
+    })
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger
+        aria-label={`${alt}: add the LinkedIn post link`}
+        title="Thought leader ad? Add the post link to show it here"
+        className={cn(className, "flex flex-col items-center justify-center gap-0.5 border-dashed p-1 text-center leading-tight text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground", size === "card" ? "text-sm" : "text-[11px]")}
+      >
+        <span aria-hidden className="text-base leading-none">+</span>
+        Add post
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={8} side="right" align="start" className="z-50">
+          <Popover.Popup className="w-80 max-w-[85vw] origin-(--transform-origin) rounded-lg border bg-popover p-4 text-sm shadow-xl transition-[scale,opacity] duration-100 ease-out data-ending-style:scale-[0.98] data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0">
+            <Popover.Title className="font-semibold">Add the LinkedIn post</Popover.Title>
+            <Popover.Description className="mt-1 text-xs text-muted-foreground">
+              Windsor has no post for this ad (thought leader ads usually). On the post, use &ldquo;Copy link to post&rdquo; and paste it here. We&apos;ll link to it and keep its image.
+            </Popover.Description>
+            <form
+              className="mt-3 space-y-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                save()
+              }}
+            >
+              <input
+                type="url"
+                required
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+                placeholder="https://www.linkedin.com/feed/update/…"
+                aria-label="LinkedIn post link"
+                aria-invalid={error ? true : undefined}
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+              />
+              {error && <p className="text-xs text-rag-red">{error}</p>}
+              <div className="flex justify-end gap-2">
+                <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" size="sm" disabled={pending || !link.trim()}>
+                  {pending ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            </form>
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }

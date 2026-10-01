@@ -4,7 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 export type AdKey = { platform: string; external_account_id: string; ad_id: string }
 export type TextAd = { headlines: { text: string; pinned: string | null }[]; descriptions: { text: string; pinned: string | null }[]; path1: string | null; path2: string | null; finalUrl: string | null }
 /** kind: what the ad is when there's no image (e.g. LinkedIn document ads, which Windsor has no thumbnail for). */
-export type Preview = { src: string | null; link: string | null; textOnly: boolean; textAd?: TextAd | null; kind?: string | null }
+/** `addPost`: a LinkedIn ad with no image or link from Windsor (thought leader ads) that this person may add the post link for. */
+export type Preview = { src: string | null; link: string | null; textOnly: boolean; textAd?: TextAd | null; kind?: string | null; addPost?: { clientId: string; key: string } | null }
 export type PreviewMap = Record<string, Preview>
 
 export const adKey = (a: AdKey) => `${a.platform}|${a.external_account_id}|${a.ad_id}`
@@ -20,11 +21,11 @@ const BUCKET = "ad-previews"
 export async function previewsFor(supabase: SupabaseClient, clientId: string, ads: AdKey[]): Promise<PreviewMap> {
   const ids = [...new Set(ads.map((a) => a.ad_id))]
   if (!ids.length) return {}
-  const rows: { platform: string; external_account_id: string; ad_id: string; storage_path: string | null; preview_link: string | null; ad_type: string | null; text_ad: TextAd | null }[] = []
+  const rows: { platform: string; external_account_id: string; ad_id: string; storage_path: string | null; preview_link: string | null; manual_post_link: string | null; ad_type: string | null; text_ad: TextAd | null }[] = []
   for (let i = 0; i < ids.length; i += 200) {
     const { data } = await supabase
       .from("ad_creatives")
-      .select("platform, external_account_id, ad_id, storage_path, preview_link, ad_type, text_ad")
+      .select("platform, external_account_id, ad_id, storage_path, preview_link, manual_post_link, ad_type, text_ad")
       .eq("client_id", clientId)
       .in("ad_id", ids.slice(i, i + 200))
     rows.push(...(data ?? []))
@@ -35,14 +36,18 @@ export async function previewsFor(supabase: SupabaseClient, clientId: string, ad
     const { data } = await supabase.storage.from(BUCKET).createSignedUrls(paths, 3600)
     for (const s of data ?? []) if (s.path && s.signedUrl) signed.set(s.path, s.signedUrl)
   }
+  // Only people who can edit the client get "Add the post link" (the server action checks again).
+  const needsPost = (r: (typeof rows)[number]) => r.platform === "linkedin" && !r.storage_path && !r.preview_link && !r.manual_post_link
+  const editable = rows.some(needsPost) ? Boolean((await supabase.rpc("can_edit_client", { cid: clientId })).data) : false
   const out: PreviewMap = {}
   for (const r of rows) {
     out[adKey(r)] = {
       src: r.storage_path ? (signed.get(r.storage_path) ?? null) : null,
-      link: r.preview_link,
+      link: r.preview_link ?? r.manual_post_link,
       textOnly: r.ad_type ? TEXT_ONLY_TYPES.has(r.ad_type) : false,
       textAd: r.text_ad,
       kind: r.ad_type ? (KIND[r.ad_type] ?? null) : null,
+      addPost: editable && needsPost(r) ? { clientId, key: adKey(r) } : null,
     }
   }
   return out

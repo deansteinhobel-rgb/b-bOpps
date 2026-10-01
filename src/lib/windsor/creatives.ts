@@ -93,8 +93,45 @@ async function fetchPreviews(account: Account, dateFrom: string, dateTo: string)
   return [...byAd.values()]
 }
 
+/**
+ * A LinkedIn post link someone pasted, tidied to its canonical form, or null if it isn't one.
+ * Accepts feed links (…/feed/update/urn:li:share|ugcPost|activity:123) and /posts/ links.
+ */
+export function linkedInPostLink(input: string): string | null {
+  let u: URL
+  try {
+    u = new URL(input.trim())
+  } catch {
+    return null
+  }
+  if (u.protocol !== "https:" || !/^([a-z0-9-]+\.)?linkedin\.com$/i.test(u.hostname)) return null
+  const feed = u.pathname.match(/^\/feed\/update\/(urn:li:(?:share|ugcPost|activity):\d+)\/?$/)
+  if (feed) return `https://www.linkedin.com/feed/update/${feed[1]}/`
+  const post = u.pathname.match(/^\/posts\/[A-Za-z0-9_%-]+\/?$/)
+  if (post) return `https://www.linkedin.com${u.pathname.replace(/\/?$/, "/")}`
+  return null
+}
+
+const OG_IMAGE = /<meta\s+(?:property|name)="(?:og:image|twitter:image)"\s+content="([^"]+)"/i
+/**
+ * The image on a public LinkedIn post page (its og:image), for thought leader ads Windsor has no
+ * thumbnail for. Only LinkedIn's own image hosts are accepted. Null when the page has none (a
+ * private post, or LinkedIn asking to sign in).
+ */
+export async function postImage(postLink: string): Promise<string | null> {
+  const res = await fetch(postLink, {
+    headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36", accept: "text/html" },
+    signal: AbortSignal.timeout(15_000),
+    cache: "no-store",
+  })
+  if (!res.ok) return null
+  const m = (await res.text()).match(OG_IMAGE)
+  const url = m?.[1].replaceAll("&amp;", "&")
+  return url && /^https:\/\/([a-z0-9-]+\.)*licdn\.com\//i.test(url) ? url : null
+}
+
 /** Copies an image into our bucket. Returns the stored path and type, or throws. */
-async function copyImage(url: string, path: string) {
+export async function copyImage(url: string, path: string) {
   const res = await fetch(url, { signal: AbortSignal.timeout(20_000) })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const type = (res.headers.get("content-type") ?? "").split(";")[0].trim()
@@ -108,6 +145,22 @@ async function copyImage(url: string, path: string) {
 }
 
 const safe = (s: string) => s.replace(/[^a-zA-Z0-9_-]/g, "_")
+
+/** Finds the image on a LinkedIn post page and keeps our copy of it on the ad_creatives row. */
+export async function copyPostImage(creativeId: string, postLink: string, path: string): Promise<{ ok: boolean; error?: string }> {
+  const db = createAdminClient()
+  try {
+    const img = await postImage(postLink)
+    if (!img) throw new Error("No image on the post page (private post, or LinkedIn asked to sign in)")
+    const stored = await copyImage(img, path)
+    await db.from("ad_creatives").update({ ...stored, source_url: img, copied_at: new Date().toISOString(), copy_error: null }).eq("id", creativeId)
+    return { ok: true }
+  } catch (e) {
+    const error = (e as Error).message.slice(0, 300)
+    await db.from("ad_creatives").update({ copy_error: error }).eq("id", creativeId)
+    return { ok: false, error }
+  }
+}
 
 /**
  * Records preview links for ads seen in the date range, then copies up to `maxCopies` images we
@@ -157,6 +210,25 @@ export async function syncCreatives(opts: { clientId?: string; accountId?: strin
         }
       }
       budget -= copied + failed
+      // LinkedIn ads with a post link but no image from Windsor (thought leader ads): use the post's own image.
+      if (account.platform === "linkedin" && budget > 0) {
+        const { data: posts } = await db
+          .from("ad_creatives")
+          .select("id, ad_id, preview_link, manual_post_link")
+          .eq("platform", account.platform)
+          .eq("external_account_id", account.external_account_id)
+          .is("storage_path", null)
+          .is("source_url", null)
+          .is("copy_error", null)
+          .or("preview_link.not.is.null,manual_post_link.not.is.null")
+          .limit(budget)
+        for (const c of posts ?? []) {
+          const r = await copyPostImage(c.id, (c.manual_post_link ?? c.preview_link)!, `${account.client_id}/${account.platform}/${safe(c.ad_id)}`)
+          if (r.ok) copied++
+          else failed++
+          budget--
+        }
+      }
       results.push({ account: label, ads: previews.length, copied, failed })
     } catch (e) {
       results.push({ account: label, ads: 0, copied: 0, failed: 0, error: (e as Error).message })

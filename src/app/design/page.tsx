@@ -460,6 +460,7 @@ export default async function DesignPreview() {
               {[
                 { name: "Intuitive Query Log for Precise Filtering", p: { src: sampleImg, link: null, textOnly: false } },
                 { name: "A clearer shadow AI conversation for client reviews", p: { src: null, link: null, textOnly: false, kind: "Document ad" } },
+                { name: "Thought leader ad (no post from Windsor)", p: { src: null, link: null, textOnly: false, addPost: { clientId: "00000000-0000-0000-0000-000000000000", key: "linkedin|1|tla" } } },
                 { name: "DNS Filtering Service", p: { src: null, link: null, textOnly: true, textAd: { headlines: [{ text: "DNS Filtering Service", pinned: null }, { text: "Start Your Free 14-Day Trial", pinned: null }], descriptions: [{ text: "Block malware and phishing at the DNS layer.", pinned: null }], path1: null, path2: null, finalUrl: "https://www.dnsfilter.com/" } } },
               ].map((c) => (
                 <li key={c.name} className="group/card surface overflow-hidden">
