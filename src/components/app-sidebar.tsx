@@ -92,6 +92,9 @@ function LensSwitch({ lens }: { lens: Lens }) {
   )
 }
 
+/** Clients in the list to see how they look, not set up yet (Dean, 2026-10-01). */
+const COMING_SOON = new Set(["drillsense", "filevine", "star-space"])
+
 /** The client list (Dean: no separate "Clients" item; the heading links to all clients). */
 function NavBody({ clients, hasRole, pathname, lens }: Props & { pathname: string }) {
   if (!hasRole) return null
@@ -112,6 +115,7 @@ function NavBody({ clients, hasRole, pathname, lens }: Props & { pathname: strin
         <NavLink key={c.slug} href={lens ? clientHome(c.slug, lens) : `/clients/${c.slug}`} active={pathname.startsWith(`/clients/${c.slug}`)}>
           <ClientLogo name={c.name} logoUrl={c.logo_url} size="xs" />
           <span className="truncate">{c.name}</span>
+          {COMING_SOON.has(c.slug) && <span className="pill ml-auto h-5 px-2 text-[11px] font-medium">Coming soon</span>}
         </NavLink>
       ))}
     </nav>
