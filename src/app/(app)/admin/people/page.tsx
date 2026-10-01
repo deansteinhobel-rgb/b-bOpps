@@ -43,7 +43,8 @@ export default async function PeoplePage() {
               </Link>
               <AdminForm action={setProfileRole} submitLabel="Set" className="flex items-center gap-2 space-y-0">
                 <input type="hidden" name="id" value={p.id} />
-                <select name="role" defaultValue={p.role ?? ""} className={`${fieldClass} w-52`} aria-label={`Role for ${p.full_name ?? p.email}`}>
+                {/* Keyed by role: after saving, React resets the form, and a reused select would snap back to the old role. */}
+                <select key={p.role ?? ""} name="role" defaultValue={p.role ?? ""} className={`${fieldClass} w-52`} aria-label={`Role for ${p.full_name ?? p.email}`}>
                   <option value="">No access</option>
                   {ROLES.map(([k, v]) => (
                     <option key={k} value={k}>

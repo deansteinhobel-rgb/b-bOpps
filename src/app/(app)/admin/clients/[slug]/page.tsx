@@ -152,7 +152,7 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
                         <code className="truncate text-xs" title={field}>
                           {field}
                         </code>
-                        <select name={`tier|${field}`} defaultValue={saved?.tier ?? ""} className={fieldClass} aria-label={`Tier for ${field}`}>
+                        <select key={saved?.tier ?? ""} name={`tier|${field}`} defaultValue={saved?.tier ?? ""} className={fieldClass} aria-label={`Tier for ${field}`}>
                           <option value="">{hint ? `Not mapped (suggested: ${RESULT_TIERS[hint].label})` : "Not mapped"}</option>
                           {Object.entries(RESULT_TIERS).map(([k, t]) => (
                             <option key={k} value={k} title={t.hint}>
