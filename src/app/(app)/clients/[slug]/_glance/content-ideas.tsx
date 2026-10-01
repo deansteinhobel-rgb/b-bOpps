@@ -33,6 +33,7 @@ export type Idea = {
   impact: number
   confidence: number
   effort: number
+  call_commitment_id?: string | null
 }
 export type IdeaRun = { id: string; headline: string | null; working: Working[]; ideas: Idea[]; avoid: { what: string; why: string }[]; when: string }
 export type IdeaState = { action: "planned" | "dismissed"; reason: string | null; testUrl: string | null }
@@ -245,6 +246,11 @@ function IdeaCard({ slug, runId, idea: i, state, owners, canEdit, deadline }: { 
           <span className="rounded-full bg-lavender/15 px-2 py-0.5 font-medium text-lavender">{i.content_type}</span>
           <span className="rounded-full border px-2 py-0.5 text-muted-foreground">{KIND[i.kind] ?? i.kind}</span>
           <span className={cn("rounded-full border px-2 py-0.5", i.audience_basis === "new" ? "border-violet/40 text-violet" : "text-muted-foreground")}>{i.audience_basis === "new" ? "New audience" : "Same audience"}</span>
+          {i.call_commitment_id && (
+            <span className="rounded-full border border-[#f0a6ca]/40 bg-[#f0a6ca]/10 px-2 py-0.5 font-medium text-[#f0a6ca]" title="Follows up something the client said on a call">
+              From a call
+            </span>
+          )}
         </p>
         <h4 className="text-base leading-snug font-semibold">{i.title}</h4>
         <p className="flex items-start gap-2 text-xs text-muted-foreground">

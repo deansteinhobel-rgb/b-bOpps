@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
+import { markCallItemPlanned } from "@/lib/calls/refs"
 import { londonToday } from "@/lib/checks/periods"
 import { peopleForClient } from "@/lib/people"
 import { ensureSprint } from "@/lib/sprints/data"
@@ -17,7 +18,7 @@ import { leverForIdea } from "@/lib/taxonomy"
 
 type Result = { ok: boolean; message?: string; url?: string }
 const fail = (message: string): Result => ({ ok: false, message })
-type Idea = { id: string; title: string; kind: string; content_type: string; topic: string; platform: string; format: string; audience: string; audience_basis: string; built_on: { ref: string; what: string }[]; evidence: string; why_it_fits: string; hook: string; success: string }
+type Idea = { id: string; title: string; kind: string; content_type: string; topic: string; platform: string; format: string; audience: string; audience_basis: string; built_on: { ref: string; what: string }[]; evidence: string; why_it_fits: string; hook: string; success: string; call_commitment_id?: string | null }
 
 async function load(slug: string, runId: string, ideaId: string) {
   const supabase = await createClient()
@@ -75,12 +76,14 @@ export async function planContentIdea(slug: string, runId: string, ideaId: strin
       deadline: p.data.deadline,
       created_by_profile_id: me.id,
       content_idea_id: i.id,
+      call_commitment_id: i.call_commitment_id ?? null, // it follows up something said on a client call
       lever: leverForIdea(i.kind),
       lever_source: leverForIdea(i.kind) ? "rule" : null,
     })
     .select("id")
     .single()
   if (error || !test) return fail("Couldn't create the test.")
+  if (i.call_commitment_id) await markCallItemPlanned(l.supabase, { clientId: l.clientId, commitmentId: i.call_commitment_id, testId: test.id, profileId: me.id })
   await l.supabase.from("content_idea_actions").insert({ client_id: l.clientId, run_id: runId, idea_id: i.id, action: "planned", sprint_test_id: test.id, snapshot: i, profile_id: me.id })
   revalidatePath(`/clients/${slug}`)
   revalidatePath(`/clients/${slug}/ideas`)

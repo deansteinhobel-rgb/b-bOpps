@@ -4,6 +4,7 @@ import { claude } from "@/lib/ai/claude"
 import { londonToday } from "@/lib/checks/periods"
 import { withSymbols } from "@/lib/format"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { resolveCallRef } from "@/lib/calls/refs"
 import { AD_CONTENT_TYPES } from "@/lib/taxonomy"
 import { buildContentContext } from "./context"
 
@@ -84,6 +85,7 @@ const SUBMIT = {
             impact: { type: "integer", minimum: 1, maximum: 5 },
             confidence: { type: "integer", minimum: 1, maximum: 5 },
             effort: { type: "integer", minimum: 1, maximum: 5, description: "1 = reuse an existing piece, 5 = a new piece of content from scratch." },
+            from_call: { type: "string", description: "The [call-...] ref of the client call item this idea follows up, e.g. 'call-1a2b3c4d'. Empty if none." },
           },
           required: ["title", "kind", "content_type", "topic", "platform", "format", "audience", "audience_basis", "built_on", "evidence", "why_it_fits", "hook", "success", "impact", "confidence", "effort"],
         },
@@ -99,7 +101,7 @@ const SUBMIT = {
   },
 } as const
 
-type Idea = { title: string; kind: string; content_type: string; topic: string; platform: string; format: string; audience: string; audience_basis: string; built_on: { ref: string; what: string }[]; evidence: string; why_it_fits: string; hook: string; success: string; impact: number; confidence: number; effort: number }
+type Idea = { title: string; kind: string; content_type: string; topic: string; platform: string; format: string; audience: string; audience_basis: string; built_on: { ref: string; what: string }[]; evidence: string; why_it_fits: string; hook: string; success: string; impact: number; confidence: number; effort: number; from_call?: string }
 type Submitted = {
   headline: string
   working: { content_type: string; topic: string; format: string; platform: string; audience: string; campaigns: string[]; spend: number; results: number; ctr?: number; verdict: string; why: string }[]
@@ -117,7 +119,7 @@ THE AUDIENCE RULE (most important): the topic must fit the audience it goes to. 
 - Never pair a topic with an audience just because each did well separately.
 3. List what to avoid repeating, from the evidence.
 Use the client brief's ICP, targets and must-knows (the must-knows win over everything). Look at the tests already run and the Notion briefs already in production, so you don't suggest something that exists or was already tried and failed. Respect what the team said about earlier ideas: don't bring back a "not for us" idea unless the evidence has changed, and say so if you do.
-Only use what's given; never invent numbers, pieces or audiences. Refer to campaigns and ads by their exact names or [key]. Plain UK English, currency symbols ($, £, €), never "USD" or "GBP". Call submit_content_ideas once, at the end.`
+Only use what's given; never invent numbers, pieces or audiences. Refer to campaigns and ads by their exact names or [key]. What the client said on recent calls is what they're asking us for: when an idea follows up an item under "Said on recent calls, not done yet" (content they asked for, a topic they raised), put its ref in from_call and mention it in evidence. Plain US English, currency symbols ($, £, €), never "USD" or "GBP". Call submit_content_ideas once, at the end.`
 
 /** A list from Claude's tool input: sometimes an array arrives as a JSON string. */
 function list<T>(v: unknown): T[] {
@@ -168,6 +170,9 @@ export async function runContentIdeas(runId: string) {
       const t = deKey(withSymbols(String(s ?? "")))
       return t.length > n ? `${t.slice(0, n - 1).replace(/\s+\S*$/, "")}…` : t
     }
+    // Ideas that follow up something said on a client call keep that link (it goes onto the test).
+    const fromCall = new Map<string, string | null>()
+    for (const i of list<Idea>(submitted.ideas)) if (i.from_call) fromCall.set(i.from_call, await resolveCallRef(db, row.client_id, i.from_call))
     await db
       .from("content_idea_runs")
       .update({
@@ -212,6 +217,7 @@ export async function runContentIdeas(runId: string) {
             impact: int(i.impact),
             confidence: int(i.confidence),
             effort: int(i.effort),
+            call_commitment_id: (i.from_call && fromCall.get(i.from_call)) || null,
           })),
         avoid: list<Submitted["avoid"][number]>(submitted.avoid).slice(0, 4).map((a) => ({ what: clip(a.what, 160), why: clip(a.why, 240) })),
         usage,

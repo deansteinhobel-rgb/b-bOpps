@@ -47,6 +47,7 @@ export type Recommendation = {
   effort: Level | null
   reject_reason: string | null
   sprint_test_id: string | null
+  call_commitment_id: string | null
 }
 
 const CONNECTED = ["linkedin", "google_ads", "meta"]
@@ -64,6 +65,8 @@ function tags(r: Recommendation, rank: number) {
   if (rank === 0) out.push({ label: "Top pick", cls: "border-lime/40 bg-lime/10 text-lime" })
   if (r.effort === "low" && (r.impact ?? r.confidence) !== "low") out.push({ label: "Quick win", cls: "border-foreground/20 text-foreground" })
   if (r.confidence === "low" || !(CONNECTED.includes(r.platform) || r.platform === "several")) out.push({ label: "Bold bet", cls: "border-violet-400/30 text-violet-300" })
+  // Follows up something said on a client call (the same pink as the test's "From a call" tag).
+  if (r.call_commitment_id) out.push({ label: "From a call", cls: "border-[#f0a6ca]/40 bg-[#f0a6ca]/10 text-[#f0a6ca]" })
   return out
 }
 

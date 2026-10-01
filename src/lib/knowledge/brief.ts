@@ -2,6 +2,7 @@ import "server-only"
 import { createHash } from "node:crypto"
 import type Anthropic from "@anthropic-ai/sdk"
 import { claude, MODEL } from "@/lib/ai/claude"
+import { callRef } from "@/lib/calls/refs"
 import { londonToday } from "@/lib/checks/periods"
 import { money, withSymbols } from "@/lib/format"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -180,8 +181,8 @@ export async function briefForPrompt(clientId: string) {
     for (const c of calls) lines.push(`- ${c.call_date}, ${c.title}: ${c.summary}`)
   }
   if (stillOpen.length) {
-    lines.push("\n## Said on recent calls, not done yet (follow these up)")
-    for (const o of stillOpen) lines.push(`- ${o.said_on} (${o.owner_side === "client" ? "client to do" : "B&B to do"}, ${o.kind.replace("_", " ")}): ${o.title}`)
+    lines.push("\n## Said on recent calls, not done yet (follow these up; a suggestion that follows one up gives its [call-…] ref)")
+    for (const o of stillOpen) lines.push(`- [${callRef(o.id)}] ${o.said_on} (${o.owner_side === "client" ? "client to do" : "B&B to do"}, ${o.kind.replace("_", " ")}): ${o.title}`)
   }
   if (brief?.content) lines.push(`\n## Client brief (from the client's Notion HQ and team notes, updated ${brief.created_at.slice(0, 10)})\n${brief.content}`)
   return lines.join("\n")

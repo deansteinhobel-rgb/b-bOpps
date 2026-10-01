@@ -18,7 +18,7 @@ const norm = (id: string | null) => (id ?? "").replace(/-/g, "")
 export default async function BrainPage({ params }: PageProps<"/clients/[slug]/brain">) {
   const { slug } = await params
   const supabase = await createClient()
-  const [{ data: client }, me] = await Promise.all([supabase.from("clients").select("id, name, notion_hq_page_id, call_notes_notion_id, call_notes_kind, call_notes_checked_at").eq("slug", slug).maybeSingle(), getProfile()])
+  const [{ data: client }, me] = await Promise.all([supabase.from("clients").select("id, name, notion_hq_page_id, call_notes_notion_id, call_notes_kind, call_notes_client_option, call_notes_title, call_notes_checked_at").eq("slug", slug).maybeSingle(), getProfile()])
   if (!client) notFound()
   const [{ data: briefs }, { data: knowledge }, { data: calls }, followUps] = await Promise.all([
     supabase.from("client_briefs").select("id, status, content, written_by, source_count, error, created_at, finished_at, profiles:created_by_profile_id(full_name)").eq("client_id", client.id).order("created_at", { ascending: false }).limit(10),
@@ -34,7 +34,7 @@ export default async function BrainPage({ params }: PageProps<"/clients/[slug]/b
   const all = (briefs ?? []) as unknown as (Brief & { status: string; error: string | null })[]
   const pages = (knowledge ?? []) as Knowledge[]
   const hq = pages.filter((k) => k.source === "notion")
-  const sourceTitle = client.call_notes_notion_id ? (hq.find((k) => norm(k.notion_page_id) === norm(client.call_notes_notion_id))?.title ?? null) : null
+  const sourceTitle = client.call_notes_notion_id ? (hq.find((k) => norm(k.notion_page_id) === norm(client.call_notes_notion_id))?.title ?? client.call_notes_title) : null
   return (
     <div className="space-y-12">
       <BrainView
@@ -51,7 +51,7 @@ export default async function BrainPage({ params }: PageProps<"/clients/[slug]/b
       <CallsPanel
         slug={slug}
         clientName={client.name}
-        source={client.call_notes_notion_id ? { id: client.call_notes_notion_id, kind: client.call_notes_kind as "page" | "database", checkedAt: client.call_notes_checked_at } : null}
+        source={client.call_notes_notion_id ? { id: client.call_notes_notion_id, kind: client.call_notes_kind as "page" | "database", clientOption: client.call_notes_client_option, checkedAt: client.call_notes_checked_at } : null}
         sourceTitle={sourceTitle}
         suggestions={hq.filter((k) => CALLISH.test(k.title) && norm(k.notion_page_id) !== norm(client.call_notes_notion_id)).slice(0, 6).map((k) => ({ id: k.notion_page_id!, title: k.title, path: k.path }))}
         calls={(calls ?? []) as Call[]}

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { canEdit, getProfile, isAdmin, VIEW_ONLY } from "@/lib/auth"
 import { extractCall } from "@/lib/calls/extract"
-import { notionIdFrom, resolveCallSource } from "@/lib/calls/notion"
+import { notionIdFrom, optionFor, resolveCallSource } from "@/lib/calls/notion"
 import { londonToday } from "@/lib/checks/periods"
 import { ensureSprint } from "@/lib/sprints/data"
 import { sprintOf } from "@/lib/sprints/periods"
@@ -17,7 +17,7 @@ import { createClient } from "@/lib/supabase/server"
 // source and adding notes by hand go through the server client after an access check. Notion is
 // only ever read.
 
-export type CallResult = { ok: boolean; message?: string; url?: string }
+export type CallResult = { ok: boolean; message?: string; url?: string; options?: string[] }
 const fail = (message: string): CallResult => ({ ok: false, message })
 const CONNECTED = ["linkedin", "google_ads", "meta"]
 
@@ -26,12 +26,16 @@ const refresh = (slug: string) => {
   revalidatePath("/", "layout") // the pop-up
 }
 
-/** Link the Notion database or page that holds the client's call notes (read only). GTM leads and admins. */
-export async function linkCallNotes(slug: string, link: string): Promise<CallResult> {
+/**
+ * Link the Notion database or page that holds the client's call notes (read only). GTM leads and
+ * admins. A database shared by several clients (a "Client" select) needs this client's option: it's
+ * picked from the client's name when that's clear, otherwise the options come back to choose from.
+ */
+export async function linkCallNotes(slug: string, link: string, option?: string): Promise<CallResult> {
   const me = await getProfile()
   if (!isAdmin(me)) return fail("Only GTM leads and admins link call notes.")
   const supabase = await createClient()
-  const { data: client } = await supabase.from("clients").select("id").eq("slug", slug).maybeSingle()
+  const { data: client } = await supabase.from("clients").select("id, name, notion_client_option").eq("slug", slug).maybeSingle()
   if (!client) return fail("This client isn't available to you.")
   const id = notionIdFrom(link)
   if (!id) return fail("Paste the link to the Notion page or database (Share → Copy link).")
@@ -41,10 +45,18 @@ export async function linkCallNotes(slug: string, link: string): Promise<CallRes
   } catch {
     return fail("Lumaux can't see that page. Check the link, and that it's shared with the Lumaux connection in Notion.")
   }
-  const { error } = await createAdminClient().from("clients").update({ call_notes_notion_id: id, call_notes_kind: src.kind, call_notes_checked_at: null }).eq("id", client.id)
+  let pick: string | null = null
+  if (src.clientOptions) {
+    pick = option && src.clientOptions.includes(option) ? option : optionFor(src.clientOptions, [client.name, client.notion_client_option])
+    if (!pick) return { ok: false, message: `"${src.title}" holds several clients' calls. Which Client option is ${client.name}?`, options: src.clientOptions }
+  }
+  const { error } = await createAdminClient()
+    .from("clients")
+    .update({ call_notes_notion_id: src.id, call_notes_kind: src.kind, call_notes_client_option: pick, call_notes_title: src.title, call_notes_checked_at: null })
+    .eq("id", client.id)
   if (error) return fail("Couldn't save.")
   refresh(slug)
-  return { ok: true, message: `Linked "${src.title}". Reading the calls now.` }
+  return { ok: true, message: `Linked "${src.title}"${pick ? ` (Client: ${pick})` : ""}. Reading the calls now.` }
 }
 
 const Manual = z.object({

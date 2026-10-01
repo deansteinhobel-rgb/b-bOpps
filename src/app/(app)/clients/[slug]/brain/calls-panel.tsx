@@ -14,7 +14,7 @@ import { STATE_LABEL, type CommitmentState } from "@/lib/calls/state"
 import { cn } from "@/lib/utils"
 
 export type Call = { id: string; source: "notion" | "manual"; notion_page_id: string | null; title: string; call_date: string; notion_status: string | null; summary: string | null; extract_status: "pending" | "done" | "failed" | "skipped"; extract_error: string | null; content_chars: number | null }
-export type CallSource = { id: string; kind: "page" | "database"; checkedAt: string | null } | null
+export type CallSource = { id: string; kind: "page" | "database"; clientOption: string | null; checkedAt: string | null } | null
 
 const notionUrl = (id: string) => `https://www.notion.so/${id.replace(/-/g, "")}`
 const STATE_CLS: Record<CommitmentState, string> = {
@@ -81,8 +81,8 @@ export function CallsPanel(props: { slug: string; clientName: string; source: Ca
                 Read from{" "}
                 <a href={notionUrl(props.source.id)} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
                   {props.sourceTitle ?? "Notion"}
-                </a>{" "}
-                every hour, read only{props.source.checkedAt ? `, last checked ${minsAgo(props.source.checkedAt)}` : ""}. Claude summarizes each call for the brain and keeps track of what we said we&apos;d do. Anything with no sign of it a week later pops up for the team.
+                </a>
+                {props.source.clientOption ? ` (rows with Client “${props.source.clientOption}”)` : ""} every hour, read only{props.source.checkedAt ? `, last checked ${minsAgo(props.source.checkedAt)}` : ""}. Claude summarizes each call for the brain and keeps track of what we said we&apos;d do. Anything with no sign of it a week later pops up for the team.
               </>
             ) : (
               `Link where ${props.clientName}'s call notes live in Notion. Claude reads every call (and the history), adds it to the brain, and reminds the team about anything said on a call that hasn't happened a week later.`
@@ -268,6 +268,8 @@ function SourcePicker({ slug, source, suggestions, canAdmin, onLinked }: { slug:
   const [editing, setEditing] = useState(!source)
   const [link, setLink] = useState("")
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  // A shared database: which Client option is this client (when the name doesn't say).
+  const [ask, setAsk] = useState<{ value: string; options: string[] } | null>(null)
   const [pending, start] = useTransition()
   if (!canAdmin) return <p className="surface px-4 py-4 text-sm text-muted-foreground">A GTM lead or admin links where this client&apos;s call notes live in Notion.</p>
   if (!editing) {
@@ -277,10 +279,11 @@ function SourcePicker({ slug, source, suggestions, canAdmin, onLinked }: { slug:
       </button>
     )
   }
-  const save = (value: string) =>
+  const save = (value: string, option?: string) =>
     start(async () => {
-      const r = await linkCallNotes(slug, value)
+      const r = await linkCallNotes(slug, value, option)
       setMsg({ ok: r.ok, text: r.message ?? (r.ok ? "Linked." : "Couldn't link it.") })
+      setAsk(r.options ? { value, options: r.options } : null)
       if (r.ok) {
         setEditing(false)
         onLinked()
@@ -290,7 +293,7 @@ function SourcePicker({ slug, source, suggestions, canAdmin, onLinked }: { slug:
     <div className="surface space-y-3 p-4">
       <div>
         <h3 className="text-sm font-semibold">Where do the call notes live?</h3>
-        <p className="text-xs text-muted-foreground">Paste the Notion link to the database (one row per call) or the page (one sub-page per call). Lumaux only ever reads it.</p>
+        <p className="text-xs text-muted-foreground">Paste the Notion link to the database (one row per call) or the page (one sub-page per call). A database shared by several clients works too: Lumaux reads only this client&apos;s rows, by its Client property. Lumaux only ever reads it.</p>
       </div>
       <div className="flex gap-2">
         <input value={link} onChange={(e) => setLink(e.target.value)} onKeyDown={(e) => e.key === "Enter" && link.trim() && save(link)} placeholder="https://www.notion.so/…" className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2.5 text-sm outline-none focus:border-foreground/30" aria-label="Notion link" />
@@ -315,7 +318,16 @@ function SourcePicker({ slug, source, suggestions, canAdmin, onLinked }: { slug:
           </div>
         </div>
       )}
-      {msg && <p className={cn("text-xs", msg.ok ? "text-lime" : "text-rag-red")}>{msg.text}</p>}
+      {msg && <p className={cn("text-xs", msg.ok ? "text-lime" : ask ? "text-muted-foreground" : "text-rag-red")}>{msg.text}</p>}
+      {ask && (
+        <div className="flex flex-wrap gap-1.5">
+          {ask.options.map((o) => (
+            <button key={o} type="button" disabled={pending} onClick={() => save(ask.value, o)} className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground hover:border-lime/40 hover:text-foreground">
+              {o}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

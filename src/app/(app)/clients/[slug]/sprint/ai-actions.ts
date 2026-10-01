@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { getProfile, isAdmin } from "@/lib/auth"
+import { markCallItemPlanned } from "@/lib/calls/refs"
 import { peopleForClient } from "@/lib/people"
 import { createClient } from "@/lib/supabase/server"
 import { isLever } from "@/lib/taxonomy"
@@ -89,10 +90,12 @@ export async function approveRecommendation(id: string, raw: { owner_notion_user
       recommendation_id: r.id,
       lever: isLever(r.lever) ? r.lever : null,
       lever_source: isLever(r.lever) ? "claude" : null,
+      call_commitment_id: r.call_commitment_id, // it follows up something said on a client call
     })
     .select("id")
     .single()
   if (error || !test) return fail("Couldn't create the test.")
+  if (r.call_commitment_id) await markCallItemPlanned(l.supabase, { clientId: r.client_id, commitmentId: r.call_commitment_id, testId: test.id, profileId: l.me.id })
   await l.supabase
     .from("sprint_recommendations")
     .update({ status: "approved", decided_by_profile_id: l.me.id, decided_at: new Date().toISOString(), sprint_test_id: test.id, updated_at: new Date().toISOString() })
