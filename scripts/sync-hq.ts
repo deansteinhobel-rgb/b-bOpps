@@ -20,6 +20,11 @@ if (li > -1) {
 const { data: clients } = await db.from("clients").select("id, slug").not("notion_hq_page_id", "is", null)
 for (const c of clients ?? []) {
   const t = Date.now()
-  const r = await syncClientHq(c.id, { force: args.includes("--force") })
+  // One client's failure (e.g. its HQ page not shared with the connection) doesn't stop the others.
+  const r = await syncClientHq(c.id, { force: args.includes("--force") }).catch((e: Error) => {
+    console.log(`  ${c.slug}: failed: ${e.message}`)
+    return null
+  })
+  if (!r) continue
   console.log(`  ${c.slug}: ${r.pages} pages found, ${r.added} new, ${r.read} read, ${r.remaining} left${r.errors.length ? `, ${r.errors.length} errors: ${r.errors.slice(0, 3).join(" | ")}` : ""} (${((Date.now() - t) / 1000).toFixed(0)}s)`)
 }

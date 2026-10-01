@@ -57,7 +57,12 @@ export async function discoverHq(rootId: string): Promise<Candidate[]> {
   const found: Candidate[] = []
   const seen = new Set<string>()
   async function walk(id: string, path: string[], pageDepth: number) {
-    for (const b of await children(n, id)) {
+    // A sub-page or block our connection can't open (not shared with it) is skipped, not fatal; the HQ page itself must open.
+    const blocks = await children(n, id).catch((e) => {
+      if (id !== rootId && (e as { code?: string }).code === "object_not_found") return [] as Block[]
+      throw e
+    })
+    for (const b of blocks) {
       if (b.type === "child_page" || b.type === "child_database") {
         if (seen.has(b.id)) continue
         seen.add(b.id)

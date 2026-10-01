@@ -27,7 +27,9 @@ const totals = (rows: { spend: number; results: number; clicks: number; impressi
 }
 
 export async function getAccountNumbers(supabase: SupabaseClient, clientId: string): Promise<AccountNumbers | null> {
-  const { data: range } = await supabase.from("account_data_range").select("data_through").eq("client_id", clientId)
+  const { data: range, error } = await supabase.from("account_data_range").select("data_through").eq("client_id", clientId)
+  // A failed read (e.g. a timeout) must not look like "no ad data yet".
+  if (error) throw new Error(`Couldn't read the data range: ${error.message}`)
   const dataThrough = (range ?? []).map((r) => r.data_through as string).sort().at(-1)
   if (!dataThrough) return null
   const month = `${dataThrough.slice(0, 7)}-01`

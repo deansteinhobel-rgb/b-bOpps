@@ -178,6 +178,15 @@ await db.exec(`
 const vera = "aaaaaaaa-0000-0000-0000-000000000010"
 const veraSees = await as(vera, () => q("select slug from public.clients order by slug"))
 console.log(veraSees.length === 2 ? "viewer sees every client: OK" : `FAIL: viewer sees ${veraSees.length} clients`)
+
+// Ad metrics (policy via my_client_ids(), 2026-10-01): the team sees its clients only; admins and viewers see all.
+await db.exec(`insert into public.windsor_daily_metrics (client_id, platform, external_account_id, date, spend) values
+  ('11111111-1111-1111-1111-111111111111','linkedin','c1','2026-09-30',10), ('22222222-2222-2222-2222-222222222222','linkedin','d1','2026-09-30',20)`)
+const metricClients = async (uid) => (await as(uid, () => q("select distinct client_id from public.windsor_daily_metrics"))).length
+console.log((await metricClients("aaaaaaaa-0000-0000-0000-000000000003")) === 1 ? "team sees only its clients' metrics: OK" : "FAIL: metrics visible across clients")
+console.log((await metricClients("aaaaaaaa-0000-0000-0000-000000000001")) === 2 ? "admin sees every client's metrics: OK" : "FAIL: admin can't see all metrics")
+console.log((await metricClients(vera)) === 2 ? "viewer sees every client's metrics: OK" : "FAIL: viewer can't see all metrics")
+console.log((await metricClients("aaaaaaaa-0000-0000-0000-000000000004")) === 0 ? "no role sees no metrics: OK" : "FAIL: no-role user sees metrics")
 const veraRuns = await as(vera, () => q("select id from public.check_runs"))
 console.log(veraRuns.length > 0 ? "viewer reads check runs: OK" : "FAIL: viewer can't read runs")
 try { await as(vera, () => q("insert into public.check_runs (client_id,cadence,period_start,period_end) values ('11111111-1111-1111-1111-111111111111','monthly','2026-09-01','2026-09-30')")); console.log("FAIL: viewer created a run") } catch { console.log("viewer can't create runs: OK") }
