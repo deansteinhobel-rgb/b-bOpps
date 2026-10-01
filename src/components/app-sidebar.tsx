@@ -6,7 +6,7 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { setLens } from "@/app/(app)/options/actions"
 import { AppMark, Avatar, ClientLogo } from "@/components/brand"
-import { CommandMenu, Kbd, useShortcutLabel } from "@/components/command-menu"
+import { CommandMenu, Kbd, SHORTCUT_LABEL } from "@/components/command-menu"
 import { Segmented } from "@/components/segmented"
 import { clientHome, type Lens } from "@/lib/lens"
 import { cn } from "@/lib/utils"
@@ -223,7 +223,6 @@ function SearchIcon({ className }: { className?: string }) {
 
 /** Opens "Jump to" (the command menu), styled as a search field. */
 function JumpButton({ onClick }: { onClick: () => void }) {
-  const shortcut = useShortcutLabel()
   return (
     <button
       type="button"
@@ -232,7 +231,7 @@ function JumpButton({ onClick }: { onClick: () => void }) {
     >
       <SearchIcon className="size-3.5 shrink-0" />
       <span className="flex-1 text-left">Jump to…</span>
-      <Kbd>{shortcut}</Kbd>
+      <Kbd>{SHORTCUT_LABEL}</Kbd>
     </button>
   )
 }

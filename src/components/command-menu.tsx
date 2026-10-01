@@ -3,7 +3,7 @@
 import { Autocomplete } from "@base-ui/react/autocomplete"
 import { Dialog } from "@base-ui/react/dialog"
 import { useRouter } from "next/navigation"
-import { useEffect, useId, useSyncExternalStore } from "react"
+import { useEffect, useId } from "react"
 import { ClientLogo } from "@/components/brand"
 import type { SidebarClient } from "@/components/app-sidebar"
 import type { Lens } from "@/lib/lens"
@@ -151,12 +151,5 @@ export function Kbd({ children, className }: { children: React.ReactNode; classN
   return <kbd className={cn("inline-flex h-5 min-w-5 items-center justify-center rounded border px-1 font-sans text-[11px] leading-none text-muted-foreground", className)}>{children}</kbd>
 }
 
-/** "⌘K" on a Mac, "Ctrl K" elsewhere (decided after hydration, since the server can't know). */
-const noSubscribe = () => () => {}
-export function useShortcutLabel() {
-  return useSyncExternalStore(
-    noSubscribe,
-    () => (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? "⌘K" : "Ctrl K"),
-    () => "Ctrl K",
-  )
-}
+/** The team is on Macs (Dean, 2026-10-01), so the hint always reads ⌘K; Ctrl+K still opens it on Windows. */
+export const SHORTCUT_LABEL = "⌘K"
