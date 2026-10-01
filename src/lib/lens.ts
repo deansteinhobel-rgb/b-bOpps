@@ -1,8 +1,8 @@
 // The new layout (Dean, 2026-09-30): two lenses on the same app, nothing hidden or locked.
 //   Hands-on: people working in the ad platforms. Home is the Today queue; client pages open on "Do".
 //   Overview: people reading performance, asking questions and planning. Client pages open on the overview.
-// Behind a switch (`preferences.layout`, "classic" until someone turns it on in Options), so turning it
-// off brings back the old layout with no deploy. A plain module: used by server and client components.
+// The default for everyone since 2026-10-01 (Dean). `preferences.layout` = "classic" in Options brings
+// back the old layout with no deploy. A plain module: used by server and client components.
 
 export type Lens = "hands_on" | "overview"
 export type LayoutChoice = "classic" | "new"
@@ -11,7 +11,7 @@ export const LENS_LABEL: Record<Lens, string> = { hands_on: "Hands-on", overview
 
 type Prefs = { layout?: LayoutChoice; lens?: Lens } | null | undefined
 
-export const newLayout = (prefs: Prefs) => prefs?.layout === "new"
+export const newLayout = (prefs: Prefs) => prefs?.layout !== "classic"
 
 /** Your chosen lens, else from your role: paid media specialists work hands-on, everyone else starts on the overview. */
 export const lensOf = (prefs: Prefs, role: string | null): Lens => prefs?.lens ?? (role === "specialist" ? "hands_on" : "overview")
