@@ -1,6 +1,7 @@
 import "server-only"
 import { createHash } from "node:crypto"
 import type { Client } from "@notionhq/client"
+import { insideOtherClient, normId, otherClientsNotion } from "@/lib/knowledge/boundaries"
 import { children, CONTAINERS, notion, pageText, propText, rt, titleOf, type Prop } from "@/lib/knowledge/notion-hq"
 import { throttled } from "@/lib/notion/throttle"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -219,6 +220,10 @@ export async function syncCallNotes(clientId: string, opts: { full?: boolean; bu
   const db = createAdminClient()
   const { data: client } = await db.from("clients").select("call_notes_notion_id, call_notes_kind, call_notes_client_option, call_notes_checked_at").eq("id", clientId).single()
   if (!client?.call_notes_notion_id) return { found: 0, read: 0, remaining: 0 }
+  // Another client's HQ and call notes are never read into this client's calls (Aikido, cross-tenant).
+  const others = await otherClientsNotion(clientId)
+  if (others.has(normId(client.call_notes_notion_id))) throw new Error("These call notes belong to another client. Link this client's own call notes.")
+  const parents = new Map<string, boolean>()
   const n = notion()
   const checkedAt = new Date().toISOString()
   // A few minutes' overlap, so an edit made during the last run isn't missed.
@@ -279,13 +284,15 @@ export async function syncCallNotes(clientId: string, opts: { full?: boolean; bu
         const p = (await throttled(() => n.pages.retrieve({ page_id: c.notion_page_id! }))) as unknown as Page
         row = rowOf(p)
       }
-      let body = await pageText(n, c.notion_page_id!)
+      let body = await pageText(n, c.notion_page_id!, 0, others)
       // A row that's only a pointer (NAM: "Original transcript: …" and a "Client log entry" link):
       // the notes are on the linked page, so read that.
       let unreadable = false
       if (body.trim().length < STUB_CHARS && row.links.length) {
         for (const l of row.links) {
-          const linked = await pageText(n, l).catch(() => null)
+          // A linked page inside another client's HQ or call notes is never read for this client.
+          if (await insideOtherClient(n, l, others, parents)) continue
+          const linked = await pageText(n, l, 0, others).catch(() => null)
           if (linked === null) unreadable = true
           else if (linked.trim().length > body.trim().length) body = linked
         }

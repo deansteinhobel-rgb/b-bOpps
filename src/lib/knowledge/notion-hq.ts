@@ -1,5 +1,6 @@
 import "server-only"
 import type { Client } from "@notionhq/client"
+import { normId, otherClientsNotion } from "@/lib/knowledge/boundaries"
 import { NOTION_VERSION } from "@/lib/notion/config"
 import { readOnlyNotion } from "@/lib/notion/readonly"
 import { throttled } from "@/lib/notion/throttle"
@@ -50,9 +51,10 @@ export const titleOf = (b: Block) => String((b[b.type] as { title?: string })?.t
 /**
  * Every page and database under the HQ, through toggles and columns: the HQ's own pages, plus the
  * pages one level inside them (the HQ menu lives on a child page). Deeper sub-pages are read as
- * part of their parent. Returns them with their place in the tree.
+ * part of their parent. Returns them with their place in the tree. Pages in `skip` (another client's
+ * HQ or call notes) are left out, with everything under them.
  */
-export async function discoverHq(rootId: string): Promise<Candidate[]> {
+export async function discoverHq(rootId: string, skip: Set<string> = new Set()): Promise<Candidate[]> {
   const n = notion()
   const found: Candidate[] = []
   const seen = new Set<string>()
@@ -64,7 +66,7 @@ export async function discoverHq(rootId: string): Promise<Candidate[]> {
     })
     for (const b of blocks) {
       if (b.type === "child_page" || b.type === "child_database") {
-        if (seen.has(b.id)) continue
+        if (seen.has(b.id) || skip.has(normId(b.id))) continue
         seen.add(b.id)
         const title = titleOf(b)
         found.push({ id: b.id, kind: b.type === "child_page" ? "page" : "database", title, path: path.join(" › "), lastEdited: (b.last_edited_time as string) ?? null })
@@ -79,8 +81,11 @@ export async function discoverHq(rootId: string): Promise<Candidate[]> {
   return found
 }
 
-/** A page as markdown-ish text, including its sub-pages (one level) and inline databases. */
-export async function pageText(n: Client, id: string, depth = 0): Promise<string> {
+/**
+ * A page as markdown-ish text, including its sub-pages (one level) and inline databases. Sub-pages and
+ * databases in `skip` (another client's HQ or call notes) aren't read.
+ */
+export async function pageText(n: Client, id: string, depth = 0, skip: Set<string> = new Set()): Promise<string> {
   const lines: string[] = []
   async function render(blocks: Block[], indent: string) {
     for (const b of blocks) {
@@ -102,10 +107,15 @@ export async function pageText(n: Client, id: string, depth = 0): Promise<string
           lines.push(`${indent}[${b.type}${v.url ? `: ${v.url}` : ""}${rt(v.caption) ? ` (${rt(v.caption)})` : ""}]`)
           break
         case "child_page":
-          if (depth < 1) lines.push(`\n${indent}## Sub-page: ${titleOf(b)}\n${await pageText(n, b.id, depth + 1)}`)
+          if (skip.has(normId(b.id))) lines.push(`${indent}[Sub-page: ${titleOf(b)} (another client's, not read)]`)
+          else if (depth < 1) lines.push(`\n${indent}## Sub-page: ${titleOf(b)}\n${await pageText(n, b.id, depth + 1, skip)}`)
           else lines.push(`${indent}[Sub-page: ${titleOf(b)}]`)
           continue
         case "child_database":
+          if (skip.has(normId(b.id))) {
+            lines.push(`${indent}[Database: ${titleOf(b)} (another client's, not read)]`)
+            continue
+          }
           lines.push(`\n${indent}## Database: ${titleOf(b)}\n${await databaseText(n, b.id).catch((e) => `[Couldn't read this database: ${(e as Error).message}]`)}`)
           continue
       }
@@ -172,7 +182,7 @@ export async function discoverClientHq(clientId: string, opts: { full?: boolean 
 
 async function fullDiscover(clientId: string, rootId: string) {
   const db = createAdminClient()
-  const found = await discoverHq(rootId)
+  const found = await discoverHq(rootId, await otherClientsNotion(clientId))
   const { data: existing } = await db.from("client_knowledge").select("id, notion_page_id").eq("client_id", clientId).eq("source", "notion")
   const known = new Set((existing ?? []).map((e) => e.notion_page_id))
   const now = new Date().toISOString()
@@ -197,6 +207,7 @@ async function changedSince(clientId: string, rootId: string, since: string) {
   const { data: rows } = await db.from("client_knowledge").select("id, notion_page_id, path, title").eq("client_id", clientId).eq("source", "notion").is("removed_at", null)
   const known = new Map((rows ?? []).map((r) => [norm(r.notion_page_id!), r]))
   const cutoff = new Date(Date.parse(since) - 5 * 60_000).toISOString()
+  const others = await otherClientsNotion(clientId)
 
   // Pages edited since the last check, newest first.
   const edited: SearchPage[] = []
@@ -216,6 +227,7 @@ async function changedSince(clientId: string, rootId: string, since: string) {
     if (!id || parent.type === "workspace" || hops > 8) return null
     const key = norm(id)
     if (key === norm(rootId)) return "root"
+    if (others.has(normId(id))) return null // inside another client's HQ or call notes: not ours
     if (known.has(key)) return key
     if (cache.has(key)) return cache.get(key)!
     let up: SearchPage["parent"] | null = null
@@ -269,23 +281,25 @@ async function staleIncluded(clientId: string, since?: string) {
 export async function readClientHq(clientId: string, opts: { since?: string; budgetMs?: number } = {}) {
   const started = Date.now()
   const todo = await staleIncluded(clientId, opts.since)
+  const skip = todo.length ? await otherClientsNotion(clientId) : new Set<string>()
   let read = 0
   const errors: string[] = []
   for (const k of todo) {
     if (opts.budgetMs && Date.now() - started > opts.budgetMs) break
-    const err = await readInto(k.id, k.notion_page_id!, k.notion_kind as "page" | "database")
+    const err = await readInto(k.id, k.notion_page_id!, k.notion_kind as "page" | "database", skip)
     if (err) errors.push(err)
     read++
   }
   return { read, remaining: todo.length - read, errors }
 }
 
-async function readInto(knowledgeId: string, pageId: string, kind: "page" | "database") {
+async function readInto(knowledgeId: string, pageId: string, kind: "page" | "database", skip: Set<string>) {
   const db = createAdminClient()
   const n = notion()
   const now = new Date().toISOString()
   try {
-    const text = kind === "database" ? await databaseText(n, pageId) : await pageText(n, pageId)
+    if (skip.has(normId(pageId))) throw new Error("This page belongs to another client's HQ or call notes, so it isn't read here.")
+    const text = kind === "database" ? await databaseText(n, pageId) : await pageText(n, pageId, 0, skip)
     await db.from("client_knowledge").update({ content: text, content_chars: text.length, synced_at: now, error: null, updated_at: now }).eq("id", knowledgeId)
     return null
   } catch (e) {
@@ -304,6 +318,6 @@ export async function syncClientHq(clientId: string, opts: { force?: boolean } =
 
 /** Reads one page on demand (after an admin ticks it). */
 export async function readHqPage(knowledgeId: string) {
-  const { data: k } = await createAdminClient().from("client_knowledge").select("id, notion_page_id, notion_kind").eq("id", knowledgeId).eq("source", "notion").single()
-  if (k) await readInto(k.id, k.notion_page_id!, k.notion_kind as "page" | "database")
+  const { data: k } = await createAdminClient().from("client_knowledge").select("id, client_id, notion_page_id, notion_kind").eq("id", knowledgeId).eq("source", "notion").single()
+  if (k) await readInto(k.id, k.notion_page_id!, k.notion_kind as "page" | "database", await otherClientsNotion(k.client_id))
 }
