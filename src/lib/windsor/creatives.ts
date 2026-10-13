@@ -132,6 +132,8 @@ export async function postImage(postLink: string): Promise<string | null> {
 
 /** Copies an image into our bucket. Returns the stored path and type, or throws. */
 export async function copyImage(url: string, path: string) {
+  // <client id>/<platform>/<safe ad id>: callers sanitize, this refuses anything else (Aikido, path traversal).
+  if (!/^[0-9a-f-]{36}\/[a-z_]+\/[A-Za-z0-9_-]+$/.test(path)) throw new Error("Bad storage path")
   const res = await fetch(url, { signal: AbortSignal.timeout(20_000) })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const type = (res.headers.get("content-type") ?? "").split(";")[0].trim()

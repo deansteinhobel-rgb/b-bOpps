@@ -8,6 +8,12 @@ import { money, withSymbols } from "@/lib/format"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 export const FILE_BUCKET = "client-files"
+
+/** A file in a client's own folder, as startUpload names it: <client id>/<time>-<safe name>. */
+export function isClientFilePath(path: string, clientId: string): boolean {
+  const prefix = `${clientId}/`
+  return path.startsWith(prefix) && /^\d+-[A-Za-z0-9._-]{1,120}$/.test(path.slice(prefix.length))
+}
 const MAX_SOURCE_CHARS = 450_000 // all text sources together (~110k tokens)
 
 export const BRIEF_HEADINGS = [
@@ -132,6 +138,7 @@ export async function buildClientBrief(clientId: string, opts: { force?: boolean
 
     // Files: PDFs go to Claude as documents; plain text is inlined.
     for (const f of sources.filter((s) => s.source === "file")) {
+      if (!isClientFilePath(f.file_path ?? "", clientId)) continue // only this client's own folder
       const { data: blob } = await db.storage.from(FILE_BUCKET).download(f.file_path!)
       if (!blob) continue
       const buf = Buffer.from(await blob.arrayBuffer())

@@ -23,6 +23,8 @@ const Details = z.object({
 })
 
 async function allowed(profileId: string) {
+  // A profile id is a UUID; it is also the avatar's folder, so nothing else gets through (Aikido, path traversal).
+  if (!z.uuid().safeParse(profileId).success) return false
   const me = await getProfile()
   return me.id === profileId || isAdmin(me)
 }

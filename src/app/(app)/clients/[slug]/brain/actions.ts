@@ -3,7 +3,7 @@
 import { after } from "next/server"
 import { revalidatePath } from "next/cache"
 import { canEdit, getProfile, isAdmin, VIEW_ONLY } from "@/lib/auth"
-import { FILE_BUCKET } from "@/lib/knowledge/brief"
+import { FILE_BUCKET, isClientFilePath } from "@/lib/knowledge/brief"
 import { readHqPage } from "@/lib/knowledge/notion-hq"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -71,7 +71,8 @@ export async function finishUpload(slug: string, path: string, name: string, typ
   if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const me = await getProfile()
   const { clientId } = await clientFor(slug)
-  if (!clientId || !path.startsWith(`${clientId}/`) || !FILE_TYPES[type]) return fail("This upload isn't available to you.")
+  // Exactly the shape startUpload makes (<client id>/<time>-<safe name>): no "..", no other folders (Aikido, path traversal).
+  if (!clientId || !isClientFilePath(path, clientId) || !FILE_TYPES[type]) return fail("This upload isn't available to you.")
   const db = createAdminClient()
   const folder = path.slice(0, path.lastIndexOf("/"))
   const { data: found } = await db.storage.from(FILE_BUCKET).list(folder, { search: path.slice(path.lastIndexOf("/") + 1) })
