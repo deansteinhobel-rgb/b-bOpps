@@ -3,6 +3,20 @@
 //   pnpm test:db
 import { PGlite } from "@electric-sql/pglite"
 import fs from "node:fs"
+// Every check prints "...: OK" or "FAIL: ...". Count the FAILs so the run (and CI) fails on any of them.
+let failures = 0
+const log = console.log
+console.log = (...args) => {
+  if (typeof args[0] === "string" && args[0].startsWith("FAIL")) failures++
+  log(...args)
+}
+process.on("exit", (code) => {
+  if (code !== 0) return
+  if (failures) {
+    log(`\n${failures} RLS check${failures === 1 ? "" : "s"} failed.`)
+    process.exit(1)
+  } else log("\nAll RLS checks passed.")
+})
 const db = new PGlite()
 // Minimal stand-ins for Supabase's auth schema and roles
 await db.exec(`

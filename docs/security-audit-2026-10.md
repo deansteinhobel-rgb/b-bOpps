@@ -26,7 +26,9 @@ What's left falls into three groups:
 
 None of these exposes one client's data to another client's team. Group 2 matters most for the CRM work: CRM data will be more sensitive, and the pattern of "the app checks, but the table allows more" should be closed before it's copied into new tables.
 
-`corepack pnpm test:db` on 2026-10-13: the migrations applied, and **80 checks printed OK with no FAIL lines**. But see finding M3: the script can't fail CI.
+`corepack pnpm test:db` on 2026-10-13: the migrations applied, and **80 checks printed OK with no FAIL lines**.
+
+**Fixed on 2026-10-13:** M1, M2 and M3 (each marked below).
 
 Severity key:
 - **Medium**: exploitable by a signed-in B&B user, or a stolen session, with real cost or integrity impact.
@@ -38,6 +40,12 @@ Severity key:
 ## Medium
 
 ### M1. `/api/client-calls`: the rate limit is optional, and each call can run Claude
+
+**Fixed 2026-10-13:**
+- The limit counts at the start (`first`) and again whenever a request schedules Claude, so leaving `first` out still counts. `call_notes` is raised to 40, which is still 20 checks a day.
+- The follow-up check only re-runs after new calls are read or an hour has passed.
+- `full` is admin only.
+- Errors return a generic message.
 
 **Where:**
 - `src/app/api/client-calls/route.ts:25`: the `call_notes` limit is only taken when the body has `first: true`.
@@ -56,6 +64,8 @@ Severity key:
 
 ### M2. `addManualCall` runs Opus with no rate limit
 
+**Fixed 2026-10-13:** a new `manual_call` limit (10 a day) is taken before the insert.
+
 **Where:** `src/lib/calls/actions.ts:69-87`. Each call inserts a `client_calls` row through the admin client, then `after(() => extractCall(id))` runs `claude-opus-5-5` (max_tokens 12000).
 
 **Exploit:** an editor on a client scripts `addManualCall(slug, {date, title, text: "<60k chars>"})` in a loop. Two effects:
@@ -67,6 +77,8 @@ CLAUDE.md says any route that calls Claude gets a limit.
 **Fix:** call `rateLimit(supabase, "call_notes")` (or a new `manual_call` limit of about 10 a day) before the insert.
 
 ### M3. The RLS test suite can't fail CI
+
+**Fixed 2026-10-13:** the script counts every line that starts with `FAIL` and exits 1 if there are any. Checked with a forced failure (exit 1) and a clean run (exit 0).
 
 **Where:** `supabase/tests/rls-check.mjs`, run by `.github/workflows/ci.yml` (`pnpm test:db`). Every check only does `console.log("... OK")` or `console.log("FAIL: ...")`. Nothing sets a non-zero exit code.
 

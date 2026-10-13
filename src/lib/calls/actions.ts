@@ -7,6 +7,7 @@ import { canEdit, getProfile, isAdmin, VIEW_ONLY } from "@/lib/auth"
 import { extractCall } from "@/lib/calls/extract"
 import { notionIdFrom, optionFor, resolveCallSource } from "@/lib/calls/notion"
 import { londonToday } from "@/lib/checks/periods"
+import { rateLimit } from "@/lib/rate-limit"
 import { ensureSprint } from "@/lib/sprints/data"
 import { sprintOf } from "@/lib/sprints/periods"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -75,6 +76,9 @@ export async function addManualCall(slug: string, raw: z.input<typeof Manual>): 
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id").eq("slug", slug).maybeSingle()
   if (!client) return fail("This client isn't available to you.")
+  // Each call is an Opus read (security audit 2026-10, M2).
+  const limited = await rateLimit(supabase, "manual_call")
+  if (limited) return fail(limited)
   const { data: call, error } = await createAdminClient()
     .from("client_calls")
     .insert({ client_id: client.id, source: "manual", title: p.data.title, call_date: p.data.date, content: p.data.text, content_chars: p.data.text.length, synced_at: new Date().toISOString(), created_by_profile_id: me.id })
