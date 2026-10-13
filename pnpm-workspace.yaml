@@ -2,3 +2,7 @@ allowBuilds:
   esbuild: false
   sharp: false
   unrs-resolver: false
+
+# Security (Aikido, 2026-10-13): pull a patched copy in under react-markdown.
+overrides:
+  inline-style-parser: ^0.2.9
