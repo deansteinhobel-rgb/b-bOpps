@@ -13,6 +13,7 @@ import { carryTests } from "@/lib/sprints/data"
 import { sprintByNumber } from "@/lib/sprints/periods"
 import { guessPlatform, NEEDS_PLATFORMS, needsText, type NeedsPlatform } from "@/lib/sprints/brief-needs"
 import { briefText, notionStage, successLine } from "@/lib/sprints/tests"
+import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { LEVER_KEYS } from "@/lib/taxonomy"
 
@@ -171,6 +172,8 @@ export async function briefTest(testId: string, raw: z.input<typeof Brief>): Pro
   const { supabase, test, error } = await loadTest(testId)
   if (!test) return fail(error!)
   if (test.status !== "planned") return fail("This test has already been briefed.")
+  const limited = await rateLimit(supabase, "notion_write")
+  if (limited) return fail(limited)
   // Names come from Notion, never from the browser.
   const byId = new Map((await listNotionPeople()).map((p) => [p.id, p]))
   const leads = b.leadIds.map((id) => byId.get(id))

@@ -2,6 +2,7 @@
 
 import { z } from "zod"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
+import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { copyPostImage, linkedInPostLink } from "@/lib/windsor/creatives"
@@ -30,6 +31,9 @@ export async function addAdPostLink(input: { clientId: string; key: string; link
     supabase.rpc("can_edit_client", { cid: parsed.data.clientId }),
   ])
   if (!row || !editable) return { ok: false, message: "You can't change this ad." }
+  // Each link fetches the post page and image from LinkedIn (Aikido, resource use).
+  const limited = await rateLimit(supabase, "ad_post_link")
+  if (limited) return { ok: false, message: limited }
 
   const { error } = await createAdminClient()
     .from("ad_creatives")

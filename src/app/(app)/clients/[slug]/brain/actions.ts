@@ -34,6 +34,8 @@ export async function addNote(slug: string, category: string, text: string): Pro
   if (!CATEGORIES.includes(category)) return fail("Pick a type.")
   const { supabase, clientId } = await clientFor(slug)
   if (!clientId) return fail("This client isn't available to you.")
+  const limited = await rateLimit(supabase, "brain_note")
+  if (limited) return fail(limited)
   const { error } = await supabase.from("client_knowledge").insert({ client_id: clientId, source: "note", category, title: content.slice(0, 80), content, content_chars: content.length, created_by_profile_id: me.id })
   if (error) return fail("Couldn't save the note.")
   refresh(slug)
@@ -104,7 +106,11 @@ export async function setHqPageIncluded(slug: string, id: string, include: boole
   const db = createAdminClient()
   const { data: row, error } = await db.from("client_knowledge").update({ include, updated_at: new Date().toISOString() }).eq("id", id).eq("client_id", clientId).eq("source", "notion").select("content").single()
   if (error) return fail("Couldn't save.")
-  if (include && !row?.content) after(() => readHqPage(id))
+  if (include && !row?.content) {
+    const limited = await rateLimit(await createClient(), "hq_page_read")
+    if (limited) return fail(limited)
+    after(() => readHqPage(id))
+  }
   refresh(slug)
   return { ok: true, message: include && !row?.content ? "Reading it from Notion now." : undefined }
 }

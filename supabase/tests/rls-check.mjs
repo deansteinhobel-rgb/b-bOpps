@@ -334,3 +334,20 @@ try { await q(`insert into public.conversion_field_tiers (client_id, account_id,
 const labelDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("with a as (delete from public.ad_labels returning id), b as (delete from public.conversion_field_tiers returning id) select (select count(*) from a) + (select count(*) from b) as n"))
 console.log(Number(labelDel[0].n) === 0 ? "labels and tiers can't be deleted: OK" : "FAIL: label or tier deleted")
 try { await q(`update public.clients set regions = '{mars}' where id = '11111111-1111-1111-1111-111111111111'`); console.log("FAIL: unknown region accepted") } catch { console.log("client regions come from the fixed list: OK") }
+
+// Aikido hardening (migration 20261013000057): one live Notion page per test brief, and profile
+// pictures only through the server.
+{
+  const t = await q(`select id, client_id from public.sprint_tests limit 1`)
+  const row = (dry, success) => `insert into public.notion_write_log (client_id, sprint_test_id, operation, endpoint, payload, dry_run, success) values ('${t[0].client_id}', '${t[0].id}', 'create_test_brief', 'POST /v1/pages', '{}', ${dry}, ${success})`
+  await q(row(true, true)); await q(row(true, true))
+  console.log("dry runs of the same brief are allowed: OK")
+  await q(row(false, false))
+  await q(row(false, null))
+  try { await q(row(false, null)); console.log("FAIL: second live brief for the same test logged") } catch { console.log("one live Notion brief per test (a failed one can be retried): OK") }
+  await db.exec(`grant usage on schema storage to authenticated; grant select, insert, update on storage.objects to authenticated`)
+  try {
+    await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into storage.objects (bucket_id, name) values ('avatars', 'aaaaaaaa-0000-0000-0000-000000000002/x.html')`))
+    console.log("FAIL: signed-in user wrote the avatars bucket directly")
+  } catch { console.log("profile pictures only go through the server: OK") }
+}

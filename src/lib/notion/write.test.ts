@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from "vitest"
 import { commentRichText, createNotionAction, type ActionInput, type WriteDb, type WriteDeps } from "./write"
 
 // A fake Supabase that records every call, in order.
-function fakeDb(opts: { failLogInsert?: boolean } = {}) {
+function fakeDb(opts: { failLogInsert?: boolean; duplicate?: boolean } = {}) {
   const calls: { table: string; op: string; args: unknown[] }[] = []
   const db: WriteDb = {
     from(table) {
       return {
         insert(row) {
           calls.push({ table, op: "insert", args: [row] })
-          return { select: () => ({ single: async () => (opts.failLogInsert ? { data: null, error: { message: "db down" } } : { data: { id: 42 }, error: null }) }) }
+          return { select: () => ({ single: async () => (opts.duplicate ? { data: null, error: { message: "duplicate key value", code: "23505" } } : opts.failLogInsert ? { data: null, error: { message: "db down" } } : { data: { id: 42 }, error: null }) }) }
         },
         update(values) {
           return {
@@ -65,6 +65,15 @@ const env = (over: Partial<WriteDeps["env"]> = {}): WriteDeps["env"] => ({
 })
 
 describe("createNotionAction: safety", () => {
+  it("never sends a second live page for the same test or check (unique log index)", async () => {
+    const { db } = fakeDb({ duplicate: true })
+    const notion = fakeNotion()
+    const res = await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, input)
+    expect(res.status).toBe("failed")
+    expect(res.status === "failed" && res.error).toMatch(/already sent to Notion/)
+    expect(notion.pages.create).not.toHaveBeenCalled()
+  })
+
   it("is a dry run by default: logs, never calls Notion, doesn't link the check", async () => {
     const { db, calls } = fakeDb()
     const notion = fakeNotion()

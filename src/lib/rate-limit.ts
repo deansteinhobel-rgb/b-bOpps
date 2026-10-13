@@ -22,6 +22,13 @@ export const LIMITS = {
   manual_call: { max: 10, seconds: 86400, what: "calls added by hand a day" },
   negative_push: { max: 30, seconds: 86400, what: "negative keyword pushes a day" },
   term_review: { max: 12, seconds: 86400, what: "search term checks a day" },
+  // Aikido, 2026-10-13: everything else that calls Claude or Notion, or fetches from outside.
+  brain_brief: { max: 12, seconds: 86400, what: "brief rebuilds a day" },
+  brain_note: { max: 100, seconds: 86400, what: "notes a day" },
+  hq_page_read: { max: 100, seconds: 86400, what: "HQ page reads a day" },
+  notion_refresh: { max: 30, seconds: 3600, what: "Notion refreshes an hour" },
+  notion_write: { max: 30, seconds: 86400, what: "Notion actions and briefs a day" },
+  ad_post_link: { max: 60, seconds: 86400, what: "post links a day" },
 } as const
 export type LimitKind = keyof typeof LIMITS
 

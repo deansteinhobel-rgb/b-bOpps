@@ -11,6 +11,7 @@ import { createNotionAction } from "@/lib/notion/write"
 import { peopleForClient } from "@/lib/people"
 import { ensureSprint } from "@/lib/sprints/data"
 import { sprintOf } from "@/lib/sprints/periods"
+import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { leverForInsight } from "@/lib/taxonomy"
 
@@ -97,6 +98,8 @@ export async function briefInsight(slug: string, key: string, raw: z.input<typeo
   const l = await load(slug, key, p.data.items)
   if ("error" in l) return fail(l.error!)
   const me = await getProfile()
+  const limited = await rateLimit(l.supabase, "notion_write")
+  if (limited) return fail(limited)
   const person = (await peopleForClient(l.supabase, l.client.id)).find((x) => x.notionUserId === p.data.ownerNotionId)
   if (!person) return fail("Pick an owner.")
   const res = await createNotionAction(writeDeps(), {

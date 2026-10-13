@@ -40,7 +40,7 @@ export type WriteOperation = "create_action" | "create_test_brief" | "create_com
 export type WriteDb = {
   from(table: string): {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    insert(row: object): { select(cols: string): { single(): PromiseLike<{ data: any; error: { message: string } | null }> } }
+    insert(row: object): { select(cols: string): { single(): PromiseLike<{ data: any; error: { message: string; code?: string } | null }> } }
     update(values: object): { eq(col: string, val: unknown): PromiseLike<{ error: { message: string } | null }> }
     upsert(rows: object, opts: { onConflict: string }): PromiseLike<{ error: { message: string } | null }>
   }
@@ -195,6 +195,8 @@ export async function createNotionAction(deps: WriteDeps, input: ActionInput): P
     })
     .select("id")
     .single()
+  // A unique index allows one live page per test brief and per check action (migration 20261013000057).
+  if (logError?.code === "23505") return { status: "failed", logId: null, payload, error: "This was already sent to Notion. Refresh to see it." }
   if (logError || !log) return { status: "failed", logId: null, payload, error: `Couldn't write the log, so nothing was sent to Notion. ${logError?.message ?? ""}`.trim() }
   const logId = log.id as number
   const finishLog = (id: number, values: object) => deps.db.from("notion_write_log").update({ ...values, completed_at: new Date().toISOString() }).eq("id", id)

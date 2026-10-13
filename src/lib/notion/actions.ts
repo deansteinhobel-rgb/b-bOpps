@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { peopleForClient } from "@/lib/people"
+import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { syncNotionMirror } from "./sync"
 import { writeDeps } from "./server"
@@ -36,6 +37,8 @@ export async function createAction(raw: z.input<typeof Input>): Promise<CreateAc
   const input = parsed.data
   const me = await getProfile()
   const supabase = await createClient()
+  const limited = await rateLimit(supabase, "notion_write")
+  if (limited) return { status: "error", message: limited }
 
   const { data: client } = await supabase.from("clients").select("id, slug, notion_client_option").eq("slug", input.clientSlug).maybeSingle()
   if (!client) return { status: "error", message: "This client isn't available to you." }
@@ -72,7 +75,10 @@ export async function createAction(raw: z.input<typeof Input>): Promise<CreateAc
 /** "Refresh from Notion": an incremental mirror sync (read-only). Any signed-in team member. */
 export async function refreshFromNotion(clientSlug: string): Promise<{ ok: boolean; message: string }> {
   const me = await getProfile()
-  if (!me.role) return { ok: false, message: "You don't have access yet." }
+  // The sync covers every client and shares the Notion quota with the scheduled jobs (Aikido, resource use).
+  if (!canEdit(me)) return { ok: false, message: VIEW_ONLY }
+  const limited = await rateLimit(await createClient(), "notion_refresh")
+  if (limited) return { ok: false, message: limited }
   try {
     const r = await syncNotionMirror()
     revalidatePath(`/clients/${clientSlug}`, "layout")

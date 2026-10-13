@@ -40,6 +40,9 @@ export async function POST(request: Request) {
   if (body.step !== "brief") return NextResponse.json({ error: "Unknown step." }, { status: 400 })
 
   if (!aiConfigured()) return NextResponse.json({ error: "Claude isn't set up yet: add ANTHROPIC_API_KEY to .env.local." }, { status: 503 })
+  // Each brief is an Opus run (Aikido / security audit L3): counted on its own, not only via discover.
+  const briefLimited = await rateLimit(supabase, "brain_brief")
+  if (briefLimited) return NextResponse.json({ error: briefLimited }, { status: 429 })
   const db = createAdminClient()
   const since = new Date(Date.now() - 10 * 60_000).toISOString()
   const { data: running } = await db.from("client_briefs").select("id").eq("client_id", client.id).eq("status", "generating").gte("created_at", since).maybeSingle()
