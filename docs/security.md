@@ -57,9 +57,13 @@ Done (2026-09-29, `supabase db advisors --linked`):
       and nothing in `public` is callable without signing in (6 warnings; migration 0034). Checked
       from outside with the public key: functions refuse, tables return nothing.
 - [x] **Performance Advisor**: access rules call `auth.uid()` once per query (migration 0035).
-- Accepted, by design: signed-in users can call `is_admin`, `has_role`, `can_access_client` (the
-  access rules need them), `take_rate_limit` and `touch_last_seen` (they only touch your own
-  record); two permissive update rules on profiles (admin, and own details).
+- Accepted, by design: signed-in users can call `is_admin`, `is_viewer`, `has_role`,
+  `my_client_ids`, `can_access_client`, `can_edit_client` and `can_share_reports` (the access
+  rules need them; they only answer about the caller), `take_rate_limit` and `touch_last_seen`
+  (they only touch your own record); two permissive update rules on profiles (admin, and own
+  details). `creative_modified_state`, `news_answers` and `rate_limit_events` have RLS on with no
+  policies on purpose: only the server (secret key) reads and writes them. Leaked password
+  protection is off (we don't use passwords). Last checked 2026-10-13.
 - Re-run any time: `npx supabase db advisors --linked --type security`.
 
 To do in the dashboard (they need the Vercel domain or a Cloudflare account):
