@@ -7,7 +7,8 @@ import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { canPushNegatives } from "@/lib/windsor/access"
 import { pushDeps } from "@/lib/windsor/mcp"
-import { MATCH_TYPES, pushNegativeKeywords, type PushResult } from "@/lib/windsor/negatives"
+import { negativeBlocks } from "@/lib/insights/term-review-rules"
+import { cleanTerm, MATCH_TYPES, pushNegativeKeywords, type PushResult } from "@/lib/windsor/negatives"
 
 const Input = z.object({
   clientSlug: z.string().min(1),
@@ -45,6 +46,25 @@ export async function pushNegatives(raw: z.input<typeof Input>): Promise<PushRes
   if (level === "ad_group") {
     const groups = new Set((seen ?? []).map((r) => String(r.group_id)))
     if (terms.some((t) => !groups.has(t.adGroupId))) return { ok: false, live: false, pushes: [], error: "One of the ad groups isn't in this campaign. Refresh the page and try again." }
+  }
+
+  // The safety check runs here too, not only in the browser (Aikido, access control): no negative may
+  // block a different search in this campaign that converted (last 90 days).
+  const since = new Date(Date.now() - 90 * 86400_000).toISOString().slice(0, 10)
+  const { data: converting } = await supabase
+    .from("windsor_breakdowns")
+    .select("dim1")
+    .eq("client_id", client.id)
+    .eq("kind", "search_term")
+    .eq("campaign_id", campaignId)
+    .gt("conversions", 0)
+    .gte("date", since)
+    .limit(5000)
+  const converted = [...new Set((converting ?? []).map((r) => cleanTerm(r.dim1)))]
+  for (const t of terms) {
+    const own = cleanTerm(t.text)
+    const hit = converted.find((c) => c !== own && negativeBlocks(own, matchType, c))
+    if (hit) return { ok: false, live: false, pushes: [], error: `"${t.text}" (${matchType.toLowerCase()}) would also block "${hit}", which converted. Use exact match, or leave it out.` }
   }
 
   const limited = await rateLimit(supabase, "negative_push")

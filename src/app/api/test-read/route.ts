@@ -33,7 +33,8 @@ export async function POST(request: Request) {
     .limit(1)
     .maybeSingle()
   if (stored && stored.read_on === today && !fresh) return NextResponse.json({ read: stored })
-  if (!canEdit(me) || !aiConfigured()) return NextResponse.json({ read: stored ?? null })
+  // New reads only for tests that have gone live (Aikido, business logic): the panel is for live results.
+  if (!canEdit(me) || !aiConfigured() || !test.live_on) return NextResponse.json({ read: stored ?? null })
 
   const limited = await rateLimit(supabase, "test_read")
   if (limited) return NextResponse.json({ read: stored ?? null, error: limited }, { status: 429 })

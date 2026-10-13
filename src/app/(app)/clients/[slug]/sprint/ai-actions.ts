@@ -30,8 +30,10 @@ async function load(id: string) {
   const me = await getProfile()
   if (!isAdmin(me)) return { error: "Only GTM leads and admins can review suggestions." as const }
   const supabase = await createClient()
-  const { data: rec } = await supabase.from("sprint_recommendations").select("*, sprints(id, closed_at), clients(slug)").eq("id", id).maybeSingle()
+  const { data: rec } = await supabase.from("sprint_recommendations").select("*, sprints(id, closed_at), clients(slug), sprint_ai_runs(archived_at)").eq("id", id).maybeSingle()
   if (!rec) return { error: "This suggestion isn't available to you." as const }
+  // An archived pour is hidden and left out of what Claude learns from, so it can't be decided either (Aikido, business logic).
+  if ((rec.sprint_ai_runs as { archived_at: string | null } | null)?.archived_at) return { error: "This pour has been archived." as const }
   return { me, supabase, rec, slug: (rec.clients as { slug: string }).slug }
 }
 const refresh = (slug: string) => revalidatePath(`/clients/${slug}/sprint`)
@@ -43,11 +45,14 @@ export async function reviewRecommendation(id: string, raw: z.input<typeof Edit>
   if (l.rec.status === "approved" || l.rec.status === "rejected") return fail("This suggestion has already been decided.")
   const p = Edit.safeParse(raw)
   if (!p.success) return fail(p.error.issues[0].message)
-  const { error } = await l.supabase
+  const { data: edited, error } = await l.supabase
     .from("sprint_recommendations")
     .update({ ...p.data, hypothesis: p.data.hypothesis || null, brief_notes: p.data.brief_notes || null, success_text: p.data.success_text || null, status: "reviewed", reviewed_by_profile_id: l.me.id, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", id)
+    .in("status", ["draft", "reviewed"]) // not once it's decided, even if a decision lands in between
+    .select("id")
   if (error) return fail("Couldn't save.")
+  if (!edited?.length) return fail("This suggestion has already been decided.")
   refresh(l.slug)
   return { ok: true }
 }
@@ -63,6 +68,16 @@ export async function approveRecommendation(id: string, raw: { owner_notion_user
   if (raw.deadline && !/^\d{4}-\d{2}-\d{2}$/.test(raw.deadline)) return fail("Pick a valid deadline.")
   if (!r.success_text && (r.success_metric === null || r.success_target === null)) return fail("Say what success looks like: a target, or a sentence.")
   const owner = raw.owner_notion_user_id ? (await peopleForClient(l.supabase, r.client_id)).find((x) => x.notionUserId === raw.owner_notion_user_id) : null
+
+  // Claim it first, so two approvals at once can't plan the test twice (Aikido, business logic).
+  const { data: claimed } = await l.supabase
+    .from("sprint_recommendations")
+    .update({ status: "approved", decided_by_profile_id: l.me.id, decided_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("status", "reviewed")
+    .select("id")
+  if (!claimed?.length) return fail("This suggestion has already been decided.")
+  const release = () => l.supabase.from("sprint_recommendations").update({ status: "reviewed", decided_by_profile_id: null, decided_at: null }).eq("id", id)
 
   // Platforms we don't have connected are planned as "several", with the platform named in the title.
   const connected = CONNECTED.includes(r.platform)
@@ -94,11 +109,14 @@ export async function approveRecommendation(id: string, raw: { owner_notion_user
     })
     .select("id")
     .single()
-  if (error || !test) return fail("Couldn't create the test.")
+  if (error || !test) {
+    await release()
+    return fail("Couldn't create the test.")
+  }
   if (r.call_commitment_id) await markCallItemPlanned(l.supabase, { clientId: r.client_id, commitmentId: r.call_commitment_id, testId: test.id, profileId: l.me.id })
   await l.supabase
     .from("sprint_recommendations")
-    .update({ status: "approved", decided_by_profile_id: l.me.id, decided_at: new Date().toISOString(), sprint_test_id: test.id, updated_at: new Date().toISOString() })
+    .update({ sprint_test_id: test.id, updated_at: new Date().toISOString() })
     .eq("id", id)
   refresh(l.slug)
   return { ok: true }
@@ -111,11 +129,14 @@ export async function rejectRecommendation(id: string, reason: string): Promise<
   if (l.rec.status === "approved" || l.rec.status === "rejected") return fail("This suggestion has already been decided.")
   const why = reason.trim().slice(0, 500)
   if (!why) return fail("Say why, in a line. Claude learns from it.")
-  const { error } = await l.supabase
+  const { data: rejected, error } = await l.supabase
     .from("sprint_recommendations")
     .update({ status: "rejected", reject_reason: why, decided_by_profile_id: l.me.id, decided_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("id", id)
+    .in("status", ["draft", "reviewed"])
+    .select("id")
   if (error) return fail("Couldn't save.")
+  if (!rejected?.length) return fail("This suggestion has already been decided.")
   refresh(l.slug)
   return { ok: true }
 }
