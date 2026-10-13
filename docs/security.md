@@ -26,7 +26,22 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
   only from our Supabase project (plus Google favicons for source chips).
 - **Rate limits** per person (`src/lib/rate-limit.ts`, `take_rate_limit()` in the database):
   news chat 40/hour, campaign chat 40/hour, pours 8/day, Claude reviews 8/day, brain refreshes
-  12/day, brain uploads 40/day, profile pictures 20/hour, feedback 20/day, content idea runs 6/day, test reads 30/day, call note checks 20/day (each counts at the start and again when Claude is scheduled, so a request without `first` still counts), calls added by hand 10/day. Call notes in Notion are read only (the guarded client), like the GTM HQ.
+  12/day, brain uploads 40/day, profile pictures 20/hour, feedback 20/day, content idea runs 6/day, test reads 30/day, call note checks 20/day (each counts at the start and again when Claude is scheduled, so a request without `first` still counts), calls added by hand 10/day, brief rebuilds 12/day, brain notes 100/day, HQ page reads 100/day,
+  Notion refreshes 30/hour (edit access only), Notion actions and briefs 30/day, ad post links 60/day. Call notes in Notion are read only (the guarded client), like the GTM HQ.
+- **Aikido scan fixes (2026-10-13)**:
+  - **Client isolation for Notion reads** (`src/lib/knowledge/boundaries.ts`): a client's HQ discovery, page reads and call notes never step into another client's HQ or own call notes; linked call pages inside them aren't followed; linking another client's source, or a Client option another client already reads, is refused.
+  - **Storage paths**: brain files only as `<client id>/<time>-<safe name>`; avatar folders are profile UUIDs; ad images only `<client>/<platform>/<safe ad id>`.
+  - **Outbound fetches** (ad images, LinkedIn posts): an https host allowlist, re-checked on every redirect.
+  - **One live Notion page per test brief and per check action**: unique indexes on `notion_write_log` (migration 20261013000057).
+  - **Avatars bucket**: 1 MB, images only, server uploads only.
+  - **Negative keywords**: a negative that would block a different converting search term is refused on the server.
+  - **Suggestions**: decisions claim the row atomically; archived pours can't be decided.
+  - **CSV export**: formula cells are escaped.
+  - **Auth errors**: logged as JSON.
+  - **GitHub Actions**: pinned to commit SHAs, with no persisted checkout credentials.
+  - **Accepted**:
+    - CSP `style-src 'unsafe-inline'`: the UI sets widths and colors inline, and styles can't run code.
+    - `scripts/dev-signin.ts` passing a one-time link to the local browser: localhost only, and the link is single-use.
 - **Report embeds for Notion** (`/embed/report/<token>`, Dean 2026-09-29: "anyone with the link,
   view only"): the link's token (192 random bits, `report_links`) is the only key. It shows one
   board of one client and nothing else: no session is read or set, no links into the app, and the
