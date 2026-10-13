@@ -94,7 +94,12 @@ export function liveAdRows(live: FatiguedAd[], last30: AdStat[], creatives: Map<
     .sort((x, y) => x.content.localeCompare(y.content) || x.audience.localeCompare(y.audience) || x.adName.localeCompare(y.adName))
 }
 
-const cell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`
+// Text that starts like a formula (= + - @, tab, return) gets a leading ' so spreadsheets show it as
+// text: ad and campaign names come from the ad platforms (Aikido, CSV injection). Numbers stay numbers.
+const cell = (v: string | number) => {
+  const s = typeof v === "string" && /^[=+\-@\t\r]/.test(v) ? `'${v}` : String(v)
+  return `"${s.replace(/"/g, '""')}"`
+}
 
 export function liveAdsCsv(rows: LiveAdRow[], symbol: string): string {
   const head = ["Platform", "Audience", "Content piece", "Format", "Objective", "Ad name", "Ad click-through", "Ad / post link", "First seen", `Spend 30d (${symbol})`, "Impressions 30d", "Clicks 30d", "CTR", "Results 30d", "Campaign", "Ad ID"]

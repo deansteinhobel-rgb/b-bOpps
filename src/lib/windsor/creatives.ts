@@ -112,6 +112,27 @@ export function linkedInPostLink(input: string): string | null {
   return null
 }
 
+/**
+ * Server-side fetches of ad images and post pages only go to the ad platforms' own hosts, over https,
+ * and every redirect is checked against the same list (Aikido, SSRF). Hosts seen in our data:
+ * media/static/dms.licdn.com, scontent-*.fbcdn.net, tpc.googlesyndication.com.
+ */
+const IMAGE_HOSTS = ["licdn.com", "fbcdn.net", "googlesyndication.com", "googleusercontent.com", "gstatic.com", "ggpht.com", "ytimg.com"]
+const POST_HOSTS = ["linkedin.com"]
+const hostAllowed = (url: URL, hosts: string[]) => url.protocol === "https:" && !url.port && hosts.some((h) => url.hostname === h || url.hostname.endsWith(`.${h}`))
+
+async function fetchFrom(hosts: string[], url: string, init: RequestInit): Promise<Response> {
+  let next = new URL(url)
+  for (let hop = 0; hop < 4; hop++) {
+    if (!hostAllowed(next, hosts)) throw new Error(`Not an allowed host (${next.hostname})`)
+    const res = await fetch(next, { ...init, redirect: "manual" })
+    const location = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null
+    if (!location) return res
+    next = new URL(location, next)
+  }
+  throw new Error("Too many redirects")
+}
+
 const OG_IMAGE = /<meta\s+(?:property|name)="(?:og:image|twitter:image)"\s+content="([^"]+)"/i
 /**
  * The image on a public LinkedIn post page (its og:image), for thought leader ads Windsor has no
@@ -119,7 +140,7 @@ const OG_IMAGE = /<meta\s+(?:property|name)="(?:og:image|twitter:image)"\s+conte
  * private post, or LinkedIn asking to sign in).
  */
 export async function postImage(postLink: string): Promise<string | null> {
-  const res = await fetch(postLink, {
+  const res = await fetchFrom(POST_HOSTS, postLink, {
     headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36", accept: "text/html" },
     signal: AbortSignal.timeout(15_000),
     cache: "no-store",
@@ -134,7 +155,7 @@ export async function postImage(postLink: string): Promise<string | null> {
 export async function copyImage(url: string, path: string) {
   // <client id>/<platform>/<safe ad id>: callers sanitize, this refuses anything else (Aikido, path traversal).
   if (!/^[0-9a-f-]{36}\/[a-z_]+\/[A-Za-z0-9_-]+$/.test(path)) throw new Error("Bad storage path")
-  const res = await fetch(url, { signal: AbortSignal.timeout(20_000) })
+  const res = await fetchFrom(IMAGE_HOSTS, url, { signal: AbortSignal.timeout(20_000) })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const type = (res.headers.get("content-type") ?? "").split(";")[0].trim()
   if (!EXT[type]) throw new Error(`Not a supported image (${type || "unknown type"})`)

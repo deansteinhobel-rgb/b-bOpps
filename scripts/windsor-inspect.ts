@@ -18,6 +18,12 @@ if (!apiKey) {
   process.exit(1)
 }
 const selected = process.argv.slice(2).length ? process.argv.slice(2) : [...CONNECTORS]
+// Only Windsor's own connectors: the name goes into the request URL (Aikido, SSRF).
+const unknown = selected.filter((c) => !(CONNECTORS as readonly string[]).includes(c))
+if (unknown.length) {
+  console.error(`Unknown connector: ${unknown.join(", ")}. Use ${CONNECTORS.join(", ")}.`)
+  process.exit(1)
+}
 
 // Metrics and dimensions we want, as candidate field IDs in order of preference. Every candidate
 // the connector offers is pulled in the smoke test, so you can compare them and pick. The first

@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
 
   // Google sign-in canceled or refused (e.g. an account outside the company, blocked on sign-up).
   if (searchParams.get("error")) {
-    console.error("auth confirm: provider error", searchParams.get("error"), searchParams.get("error_description"))
+    // Values from the URL are logged as JSON, so line breaks can't forge log lines (Aikido, log injection).
+    console.error("auth confirm: provider error", JSON.stringify({ error: searchParams.get("error")?.slice(0, 100), description: searchParams.get("error_description")?.slice(0, 300) }))
     return NextResponse.redirect(`${origin}/login?error=denied`)
   }
   const supabase = await createClient()
