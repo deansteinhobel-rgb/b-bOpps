@@ -6,6 +6,7 @@ import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { buildAutoData } from "@/lib/checks/auto-data"
 import { weekOf } from "@/lib/checks/periods"
 import { cachedOverview } from "@/lib/metrics/cached"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
 const Input = z.object({
@@ -55,7 +56,9 @@ export async function saveCheckResult(input: z.input<typeof Input>): Promise<Sav
 
   const now = new Date().toISOString()
   const flagChanged = (flaggedTo ?? null) !== current.flagged_to_profile_id
-  const { error } = await supabase
+  // auto_data is server-only in the database (guard_check_result_fields), so the save goes through the
+  // admin client. Access is confirmed above: canEdit, and `current` was loaded through RLS.
+  const { error } = await createAdminClient()
     .from("check_results")
     .update({
       status,
@@ -67,6 +70,7 @@ export async function saveCheckResult(input: z.input<typeof Input>): Promise<Sav
       auto_data: autoData,
     })
     .eq("id", resultId)
+    .eq("client_id", current.client_id)
   if (error) return { ok: false, message: "Couldn't save. Try again." }
 
   revalidatePath(`/clients/${client.slug}/checks`)

@@ -68,7 +68,8 @@ try { await db.exec(`insert into auth.users values ('aaaaaaaa-0000-0000-0000-000
 await db.exec(`grant usage on schema public to authenticated; grant usage on schema auth to authenticated; grant select, insert, update, delete on all tables in schema public to authenticated;`)
 async function as(uid, fn) {
   await db.exec(`set role authenticated; select set_config('request.uid', '${uid}', false);`)
-  try { return await fn() } finally { await db.exec(`reset role`) }
+  // Back to the server's view afterwards: no role and no auth.uid(), like the secret key.
+  try { return await fn() } finally { await db.exec(`reset role; select set_config('request.uid', '', false);`) }
 }
 for (const [who, uid] of [["dean(admin)","aaaaaaaa-0000-0000-0000-000000000001"],["andrea(camber)","aaaaaaaa-0000-0000-0000-000000000002"],["danny(dnsf)","aaaaaaaa-0000-0000-0000-000000000003"],["new(no role)","aaaaaaaa-0000-0000-0000-000000000004"]]) {
   const rows = await as(uid, () => q("select slug from public.clients order by slug"))
@@ -113,6 +114,42 @@ const danny = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select i
 console.log(danny.length === 0 ? "danny (dnsfilter) can't see camber tests: OK" : "FAIL: cross-client test visible")
 const delTest = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.sprint_tests returning id"))
 console.log(delTest.length === 0 ? "tests can't be deleted: OK" : "FAIL: test deleted")
+
+// Columns kept for admins and the server (security audit 2026-10, M5): the team update policies
+// cover every column, so guard triggers refuse the rest.
+{
+  const andrea = "aaaaaaaa-0000-0000-0000-000000000002", dean = "aaaaaaaa-0000-0000-0000-000000000001"
+  const refused = async (what, sql) => {
+    try { await as(andrea, () => q(sql)); console.log(`FAIL: team member could ${what}`) } catch { console.log(`team member can't ${what}: OK`) }
+  }
+  const test = `where id = '${t1[0].id}'`
+  await refused("archive a test", `update public.sprint_tests set archived_at = now() ${test}`)
+  await refused("rename a test", `update public.sprint_tests set title = 'Renamed' ${test}`)
+  await refused("set a test's Notion brief", `update public.sprint_tests set notion_page_id = 'abc' ${test}`)
+  await refused("change who created a test", `update public.sprint_tests set created_by_profile_id = '${dean}' ${test}`)
+  await refused("plan an archived test", `insert into public.sprint_tests (sprint_id, client_id, title, archived_at) values ('${sp[0].id}', '11111111-1111-1111-1111-111111111111', 'Hidden', now())`)
+  const teamEdit = await as(andrea, () => q(`update public.sprint_tests set status = 'ready', findings_notes = 'x', owner_name = 'Andrea' ${test} returning id`))
+  console.log(teamEdit.length === 1 ? "team member still moves a test on and writes findings: OK" : "FAIL: team edit refused")
+  const adminRename = await as(dean, () => q(`update public.sprint_tests set title = 'Test' ${test} returning id`))
+  console.log(adminRename.length === 1 ? "admin renames a test: OK" : "FAIL: admin rename refused")
+
+  const res = await q(`insert into public.check_results (check_run_id, client_id, check_definition_id) select '${run[0].id}', '11111111-1111-1111-1111-111111111111', id from public.check_definitions returning id`)
+  const result = `where id = '${res[0].id}'`
+  await refused("overwrite a check's numbers", `update public.check_results set auto_data = '{"x":1}' ${result}`)
+  await refused("mark a red as actioned", `update public.check_results set notion_action_page_id = 'abc' ${result}`)
+  const saved = await as(andrea, () => q(`update public.check_results set findings = 'Overspend', checked_at = now() ${result} returning id`))
+  console.log(saved.length === 1 ? "team member still saves a check: OK" : "FAIL: check save refused")
+  const server = await q(`update public.check_results set auto_data = '{"x":1}', notion_action_page_id = 'abc' ${result} returning id`)
+  console.log(server.length === 1 ? "the server writes check numbers and Notion links: OK" : "FAIL: server write refused")
+
+  const sprint = `where id = '${sp[0].id}'`
+  const closed = await as(andrea, () => q(`update public.sprints set closed_at = now() ${sprint} returning id`))
+  console.log(closed.length === 1 ? "team member closes a sprint: OK" : "FAIL: close refused")
+  await refused("reopen a sprint", `update public.sprints set closed_at = null ${sprint}`)
+  await refused("change a sprint's dates", `update public.sprints set number = 7 ${sprint}`)
+  const reopened = await as(dean, () => q(`update public.sprints set closed_at = null ${sprint} returning id`))
+  console.log(reopened.length === 1 ? "admin reopens a sprint: OK" : "FAIL: admin reopen refused")
+}
 
 // Claude's sprint suggestions: the team reads, only GTM leads / admins create and decide, no deletes.
 try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}')`)); console.log("FAIL: specialist started a run") } catch { console.log("specialist can't start a sprint run: OK") }

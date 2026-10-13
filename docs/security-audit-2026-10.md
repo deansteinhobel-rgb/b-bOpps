@@ -28,7 +28,7 @@ None of these exposes one client's data to another client's team. Group 2 matter
 
 `corepack pnpm test:db` on 2026-10-13: the migrations applied, and **80 checks printed OK with no FAIL lines**.
 
-**Fixed on 2026-10-13:** M1, M2 and M3 (each marked below).
+**Fixed on 2026-10-13:** M1, M2, M3 and M5 (each marked below).
 
 Severity key:
 - **Medium**: exploitable by a signed-in B&B user, or a stolen session, with real cost or integrity impact.
@@ -111,6 +111,19 @@ CLAUDE.md says any route that calls Claude gets a limit.
 - Write an offboarding step in `docs/security.md`: set the role to none, remove them from teams, and sign them out of all sessions (`auth.admin.signOut(userId, 'global')`, or delete their sessions in the dashboard).
 
 ### M5. Team members can write table columns the app keeps for admins or the server
+
+**Fixed 2026-10-13** (migration `20261013000056_guard_team_updates.sql`). Guard triggers, in the style of `guard_profile_fields`, refuse these changes unless the caller is an admin or GTM lead, or the server (secret key):
+- **`sprint_tests`:** `archived_at` (also refused on insert), `title`, the Notion brief (`notion_page_id`, `briefed_at`), and where a test came from plus who created it.
+- **`check_results`:** `auto_data` and `notion_action_page_id` (also refused on insert), and `check_run_id` / `check_definition_id`.
+- **`sprints`:** reopening a closed sprint, and the client, number and dates.
+
+`saveCheckResult` now writes through the admin client, after `canEdit` and the RLS read, because `auto_data` is server-only.
+
+Tested in `pnpm test:db` (15 new checks). Without the migration, 8 of them fail.
+
+Correction: archiving was already refused before this fix. An archived row fails the read policy, and Postgres rejects an update whose new row the user can't see. The guard keeps that rule explicit.
+
+Not covered by this fix: `sprint_items` and `sprint_changes`. The app edits most of their columns, and their client is already guarded.
 
 **Where:**
 - `supabase/migrations/20260929000037_viewer_role.sql:31-45`: the update policies on `sprint_tests`, `sprints`, `sprint_items`, `sprint_changes` and `check_results` check `can_edit_client(client_id)`, and the table-wide UPDATE grant covers every column.
