@@ -26,7 +26,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     supabase.from("account_data_range").select("platform, data_through").eq("client_id", clientId),
     supabase.from("campaign_statuses").select("platform, campaign_id, status").eq("client_id", clientId),
     // Claude's latest daily review: ICP verdicts and campaign goals feed the rules.
-    supabase.from("insight_reviews").select("companies, terms, goals").eq("client_id", clientId).eq("status", "ready").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("insight_reviews").select("companies, terms, goals, audiences").eq("client_id", clientId).eq("status", "ready").order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ])
   const statusOf = new Map((statuses ?? []).map((r) => [`${r.platform}|${r.campaign_id}`, r.status as string]))
   if (!client || !range?.length) return null
@@ -100,7 +100,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     metaPlacements: placements,
     linkedin,
     ga4Through: client.ga4_property_id ? await latest(supabase, clientId, "ga4_landing_page") : null,
-    review: review ? { companies: review.companies ?? [], terms: review.terms ?? [], goals: review.goals ?? [] } : null,
+    review: review ? { companies: review.companies ?? [], terms: review.terms ?? [], goals: review.goals ?? [], audiences: review.audiences ?? [] } : null,
     costlyTerms: costly
       .filter((t) => Number(t.results) === 0)
       .map((t) => ({ campaignId: String(t.campaign_id), campaignName: String(t.campaign_name ?? t.campaign_id), term: String(t.term), spend: num(t.spend), impressions: num(t.impressions), clicks: num(t.clicks), results: 0, isKeyword: Boolean(t.is_keyword) })),

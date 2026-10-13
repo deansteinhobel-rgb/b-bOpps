@@ -10,7 +10,7 @@ import { CLOSED_STATUSES, PAID_PRODUCTION_TYPES, PROP } from "@/lib/notion/confi
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { loadInsightInputs } from "./load"
-import { computeInsights, isOpportunity, RULES } from "./rules"
+import { audienceCandidates, computeInsights, isOpportunity, RULES } from "./rules"
 
 /**
  * Performance phase 4: Claude's daily review of a client's "Optimize now" feed (see the
@@ -59,6 +59,15 @@ const SUBMIT = {
           required: ["campaign_id", "term", "fit", "reason"],
         },
       },
+      audiences: {
+        type: "array",
+        description: "A verdict for every LinkedIn audience listed: are these people who buy, or influence buying, what the client sells?",
+        items: {
+          type: "object",
+          properties: { id: { type: "string", description: "The audience id exactly as given." }, fit: { type: "string", enum: ["buyer", "not_buyer", "unsure"] }, reason: { type: "string", description: "Under 15 words." } },
+          required: ["id", "fit", "reason"],
+        },
+      },
       goals: {
         type: "array",
         description: "The goal of every campaign listed.",
@@ -74,7 +83,7 @@ const SUBMIT = {
         },
       },
     },
-    required: ["headline", "start_here", "ranking", "companies", "terms", "goals"],
+    required: ["headline", "start_here", "ranking", "companies", "terms", "audiences", "goals"],
   },
 } as const
 
@@ -84,6 +93,7 @@ type Submitted = {
   ranking: { key: string; why_now: string }[]
   companies: { name: string; fit: "icp" | "not_icp" | "unsure"; reason: string }[]
   terms: { campaign_id: string; term: string; fit: "relevant" | "clash" | "unsure"; reason: string }[]
+  audiences: { id: string; fit: "buyer" | "not_buyer" | "unsure"; reason: string }[]
   goals: { platform: Platform; campaign_id: string; goal: string; note: string }[]
 }
 
@@ -92,7 +102,8 @@ Rules have already flagged issues and opportunities in this client's ad accounts
 1. Rank the open insights for the team: money at stake, how fixable, and how it fits the client's goals and targets in the brief. Opportunities matter as much as problems.
 2. Judge each LinkedIn company that clicked against the ICP in the client brief (industry, size, type of organization). Competitors, agencies, recruiters, students' universities, the client itself and obviously unrelated industries are not ICP. Use "unsure" when the brief doesn't settle it; don't guess.
 3. Judge each costly search term: "clash" when it's plainly for something the client doesn't sell, a job search, a free/DIY intent the client can't serve, or a different audience from the ICP; "relevant" when it fits; "unsure" otherwise. Brand terms are relevant.
-4. Work out each campaign's goal from its name, the Notion briefs listed and the client brief. The name often encodes it (e.g. "lg" lead gen, "rt"/"remarketing" retargeting, "free-trial", event names).
+4. Judge each LinkedIn audience (job function, industry or seniority) that clicks well above the rest of its campaign: "buyer" when these people buy, or influence buying, what the client sells, per the ICP and personas in the brief; "not_buyer" when they plainly don't (e.g. a function or industry outside the ICP, or seniorities that can't buy); "unsure" otherwise. A high CTR alone doesn't make them buyers.
+5. Work out each campaign's goal from its name, the Notion briefs listed and the client brief. The name often encodes it (e.g. "lg" lead gen, "rt"/"remarketing" retargeting, "free-trial", event names).
 The team's must-knows win over everything else. Only use what's given; never invent numbers. Write in plain UK English, with currency symbols ($, £, €), never "USD". Call submit_review once, at the end.`
 
 const money = (v: number, cur: string) => new Intl.NumberFormat("en-GB", { style: "currency", currency: cur, currencyDisplay: "narrowSymbol", maximumFractionDigits: 0 }).format(v)
@@ -118,6 +129,8 @@ async function reviewContext(clientId: string) {
     byCompany.set(r.value, e)
   }
   const companies = [...byCompany].filter(([, e]) => e.clicks > 0).sort((a, b) => b[1].clicks - a[1].clicks).slice(0, 150)
+  // LinkedIn audiences engaging well above the rest of their campaign (before any verdict).
+  const audiences = audienceCandidates(input).sort((a, b) => b.clicks - a.clicks).slice(0, 80)
 
   // Search terms that cost something and haven't converted (30 days).
   const to = input.dataThrough.google_ads
@@ -149,6 +162,8 @@ async function reviewContext(clientId: string) {
     ...open.map((i) => `- ${i.key} | ${i.severity}${isOpportunity(i) ? " (opportunity)" : ""} | ${RULES[i.rule].label} | ${i.campaignName ?? "account"} | ${withSymbols(i.title)} | ${withSymbols(i.why)} | ${i.todo}${i.listed ? ` | ${i.items.length} items: ${i.items.slice(0, 8).map((x) => x.label).join("; ")}` : ""}`),
     `\n## LinkedIn companies that clicked in the last 30 days (company | clicks | impressions | campaigns)`,
     ...(companies.length ? companies.map(([n, e]) => `- ${n} | ${e.clicks} | ${e.impressions} | ${[...e.campaigns].slice(0, 4).join("; ")}`) : ["(none)"]),
+    `\n## LinkedIn audiences with 1.5× the CTR of the rest of their campaign, last 30 days (id | audience | CTR vs the rest | clicks | campaigns)`,
+    ...(audiences.length ? audiences.map((a) => `- ${a.id} | ${a.label} | ${(a.ctr * 100).toFixed(2)}% vs ${(a.restCtr * 100).toFixed(2)}% | ${a.clicks} | ${a.campaigns.slice(0, 4).join("; ")}`) : ["(none)"]),
     `\n## Google search terms with spend and no conversions in 30 days (campaign_id | campaign | term | spend | clicks)`,
     ...(terms.length ? terms.map((t) => `- ${t.campaign_id} | ${t.campaign_name} | ${t.term} | ${money(Number(t.spend), cur)} | ${t.clicks}`) : ["(none)"]),
     `\n## Campaigns with spend in the last 30 days (platform | campaign_id | name | status | spend | results)`,
@@ -157,7 +172,7 @@ async function reviewContext(clientId: string) {
     ...(briefs.length ? briefs.map((b) => `- ${b.title} | ${b.type || "–"} | ${b.status || "–"}${CLOSED_STATUSES.includes(b.status) ? " (done)" : ""} | ${b.desc.replace(/\s+/g, " ").slice(0, 300)}`) : ["(none)"]),
     `\nPlatforms: ${Object.keys(input.dataThrough).map((p) => PLATFORM_LABEL[p as Platform]).join(", ")}.`,
   ]
-  return { text: lines.join("\n"), openKeys: open.map((i) => i.key), companyNames: companies.map(([n]) => n), termKeys: terms.map((t) => `${t.campaign_id}|${String(t.term)}`), campaignKeys: campaigns.map(({ c }) => `${c.platform}|${c.campaignId}`) }
+  return { text: lines.join("\n"), openKeys: open.map((i) => i.key), companyNames: companies.map(([n]) => n), audienceIds: audiences.map((a) => a.id), termKeys: terms.map((t) => `${t.campaign_id}|${String(t.term)}`), campaignKeys: campaigns.map(({ c }) => `${c.platform}|${c.campaignId}`) }
 }
 
 /** Runs one review (insight_reviews row `reviewId`, created by the caller). */
@@ -186,6 +201,7 @@ export async function runInsightReview(reviewId: string) {
     const open = new Set(ctx.openKeys)
     const names = new Set(ctx.companyNames)
     const termKeys = new Set(ctx.termKeys)
+    const audienceIds = new Set(ctx.audienceIds)
     const campaignKeys = new Set(ctx.campaignKeys)
     const clip = (s: unknown, n: number) => withSymbols(String(s ?? "")).slice(0, n)
     await db
@@ -198,6 +214,7 @@ export async function runInsightReview(reviewId: string) {
         ranking: (submitted.ranking ?? []).filter((x) => open.has(x.key)).map((x) => ({ key: x.key, why_now: clip(x.why_now, 160) })),
         companies: (submitted.companies ?? []).filter((x) => names.has(x.name) && ["icp", "not_icp", "unsure"].includes(x.fit)).map((x) => ({ name: x.name, fit: x.fit, reason: clip(x.reason, 140) })),
         terms: (submitted.terms ?? []).filter((x) => termKeys.has(`${x.campaign_id}|${x.term}`) && ["relevant", "clash", "unsure"].includes(x.fit)).map((x) => ({ campaign_id: x.campaign_id, term: x.term, fit: x.fit, reason: clip(x.reason, 140) })),
+        audiences: (submitted.audiences ?? []).filter((x) => audienceIds.has(x.id) && ["buyer", "not_buyer", "unsure"].includes(x.fit)).map((x) => ({ id: x.id, fit: x.fit, reason: clip(x.reason, 140) })),
         goals: (submitted.goals ?? []).filter((x) => campaignKeys.has(`${x.platform}|${x.campaign_id}`) && (CAMPAIGN_GOALS as readonly string[]).includes(x.goal)).map((x) => ({ platform: x.platform, campaign_id: x.campaign_id, goal: x.goal, note: clip(x.note, 160) })),
         usage,
         finished_at: new Date().toISOString(),

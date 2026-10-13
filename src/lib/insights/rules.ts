@@ -59,7 +59,7 @@ export const RULES: Record<RuleKey, { label: string; rule: string }> = {
   li_own_company: { label: "Own staff", rule: "The client's own company (or ours) among the companies LinkedIn showed the ads to (last 30 days)." },
   li_companies: { label: "Companies to check", rule: "Companies whose people clicked the ads in the last 30 days, to check against the ICP and exclude the ones that don't fit." },
   li_weak_segments: { label: "Audiences to exclude", rule: "job functions, industries or seniorities with 10%+ of a campaign's spend and under half its CTR (1,000+ impressions)." },
-  li_strong_segments: { label: "Audiences to include", rule: "job functions, industries or seniorities with 1.5× a campaign's CTR or better (1,000+ impressions)." },
+  li_strong_segments: { label: "Audiences to include", rule: "job functions, industries or seniorities with 1.5× the CTR of the rest of the campaign or better (1,000+ impressions, 20+ clicks, last 30 days), on campaigns that are running. Audiences Claude judges aren't buyers are left out. It's an opportunity only when the campaign is at or under target cost per result (or is an awareness campaign)." },
   li_junior: { label: "Junior audience", rule: "Entry, Training and Unpaid seniorities together take 10%+ of a campaign's impressions." },
   meta_frequency: { label: "High frequency", rule: "Ad set frequency above 4 over the last 7 days." },
   meta_learning: { label: "Stuck in learning", rule: "Ad sets that are learning limited, or still learning every day for a week." },
@@ -108,12 +108,15 @@ export type ReviewVerdicts = {
   companies: { name: string; fit: "icp" | "not_icp" | "unsure"; reason: string }[]
   terms: { campaign_id: string; term: string; fit: "relevant" | "clash" | "unsure"; reason: string }[]
   goals: { platform: Platform; campaign_id: string; goal: string; note: string }[]
+  /** LinkedIn audiences (job function, industry, seniority) judged as buyers for the client; id = `${kind}:${value}`. */
+  audiences?: { id: string; fit: "buyer" | "not_buyer" | "unsure"; reason: string }[]
 }
 
 // ---- helpers ------------------------------------------------------------------------------
 
 const Z = (): Sums => ({ spend: 0, impressions: 0, clicks: 0, results: 0 })
 const plus = (a: Sums, b: Sums): Sums => ({ spend: a.spend + b.spend, impressions: a.impressions + b.impressions, clicks: a.clicks + b.clicks, results: a.results + b.results })
+const minus = (a: Sums, b: Sums): Sums => ({ spend: a.spend - b.spend, impressions: a.impressions - b.impressions, clicks: a.clicks - b.clicks, results: a.results - b.results })
 const sumOf = (list: Sums[]) => list.reduce(plus, Z())
 const cpr = (s: Sums) => (s.results > 0 ? s.spend / s.results : null)
 const ctr = (s: Sums) => (s.impressions > 0 ? s.clicks / s.impressions : null)
@@ -173,7 +176,7 @@ export const effectiveThrough = (input: InsightInputs): Partial<Record<Platform,
   Object.fromEntries(Object.entries(input.dataThrough).map(([p, d]) => [p, completeThrough(input.campaigns, p as Platform, d!)]))
 
 /** Something to capitalize on: shown first, in its own section, with a lime dot and border (Dean). */
-export const isOpportunity = (i: Pick<Insight, "category" | "rule">) => i.category === "opportunity" || i.rule === "li_strong_segments"
+export const isOpportunity = (i: Pick<Insight, "category" | "rule">) => i.category === "opportunity"
 
 export function computeInsights(raw: InsightInputs): Insight[] {
   const out: Insight[] = []
@@ -470,6 +473,57 @@ export function computeInsights(raw: InsightInputs): Insight[] {
   return out
 }
 
+// ---- LinkedIn audiences (job function, industry, seniority) ---------------------------------
+
+const KIND_LABEL: Partial<Record<LinkedInKind, string>> = { li_job_function: "Job function", li_industry: "Industry", li_seniority: "Seniority" }
+type Seg = { kind: LinkedInKind; r: SegmentRow }
+const segmentId = (x: Seg) => `${x.kind}:${x.r.value}`
+const segmentLabel = (x: Seg) => `${KIND_LABEL[x.kind]}: ${x.r.value}`
+
+/** The latest 30-day LinkedIn audience rows, per campaign. */
+function segmentsByCampaign(input: Pick<InsightInputs, "linkedin">) {
+  const perCampaign = new Map<string, { name: string; rows: Seg[] }>()
+  for (const kind of ["li_job_function", "li_industry", "li_seniority"] as LinkedInKind[]) {
+    for (const r of input.linkedin[kind]?.rows ?? []) {
+      const e = perCampaign.get(r.campaignId) ?? { name: r.campaignName, rows: [] }
+      e.rows.push({ kind, r })
+      perCampaign.set(r.campaignId, e)
+    }
+  }
+  return perCampaign
+}
+
+/**
+ * Audiences engaging well above the rest of their campaign: 1,000+ impressions, 20+ clicks and at
+ * least 1.5× the CTR of everyone else in the same breakdown (the campaign minus this audience, so it
+ * isn't compared with a total that includes itself).
+ */
+function strongSegments(rows: Seg[]) {
+  const totals = new Map<LinkedInKind, Sums>()
+  for (const x of rows) totals.set(x.kind, plus(totals.get(x.kind) ?? Z(), x.r.m))
+  return rows.flatMap((x) => {
+    if (x.r.m.impressions < 1000 || x.r.m.clicks < 20) return []
+    const rest = minus(totals.get(x.kind)!, x.r.m)
+    const restCtr = rest.impressions >= 1000 ? ctr(rest) : null
+    return restCtr !== null && (ctr(x.r.m) ?? 0) >= 1.5 * restCtr ? [{ ...x, restCtr }] : []
+  })
+}
+
+/** The audiences Claude's daily review judges (buyer or not): strong ones on campaigns that are running. */
+export function audienceCandidates(input: InsightInputs) {
+  const seen = new Map<string, { id: string; label: string; ctr: number; restCtr: number; clicks: number; campaigns: string[] }>()
+  for (const [campaignId, { name, rows }] of segmentsByCampaign(input)) {
+    if (isPaused(input.campaigns.find((c) => c.platform === "linkedin" && c.campaignId === campaignId)?.status)) continue
+    for (const x of strongSegments(rows)) {
+      const e = seen.get(segmentId(x)) ?? { id: segmentId(x), label: segmentLabel(x), ctr: ctr(x.r.m) ?? 0, restCtr: x.restCtr, clicks: 0, campaigns: [] }
+      e.clicks += x.r.m.clicks
+      e.campaigns.push(name)
+      seen.set(e.id, e)
+    }
+  }
+  return [...seen.values()]
+}
+
 function linkedinInsights(input: InsightInputs, money: (v: number) => string): Insight[] {
   const out: Insight[] = []
   const li = input.linkedin
@@ -575,26 +629,20 @@ function linkedinInsights(input: InsightInputs, money: (v: number) => string): I
   }
 
   // Segments per campaign: weak ones to exclude, strong ones to lean into, and junior seniorities.
-  const KIND_LABEL: Partial<Record<LinkedInKind, string>> = { li_job_function: "Job function", li_industry: "Industry", li_seniority: "Seniority" }
-  const perCampaign = new Map<string, { name: string; rows: { kind: LinkedInKind; r: SegmentRow }[] }>()
-  for (const kind of ["li_job_function", "li_industry", "li_seniority"] as LinkedInKind[]) {
-    for (const r of li[kind]?.rows ?? []) {
-      const e = perCampaign.get(r.campaignId) ?? { name: r.campaignName, rows: [] }
-      e.rows.push({ kind, r })
-      perCampaign.set(r.campaignId, e)
-    }
-  }
+  // Paused, removed or finished campaigns are skipped: their 30-day history isn't something to act on.
   const asOf = li.li_seniority?.asOf ?? li.li_job_function?.asOf ?? ""
-  for (const [campaignId, { name, rows }] of perCampaign) {
+  const audienceVerdict = new Map((input.review?.audiences ?? []).map((v) => [v.id, v]))
+  for (const [campaignId, { name, rows }] of segmentsByCampaign(input)) {
+    if (isPaused(input.campaigns.find((c) => c.platform === "linkedin" && c.campaignId === campaignId)?.status)) continue
     const seniority = rows.filter((x) => x.kind === "li_seniority").map((x) => x.r)
     const total = sumOf(seniority.map((r) => r.m)) // one full split of the campaign
     if (total.impressions < 1000) continue
     const campaignCtr = ctr(total)!
-    const label = (x: { kind: LinkedInKind; r: SegmentRow }) => `${KIND_LABEL[x.kind]}: ${x.r.value}`
     const big = rows.filter((x) => x.r.m.impressions >= 1000)
     const weak = big.filter((x) => total.spend > 0 && x.r.m.spend >= 0.1 * total.spend && (ctr(x.r.m) ?? 0) < 0.5 * campaignCtr)
-    const strong = big.filter((x) => (ctr(x.r.m) ?? 0) >= 1.5 * campaignCtr && x.r.m.clicks >= 10)
-    const item = (x: { kind: LinkedInKind; r: SegmentRow }) => ({ id: `${x.kind}:${x.r.value}`, label: label(x), spend: x.r.m.spend, note: `CTR ${pct(ctr(x.r.m), 2)} vs ${pct(campaignCtr, 2)} · ${money(x.r.m.spend)} · ${intl(x.r.m.impressions)} impr.` })
+    // Strong: well above the rest of the campaign, and not an audience Claude judged isn't a buyer.
+    const strong = strongSegments(rows).filter((x) => audienceVerdict.get(segmentId(x))?.fit !== "not_buyer")
+    const item = (x: Seg) => ({ id: segmentId(x), label: segmentLabel(x), spend: x.r.m.spend, note: `CTR ${pct(ctr(x.r.m), 2)} vs ${pct(campaignCtr, 2)} · ${money(x.r.m.spend)} · ${intl(x.r.m.impressions)} impr.` })
     if (weak.length) {
       const spent = weak.reduce((s, x) => s + x.r.m.spend, 0)
       out.push({
@@ -619,19 +667,34 @@ function linkedinInsights(input: InsightInputs, money: (v: number) => string): I
       })
     }
     if (strong.length) {
+      // Only an opportunity when the campaign itself converts at or under target (awareness campaigns
+      // aren't judged on cost per result): a high CTR on a campaign that doesn't convert isn't worth scaling.
+      const camp = input.campaigns.find((c) => c.platform === "linkedin" && c.campaignId === campaignId)
+      const last30 = camp && asOf ? span(camp, addDays(asOf, -29), asOf) : Z()
+      const cost30 = cpr(last30)
+      const converting = isAwareness(input, "linkedin", campaignId, name) || (input.target ? cost30 !== null && cost30 <= input.target : last30.results > 0)
       out.push({
         key: `li_strong_segments:linkedin:${campaignId}`,
         rule: "li_strong_segments",
-        category: "audience",
+        category: converting ? "opportunity" : "audience",
         severity: "low",
         platform: "linkedin",
         campaignId,
         campaignName: name,
         title: `${strong.length} audience${strong.length === 1 ? "" : "s"} engaging well above the rest`,
-        why: `1.5× the campaign's ${pct(campaignCtr, 2)} CTR or better, in the 30 days to ${asOf}.`,
-        todo: "Consider their own campaign (own budget, tailored message), and check whether other campaigns with the same goal are missing them.",
-        numbers: [{ label: "Campaign CTR", value: pct(campaignCtr, 2) }],
-        items: strong.sort((a, b) => (ctr(b.r.m) ?? 0) - (ctr(a.r.m) ?? 0)).map(item),
+        why: `1.5× the CTR of the rest of the campaign or better, in the 30 days to ${asOf}. LinkedIn doesn't report conversions by audience, so this is on CTR.${
+          converting ? "" : cost30 === null ? " The campaign has no results in that time, so it isn't an opportunity yet." : ` The campaign is at ${money(cost30)} per result, over the ${money(input.target!)} target, so it isn't an opportunity yet.`
+        }`,
+        todo: converting
+          ? "Consider their own campaign (own budget, tailored message), and check whether other campaigns with the same goal are missing them."
+          : "Get the campaign converting at target first; then these are the audiences to lean into.",
+        numbers: [
+          { label: "Campaign CTR", value: pct(campaignCtr, 2) },
+          ...(cost30 !== null ? [{ label: "Cost per result, 30 days", value: money(cost30), ...(input.target ? { tone: cost30 <= input.target ? ("good" as const) : ("bad" as const) } : {}) }] : []),
+        ],
+        items: strong
+          .sort((a, b) => (ctr(b.r.m) ?? 0) - (ctr(a.r.m) ?? 0))
+          .map((x) => ({ ...item(x), note: `CTR ${pct(ctr(x.r.m), 2)} vs ${pct(x.restCtr, 2)} for the rest · ${intl(x.r.m.clicks)} clicks · ${money(x.r.m.spend)}`, reason: audienceVerdict.get(segmentId(x))?.reason })),
         listed: true,
         itemsLabel: "Audiences",
         atStake: null,
@@ -891,7 +954,7 @@ export function applyActions(insights: Insight[], log: LoggedAction[], today: st
  * Changes whenever the rules' code changes, so a cached feed from older rules is never shown (the
  * cache key includes it; on Vercel the data cache outlives a deploy).
  */
-export const RULES_FINGERPRINT = codeFingerprint(computeInsights, linkedinInsights, metaInsights, landingInsights, completeThrough, goalOf, isAwareness)
+export const RULES_FINGERPRINT = codeFingerprint(computeInsights, linkedinInsights, segmentsByCampaign, strongSegments, metaInsights, landingInsights, completeThrough, goalOf, isAwareness)
 
 /** A short hash of some functions' source code. */
 export function codeFingerprint(...fns: ((...args: never[]) => unknown)[]) {
