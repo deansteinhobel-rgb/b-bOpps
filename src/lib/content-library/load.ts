@@ -11,6 +11,8 @@ export type LibraryEmail = {
   angle: string | null
   /** The email still matches Claude's pick (piece and angle). */
   claudesPick: boolean
+  /** What Claude picked for this email, when it picked anything (for "Claude picked …" and Revert). */
+  suggested: { targetId: string | null; handoff: boolean; angle: string | null } | null
 }
 
 export type LibraryPiece = {
@@ -62,6 +64,7 @@ export async function loadLibrary(supabase: SupabaseClient, clientId: string): P
       handoff: e.handoff,
       angle: e.angle,
       claudesPick: picked && e.target_piece_id === e.suggested_target_piece_id && e.handoff === Boolean(e.suggested_handoff) && (e.angle ?? "") === (e.suggested_angle ?? ""),
+      suggested: picked ? { targetId: e.suggested_target_piece_id, handoff: Boolean(e.suggested_handoff), angle: e.suggested_angle } : null,
     })
     byPiece.set(e.piece_id, list)
   }
@@ -82,6 +85,6 @@ export async function loadLibrary(supabase: SupabaseClient, clientId: string): P
     approvedAt: p.approved_at,
     notionPageUrl: p.notion_page_url,
     createdAt: p.created_at,
-    emails: [1, 2, 3].map((slot) => byPiece.get(p.id)?.find((e) => e.slot === slot) ?? { slot: slot as 1 | 2 | 3, targetId: null, handoff: false, angle: null, claudesPick: false }),
+    emails: [1, 2, 3].map((slot) => byPiece.get(p.id)?.find((e) => e.slot === slot) ?? { slot: slot as 1 | 2 | 3, targetId: null, handoff: false, angle: null, claudesPick: false, suggested: null }),
   }))
 }

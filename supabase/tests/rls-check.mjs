@@ -386,6 +386,10 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   await q(`update public.content_pieces set seq_status = 'approved', approved_at = now(), approval_round = 1, notion_page_id = 'n1' where id = '${p1}'`)
   await q(`update public.content_sequences set suggested_target_piece_id = '${p2}', suggested_angle = 'Go deeper', suggested_at = now() where piece_id = '${p1}' and slot = 1`)
   await as(andrea, () => q(`update public.content_sequences set angle = 'A sharper hook' where piece_id = '${p1}' and slot = 1`))
+  // Revert to Claude's pick (the sequence builder): the team copies Claude's pick back; the pick itself is untouched.
+  const reverted = await as(andrea, () => q(`update public.content_sequences set target_piece_id = suggested_target_piece_id, handoff = coalesce(suggested_handoff, false), angle = suggested_angle where piece_id = '${p1}' and slot = 1 returning angle`))
+  await as(andrea, () => q(`update public.content_sequences set angle = 'A sharper hook' where piece_id = '${p1}' and slot = 1`))
+  console.log(reverted.length === 1 && reverted[0].angle === "Go deeper" ? "team member reverts an email to Claude's pick: OK" : "FAIL: revert to Claude's pick")
   const back = await q(`select seq_status, reapproval, notion_page_id from public.content_pieces where id = '${p1}'`)
   console.log(back[0].seq_status === "pending" && back[0].reapproval && back[0].notion_page_id === "n1" ? "editing an approved sequence sends it back for approval: OK" : `FAIL: reapproval (${JSON.stringify(back[0])})`)
   const andreaSees = await as(andrea, () => q("select id from public.content_pieces"))

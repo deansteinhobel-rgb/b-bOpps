@@ -40,7 +40,7 @@ import type { LibraryEmail, LibraryPiece } from "@/lib/content-library/load"
 
 // Sample content library: made-up pieces for a healthcare billing company.
 const SAMPLE_VERTICALS = ["ABA clinics", "SUD clinics", "PT clinics"]
-const sampleEmail = (slot: 1 | 2 | 3, targetId: string | null, angle: string | null, claudesPick = true, handoff = false): LibraryEmail => ({ slot, targetId, handoff, angle, claudesPick })
+const sampleEmail = (slot: 1 | 2 | 3, targetId: string | null, angle: string | null, claudesPick = true, handoff = false): LibraryEmail => ({ slot, targetId, handoff, angle, claudesPick, suggested: claudesPick ? { targetId, handoff, angle } : { targetId: null, handoff: true, angle: "Hand them to sales." } })
 const samplePiece = (id: string, p: Partial<LibraryPiece>): LibraryPiece => ({
   id,
   code: id.toUpperCase(),
@@ -459,7 +459,7 @@ export default async function DesignPreview() {
 
           <section className="space-y-4">
             <SectionHeader title="Content library" description="Plan › Content library: the Library and Matrix views on sample content." />
-            <ContentLibrary pieces={sampleLibrary} verticals={SAMPLE_VERTICALS} />
+            <ContentLibrary pieces={sampleLibrary} verticals={SAMPLE_VERTICALS} clientSlug="sample" canEdit />
           </section>
 
           <section className="space-y-4">

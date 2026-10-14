@@ -10,13 +10,15 @@ import { bestPairings, FIT_LABEL, pairFit, timesSent, type FitLevel, type Sequen
 import type { LibraryEmail, LibraryPiece } from "@/lib/content-library/load"
 import { longDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { SequenceBuilder } from "./sequence-builder"
 
-type View = "library" | "matrix"
+type View = "library" | "matrix" | "sequences"
+const VIEWS: View[] = ["library", "matrix", "sequences"]
 
-/** Library and Matrix, from the Camber content library artifact. Read only for now (steps 5-7 add editing). */
-export function ContentLibrary({ pieces, verticals }: { pieces: LibraryPiece[]; verticals: string[] }) {
+/** Library, Matrix and the sequence builder, from the Camber content library artifact. */
+export function ContentLibrary({ pieces, verticals, clientSlug, canEdit }: { pieces: LibraryPiece[]; verticals: string[]; clientSlug: string; canEdit: boolean }) {
   const params = useSearchParams()
-  const [view, setView] = useState<View>(params.get("view") === "matrix" ? "matrix" : "library")
+  const [view, setView] = useState<View>(() => VIEWS.find((v) => v === params.get("view")) ?? "library")
   const [vertical, setVertical] = useState(() => {
     const v = params.get("vertical")
     return v && verticals.includes(v) ? v : ""
@@ -61,6 +63,7 @@ export function ContentLibrary({ pieces, verticals }: { pieces: LibraryPiece[]; 
           options={[
             { value: "library", label: "Library", count: pieces.length },
             { value: "matrix", label: "Matrix" },
+            { value: "sequences", label: "Sequence builder", count: pieces.filter((p) => p.seqStatus === "pending").length || undefined, title: "Sequences awaiting approval" },
           ]}
         />
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
@@ -89,6 +92,8 @@ export function ContentLibrary({ pieces, verticals }: { pieces: LibraryPiece[]; 
         <Empty title="Nothing matches">Try another vertical, a theme or part of the title.</Empty>
       ) : view === "library" ? (
         <LibraryList pieces={shown} byId={byId} sequences={sequences} allVerticals={verticals} />
+      ) : view === "sequences" ? (
+        <SequenceBuilder pieces={shown} all={pieces} byId={byId} clientSlug={clientSlug} canEdit={canEdit} />
       ) : (
         <Matrix pieces={shown} byId={byId} sequences={sequences} allVerticals={verticals} selected={selected} onSelect={setSelected} />
       )}
