@@ -70,7 +70,10 @@ describe("readCapped", () => {
 
   it("refuses a declared length over the cap without reading", async () => {
     const s = stream(["x"])
-    await expect(readCapped(new Response(s.body, { headers: { "content-length": "999" } }), 10)).rejects.toThrow(/too large/)
+    const res = new Response(s.body, { headers: { "content-length": "999" } })
+    await expect(readCapped(res, 10)).rejects.toThrow(/too large/)
     expect(s.pulled()).toBe(0)
+    // The body was cancelled, so the connection is released.
+    expect(res.bodyUsed || (await res.body!.getReader().read()).done).toBe(true)
   })
 })

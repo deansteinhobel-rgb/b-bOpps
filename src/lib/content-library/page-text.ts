@@ -80,7 +80,11 @@ const TOO_LARGE = "The page is too large to read. Paste the page text instead."
  */
 export async function readCapped(res: Response, max: number): Promise<string> {
   const length = Number(res.headers.get("content-length"))
-  if (Number.isFinite(length) && length > max) throw new Error(TOO_LARGE)
+  if (Number.isFinite(length) && length > max) {
+    // Release the connection: an unread body would hold it open.
+    await res.body?.cancel().catch(() => {})
+    throw new Error(TOO_LARGE)
+  }
   if (!res.body) throw new Error("The page didn't respond. Try again, or paste the page text.")
   const reader = res.body.getReader()
   const chunks: Uint8Array[] = []
