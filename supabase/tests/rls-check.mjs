@@ -351,3 +351,60 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
     console.log("FAIL: signed-in user wrote the avatars bucket directly")
   } catch { console.log("profile pictures only go through the server: OK") }
 }
+
+// Content library (migration 20261014000058): the client's team adds and edits pieces and sequences;
+// viewers and other clients' teams can't; approval, Notion and Claude's pick are the server's; archiving
+// is for admins; editing an approved sequence sends it back for approval; nothing is deleted.
+{
+  const andrea = "aaaaaaaa-0000-0000-0000-000000000002", danny = "aaaaaaaa-0000-0000-0000-000000000003", dean = "aaaaaaaa-0000-0000-0000-000000000001"
+  const camber = "11111111-1111-1111-1111-111111111111", dnsf = "22222222-2222-2222-2222-222222222222"
+  const piece = (code, client = camber) => `insert into public.content_pieces (client_id, code, title, type) values ('${client}', '${code}', 'Piece ${code}', 'Guide') returning id`
+  const tries = async (what, uid, sql) => {
+    try { await as(uid, () => q(sql)); console.log(`FAIL: ${what}`) } catch { console.log(`blocked, ${what}: OK`) }
+  }
+  const p1 = (await as(andrea, () => q(piece("C01"))))[0].id
+  const p2 = (await as(andrea, () => q(piece("C02"))))[0].id
+  const other = (await q(piece("C01", dnsf)))[0].id
+  console.log(p1 && p2 ? "team member adds content: OK" : "FAIL: team couldn't add content")
+  await tries("viewer adds content", vera, piece("C03"))
+  await tries("other client's AM adds content", danny, piece("C03"))
+  await tries("add content already approved", andrea, `insert into public.content_pieces (client_id, code, title, type, seq_status) values ('${camber}', 'C04', 'x', 'Guide', 'approved')`)
+  const slot1 = await as(andrea, () => q(`insert into public.content_sequences (piece_id, slot, client_id, target_piece_id, angle) values ('${p1}', 1, '${camber}', '${p2}', 'Go deeper') returning slot`))
+  console.log(slot1.length === 1 ? "team member sets a sequence email: OK" : "FAIL: sequence email")
+  await tries("send another client's content in a sequence", andrea, `insert into public.content_sequences (piece_id, slot, client_id, target_piece_id) values ('${p1}', 2, '${camber}', '${other}')`)
+  await tries("send a piece in its own sequence", andrea, `insert into public.content_sequences (piece_id, slot, client_id, target_piece_id) values ('${p1}', 3, '${camber}', '${p1}')`)
+  await tries("set Claude's pick by hand", andrea, `update public.content_sequences set suggested_target_piece_id = '${p2}' where piece_id = '${p1}' and slot = 1`)
+  await tries("approve a sequence by hand", andrea, `update public.content_pieces set seq_status = 'approved' where id = '${p1}'`)
+  await tries("set the Notion brief by hand", andrea, `update public.content_pieces set notion_page_id = 'abc' where id = '${p1}'`)
+  await tries("archive content (team member)", andrea, `update public.content_pieces set archived_at = now() where id = '${p2}'`)
+  await tries("change a piece's code", andrea, `update public.content_pieces set code = 'C09' where id = '${p1}'`)
+  const notReq = await as(andrea, () => q(`update public.content_pieces set seq_status = 'not_required' where id = '${p2}' returning id`))
+  const veraEdits = await as(vera, () => q(`update public.content_pieces set title = 'x' where client_id = '${camber}' returning id`))
+  const dannyEdits = await as(danny, () => q(`update public.content_pieces set title = 'x' where client_id = '${camber}' returning id`))
+  console.log(notReq.length === 1 && veraEdits.length === 0 && dannyEdits.length === 0 ? "team marks not required; viewers and other teams can't edit: OK" : `FAIL: content edit scoping (team ${notReq.length}, viewer ${veraEdits.length}, other AM ${dannyEdits.length})`)
+  // The server approves (Notion brief sent), then a team member changes the sequence.
+  await q(`update public.content_pieces set seq_status = 'approved', approved_at = now(), approval_round = 1, notion_page_id = 'n1' where id = '${p1}'`)
+  await q(`update public.content_sequences set suggested_target_piece_id = '${p2}', suggested_angle = 'Go deeper', suggested_at = now() where piece_id = '${p1}' and slot = 1`)
+  await as(andrea, () => q(`update public.content_sequences set angle = 'A sharper hook' where piece_id = '${p1}' and slot = 1`))
+  const back = await q(`select seq_status, reapproval, notion_page_id from public.content_pieces where id = '${p1}'`)
+  console.log(back[0].seq_status === "pending" && back[0].reapproval && back[0].notion_page_id === "n1" ? "editing an approved sequence sends it back for approval: OK" : `FAIL: reapproval (${JSON.stringify(back[0])})`)
+  const andreaSees = await as(andrea, () => q("select id from public.content_pieces"))
+  const veraSees = await as(vera, () => q("select id from public.content_pieces where client_id = '11111111-1111-1111-1111-111111111111'"))
+  const dannySees = await as(danny, () => q("select id from public.content_pieces where client_id = '11111111-1111-1111-1111-111111111111'"))
+  console.log(andreaSees.length === 2 && veraSees.length === 2 && dannySees.length === 0 ? "content is read by the client's team and viewers only: OK" : "FAIL: content visibility")
+  // Archived rows are hidden by the read policy, so archiving goes through the server (after the app's
+  // admin check), as with sprint tests.
+  const archived = await q(`update public.content_pieces set archived_at = now(), archived_by_profile_id = '${dean}' where id = '${p2}' returning id`)
+  const hidden = await as(andrea, () => q(`select id from public.content_pieces where id = '${p2}'`))
+  const kept = await q(`select id from public.content_pieces where id = '${p2}'`)
+  console.log(archived.length === 1 && hidden.length === 0 && kept.length === 1 ? "admins archive content; it's hidden, not deleted: OK" : "FAIL: content archive")
+  const contentDel = await as(dean, () => q("with a as (delete from public.content_sequences returning 1), b as (delete from public.content_pieces returning 1) select (select count(*) from a) + (select count(*) from b) as n"))
+  console.log(Number(contentDel[0].n) === 0 ? "content and sequences can't be deleted: OK" : "FAIL: content deleted")
+  // One live Notion sequence brief per key; dry runs and failed sends can repeat.
+  const brief = (dry, success, key = `sequence:${p1}:1`) => `insert into public.notion_write_log (client_id, content_piece_id, brief_key, operation, endpoint, payload, dry_run, success) values ('${camber}', '${p1}', '${key}', 'create_sequence_brief', 'POST /v1/pages', '{}', ${dry}, ${success})`
+  await q(brief(true, true)); await q(brief(true, true)); await q(brief(false, false)); await q(brief(false, null))
+  try { await q(brief(false, null)); console.log("FAIL: second live sequence brief logged") } catch { console.log("one live Notion brief per sequence approval: OK") }
+  await q(brief(false, null, `sequence:${p1}:2`))
+  console.log("a re-approval gets its own brief: OK")
+  try { await q(`insert into public.notion_write_log (client_id, operation, endpoint, payload, dry_run) values ('${camber}', 'create_sequence_brief', 'POST /v1/pages', '{}', true)`); console.log("FAIL: sequence brief without a key") } catch { console.log("sequence briefs need a piece and a key: OK") }
+}
