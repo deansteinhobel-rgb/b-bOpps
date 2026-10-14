@@ -1,7 +1,7 @@
 import "server-only"
 import { fetchFrom } from "@/lib/windsor/creatives"
 import type { LibraryConfig } from "./config"
-import { pageFromHtml, type PageText } from "./page-text"
+import { pageFromHtml, readCapped, type PageText } from "./page-text"
 
 const MAX_BYTES = 3 * 1024 * 1024
 
@@ -32,9 +32,7 @@ export async function readClientPage(cfg: LibraryConfig, url: string): Promise<P
   }
   if (!res.ok) throw new Error(`The page answered with an error (${res.status}). Check the link, or paste the page text.`)
   if (!(res.headers.get("content-type") ?? "").includes("text/html")) throw new Error("That link isn't a web page. Paste the page text instead.")
-  const buf = await res.arrayBuffer()
-  if (buf.byteLength > MAX_BYTES) throw new Error("The page is too large to read. Paste the page text instead.")
-  const page = pageFromHtml(new TextDecoder().decode(buf), cfg.pageHosts)
+  const page = pageFromHtml(await readCapped(res, MAX_BYTES), cfg.pageHosts)
   if (!page.text) throw new Error("The page had no readable text. Paste the page text instead.")
   return page
 }

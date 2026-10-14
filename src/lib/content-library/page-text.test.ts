@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { decodeEntities, pageFromHtml } from "./page-text"
+import { decodeEntities, pageFromHtml, readCapped } from "./page-text"
 
 const HTML = `<!doctype html><html><head>
 <title>The ABA audit wave | Camber</title>
@@ -42,5 +42,35 @@ describe("pageFromHtml", () => {
 describe("decodeEntities", () => {
   it("decodes named and numeric entities and leaves unknown ones", () => {
     expect(decodeEntities("A &amp; B &#8217; &#x2014; &unknown;")).toBe("A & B ’ — &unknown;")
+  })
+})
+
+describe("readCapped", () => {
+  const stream = (chunks: string[]) => {
+    let pulled = 0
+    const body = new ReadableStream<Uint8Array>({
+      pull(c) {
+        if (pulled < chunks.length) c.enqueue(new TextEncoder().encode(chunks[pulled++]))
+        else c.close()
+      },
+    }, { highWaterMark: 0 }) // pull only when read
+    return { body, pulled: () => pulled }
+  }
+
+  it("reads a body under the cap", async () => {
+    const s = stream(["<p>he", "llo</p>"])
+    expect(await readCapped(new Response(s.body), 100)).toBe("<p>hello</p>")
+  })
+
+  it("stops reading as soon as the body passes the cap", async () => {
+    const s = stream(["aaaa", "bbbb", "cccc", "dddd"])
+    await expect(readCapped(new Response(s.body), 6)).rejects.toThrow(/too large/)
+    expect(s.pulled()).toBeLessThan(4)
+  })
+
+  it("refuses a declared length over the cap without reading", async () => {
+    const s = stream(["x"])
+    await expect(readCapped(new Response(s.body, { headers: { "content-length": "999" } }), 10)).rejects.toThrow(/too large/)
+    expect(s.pulled()).toBe(0)
   })
 })
