@@ -29,6 +29,10 @@ export const LIMITS = {
   notion_refresh: { max: 30, seconds: 3600, what: "Notion refreshes an hour" },
   notion_write: { max: 30, seconds: 86400, what: "Notion actions and briefs a day" },
   ad_post_link: { max: 60, seconds: 86400, what: "post links a day" },
+  // Content library (2026-10-14): placing a piece and "Ask Claude again" share one limit.
+  content_page_read: { max: 40, seconds: 86400, what: "page reads a day" },
+  content_placement: { max: 30, seconds: 86400, what: "content placements and re-picks a day" },
+  content_angle: { max: 150, seconds: 86400, what: "email angles a day" },
 } as const
 export type LimitKind = keyof typeof LIMITS
 

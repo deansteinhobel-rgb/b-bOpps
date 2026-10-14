@@ -36,13 +36,20 @@ const PLAN: TabGroup = {
   items: [
     { href: "/sprint", label: "Sprint" },
     { href: "/ideas", label: "Content ideas" },
+    { href: "/library", label: "Content library" },
     { href: "/briefs", label: "Briefs" },
   ],
 }
 const KNOW: TabGroup = { key: "know", label: "Know", items: [{ href: "/brain", label: "Brain" }] }
 
-/** Hands-on puts Do first; Overview puts it last. Both lenses have every tab. */
-export const tabGroups = (lens: Lens): TabGroup[] => (lens === "hands_on" ? [DO, OVERVIEW, PERFORMANCE, PLAN, KNOW] : [OVERVIEW, PERFORMANCE, PLAN, KNOW, DO])
+/**
+ * Hands-on puts Do first; Overview puts it last. Both lenses have every tab, apart from the content
+ * library, which only shows for clients that have one (src/lib/content-library/config.ts).
+ */
+export const tabGroups = (lens: Lens, opts: { contentLibrary?: boolean } = {}): TabGroup[] => {
+  const plan = opts.contentLibrary ? PLAN : { ...PLAN, items: PLAN.items.filter((i) => i.href !== "/library") }
+  return lens === "hands_on" ? [DO, OVERVIEW, PERFORMANCE, plan, KNOW] : [OVERVIEW, PERFORMANCE, plan, KNOW, DO]
+}
 
 /** Where a client link opens for this lens. */
 export const clientHome = (slug: string, lens: Lens) => `/clients/${slug}${lens === "hands_on" ? "/do" : ""}`

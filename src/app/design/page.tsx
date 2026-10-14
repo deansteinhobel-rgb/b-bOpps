@@ -35,6 +35,88 @@ import { tiringAds, topAds, type AdStat } from "@/lib/metrics/ads"
 import type { AccountNumbers } from "@/lib/account"
 import type { TimelineEntry } from "@/lib/timeline"
 import type { CampaignPacing, PlatformPacing } from "@/lib/metrics/overview"
+import { ContentLibrary } from "../(app)/clients/[slug]/library/content-library"
+import type { LibraryEmail, LibraryPiece } from "@/lib/content-library/load"
+
+// Sample content library: made-up pieces for a healthcare billing company.
+const SAMPLE_VERTICALS = ["ABA clinics", "SUD clinics", "PT clinics"]
+const sampleEmail = (slot: 1 | 2 | 3, targetId: string | null, angle: string | null, claudesPick = true, handoff = false): LibraryEmail => ({ slot, targetId, handoff, angle, claudesPick, suggested: claudesPick ? { targetId, handoff, angle } : { targetId: null, handoff: true, angle: "Hand them to sales." } })
+const samplePiece = (id: string, p: Partial<LibraryPiece>): LibraryPiece => ({
+  id,
+  code: id.toUpperCase(),
+  title: id,
+  url: null,
+  type: "Guide",
+  theme: null,
+  stage: "Awareness",
+  audiences: ["Enterprise"],
+  verticals: SAMPLE_VERTICALS,
+  purpose: null,
+  seqStatus: "pending",
+  reapproval: false,
+  approvedAt: null,
+  notionPageUrl: null,
+  createdAt: "2026-10-01T09:00:00Z",
+  emails: [sampleEmail(1, null, null, false), sampleEmail(2, null, null, false), sampleEmail(3, null, null, false)],
+  ...p,
+})
+const sampleLibrary: LibraryPiece[] = [
+  samplePiece("c01", {
+    title: "The five-step path to cleaner claims",
+    type: "Landing page",
+    stage: "Decision",
+    theme: "Vendor evaluation",
+    url: "https://example.com/lp/cleaner-claims",
+    purpose: "The platform page: compares in-house billing, outsourcing and software, then offers a revenue audit.",
+    seqStatus: "not_required",
+    emails: [sampleEmail(1, "c04", "Before you compare options, count what staff turnover already costs you."), sampleEmail(2, "c03", "Ask how each option learns from denials."), sampleEmail(3, null, "Offer the revenue audit the page promotes.", true, true)],
+  }),
+  samplePiece("c02", {
+    title: "The ABA audit wave: what's happening and why now",
+    type: "Insight article",
+    theme: "Payer oversight",
+    verticals: ["ABA clinics"],
+    audiences: ["Enterprise", "PE"],
+    purpose: "Explains the rise in payer audits for ABA providers and what triggers them.",
+    seqStatus: "approved",
+    approvedAt: "2026-10-08T10:00:00Z",
+    notionPageUrl: "https://www.notion.so/example",
+    emails: [sampleEmail(1, "c05", "The audits follow the money: see where documentation gaps cost the most."), sampleEmail(2, "c04", "Audit prep lands on the billing team. Here's what turnover does to it.", false), sampleEmail(3, "c01", "From audit risk to clean claims in five steps.")],
+  }),
+  samplePiece("c03", {
+    title: "Why smarter rules beat newer AI in billing",
+    type: "Insight article",
+    stage: "Consideration",
+    theme: "Vendor evaluation",
+    audiences: ["Enterprise", "PE"],
+    reapproval: true,
+    emails: [sampleEmail(1, "c04", "Rules only work if the team stays."), sampleEmail(2, "c06", "See the denial drop at a real clinic group."), sampleEmail(3, "c01", "The five-step path, with an audit to start.")],
+  }),
+  samplePiece("c04", {
+    title: "The hidden cost of billing staff turnover",
+    type: "Insight article",
+    theme: "Billing operations",
+    verticals: ["ABA clinics", "PT clinics"],
+    emails: [sampleEmail(1, "c03", "Turnover hurts less when the rules live in the system."), sampleEmail(2, null, null, false), sampleEmail(3, "c01", "Five steps to billing that doesn't depend on one person.")],
+  }),
+  samplePiece("c05", {
+    title: "Medicaid reimbursement gaps by state",
+    type: "Tool",
+    stage: "Consideration",
+    theme: "Payer oversight",
+    verticals: ["ABA clinics", "SUD clinics"],
+    audiences: ["Enterprise", "PE"],
+    url: "https://example.com/tools/medicaid-gaps",
+  }),
+  samplePiece("c06", {
+    title: "How one clinic group cut denials by 80%",
+    type: "Case study",
+    stage: "Consideration",
+    theme: "Billing operations",
+    verticals: ["ABA clinics"],
+    audiences: ["SMB"],
+  }),
+]
 
 const blankTest: SprintTest = { id: "", recommendation_id: null, insight_key: null, content_idea_id: null, call_commitment_id: null, platform: null, title: "", hypothesis: null, assets: [], brief_notes: null, success_metric: null, success_target: null, success_text: null, owner_notion_user_id: null, owner_name: null, deadline: null, status: "planned", notion_page_id: null, live_on: null, campaign_ids: [], campaign_names: [], findings_worked: null, findings_blockers: null, findings_notes: null, outcome: null, carry_reason: null, carry_note: null, carried_from_test_id: null, test_kind: null, test_ad_ids: [], lever: null, lever_source: null, created_at: "2026-09-28T09:00:00Z" }
 const sampleTests: { t: SprintTest; stage: Stage }[] = [
@@ -373,6 +455,19 @@ export default async function DesignPreview() {
                 )
               })}
             </ul>
+          </section>
+
+          <section className="space-y-4">
+            <SectionHeader title="Content library" description="Plan › Content library: the Library and Matrix views on sample content." />
+            <ContentLibrary
+              pieces={sampleLibrary}
+              verticals={SAMPLE_VERTICALS}
+              clientSlug="sample"
+              librarySlug="camber"
+              canEdit
+              aiEnabled
+              approval={{ leads: [{ notionUserId: "00000000-0000-0000-0000-000000000001", name: "Andrea Restrepo", onTeam: true }], defaultLead: null, live: false }}
+            />
           </section>
 
           <section className="space-y-4">
