@@ -459,7 +459,7 @@ export default async function DesignPreview() {
 
           <section className="space-y-4">
             <SectionHeader title="Content library" description="Plan › Content library: the Library and Matrix views on sample content." />
-            <ContentLibrary pieces={sampleLibrary} verticals={SAMPLE_VERTICALS} clientSlug="sample" canEdit />
+            <ContentLibrary pieces={sampleLibrary} verticals={SAMPLE_VERTICALS} clientSlug="sample" librarySlug="camber" canEdit aiEnabled />
           </section>
 
           <section className="space-y-4">

@@ -1,5 +1,7 @@
 "use client"
 
+import { Sparkles } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { Hint } from "@/components/hint"
@@ -10,6 +12,7 @@ import type { LibraryEmail, LibraryPiece, SeqStatus } from "@/lib/content-librar
 import { longDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { revertToClaude, setAngle, setEmail, setNotRequired } from "./actions"
+import { askAgain, rewriteAngle } from "./claude-api"
 
 type Filter = "" | SeqStatus
 
@@ -22,7 +25,7 @@ function approvalState(p: LibraryPiece): { rag: Rag; label: string } {
 type Run = (fn: () => Promise<{ ok: boolean; message?: string }>) => void
 
 /** Sequence builder: what to send someone who engaged with each piece, and the angle for each email. */
-export function SequenceBuilder({ pieces, all, byId, clientSlug, canEdit }: { pieces: LibraryPiece[]; all: LibraryPiece[]; byId: Map<string, LibraryPiece>; clientSlug: string; canEdit: boolean }) {
+export function SequenceBuilder({ pieces, all, byId, clientSlug, canEdit, aiEnabled }: { pieces: LibraryPiece[]; all: LibraryPiece[]; byId: Map<string, LibraryPiece>; clientSlug: string; canEdit: boolean; aiEnabled: boolean }) {
   const [filter, setFilter] = useState<Filter>("")
   const count = (s: SeqStatus) => pieces.filter((p) => p.seqStatus === s).length
   const rows = pieces.filter((p) => !filter || p.seqStatus === filter)
@@ -46,19 +49,22 @@ export function SequenceBuilder({ pieces, all, byId, clientSlug, canEdit }: { pi
       ) : (
         <ul className="surface divide-y">
           {rows.map((p) => (
-            <SequenceRow key={p.id} p={p} all={all} byId={byId} clientSlug={clientSlug} canEdit={canEdit} />
+            <SequenceRow key={p.id} p={p} all={all} byId={byId} clientSlug={clientSlug} canEdit={canEdit} aiEnabled={aiEnabled} />
           ))}
         </ul>
       )}
       <p className="text-xs text-muted-foreground">
-        Change any email with its menu. Picking Claude&apos;s choice again brings back its angle; picking something else clears the angle for you to write. Angles save when you click away. Every change is live for the whole team, and changing an approved sequence sends it back for approval.
+        Change any email with its menu. Picking Claude&apos;s choice again brings back its angle; picking something else has Claude write a new one (or clears it for you to write). Angles save when you click away. Every change is live for the whole team, and changing an approved sequence sends it back for approval.
       </p>
     </div>
   )
 }
 
-function SequenceRow({ p, all, byId, clientSlug, canEdit }: { p: LibraryPiece; all: LibraryPiece[]; byId: Map<string, LibraryPiece>; clientSlug: string; canEdit: boolean }) {
+function SequenceRow({ p, all, byId, clientSlug, canEdit, aiEnabled }: { p: LibraryPiece; all: LibraryPiece[]; byId: Map<string, LibraryPiece>; clientSlug: string; canEdit: boolean; aiEnabled: boolean }) {
+  const router = useRouter()
   const [pending, start] = useTransition()
+  const [asking, setAsking] = useState(false)
+  const [writing, setWriting] = useState<Partial<Record<1 | 2 | 3, boolean>>>({})
   const run: Run = (fn) =>
     start(async () => {
       const r = await fn()
@@ -66,6 +72,39 @@ function SequenceRow({ p, all, byId, clientSlug, canEdit }: { p: LibraryPiece; a
         if (r.message) toast.success(r.message)
       } else toast.error(r.message ?? "Something went wrong.")
     })
+
+  /** Claude writes the angle for what an email sends now (after a new pick, or "Rewrite"). */
+  const writeAngle = async (slot: 1 | 2 | 3) => {
+    setWriting((w) => ({ ...w, [slot]: true }))
+    try {
+      await rewriteAngle(clientSlug, p.id, slot)
+      router.refresh()
+    } catch (e) {
+      toast.error(`${(e as Error).message} You can write the angle yourself.`)
+    } finally {
+      setWriting((w) => ({ ...w, [slot]: false }))
+    }
+  }
+
+  const choose = (slot: 1 | 2 | 3, target: string | null) =>
+    run(async () => {
+      const r = await setEmail({ clientSlug, pieceId: p.id, slot, target })
+      if (r.ok && r.needsAngle && aiEnabled) void writeAngle(slot)
+      return r
+    })
+
+  const reask = async () => {
+    setAsking(true)
+    try {
+      const r = await askAgain(clientSlug, p.id)
+      toast.success(r.kept ? `Claude's picks refreshed. Your ${r.kept} edit${r.kept === 1 ? " was" : "s were"} kept` : r.changed ? "Sequence refreshed with Claude's new picks" : "Claude stands by its picks")
+      router.refresh()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setAsking(false)
+    }
+  }
   const set = p.emails.filter((e) => e.targetId || e.handoff).length
   const state = approvalState(p)
 
@@ -83,6 +122,12 @@ function SequenceRow({ p, all, byId, clientSlug, canEdit }: { p: LibraryPiece; a
           ))}
           <span className="ml-1 text-xs text-muted-foreground">{set === 3 ? "Complete" : `${set} of 3 set`}</span>
         </div>
+        {canEdit && aiEnabled && (
+          <button type="button" disabled={asking || pending} onClick={() => void reask()} className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:no-underline disabled:opacity-70">
+            <Sparkles className="size-3" aria-hidden />
+            {asking ? "Asking Claude…" : "Ask Claude again"}
+          </button>
+        )}
         <p className="inline-flex items-center gap-2 text-sm">
           <StatusDot status={state.rag} />
           {state.label}
@@ -116,7 +161,20 @@ function SequenceRow({ p, all, byId, clientSlug, canEdit }: { p: LibraryPiece; a
         )}
       </div>
       {p.emails.map((e) => (
-        <EmailSlot key={e.slot} p={p} e={e} all={all} byId={byId} clientSlug={clientSlug} canEdit={canEdit} pending={pending} run={run} />
+        <EmailSlot
+          key={e.slot}
+          p={p}
+          e={e}
+          all={all}
+          byId={byId}
+          clientSlug={clientSlug}
+          canEdit={canEdit}
+          pending={pending || asking}
+          run={run}
+          writing={Boolean(writing[e.slot])}
+          onChoose={(t) => choose(e.slot, t)}
+          onRewrite={canEdit && aiEnabled ? () => void writeAngle(e.slot) : null}
+        />
       ))}
     </li>
   )
@@ -134,6 +192,9 @@ function EmailSlot({
   canEdit,
   pending,
   run,
+  writing,
+  onChoose,
+  onRewrite,
 }: {
   p: LibraryPiece
   e: LibraryEmail
@@ -143,6 +204,9 @@ function EmailSlot({
   canEdit: boolean
   pending: boolean
   run: Run
+  writing: boolean
+  onChoose: (target: string | null) => void
+  onRewrite: (() => void) | null
 }) {
   const value = valueOf(e)
   const removed = Boolean(e.targetId && !byId.has(e.targetId))
@@ -157,11 +221,8 @@ function EmailSlot({
       <select
         id={`email-${p.id}-${e.slot}`}
         value={value}
-        disabled={!canEdit || pending}
-        onChange={(ev) => {
-          const v = ev.target.value
-          run(() => setEmail({ clientSlug, pieceId: p.id, slot: e.slot, target: v === "" ? null : v }))
-        }}
+        disabled={!canEdit || pending || writing}
+        onChange={(ev) => onChoose(ev.target.value || null)}
         className={cn(
           "h-9 w-full min-w-0 truncate rounded-lg border border-input bg-input/30 px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-80",
           !value && "text-muted-foreground",
@@ -175,7 +236,7 @@ function EmailSlot({
               {x.title}
             </option>
           ))}
-        <option value="handoff">Sales handoff</option>
+        {(e.slot === 3 || e.handoff) && <option value="handoff">Sales handoff</option>}
         {removed && <option value={e.targetId!}>Removed content</option>}
       </select>
       <div className="flex min-h-5 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
@@ -192,14 +253,23 @@ function EmailSlot({
           </>
         )}
       </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">Email angle</span>
+        {onRewrite && value && (
+          <button type="button" disabled={writing || pending} onClick={onRewrite} className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:no-underline disabled:opacity-70">
+            {writing ? "Writing…" : "Rewrite"}
+          </button>
+        )}
+      </div>
       <textarea
-        key={`${e.targetId}-${e.handoff}-${e.angle}`}
-        defaultValue={e.angle ?? ""}
-        readOnly={!canEdit}
+        key={`${e.targetId}-${e.handoff}-${e.angle}-${writing}`}
+        defaultValue={writing ? "" : (e.angle ?? "")}
+        readOnly={!canEdit || writing}
         rows={3}
         maxLength={300}
         aria-label={`Email angle for email ${e.slot}`}
-        placeholder={canEdit ? "The hook that connects what they read to this email" : ""}
+        aria-busy={writing}
+        placeholder={writing ? "Claude is writing the angle…" : canEdit ? "The hook that connects what they read to this email" : ""}
         onBlur={(ev) => {
           const next = ev.target.value.replace(/\s+/g, " ").trim()
           if (next !== (e.angle ?? "")) run(() => setAngle({ clientSlug, pieceId: p.id, slot: e.slot, angle: next }))

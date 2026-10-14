@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { aiConfigured } from "@/lib/ai/claude"
 import { canEdit, getProfile } from "@/lib/auth"
 import { libraryConfig } from "@/lib/content-library/config"
 import { loadLibrary } from "@/lib/content-library/load"
@@ -31,7 +32,7 @@ export default async function ContentLibraryPage({ params }: PageProps<"/clients
       <p className="max-w-3xl text-sm text-muted-foreground">
         Every live landing page and guide for {client.name}, and the three emails to send someone who engaged with each one. The Matrix shows which pieces promote each other best.
       </p>
-      <ContentLibrary pieces={pieces} verticals={[...cfg.verticals]} clientSlug={client.slug} canEdit={canEdit(me)} />
+      <ContentLibrary pieces={pieces} verticals={[...cfg.verticals]} clientSlug={client.slug} canEdit={canEdit(me)} aiEnabled={aiConfigured()} />
     </div>
   )
 }

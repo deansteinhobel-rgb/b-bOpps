@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
+import { verifySuggestion } from "@/lib/content-library/claude"
+import { libraryConfig, nextCode, STAGES } from "@/lib/content-library/config"
+import { codesFor } from "@/lib/content-library/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 
 /**
@@ -11,7 +15,8 @@ import { createClient } from "@/lib/supabase/server"
  * approval stay with the server. Changing an approved sequence sends it back for approval (a trigger).
  */
 
-type Result = { ok: true; message?: string } | { ok: false; message: string }
+/** `needsAngle`: the email now sends something new, so the page asks Claude for its angle. */
+type Result = { ok: true; message?: string; needsAngle?: boolean } | { ok: false; message: string }
 
 const Slot = z.union([z.literal(1), z.literal(2), z.literal(3)])
 const Id = z.string().uuid()
@@ -27,7 +32,7 @@ async function pieceFor(clientSlug: string, pieceId: string) {
   return { me, supabase, piece } as const
 }
 
-const done = (clientSlug: string, message?: string): Result => {
+const done = (clientSlug: string, message?: string): { ok: true; message?: string } => {
   revalidatePath(`/clients/${clientSlug}/library`)
   return { ok: true, message }
 }
@@ -44,6 +49,7 @@ export async function setEmail(raw: z.input<typeof SetEmail>): Promise<Result> {
   if (!parsed.success) return { ok: false, message: "Pick a piece for this email." }
   const { clientSlug, pieceId, slot, target } = parsed.data
   if (target === pieceId) return { ok: false, message: "A piece can't be a follow-up to itself." }
+  if (target === "handoff" && slot !== 3) return { ok: false, message: "The sales handoff can only be email 3." }
   const ctx = await pieceFor(clientSlug, pieceId)
   if ("error" in ctx) return { ok: false, message: ctx.error! }
   const { me, supabase, piece } = ctx
@@ -58,7 +64,7 @@ export async function setEmail(raw: z.input<typeof SetEmail>): Promise<Result> {
     ? await supabase.from("content_sequences").update(values).eq("piece_id", pieceId).eq("slot", slot)
     : await supabase.from("content_sequences").insert({ piece_id: pieceId, slot, client_id: piece.client_id, ...values })
   if (error) return { ok: false, message: error.message.includes("same client") ? "A sequence can only send this client's content." : "Couldn't save the email." }
-  return done(clientSlug, backToClaude ? "Back to Claude's pick" : "Email updated")
+  return { ...done(clientSlug, backToClaude ? "Back to Claude's pick" : "Email updated"), needsAngle: !backToClaude && target !== null }
 }
 
 const SetAngle = Base.extend({ slot: Slot, angle: z.string().max(300) })
@@ -122,4 +128,102 @@ export async function setNotRequired(raw: z.input<typeof NotRequired>): Promise<
     .eq("id", pieceId)
   if (error) return { ok: false, message: "Couldn't update the sequence." }
   return done(clientSlug, notRequired ? "Marked not required. You can approve it any time" : "Back to awaiting approval")
+}
+
+const Email = z.object({ slot: Slot, target: z.union([Id, z.literal("handoff"), z.null()]), angle: z.string().max(300) })
+const AddPiece = z.object({
+  clientSlug: z.string().min(1).max(100),
+  title: z.string().trim().min(1).max(300),
+  url: z.union([z.literal(""), z.string().url().startsWith("https://").max(2000)]),
+  type: z.string().trim().min(1).max(60),
+  theme: z.string().trim().max(80),
+  stage: z.enum(STAGES),
+  audiences: z.array(z.string()).min(1).max(10),
+  verticals: z.array(z.string()).max(20),
+  purpose: z.string().trim().max(400),
+  sequence: z.array(Email).max(3),
+  /** Existing sequences to send the new piece in (ticked on the review step). */
+  changes: z.array(z.object({ engagedId: Id, slot: Slot, angle: z.string().max(300) })).max(3),
+  /** Claude's placement as the server signed it; only what's in here is saved as "Claude's pick". */
+  suggestion: z.object({ payload: z.string().max(20_000), sig: z.string().max(200) }).nullable(),
+})
+
+/**
+ * Adds a piece to the library with its sequence, and slots it into the existing sequences that were
+ * ticked. The piece goes in through RLS; the emails are written by the server after that check,
+ * because Claude's pick beside each one is server-only (and taken from the signed suggestion).
+ */
+export async function addPiece(raw: z.input<typeof AddPiece>): Promise<Result & { code?: string }> {
+  const parsed = AddPiece.safeParse(raw)
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.path.includes("url") ? "The page link must start with https://" : "Add a title and who it's written for." }
+  const d = parsed.data
+  const me = await getProfile()
+  if (!canEdit(me)) return { ok: false, message: VIEW_ONLY }
+  const supabase = await createClient()
+  const { data: client } = await supabase.from("clients").select("id, slug").eq("slug", d.clientSlug).maybeSingle()
+  if (!client) return { ok: false, message: "This client isn't available to you." }
+  const cfg = libraryConfig(client.slug)
+  if (!cfg) return { ok: false, message: "This client has no content library." }
+  if (d.audiences.some((a) => !cfg.audiences.includes(a)) || d.verticals.some((v) => !cfg.verticals.includes(v))) return { ok: false, message: "Pick audiences and verticals from the list." }
+
+  // Every id must be one of this client's pieces that's still in the library.
+  const all = await codesFor(client.id)
+  const live = new Map(all.filter((r) => !r.archived_at).map((r) => [r.id as string, r.code as string]))
+  const idByCode = new Map([...live].map(([id, code]) => [code, id]))
+  const ids = [...d.sequence.map((e) => e.target), ...d.changes.map((c) => c.engagedId)].filter((t): t is string => Boolean(t) && t !== "handoff")
+  if (ids.some((id) => !live.has(id))) return { ok: false, message: "Some of the content picked isn't in this library any more. Refresh and try again." }
+  if (d.sequence.some((e) => e.target === "handoff" && e.slot !== 3)) return { ok: false, message: "The sales handoff can only be email 3." }
+
+  const row = { client_id: client.id, title: d.title, url: d.url || null, type: d.type, theme: d.theme || null, stage: d.stage, audiences: d.audiences, verticals: d.verticals, purpose: d.purpose || null }
+  let piece: { id: string; code: string } | null = null
+  for (let attempt = 0; attempt < 3 && !piece; attempt++) {
+    const code = nextCode(attempt ? (await codesFor(client.id)).map((r) => r.code) : all.map((r) => r.code))
+    const { data, error } = await supabase.from("content_pieces").insert({ ...row, code }).select("id, code").single()
+    if (data) piece = data
+    else if (error?.code !== "23505") return { ok: false, message: "Couldn't add the piece." }
+  }
+  if (!piece) return { ok: false, message: "Someone else added content at the same moment. Try again." }
+
+  const claude = verifySuggestion(client.id, d.suggestion)
+  const claudeId = (t: string | null) => (t && t !== "handoff" ? (idByCode.get(t) ?? null) : null)
+  const db = createAdminClient()
+  const now = new Date().toISOString()
+  const emails = d.sequence
+    .filter((e) => e.target || e.angle.trim())
+    .map((e) => {
+      const pick = claude?.sequence.find((s) => s.slot === e.slot && s.target)
+      return {
+        piece_id: piece.id,
+        slot: e.slot,
+        client_id: client.id,
+        target_piece_id: e.target === "handoff" ? null : e.target,
+        handoff: e.target === "handoff",
+        angle: e.angle.trim() || null,
+        updated_by_profile_id: me.id,
+        ...(pick ? { suggested_target_piece_id: claudeId(pick.target), suggested_handoff: pick.target === "handoff", suggested_angle: pick.angle || null, suggested_at: now } : {}),
+      }
+    })
+  if (emails.length) {
+    const { error } = await db.from("content_sequences").insert(emails)
+    if (error) return { ok: false, message: `Added ${piece.code}, but its sequence didn't save. Set it in the sequence builder.` }
+  }
+  for (const c of d.changes) {
+    const signed = claude?.changes.find((s) => idByCode.get(s.engaged) === c.engagedId && s.slot === c.slot)
+    const { error } = await db.from("content_sequences").upsert(
+      {
+        piece_id: c.engagedId,
+        slot: c.slot,
+        client_id: client.id,
+        target_piece_id: piece.id,
+        handoff: false,
+        angle: c.angle.trim() || null,
+        updated_by_profile_id: me.id,
+        ...(signed ? { suggested_target_piece_id: piece.id, suggested_handoff: false, suggested_angle: signed.angle || null, suggested_at: now } : {}),
+      },
+      { onConflict: "piece_id,slot" },
+    )
+    if (error) return { ok: false, message: `Added ${piece.code}, but not every existing sequence was updated. Check the sequence builder.` }
+  }
+  const slotted = d.changes.length
+  return { ...done(client.slug, slotted ? `Added, and slotted into ${slotted} existing sequence${slotted === 1 ? "" : "s"}` : "Added. Its sequence is awaiting approval"), code: piece.code }
 }

@@ -10,13 +10,32 @@ import { bestPairings, FIT_LABEL, pairFit, timesSent, type FitLevel, type Sequen
 import type { LibraryEmail, LibraryPiece } from "@/lib/content-library/load"
 import { longDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { libraryConfig } from "@/lib/content-library/config"
+import { AddContent } from "./add-content"
 import { SequenceBuilder } from "./sequence-builder"
 
 type View = "library" | "matrix" | "sequences"
 const VIEWS: View[] = ["library", "matrix", "sequences"]
 
 /** Library, Matrix and the sequence builder, from the Camber content library artifact. */
-export function ContentLibrary({ pieces, verticals, clientSlug, canEdit }: { pieces: LibraryPiece[]; verticals: string[]; clientSlug: string; canEdit: boolean }) {
+export function ContentLibrary({
+  pieces,
+  verticals,
+  clientSlug,
+  librarySlug = clientSlug,
+  canEdit,
+  aiEnabled,
+}: {
+  pieces: LibraryPiece[]
+  verticals: string[]
+  clientSlug: string
+  /** Whose library settings to use (the client itself; /design borrows Camber's). */
+  librarySlug?: string
+  canEdit: boolean
+  aiEnabled: boolean
+}) {
+  const cfg = libraryConfig(librarySlug)
+  const add = cfg && canEdit ? <AddContent cfg={cfg} clientSlug={clientSlug} pieces={pieces} aiEnabled={aiEnabled} /> : null
   const params = useSearchParams()
   const [view, setView] = useState<View>(() => VIEWS.find((v) => v === params.get("view")) ?? "library")
   const [vertical, setVertical] = useState(() => {
@@ -47,7 +66,12 @@ export function ContentLibrary({ pieces, verticals, clientSlug, canEdit }: { pie
   }, [pieces, vertical, query])
 
   if (!pieces.length) {
-    return <Empty title="No content yet">Content added to the library shows here, with the three emails to send someone who engaged with it.</Empty>
+    return (
+      <Empty title="No content yet">
+        Content added to the library shows here, with the three emails to send someone who engaged with it.
+        {add && <span className="mt-4 flex justify-center">{add}</span>}
+      </Empty>
+    )
   }
 
   return (
@@ -85,6 +109,7 @@ export function ContentLibrary({ pieces, verticals, clientSlug, canEdit }: { pie
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <Input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search content" aria-label="Search content" className="pl-8" />
           </div>
+          {add}
         </div>
       </div>
 
@@ -93,7 +118,7 @@ export function ContentLibrary({ pieces, verticals, clientSlug, canEdit }: { pie
       ) : view === "library" ? (
         <LibraryList pieces={shown} byId={byId} sequences={sequences} allVerticals={verticals} />
       ) : view === "sequences" ? (
-        <SequenceBuilder pieces={shown} all={pieces} byId={byId} clientSlug={clientSlug} canEdit={canEdit} />
+        <SequenceBuilder pieces={shown} all={pieces} byId={byId} clientSlug={clientSlug} canEdit={canEdit} aiEnabled={aiEnabled} />
       ) : (
         <Matrix pieces={shown} byId={byId} sequences={sequences} allVerticals={verticals} selected={selected} onSelect={setSelected} />
       )}
