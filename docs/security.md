@@ -27,11 +27,20 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
 - **Rate limits** per person (`src/lib/rate-limit.ts`, `take_rate_limit()` in the database):
   news chat 40/hour, campaign chat 40/hour, pours 8/day, Claude reviews 8/day, brain refreshes
   12/day, brain uploads 40/day, profile pictures 20/hour, feedback 20/day, content idea runs 6/day, test reads 30/day, call note checks 20/day (each counts at the start and again when Claude is scheduled, so a request without `first` still counts), calls added by hand 10/day, brief rebuilds 12/day, brain notes 100/day, HQ page reads 100/day,
-  Notion refreshes 30/hour (edit access only), Notion actions and briefs 30/day, ad post links 60/day. Call notes in Notion are read only (the guarded client), like the GTM HQ.
+  Notion refreshes 30/hour (edit access only), Notion actions and briefs 30/day (sequence approvals count here), ad post links 60/day, content library page reads 40/day, placements and re-picks 30/day, email angles 150/day. Call notes in Notion are read only (the guarded client), like the GTM HQ.
+- **Content library (2026-10-14, Plan › Content library)**: `content_pieces` and `content_sequences`
+  are client-scoped with RLS (the team edits, viewers read, no deletes; archiving is server-side
+  after an admin check). Guard triggers keep approval, the Notion brief link and Claude's pick for the
+  server. "Read page" fetches only the client's own site (`pageHosts` in
+  `src/lib/content-library/config.ts`, through `fetchFrom`: https, every redirect re-checked, HTML
+  only, 3 MB cap). A Claude placement is HMAC-signed before it goes to the browser for review, so
+  only what Claude actually picked is saved as "Claude's pick". Library and page text are untrusted
+  data in every prompt (an injected instruction was ignored in testing). Approving sends one Master
+  Production page per approval round (`brief_key` unique index, migration 20261014000058).
 - **Aikido scan fixes (2026-10-13)**:
   - **Client isolation for Notion reads** (`src/lib/knowledge/boundaries.ts`): a client's HQ discovery, page reads and call notes never step into another client's HQ or own call notes; linked call pages inside them aren't followed; linking another client's source, or a Client option another client already reads, is refused.
   - **Storage paths**: brain files only as `<client id>/<time>-<safe name>`; avatar folders are profile UUIDs; ad images only `<client>/<platform>/<safe ad id>`.
-  - **Outbound fetches** (ad images, LinkedIn posts): an https host allowlist, re-checked on every redirect.
+  - **Outbound fetches** (ad images, LinkedIn posts, and since 2026-10-14 content library pages on the client's own site): an https host allowlist, re-checked on every redirect.
   - **One live Notion page per test brief and per check action**: unique indexes on `notion_write_log` (migration 20261013000057).
   - **Avatars bucket**: 1 MB, images only, server uploads only.
   - **Negative keywords**: a negative that would block a different converting search term is refused on the server.
