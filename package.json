@@ -18,6 +18,7 @@
     "sync:notion": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-notion.ts",
     "sync:creatives": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-creatives.ts",
     "seed:history": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/seed-history.ts",
+    "seed:content-library": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/seed-content-library.ts",
     "fetch:logos": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/fetch-logos.ts",
     "upload:font": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/upload-font.ts",
     "sync:hq": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-hq.ts",
