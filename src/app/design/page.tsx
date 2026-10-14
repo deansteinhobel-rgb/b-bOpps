@@ -459,7 +459,15 @@ export default async function DesignPreview() {
 
           <section className="space-y-4">
             <SectionHeader title="Content library" description="Plan › Content library: the Library and Matrix views on sample content." />
-            <ContentLibrary pieces={sampleLibrary} verticals={SAMPLE_VERTICALS} clientSlug="sample" librarySlug="camber" canEdit aiEnabled />
+            <ContentLibrary
+              pieces={sampleLibrary}
+              verticals={SAMPLE_VERTICALS}
+              clientSlug="sample"
+              librarySlug="camber"
+              canEdit
+              aiEnabled
+              approval={{ leads: [{ notionUserId: "00000000-0000-0000-0000-000000000001", name: "Andrea Restrepo", onTeam: true }], defaultLead: null, live: false }}
+            />
           </section>
 
           <section className="space-y-4">

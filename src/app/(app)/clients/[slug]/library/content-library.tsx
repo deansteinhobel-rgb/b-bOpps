@@ -12,6 +12,7 @@ import { longDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { libraryConfig } from "@/lib/content-library/config"
 import { AddContent } from "./add-content"
+import type { ApprovalSetup } from "./approve-dialog"
 import { SequenceBuilder } from "./sequence-builder"
 
 type View = "library" | "matrix" | "sequences"
@@ -25,6 +26,7 @@ export function ContentLibrary({
   librarySlug = clientSlug,
   canEdit,
   aiEnabled,
+  approval = null,
 }: {
   pieces: LibraryPiece[]
   verticals: string[]
@@ -33,6 +35,8 @@ export function ContentLibrary({
   librarySlug?: string
   canEdit: boolean
   aiEnabled: boolean
+  /** Project Leads and whether Notion writes are live, for "Approve sequence". Null: no approving here. */
+  approval?: Omit<ApprovalSetup, "allVerticals"> | null
 }) {
   const cfg = libraryConfig(librarySlug)
   const add = cfg && canEdit ? <AddContent cfg={cfg} clientSlug={clientSlug} pieces={pieces} aiEnabled={aiEnabled} /> : null
@@ -118,7 +122,7 @@ export function ContentLibrary({
       ) : view === "library" ? (
         <LibraryList pieces={shown} byId={byId} sequences={sequences} allVerticals={verticals} />
       ) : view === "sequences" ? (
-        <SequenceBuilder pieces={shown} all={pieces} byId={byId} clientSlug={clientSlug} canEdit={canEdit} aiEnabled={aiEnabled} />
+        <SequenceBuilder pieces={shown} all={pieces} byId={byId} clientSlug={clientSlug} canEdit={canEdit} aiEnabled={aiEnabled} approval={approval && canEdit ? { ...approval, allVerticals: verticals } : null} />
       ) : (
         <Matrix pieces={shown} byId={byId} sequences={sequences} allVerticals={verticals} selected={selected} onSelect={setSelected} />
       )}

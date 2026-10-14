@@ -4,7 +4,7 @@ import { Sparkles } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { Hint } from "@/components/hint"
+
 import { Segmented } from "@/components/segmented"
 import { StatusDot, type Rag } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ import type { LibraryEmail, LibraryPiece, SeqStatus } from "@/lib/content-librar
 import { longDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { revertToClaude, setAngle, setEmail, setNotRequired } from "./actions"
+import { ApproveDialog, type ApprovalSetup } from "./approve-dialog"
 import { askAgain, rewriteAngle } from "./claude-api"
 
 type Filter = "" | SeqStatus
@@ -25,7 +26,7 @@ function approvalState(p: LibraryPiece): { rag: Rag; label: string } {
 type Run = (fn: () => Promise<{ ok: boolean; message?: string }>) => void
 
 /** Sequence builder: what to send someone who engaged with each piece, and the angle for each email. */
-export function SequenceBuilder({ pieces, all, byId, clientSlug, canEdit, aiEnabled }: { pieces: LibraryPiece[]; all: LibraryPiece[]; byId: Map<string, LibraryPiece>; clientSlug: string; canEdit: boolean; aiEnabled: boolean }) {
+export function SequenceBuilder({ pieces, all, byId, clientSlug, canEdit, aiEnabled, approval }: { pieces: LibraryPiece[]; all: LibraryPiece[]; byId: Map<string, LibraryPiece>; clientSlug: string; canEdit: boolean; aiEnabled: boolean; approval: ApprovalSetup | null }) {
   const [filter, setFilter] = useState<Filter>("")
   const count = (s: SeqStatus) => pieces.filter((p) => p.seqStatus === s).length
   const rows = pieces.filter((p) => !filter || p.seqStatus === filter)
@@ -49,7 +50,7 @@ export function SequenceBuilder({ pieces, all, byId, clientSlug, canEdit, aiEnab
       ) : (
         <ul className="surface divide-y">
           {rows.map((p) => (
-            <SequenceRow key={p.id} p={p} all={all} byId={byId} clientSlug={clientSlug} canEdit={canEdit} aiEnabled={aiEnabled} />
+            <SequenceRow key={p.id} p={p} all={all} byId={byId} clientSlug={clientSlug} canEdit={canEdit} aiEnabled={aiEnabled} approval={approval} />
           ))}
         </ul>
       )}
@@ -60,7 +61,7 @@ export function SequenceBuilder({ pieces, all, byId, clientSlug, canEdit, aiEnab
   )
 }
 
-function SequenceRow({ p, all, byId, clientSlug, canEdit, aiEnabled }: { p: LibraryPiece; all: LibraryPiece[]; byId: Map<string, LibraryPiece>; clientSlug: string; canEdit: boolean; aiEnabled: boolean }) {
+function SequenceRow({ p, all, byId, clientSlug, canEdit, aiEnabled, approval }: { p: LibraryPiece; all: LibraryPiece[]; byId: Map<string, LibraryPiece>; clientSlug: string; canEdit: boolean; aiEnabled: boolean; approval: ApprovalSetup | null }) {
   const router = useRouter()
   const [pending, start] = useTransition()
   const [asking, setAsking] = useState(false)
@@ -134,14 +135,7 @@ function SequenceRow({ p, all, byId, clientSlug, canEdit, aiEnabled }: { p: Libr
         </p>
         {canEdit && (
           <div className="flex flex-wrap items-center gap-2">
-            {p.seqStatus !== "approved" && (
-              <span className="inline-flex items-center gap-1">
-                <Button size="sm" disabled>
-                  {p.reapproval ? "Approve update" : "Approve sequence"}
-                </Button>
-                <Hint label="Why can't I approve yet?">Approving sends the email brief to Master Production in Notion. That part is being built next, so approval is off for now.</Hint>
-              </span>
-            )}
+            {p.seqStatus !== "approved" && approval && <ApproveDialog p={p} byId={byId} clientSlug={clientSlug} setup={approval} disabled={pending || asking} />}
             {p.seqStatus === "pending" && (
               <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => setNotRequired({ clientSlug, pieceId: p.id, notRequired: true }))}>
                 Not required

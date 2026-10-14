@@ -18,6 +18,11 @@ export const PROP = {
   priority: "Priority", // select
   statusPaid: "Status Paid", // select
   statusContent: "Status Content", // select
+  statusProofing: "Status Proofing", // select
+  statusAutomation: "Status Automation", // select
+  statusDesign: "Status Design", // select
+  statusReporting: "Status Reporting", // select
+  vertical: "Vertical", // select
 } as const
 
 /**
@@ -38,6 +43,21 @@ export type Priority = (typeof PRIORITIES)[number]
 
 /** A sprint test brief goes straight to the copywriter (Dean, 2026-09-30). An existing option. */
 export const TEST_BRIEF_STATUS_CONTENT = "Ready for Copy"
+
+/**
+ * An email sequence brief from the content library (Dean, 2026-10-14). Every value is an existing
+ * option on Master Production (checked read-only 2026-10-14), the same as the Camber content library
+ * artifact set: copy and proofing and automation to do, no design, paid or reporting work.
+ */
+export const SEQUENCE_BRIEF = {
+  productionType: "Email",
+  statusContent: "Ready for Copy",
+  statusProofing: "Pending",
+  statusAutomation: "Pending",
+  statusDesign: "N/A",
+  statusPaid: "N/A",
+  statusReporting: "N/A",
+} as const
 
 /** Sprint test briefs are named "Lumaux | Paid Media | {test name}" (Dean, 2026-09-30). */
 export const BRIEF_TITLE_PREFIX = "Lumaux | Paid Media | "

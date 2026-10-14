@@ -4,9 +4,15 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { verifySuggestion } from "@/lib/content-library/claude"
-import { libraryConfig, nextCode, STAGES } from "@/lib/content-library/config"
+import { sequenceBriefText, sequenceBriefTitle } from "@/lib/content-library/brief"
+import { libraryConfig, nextCode, notionVertical, STAGES } from "@/lib/content-library/config"
+import { loadLibrary } from "@/lib/content-library/load"
 import { codesFor } from "@/lib/content-library/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { writeDeps } from "@/lib/notion/server"
+import { createNotionAction } from "@/lib/notion/write"
+import { peopleForClient } from "@/lib/people"
+import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 
 /**
@@ -226,4 +232,67 @@ export async function addPiece(raw: z.input<typeof AddPiece>): Promise<Result & 
   }
   const slotted = d.changes.length
   return { ...done(client.slug, slotted ? `Added, and slotted into ${slotted} existing sequence${slotted === 1 ? "" : "s"}` : "Added. Its sequence is awaiting approval"), code: piece.code }
+}
+
+const Approve = z.object({
+  clientSlug: z.string().min(1).max(100),
+  pieceId: Id,
+  // Notion IDs are UUID-shaped but not always RFC-valid, so check the shape only.
+  ownerNotionId: z.string().regex(/^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+})
+
+/**
+ * "Approve sequence": sends the email sequence brief to Master Production through the one Notion
+ * write function (dry run unless Dean has switched writes on), then marks the sequence approved. A
+ * changed sequence goes out as an update. One live page per approval (brief_key).
+ */
+export async function approveSequence(raw: z.input<typeof Approve>): Promise<Result> {
+  const parsed = Approve.safeParse(raw)
+  if (!parsed.success) return { ok: false, message: "Pick a Project Lead." }
+  const { clientSlug, pieceId, ownerNotionId, dueDate } = parsed.data
+  const me = await getProfile()
+  if (!canEdit(me)) return { ok: false, message: VIEW_ONLY }
+  const supabase = await createClient()
+  const { data: client } = await supabase.from("clients").select("id, slug, notion_client_option").eq("slug", clientSlug).maybeSingle()
+  if (!client) return { ok: false, message: "This client isn't available to you." }
+  const cfg = libraryConfig(client.slug)
+  if (!cfg) return { ok: false, message: "This client has no content library." }
+  const limited = await rateLimit(supabase, "notion_write")
+  if (limited) return { ok: false, message: limited }
+
+  const pieces = await loadLibrary(supabase, client.id)
+  const piece = pieces.find((p) => p.id === pieceId)
+  if (!piece) return { ok: false, message: "That piece isn't in this client's library." }
+  if (piece.seqStatus === "approved") return { ok: false, message: "This sequence is already approved." }
+  if (!piece.emails.some((e) => e.targetId || e.handoff)) return { ok: false, message: "Set at least one email before approving." }
+  const person = (await peopleForClient(supabase, client.id)).find((p) => p.notionUserId === ownerNotionId)
+  if (!person) return { ok: false, message: "Pick a Project Lead." }
+
+  const { data: row } = await supabase.from("content_pieces").select("approval_round").eq("id", piece.id).single()
+  const round = (row?.approval_round ?? 0) + 1
+  const byId = new Map(pieces.map((p) => [p.id, p]))
+  const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")
+  const libraryPath = `/clients/${client.slug}/library?view=sequences`
+  const res = await createNotionAction(writeDeps(), {
+    client,
+    title: sequenceBriefTitle(piece),
+    owner: { id: person.profileId ?? person.email, full_name: person.name, notion_user_id: person.notionUserId },
+    dueDate,
+    description: sequenceBriefText(piece, byId, { allVerticals: cfg.verticals, libraryUrl: `${appUrl}${libraryPath}` }),
+    appLink: libraryPath,
+    createdBy: { id: me.id, full_name: me.full_name, email: me.email },
+    sequenceBrief: { contentPieceId: piece.id, briefKey: `sequence:${piece.id}:${round}`, vertical: notionVertical(cfg, piece.verticals) },
+  })
+  if (res.status === "failed") return { ok: false, message: res.error }
+
+  // Approval is the server's (guard trigger); access was checked above through RLS. The round only
+  // moves on from the one we read, so a double click can't approve twice.
+  const { error } = await createAdminClient()
+    .from("content_pieces")
+    .update({ seq_status: "approved", reapproval: false, approved_at: new Date().toISOString(), approved_by_profile_id: me.id, approval_round: round, updated_by_profile_id: me.id })
+    .eq("id", piece.id)
+    .eq("approval_round", round - 1)
+  if (error) return { ok: false, message: "The brief was logged, but the sequence couldn't be marked approved. Try again." }
+  return done(client.slug, res.status === "created" ? "Approved. Brief sent to Master Production" : "Approved. Test mode: the brief was logged, nothing was sent to Notion")
 }
