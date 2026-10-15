@@ -22,6 +22,7 @@ import { ASSETS, CARRY_REASONS, evaluate, METRICS, type Stage, type TestTotals }
 import { isLever, LEVER_KEYS, LEVERS } from "@/lib/taxonomy"
 import { cn } from "@/lib/utils"
 import { BriefDialog } from "./brief-form"
+import { GoogleAdsBuild } from "./google-ads-build"
 import { clearOutcome, markLive, markReadyManually, renameTest, saveFindings, setOutcome, setTestLever } from "./test-actions"
 import { TestPanel, VerdictChip } from "./test-panel"
 
@@ -60,6 +61,8 @@ export function TestCard(props: {
   previews?: PreviewMap
   /** Admins and GTM leads can rename the test (Dean, 2026-09-30). */
   canRename?: boolean
+  /** Admins, GTM leads and the specialist can create paused ads and pause ads in Google Ads (Dean, 2026-10-15). */
+  canBuildGoogle?: boolean
 }) {
   const { test: t, stage } = props
   const [pending, start] = useTransition()
@@ -97,6 +100,19 @@ export function TestCard(props: {
     t.call_commitment_id && <CallTag key="c" />,
   ].filter(Boolean)
 
+  // Google Ads tests can be built from the card once the brief is out (Dean, 2026-10-15).
+  const buildGoogle =
+    props.canBuildGoogle && t.platform === "google_ads" && (stage === "in_production" || stage === "ready" || stage === "live") ? (
+      <GoogleAdsBuild
+        testId={t.id}
+        campaigns={props.campaigns}
+        defaultCampaignId={t.campaign_ids?.[0]}
+        currency={props.currency}
+        disabled={pending}
+        onDone={(r) => setMsg(r)}
+      />
+    ) : null
+
   // The one next step for this stage, shown in the footer.
   let primary: React.ReactNode = null
   if (editable && panel === null) {
@@ -113,26 +129,39 @@ export function TestCard(props: {
       )
     else if (stage === "in_production" && !t.notion_page_id)
       primary = (
-        <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => markReadyManually(t.id))}>
-          Mark ready
-        </Button>
+        <>
+          {buildGoogle}
+          <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => markReadyManually(t.id))}>
+            Mark ready
+          </Button>
+        </>
       )
+    else if (stage === "in_production") primary = buildGoogle
     else if (stage === "ready")
       primary = (
-        <Button size="sm" onClick={openLive}>
-          Mark live
-        </Button>
+        <>
+          {buildGoogle}
+          <Button size="sm" onClick={openLive}>
+            Mark live
+          </Button>
+        </>
       )
     else if (stage === "live" && t.campaign_ids?.length)
-      primary = props.detail ? (
-        <Button size="sm" onClick={() => setResultsOpen(true)}>
-          View results
-        </Button>
-      ) : (
-        <Button size="sm" onClick={() => setPanel("findings")}>
-          Add findings
-        </Button>
+      primary = (
+        <>
+          {buildGoogle}
+          {props.detail ? (
+            <Button size="sm" onClick={() => setResultsOpen(true)}>
+              View results
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => setPanel("findings")}>
+              Add findings
+            </Button>
+          )}
+        </>
       )
+    else if (stage === "live") primary = buildGoogle
   }
 
   return (

@@ -22,6 +22,8 @@ export const LIMITS = {
   manual_call: { max: 10, seconds: 86400, what: "calls added by hand a day" },
   negative_push: { max: 30, seconds: 86400, what: "negative keyword pushes a day" },
   term_review: { max: 12, seconds: 86400, what: "search term checks a day" },
+  // Google Ads ads from a sprint test (2026-10-15): one create, or one batch of pauses, counts once.
+  google_ad_write: { max: 30, seconds: 86400, what: "Google Ads ad changes a day" },
   // Aikido, 2026-10-13: everything else that calls Claude or Notion, or fetches from outside.
   brain_brief: { max: 12, seconds: 86400, what: "brief rebuilds a day" },
   brain_note: { max: 100, seconds: 86400, what: "notes a day" },

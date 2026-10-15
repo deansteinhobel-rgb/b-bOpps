@@ -10,3 +10,6 @@ export async function canPushNegatives(me: Profile, clientId: string) {
   const { data } = await supabase.from("client_team").select("role").eq("client_id", clientId).eq("profile_id", me.id).eq("role", "specialist").is("removed_at", null).limit(1)
   return (data ?? []).length > 0
 }
+
+/** Who may create paused search ads and pause ads from a sprint test (Dean, 2026-10-15): the same people as negatives. */
+export const canWriteGoogleAds = canPushNegatives
