@@ -164,15 +164,17 @@ async function write(
   try {
     const r = await send()
     const createdId = w.operation === "create_responsive_search_ad" && !r.isError ? createdAdId(r.result) : null
-    // A refused write frees its key, so the same ad can be tried again.
+    // Only a clear refusal from Windsor frees the key, so the same ad can be tried again.
     await finish({ success: !r.isError, response: r.result ?? null, ...(createdId ? { ad_id: createdId } : {}), ...(r.isError ? { idempotency_key: null } : {}) })
     return r.isError
       ? { adGroupId: w.adGroupId, adId: w.adId, status: "failed", logId, error: resultText(r.result) || "Windsor refused it." }
       : { adGroupId: w.adGroupId, adId: createdId ?? w.adId, status: "sent", logId }
   } catch (e) {
     const message = (e as Error).message
-    await finish({ success: false, response: { error: message }, idempotency_key: null })
-    return { adGroupId: w.adGroupId, adId: w.adId, status: "failed", logId, error: message }
+    // A timeout or dropped connection may still have created the ad, so the key stays (Aikido):
+    // check Google Ads before making it again.
+    await finish({ success: false, response: { error: message } })
+    return { adGroupId: w.adGroupId, adId: w.adId, status: "failed", logId, error: `${message}. Google Ads may still have created the ad: check there before trying again.` }
   }
 }
 

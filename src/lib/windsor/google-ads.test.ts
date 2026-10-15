@@ -119,6 +119,14 @@ describe("createSearchAd", () => {
     expect(calls[0].args[0]).toMatchObject({ idempotency_key: "k1" })
     expect(calls[1].args[0]).toMatchObject({ success: false, idempotency_key: null })
   })
+  it("keeps the key when the outcome is uncertain (a timeout may still have created the ad)", async () => {
+    const { db, calls } = fakeDb()
+    const windsor = { ...fakeWindsor(), createSearchAd: vi.fn(async () => { throw new Error("timeout") }) }
+    const r = await createSearchAd({ db, windsor, env: LIVE }, { ...target, idempotencyKey: "k1", adGroupId: "148312638842", copy })
+    expect(r.ok).toBe(false)
+    expect(r.writes[0].error).toContain("may still have created")
+    expect(calls[1].args[0]).not.toHaveProperty("idempotency_key")
+  })
   it("respects WINDSOR_LIVE_CLIENTS", async () => {
     const { db } = fakeDb()
     const windsor = fakeWindsor()
