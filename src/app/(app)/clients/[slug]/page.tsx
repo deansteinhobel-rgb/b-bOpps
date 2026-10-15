@@ -11,6 +11,7 @@ import { GlanceCards } from "./_glance/glance-cards"
 import { loadGoals, monthName, spendOf } from "./_glance/glance-data"
 import { SpendBreakdown } from "./_glance/spend-breakdown"
 import { cprTone, paceWords } from "./_glance/tones"
+import { loadTargets } from "@/lib/targets"
 
 export const metadata = { title: "Summary" }
 
@@ -26,16 +27,18 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
   if (!client) notFound()
   const cur = client.currency
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
+  const targetsP = loadTargets(supabase, client.id, client.monthly_kpi_target)
   const today = londonToday()
   const period = sprintOf(today)
   const throughP = latestDataDay(supabase, client.id)
 
   // Pages load in pieces (Dean, 2026-10-15): only the month line, the tiles and the spend card wait;
   // the Ads, What's changed and What's planned cards stream in with a spinner while they load.
-  const [numbers, pacing, goals] = await Promise.all([
+  const [numbers, pacing, goals, targets] = await Promise.all([
     getAccountNumbers(supabase, client.id, throughP),
     cachedPacing(client.id), // access confirmed above (client loaded through RLS)
     loadGoals(supabase, client.id, today),
+    targetsP,
   ])
   const { budget, expected, platforms } = spendOf(numbers, pacing)
   return (
@@ -44,6 +47,7 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
       name={client.name}
       currency={cur}
       target={target}
+      targets={targets}
       numbers={numbers}
       month={numbers ? monthName(numbers.month) : null}
       budget={budget}
@@ -52,7 +56,7 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
       canEditGoals={canEdit(me)}
       platforms={platforms}
       headline={numbers ? <Headline name={client.name} currency={cur} target={target} budget={budget} expected={expected} month={monthName(numbers.month)} spend={numbers.mtd.spend} results={numbers.mtd.results} cpr={numbers.mtd.cpr} /> : null}
-      spendDetail={numbers && platforms.length > 0 ? <SpendBreakdown slug={slug} currency={cur} target={target} platforms={platforms} campaigns={numbers.campaigns} total={numbers.mtd.spend} /> : null}
+      spendDetail={numbers && platforms.length > 0 ? <SpendBreakdown slug={slug} currency={cur} targets={targets} platforms={platforms} campaigns={numbers.campaigns} total={numbers.mtd.spend} /> : null}
       cards={<GlanceCards supabase={supabase} slug={slug} client={client} today={today} period={period} through={throughP} />}
     />
   )

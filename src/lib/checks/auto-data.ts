@@ -9,6 +9,7 @@ import type { Overview } from "@/lib/metrics/overview"
 
 const keyOf = (a: { platform: string; external_account_id: string; ad_id: string }) => `${a.platform}|${a.external_account_id}|${a.ad_id}`
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
+import { describeTargets, targetFor, type Targets } from "@/lib/targets"
 
 export type AutoData = {
   dataThrough: string
@@ -21,7 +22,7 @@ export type AutoData = {
 
 const platforms = (o: Overview) => o.pacing.map((p) => p.platform)
 
-export function buildAutoData(key: string, o: Overview, ctx: { currency: string; target: number | null; weekStart: string }): AutoData | null {
+export function buildAutoData(key: string, o: Overview, ctx: { currency: string; targets: Targets; weekStart: string }): AutoData | null {
   const cur = ctx.currency
   const base = { dataThrough: o.dataThrough }
   const last7 = (p: Platform) => totals(o.daily, addDays(o.dataThrough, -6), o.dataThrough, p)
@@ -145,8 +146,8 @@ export function buildAutoData(key: string, o: Overview, ctx: { currency: string;
       const monthStart = o.dataThrough.slice(0, 8) + "01"
       const prevEnd = addDays(monthStart, -1)
       const prevStart = prevEnd.slice(0, 8) + "01"
-      const status = (cpr: number | null) =>
-        ctx.target === null || cpr === null ? undefined : cpr <= ctx.target ? "green" : cpr <= ctx.target * 1.2 ? "amber" : "red"
+      // Each platform against its own target, blended against the client's (src/lib/targets.ts).
+      const status = (cpr: number | null, target: number | null): "green" | "amber" | "red" | undefined => (target === null || cpr === null ? undefined : cpr <= target ? "green" : cpr <= target * 1.2 ? "amber" : "red")
       const row = (label: string, p?: Platform) => {
         const now = totals(o.daily, monthStart, o.dataThrough, p)
         const prev = totals(o.daily, prevStart, prevEnd, p)
@@ -155,12 +156,21 @@ export function buildAutoData(key: string, o: Overview, ctx: { currency: string;
       const blended = totals(o.daily, monthStart, o.dataThrough)
       return {
         ...base,
-        note: `Month to date vs target ${money(ctx.target, cur)} per result. Previous month for trend.`,
+        note: `Month to date vs target ${describeTargets(ctx.targets, (v) => money(v, cur), "–")} per result. Previous month for trend.`,
         table: {
           columns: ["", "Spend MTD", "Results MTD", "Cost/result MTD", "Cost/result last month"],
           rows: [...platforms(o).map((p) => row(PLATFORM_LABEL[p], p)), row("Blended")],
         },
-        facts: [{ label: "Blended vs target", value: money(blended.costPerResult, cur), status: status(blended.costPerResult) }],
+        facts: [
+          { label: "Blended vs target", value: money(blended.costPerResult, cur), status: status(blended.costPerResult, ctx.targets.client) },
+          // Platforms with their own target get their own line.
+          ...platforms(o)
+            .filter((p) => ctx.targets.platforms[p])
+            .map((p) => {
+              const cpr = totals(o.daily, monthStart, o.dataThrough, p).costPerResult
+              return { label: `${PLATFORM_LABEL[p]} vs its ${money(ctx.targets.platforms[p]!, cur)} target`, value: money(cpr, cur), status: status(cpr, targetFor(ctx.targets, p)) }
+            }),
+        ],
       }
     }
 

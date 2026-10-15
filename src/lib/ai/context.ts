@@ -5,6 +5,7 @@ import { briefForPrompt } from "@/lib/knowledge/brief"
 import { addDays, type DailyRow } from "@/lib/metrics/ads"
 import { getOverview } from "@/lib/metrics/overview"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
+import { describeTargets, loadTargets } from "@/lib/targets"
 
 /**
  * Everything Claude reads about one client, as a compact text brief: weekly numbers per platform
@@ -25,7 +26,7 @@ export async function buildSprintContext(db: SupabaseClient, clientId: string, s
 
   const lines: string[] = []
   lines.push(`# Client: ${client.name}`)
-  lines.push(`Currency ${cur} (write amounts with the symbol, e.g. ${money(1200, cur)}, never the code). Main KPI: cost per result (spend / (conversions + leads)). Target: ${m(client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target))} per result.`)
+  lines.push(`Currency ${cur} (write amounts with the symbol, e.g. ${money(1200, cur)}, never the code). Main KPI: cost per result (spend / (conversions + leads)). Target per result: ${describeTargets(await loadTargets(db, clientId, client.monthly_kpi_target), (v) => m(v))}.`)
   lines.push(`Connected platforms (via Windsor): ${overview ? [...new Set(overview.pacing.map((p) => PLATFORM_LABEL[p.platform]))].join(", ") : "none yet"}. Google Ads counts conversions; LinkedIn and Meta count conversions + leads.`)
   lines.push(`Sprint being planned: Sprint ${sprint.number}, ${sprint.start_date} to ${sprint.end_date} (two weeks).`)
 

@@ -378,6 +378,7 @@ export default async function DesignPreview() {
               name="DNSFilter"
               currency="USD"
               target={300}
+              targets={{ client: 300, platforms: {} }}
               numbers={glanceNumbers}
               month="September"
               budget={105000}
@@ -386,7 +387,7 @@ export default async function DesignPreview() {
               canEditGoals={false}
               platforms={glancePlatforms}
               headline={<p className="max-w-5xl font-heading text-xl leading-snug sm:text-xl">DNSFilter has spent $109,768 of its $105,000 September budget and is <span className="text-rag-red">4% over the month&apos;s budget</span>. That&apos;s 402 results at <span className="text-rag-green">$273 each</span>, under the $300 target.</p>}
-              spendDetail={<SpendBreakdown slug="sample" currency="USD" target={300} platforms={glancePlatforms} campaigns={glanceNumbers.campaigns} total={glanceNumbers.mtd.spend} />}
+              spendDetail={<SpendBreakdown slug="sample" currency="USD" targets={{ client: 300, platforms: {} }} platforms={glancePlatforms} campaigns={glanceNumbers.campaigns} total={glanceNumbers.mtd.spend} />}
               cards={
                 <>
                   <GlanceCard id="ads" title="Ads" meta="last 30 days" summary={<AdsSummary best={topAds(glanceAdStats)} tiring={tiringAds(sampleAds)} previews={{}} currency="USD" />} detail={<AdsPanel slug="sample" currency="USD" best={topAds(glanceAdStats)} tiring={tiringAds(sampleAds)} unknown={0} previews={{}} />} />
@@ -506,7 +507,7 @@ export default async function DesignPreview() {
                 <PlatformSplit platforms={perfCampaigns.map((c) => ({ platform: c.platform, now: c.now }))} currency="USD" />
               </div>
             </div>
-            <CampaignTable rows={perfCampaigns} currency="USD" slug="dnsfilter" query="" target={300} />
+            <CampaignTable rows={perfCampaigns} currency="USD" slug="dnsfilter" query="" targets={{ client: 300, platforms: {} }} />
             <CampaignDetailData data={sampleGoogle} currency="USD" target={300} />
             <LandingPages rows={samplePages} />
           </section>

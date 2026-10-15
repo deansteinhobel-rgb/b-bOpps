@@ -14,6 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { type Person } from "./check-card"
 import { CheckDeck } from "./check-deck"
+import { loadTargets } from "@/lib/targets"
 
 export default async function ChecksPage({ params, searchParams }: PageProps<"/clients/[slug]/checks">) {
   const { slug } = await params
@@ -47,7 +48,7 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
   const runs = await Promise.all(runIds.map((id) => loadRun(supabase, id)))
   const actionIds = runs.flatMap((r) => r?.items.map((i) => i.result.notion_action_page_id).filter(Boolean) ?? []) as string[]
   const notionIdByProfile = new Map((profiles ?? []).map((p) => [p.id, p.notion_user_id as string | null]))
-  const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
+  const targets = await loadTargets(supabase, client.id, client.monthly_kpi_target)
   const live = notionWritesLive(slug)
   const defaultDue = addDays(londonToday(), 7)
 
@@ -56,7 +57,7 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
   const keys = new Set<string>()
   for (const loaded of runs) {
     for (const { definition, result } of loaded?.items ?? []) {
-      const d = overview ? buildAutoData(definition.key, overview, { currency: client.currency, target, weekStart: loaded!.run.period_start }) : null
+      const d = overview ? buildAutoData(definition.key, overview, { currency: client.currency, targets, weekStart: loaded!.run.period_start }) : null
       liveData.set(result.id, d)
       for (const k of [...(d?.adKeys ?? []), ...(((result.auto_data as AutoData | null)?.adKeys) ?? [])]) if (k) keys.add(k)
     }
