@@ -1,7 +1,7 @@
 import "server-only"
 import type { Client } from "@notionhq/client"
 import { normId, otherClientsNotion } from "@/lib/knowledge/boundaries"
-import { NOTION_VERSION } from "@/lib/notion/config"
+import { CONTENT_BANK, NOTION_VERSION } from "@/lib/notion/config"
 import { readOnlyNotion } from "@/lib/notion/readonly"
 import { throttled } from "@/lib/notion/throttle"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -148,6 +148,8 @@ async function databaseText(n: Client, id: string): Promise<string> {
   const db = (await throttled(() => n.databases.retrieve({ database_id: id }))) as unknown as { data_sources?: { id: string }[] }
   const ds = db.data_sources?.[0]?.id
   if (!ds) return "[No readable data source]"
+  // The Content Bank holds every client's content (also when it shows up as a linked view in an HQ): it's only read row by row, for the client each row names.
+  if (normId(ds) === normId(CONTENT_BANK.dataSourceId) || normId(id) === normId(CONTENT_BANK.databaseId)) return "[The Content Bank: read separately, only the rows for this client]"
   const rows: string[] = []
   let cursor: string | undefined
   do {
@@ -183,7 +185,7 @@ export async function discoverClientHq(clientId: string, opts: { full?: boolean 
 async function fullDiscover(clientId: string, rootId: string) {
   const db = createAdminClient()
   const found = await discoverHq(rootId, await otherClientsNotion(clientId))
-  const { data: existing } = await db.from("client_knowledge").select("id, notion_page_id").eq("client_id", clientId).eq("source", "notion")
+  const { data: existing } = await db.from("client_knowledge").select("id, notion_page_id").eq("client_id", clientId).eq("source", "notion").is("notion_collection", null)
   const known = new Set((existing ?? []).map((e) => e.notion_page_id))
   const now = new Date().toISOString()
   const fresh = found.filter((f) => !known.has(f.id))
@@ -204,7 +206,7 @@ const norm = (id: string) => id.replace(/-/g, "")
 async function changedSince(clientId: string, rootId: string, since: string) {
   const db = createAdminClient()
   const n = notion()
-  const { data: rows } = await db.from("client_knowledge").select("id, notion_page_id, path, title").eq("client_id", clientId).eq("source", "notion").is("removed_at", null)
+  const { data: rows } = await db.from("client_knowledge").select("id, notion_page_id, path, title").eq("client_id", clientId).eq("source", "notion").is("notion_collection", null).is("removed_at", null)
   const known = new Map((rows ?? []).map((r) => [norm(r.notion_page_id!), r]))
   const cutoff = new Date(Date.parse(since) - 5 * 60_000).toISOString()
   const others = await otherClientsNotion(clientId)
@@ -270,7 +272,7 @@ async function changedSince(clientId: string, rootId: string, since: string) {
 
 /** Included HQ pages that need reading: never read, edited in Notion since, or read before `since`. */
 async function staleIncluded(clientId: string, since?: string) {
-  const { data } = await createAdminClient().from("client_knowledge").select("id, notion_page_id, notion_kind, last_edited_time, synced_at, content").eq("client_id", clientId).eq("source", "notion").eq("include", true).is("removed_at", null)
+  const { data } = await createAdminClient().from("client_knowledge").select("id, notion_page_id, notion_kind, last_edited_time, synced_at, content").eq("client_id", clientId).eq("source", "notion").is("notion_collection", null).eq("include", true).is("removed_at", null)
   return (data ?? []).filter((k) => !k.content || !k.synced_at || (k.last_edited_time && k.last_edited_time > k.synced_at) || (since && k.synced_at < since))
 }
 
@@ -318,6 +320,6 @@ export async function syncClientHq(clientId: string, opts: { force?: boolean } =
 
 /** Reads one page on demand (after an admin ticks it). */
 export async function readHqPage(knowledgeId: string) {
-  const { data: k } = await createAdminClient().from("client_knowledge").select("id, client_id, notion_page_id, notion_kind").eq("id", knowledgeId).eq("source", "notion").single()
+  const { data: k } = await createAdminClient().from("client_knowledge").select("id, client_id, notion_page_id, notion_kind").eq("id", knowledgeId).eq("source", "notion").is("notion_collection", null).single()
   if (k) await readInto(k.id, k.notion_page_id!, k.notion_kind as "page" | "database", await otherClientsNotion(k.client_id))
 }

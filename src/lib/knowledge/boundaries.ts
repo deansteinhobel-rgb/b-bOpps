@@ -1,5 +1,6 @@
 import "server-only"
 import type { Client } from "@notionhq/client"
+import { CONTENT_BANK } from "@/lib/notion/config"
 import { throttled } from "@/lib/notion/throttle"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -7,13 +8,15 @@ import { createAdminClient } from "@/lib/supabase/admin"
  * Client isolation for the Notion reads that feed the Client brain (Aikido, 2026-10-13: cross-tenant
  * isolation). Every client's GTM HQ page, and its own call notes source, belongs to that client: another
  * client's reads never step into them. Shared regional call databases (one row per call, told apart by
- * a Client option) are left out, because several clients read them by design.
+ * a Client option) are left out, because several clients read them by design. The Content Bank is in:
+ * it's only read through `content-bank.ts`, one row at a time.
  */
 export const normId = (id: string) => id.replace(/-/g, "").toLowerCase()
 
 export async function otherClientsNotion(clientId: string): Promise<Set<string>> {
   const { data } = await createAdminClient().from("clients").select("id, notion_hq_page_id, call_notes_notion_id, call_notes_client_option").neq("id", clientId)
-  const ids = new Set<string>()
+  // The Content Bank (every client's content in one database) is never read whole: only row by row, for the client each row names.
+  const ids = new Set<string>([normId(CONTENT_BANK.databaseId), normId(CONTENT_BANK.dataSourceId)])
   for (const c of data ?? []) {
     if (c.notion_hq_page_id) ids.add(normId(c.notion_hq_page_id))
     if (c.call_notes_notion_id && !c.call_notes_client_option) ids.add(normId(c.call_notes_notion_id))
