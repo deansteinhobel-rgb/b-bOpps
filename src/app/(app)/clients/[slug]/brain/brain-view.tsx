@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState, useTransition } from "react"
+import { useRef, useState, useTransition, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import ReactMarkdown from "react-markdown"
 import { createClient as createSupabase } from "@supabase/supabase-js"
@@ -8,6 +8,7 @@ import { ChevronDown, FileText, X } from "lucide-react"
 import { Sparkle } from "@/components/fx/sparkle"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { CONTENT_BANK } from "@/lib/notion/config"
 import { cn } from "@/lib/utils"
 import { addNote, finishUpload, removeFile, removeNote, saveBriefEdit, setHqPageIncluded, startUpload } from "./actions"
 
@@ -15,6 +16,7 @@ export type Brief = { id: string; content: string | null; written_by: "claude" |
 export type Knowledge = {
   id: string
   source: "notion" | "note" | "file"
+  notion_collection: "content_bank" | null
   notion_page_id: string | null
   notion_kind: "page" | "database" | null
   path: string | null
@@ -39,18 +41,19 @@ const date = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric",
 const kchars = (n: number | null) => (!n ? "" : n < 1000 ? `${n} chars` : `${Math.round(n / 1000)}k chars`)
 
 /**
- * The Client brain: the brief Claude writes from the client's Notion HQ, team must-knows and
- * files. "Pour me a sprint" reads the brief and must-knows every time.
+ * The Client brain: the brief Claude writes from the client's Notion HQ, its Content Bank entries,
+ * team must-knows and files. "Pour me a sprint" reads the brief and must-knows every time.
  */
 export function BrainView(props: { slug: string; clientName: string; hqPageId: string | null; canAdmin: boolean; aiReady: boolean; brief: Brief | null; generating: string | null; lastFailed: string | null; knowledge: Knowledge[] }) {
   const router = useRouter()
   const [status, setStatus] = useState<string | null>(props.generating ? "Writing the brief…" : null)
   const [error, setError] = useState<string | null>(props.lastFailed && props.lastFailed !== UNCHANGED ? props.lastFailed : null)
   const busy = status !== null
-  const notion = props.knowledge.filter((k) => k.source === "notion")
+  const notion = props.knowledge.filter((k) => k.source === "notion" && !k.notion_collection)
+  const bank = props.knowledge.filter((k) => k.notion_collection === "content_bank")
   const notes = props.knowledge.filter((k) => k.source === "note")
   const files = props.knowledge.filter((k) => k.source === "file")
-  const included = notion.filter((k) => k.include)
+  const included = [...notion, ...bank].filter((k) => k.include)
 
   const call = async (body: object) => {
     const res = await fetch("/api/client-brain", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ clientSlug: props.slug, ...body }) })
@@ -67,13 +70,13 @@ export function BrainView(props: { slug: string; clientName: string; hqPageId: s
       return d.status === "ready" ? "Brief updated." : "Already up to date."
     }
   }
-  /** Refresh: find HQ pages → read changed ones in batches → rebuild the brief. */
+  /** Refresh: find HQ pages and Content Bank rows → read changed ones in batches → rebuild the brief. */
   const refresh = async (opts: { force?: boolean; notion?: boolean } = {}) => {
     setError(null)
     try {
       const since = opts.force ? new Date().toISOString() : undefined
-      if (opts.notion !== false && props.hqPageId) {
-        setStatus("Looking through the Notion HQ…")
+      if (opts.notion !== false) {
+        setStatus(props.hqPageId ? "Looking through the Notion HQ and the Content Bank…" : "Looking through the Content Bank…")
         await call({ step: "discover", force: opts.force })
         let total: number | null = null
         let done = 0
@@ -81,7 +84,7 @@ export function BrainView(props: { slug: string; clientName: string; hqPageId: s
           const r = (await call({ step: "read", since })) as { read: number; remaining: number }
           done += r.read
           total ??= r.read + r.remaining
-          setStatus(`Reading HQ pages: ${done} of ${total}…`)
+          setStatus(`Reading Notion pages: ${done} of ${total}…`)
           if (r.remaining === 0 || r.read === 0) break
         }
       }
@@ -105,7 +108,7 @@ export function BrainView(props: { slug: string; clientName: string; hqPageId: s
         <div className="max-w-2xl space-y-1">
           <h2 className="text-2xl">Client brain</h2>
           <p className="text-sm text-muted-foreground">
-            Everything we know about {props.clientName}: the Notion HQ, the team&apos;s must-knows and uploaded files, condensed into one brief. Pour me a sprint reads it every time.
+            Everything we know about {props.clientName}: the Notion HQ, the Content Bank, the team&apos;s must-knows and uploaded files, condensed into one brief. Pour me a sprint reads it every time.
           </p>
         </div>
         {props.canAdmin && (
@@ -136,7 +139,40 @@ export function BrainView(props: { slug: string; clientName: string; hqPageId: s
         </div>
       </div>
 
-      <HqSources slug={props.slug} hqPageId={props.hqPageId} pages={notion} canAdmin={props.canAdmin} />
+      <NotionSources
+        slug={props.slug}
+        title="From the Notion HQ"
+        intro={
+          props.hqPageId ? (
+            <>
+              Read only. {notion.filter((p) => p.include).length} of {notion.length} pages count toward the brief.{" "}
+              <a href={notionUrl(props.hqPageId)} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+                Open the HQ
+              </a>
+            </>
+          ) : (
+            "No HQ page linked for this client yet."
+          )
+        }
+        empty={props.hqPageId ? "Not read yet. Refresh to find the HQ's pages." : null}
+        pages={notion}
+        canAdmin={props.canAdmin}
+      />
+      <NotionSources
+        slug={props.slug}
+        title="From the Content Bank"
+        intro={
+          <>
+            Read only. Entries in B&amp;B&apos;s Content Bank whose Client is {props.clientName}: {bank.filter((p) => p.include).length} of {bank.length} count toward the brief and content ideas.{" "}
+            <a href={notionUrl(CONTENT_BANK.databaseId)} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
+              Open the Content Bank
+            </a>
+          </>
+        }
+        empty={`None yet. Add a row to the Content Bank with ${props.clientName} as its Client, then refresh.`}
+        pages={bank}
+        canAdmin={props.canAdmin}
+      />
     </div>
   )
 }
@@ -309,13 +345,14 @@ function Files({ slug, files }: { slug: string; files: Knowledge[] }) {
   )
 }
 
-function HqSources({ slug, hqPageId, pages, canAdmin }: { slug: string; hqPageId: string | null; pages: Knowledge[]; canAdmin: boolean }) {
+const notionUrl = (id: string) => `https://www.notion.so/${id.replace(/-/g, "")}`
+
+function NotionSources({ slug, title, intro, empty, pages, canAdmin }: { slug: string; title: string; intro: ReactNode; empty: string | null; pages: Knowledge[]; canAdmin: boolean }) {
   const [showOff, setShowOff] = useState(false)
   const [pending, start] = useTransition()
   const [msg, setMsg] = useState<string | null>(null)
   const on = pages.filter((p) => p.include)
   const off = pages.filter((p) => !p.include)
-  const url = (id: string) => `https://www.notion.so/${id.replace(/-/g, "")}`
   const toggle = (p: Knowledge) => start(async () => { const r = await setHqPageIncluded(slug, p.id, !p.include); setMsg(r.ok ? (r.message ?? null) : (r.message ?? "Couldn't save.")) })
   const row = (p: Knowledge) => (
     <li key={p.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
@@ -332,7 +369,7 @@ function HqSources({ slug, hqPageId, pages, canAdmin }: { slug: string; hqPageId
       ) : (
         p.include && <span className="hidden shrink-0 text-[11px] text-muted-foreground sm:block">{p.synced_at ? `${kchars(p.content_chars)} · read ${date(p.synced_at)}` : "Not read yet"}</span>
       )}
-      <a href={url(p.notion_page_id!)} target="_blank" rel="noreferrer" className="shrink-0 text-[11px] text-muted-foreground underline hover:text-foreground">
+      <a href={notionUrl(p.notion_page_id!)} target="_blank" rel="noreferrer" className="shrink-0 text-[11px] text-muted-foreground underline hover:text-foreground">
         Open
       </a>
     </li>
@@ -341,19 +378,8 @@ function HqSources({ slug, hqPageId, pages, canAdmin }: { slug: string; hqPageId
     <section className="surface overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
         <div>
-          <h3 className="text-sm font-semibold">From the Notion HQ</h3>
-          <p className="text-xs text-muted-foreground">
-            {hqPageId ? (
-              <>
-                Read only. {on.length} of {pages.length} pages count toward the brief.{" "}
-                <a href={url(hqPageId)} target="_blank" rel="noreferrer" className="underline hover:text-foreground">
-                  Open the HQ
-                </a>
-              </>
-            ) : (
-              "No HQ page linked for this client yet."
-            )}
-          </p>
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <p className="text-xs text-muted-foreground">{intro}</p>
         </div>
         {msg && <span className="text-xs text-lime">{msg}</span>}
       </div>
@@ -366,7 +392,7 @@ function HqSources({ slug, hqPageId, pages, canAdmin }: { slug: string; hqPageId
           {showOff && <ul className="divide-y border-t">{off.map(row)}</ul>}
         </>
       )}
-      {pages.length === 0 && hqPageId && <p className="px-4 py-4 text-xs text-muted-foreground">Not read yet. Refresh to find the HQ&apos;s pages.</p>}
+      {pages.length === 0 && empty && <p className="px-4 py-4 text-xs text-muted-foreground">{empty}</p>}
     </section>
   )
 }

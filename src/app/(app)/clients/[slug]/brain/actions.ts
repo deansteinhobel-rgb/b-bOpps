@@ -4,6 +4,7 @@ import { after } from "next/server"
 import { revalidatePath } from "next/cache"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { FILE_BUCKET, isClientFilePath } from "@/lib/knowledge/brief"
+import { readContentBankEntry } from "@/lib/knowledge/content-bank"
 import { readHqPage } from "@/lib/knowledge/notion-hq"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -96,18 +97,18 @@ export async function removeFile(slug: string, id: string): Promise<BrainResult>
   return { ok: true }
 }
 
-/** Tick or untick an HQ page. Ticking reads it straight away (read only). Anyone who can edit the client. */
+/** Tick or untick an HQ page or Content Bank entry. Ticking reads it straight away (read only). Anyone who can edit the client. */
 export async function setHqPageIncluded(slug: string, id: string, include: boolean): Promise<BrainResult> {
   if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const { clientId } = await clientFor(slug)
   if (!clientId) return fail("This client isn't available to you.")
   const db = createAdminClient()
-  const { data: row, error } = await db.from("client_knowledge").update({ include, updated_at: new Date().toISOString() }).eq("id", id).eq("client_id", clientId).eq("source", "notion").select("content").single()
+  const { data: row, error } = await db.from("client_knowledge").update({ include, updated_at: new Date().toISOString() }).eq("id", id).eq("client_id", clientId).eq("source", "notion").select("content, notion_collection").single()
   if (error) return fail("Couldn't save.")
   if (include && !row?.content) {
     const limited = await rateLimit(await createClient(), "hq_page_read")
     if (limited) return fail(limited)
-    after(() => readHqPage(id))
+    after(() => (row.notion_collection === "content_bank" ? readContentBankEntry(id) : readHqPage(id)))
   }
   refresh(slug)
   return { ok: true, message: include && !row?.content ? "Reading it from Notion now." : undefined }
