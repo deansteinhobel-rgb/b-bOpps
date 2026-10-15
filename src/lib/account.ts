@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { addDays } from "@/lib/metrics/ads"
 import type { Platform } from "@/lib/metrics/types"
 import { rpcAll } from "@/lib/supabase/rpc-all"
+import { dataRanges } from "@/lib/metrics/data-range"
 
 /**
  * At a glance's numbers (Dean, 2026-09-29: a holistic view for account managers): this month to
@@ -26,11 +27,17 @@ const totals = (rows: { spend: number; results: number; clicks: number; impressi
   return { ...t, cpr: t.results > 0 ? t.spend / t.results : null }
 }
 
-export async function getAccountNumbers(supabase: SupabaseClient, clientId: string): Promise<AccountNumbers | null> {
-  const { data: range, error } = await supabase.from("account_data_range").select("data_through").eq("client_id", clientId)
+/** The latest synced day across the client's ad accounts, or null when there's no ad data yet. */
+export async function latestDataDay(supabase: SupabaseClient, clientId: string): Promise<string | null> {
+  const { data: range, error } = await dataRanges(supabase, clientId)
   // A failed read (e.g. a timeout) must not look like "no ad data yet".
   if (error) throw new Error(`Couldn't read the data range: ${error.message}`)
-  const dataThrough = (range ?? []).map((r) => r.data_through as string).sort().at(-1)
+  return (range ?? []).map((r) => r.data_through as string).sort().at(-1) ?? null
+}
+
+/** Pass `through` (from latestDataDay) when the caller already has it, so it isn't read twice. */
+export async function getAccountNumbers(supabase: SupabaseClient, clientId: string, through?: Promise<string | null>): Promise<AccountNumbers | null> {
+  const dataThrough = await (through ?? latestDataDay(supabase, clientId))
   if (!dataThrough) return null
   const month = `${dataThrough.slice(0, 7)}-01`
   const day = Number(dataThrough.slice(8, 10))

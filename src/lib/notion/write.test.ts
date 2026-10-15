@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { commentRichText, createNotionAction, type ActionInput, type WriteDb, type WriteDeps } from "./write"
+import { commentRichText, createNotionAction, formattedRichText, type ActionInput, type WriteDb, type WriteDeps } from "./write"
 
 // A fake Supabase that records every call, in order.
 function fakeDb(opts: { failLogInsert?: boolean; duplicate?: boolean } = {}) {
@@ -157,6 +157,14 @@ describe("createNotionAction: live write (mocked Notion)", () => {
     expect(sent.properties["Date of Brief - Completion of Project"]).toEqual({ date: { start: "2026-10-05" } })
     expect(sent.properties["Brief Submitted by"]).toEqual({ rich_text: [{ type: "text", text: { content: "B&B Ops app · Dean Steinhobel" } }] })
     expect(sent.properties["QA Document"]).toEqual({ url: "http://localhost:3000/clients/camber/checks?result=result-1" })
+  })
+
+  it("leaves Description of Request off when there's no description (test briefs put the plan in the comment)", async () => {
+    const { db } = fakeDb()
+    const notion = fakeNotion()
+    await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, { ...input, description: "  " })
+    const sent = (notion.pages.create.mock.calls[0] as unknown[])[0] as { properties: Record<string, unknown> }
+    expect(sent.properties).not.toHaveProperty("Description of Request")
   })
 
   it("splits long findings into Notion's 2,000-character text pieces", async () => {
@@ -318,5 +326,91 @@ describe("commentRichText links", () => {
       { type: "text", text: { content: ") " } },
       { type: "mention", mention: { user: { id: "notion-kieran" } } },
     ])
+  })
+})
+
+describe("formattedRichText (Dean, 2026-10-15: briefs easier to digest)", () => {
+  it("turns **bold** into bold text and [label](link) into a link on the label", () => {
+    expect(formattedRichText("**What we need from copy**\n• Search Ad ([template](https://docs.google.com/s)) and https://x.com/a.")).toEqual([
+      { type: "text", text: { content: "What we need from copy" }, annotations: { bold: true } },
+      { type: "text", text: { content: "\n• Search Ad (" } },
+      { type: "text", text: { content: "template", link: { url: "https://docs.google.com/s" } } },
+      { type: "text", text: { content: ") and " } },
+      { type: "text", text: { content: "https://x.com/a", link: { url: "https://x.com/a" } } },
+      { type: "text", text: { content: "." } },
+    ])
+  })
+
+  it("leaves lone asterisks and brackets alone", () => {
+    expect(formattedRichText("8 * 2 [draft] (soon)")).toEqual([{ type: "text", text: { content: "8 * 2 [draft] (soon)" } }])
+  })
+
+  it("formats the comment around mentions, and Description of Request too", async () => {
+    const rt = commentRichText("**Hi** @Kieran Smith, see [the plan](https://app/x)", [{ id: "notion-kieran", name: "Kieran Smith" }])
+    expect(rt[0]).toEqual({ type: "text", text: { content: "Hi" }, annotations: { bold: true } })
+    expect(rt).toContainEqual({ type: "text", text: { content: "the plan", link: { url: "https://app/x" } } })
+    const { db } = fakeDb()
+    const notion = fakeNotion()
+    await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, { ...input, description: "**Why:** overspend" })
+    const sent = (notion.pages.create.mock.calls[0] as unknown[])[0] as { properties: Record<string, { rich_text: unknown[] }> }
+    expect(sent.properties["Description of Request"].rich_text[0]).toEqual({ type: "text", text: { content: "Why:" }, annotations: { bold: true } })
+  })
+})
+
+describe("createNotionAction: email sequence briefs (content library, Dean 2026-10-14)", () => {
+  const seq: ActionInput = {
+    ...input,
+    title: "Lumaux | Email sequence | The ABA audit wave",
+    checkResultId: null,
+    appLink: "/clients/camber/library?view=sequences",
+    sequenceBrief: { contentPieceId: "piece-c06", briefKey: "sequence:piece-c06:1", vertical: "ABA" },
+  }
+
+  it("is a dry run by default, logged as create_sequence_brief with its piece and key", async () => {
+    const { db, calls } = fakeDb()
+    const notion = fakeNotion()
+    const res = await createNotionAction({ db, notion, env: env() }, seq)
+    expect(res.status).toBe("dry_run")
+    expect(notion.pages.create).not.toHaveBeenCalled()
+    const log = calls[0].args[0] as Record<string, unknown>
+    expect(log).toMatchObject({ operation: "create_sequence_brief", content_piece_id: "piece-c06", brief_key: "sequence:piece-c06:1", dry_run: true })
+    expect(calls.some((c) => c.table === "content_pieces")).toBe(false)
+  })
+
+  it("uses existing options only: Email, the content statuses and the vertical, and the title as given", async () => {
+    const { db } = fakeDb()
+    const res = await createNotionAction({ db, notion: null, env: env() }, seq)
+    const p = res.payload!.properties as Record<string, { select?: { name: string }; title?: { text: { content: string } }[] }>
+    const sel = (k: string) => p[k]?.select?.name
+    expect(sel("Production Type")).toBe("Email")
+    expect([sel("Status Content"), sel("Status Proofing"), sel("Status Automation")]).toEqual(["Ready for Copy", "Pending", "Pending"])
+    expect([sel("Status Design"), sel("Status Paid"), sel("Status Reporting")]).toEqual(["N/A", "N/A", "N/A"])
+    expect(sel("Vertical")).toBe("ABA")
+    expect(p.Project.title![0].text.content).toBe("Lumaux | Email sequence | The ABA audit wave")
+  })
+
+  it("leaves Vertical off when none fits", async () => {
+    const { db } = fakeDb()
+    const res = await createNotionAction({ db, notion: null, env: env() }, { ...seq, sequenceBrief: { ...seq.sequenceBrief!, vertical: null } })
+    expect(res.payload!.properties).not.toHaveProperty("Vertical")
+  })
+
+  it("live: creates one page and links it to the piece", async () => {
+    const { db, calls } = fakeDb()
+    const notion = fakeNotion()
+    const res = await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, seq)
+    expect(res.status).toBe("created")
+    expect(notion.pages.create).toHaveBeenCalledTimes(1)
+    const link = calls.find((c) => c.table === "content_pieces")!
+    expect(link.args[0]).toMatchObject({ notion_page_id: "page-1", notion_page_url: page.url })
+    expect(link.args.slice(1)).toEqual(["id", "piece-c06"])
+  })
+
+  it("never sends a second live brief for the same approval (unique brief_key)", async () => {
+    const { db } = fakeDb({ duplicate: true })
+    const notion = fakeNotion()
+    const res = await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, seq)
+    expect(res.status).toBe("failed")
+    expect(notion.pages.create).not.toHaveBeenCalled()
   })
 })

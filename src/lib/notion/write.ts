@@ -1,9 +1,10 @@
 /**
  * THE ONLY PLACE THE APP WRITES TO NOTION (CLAUDE.md "Notion write-side rules").
  *
- * It only ever CREATES pages on the Master Production board, of two kinds:
- *   - an action (from a red check or the New action form), and
- *   - a sprint test brief (briefing the team on a planned test; Dean, 2026-09-28).
+ * It only ever CREATES pages on the Master Production board, of three kinds:
+ *   - an action (from a red check or the New action form),
+ *   - a sprint test brief (briefing the team on a planned test; Dean, 2026-09-28), and
+ *   - an email sequence brief (approving a content library sequence; Dean, 2026-10-14).
  * A page can get ONE comment, added straight after the app creates it (the brief for the team, with
  * people tagged; Dean, 2026-09-30). No updates, no deletes, no edits to pages the app didn't create.
  *
@@ -12,7 +13,7 @@
  * for those clients), 3) updates the log with the result, 4) upserts the mirror so the UI shows the
  * new action straight away. If the log can't be written, Notion is never called.
  */
-import { ACTION_DEFAULTS, APP_CREATED_PREFIX, briefTitle, PROP, TEST_BRIEF_STATUS_CONTENT, type Priority } from "./config"
+import { ACTION_DEFAULTS, APP_CREATED_PREFIX, briefTitle, PROP, SEQUENCE_BRIEF, TEST_BRIEF_STATUS_CONTENT, type Priority } from "./config"
 import { toMirrorRow, type NotionPage } from "./map"
 
 export type ActionInput = {
@@ -27,6 +28,12 @@ export type ActionInput = {
   checkResultId?: string | null
   /** Set for a sprint test brief: the test the page briefs. */
   sprintTestId?: string | null
+  /**
+   * Set for an email sequence brief (content library): the piece, a key that's unique per approval
+   * (one live page each), and the existing `Vertical` option to set, if one fits. The title is used
+   * as given.
+   */
+  sequenceBrief?: { contentPieceId: string; briefKey: string; vertical: string | null } | null
   /** Overrides the "QA Document" link back into the app (a path like /clients/x/sprint, or a full URL). */
   appLink?: string
   createdBy: { id: string; full_name: string | null; email: string }
@@ -34,7 +41,7 @@ export type ActionInput = {
   comment?: { text: string; mentions: { id: string; name: string }[] } | null
 }
 
-export type WriteOperation = "create_action" | "create_test_brief" | "create_comment"
+export type WriteOperation = "create_action" | "create_test_brief" | "create_comment" | "create_sequence_brief"
 
 /** Only what createNotionAction needs from Supabase (the admin client in production, a fake in tests). */
 export type WriteDb = {
@@ -69,7 +76,7 @@ export type WriteResult =
   | { status: "failed"; logId: number | null; payload: ActionPayload | null; error: string }
 
 export type ActionPayload = { parent: { data_source_id: string }; properties: Record<string, unknown> }
-export type RichTextItem = { type: "text"; text: { content: string; link?: { url: string } } } | { type: "mention"; mention: { user: { id: string } } }
+export type RichTextItem = { type: "text"; text: { content: string; link?: { url: string } }; annotations?: { bold: true } } | { type: "mention"; mention: { user: { id: string } } }
 export type CommentPayload = { parent: { page_id: string }; rich_text: RichTextItem[] }
 
 const MAX_TEXT = 2000 // Notion's limit per rich text item
@@ -90,28 +97,46 @@ export function commentBody(text: string, mentions: Mention[]) {
   return missing.length ? `Hey ${missing.map((p) => `@${p.name}`).join(", ")}\n\n${body}` : body
 }
 
-const URL_RE = /https?:\/\/[^\s<>"]+/g
 const TRAILING_PUNCT = /[.,;:!?)\]']+$/ // "see https://x.com/a." links to https://x.com/a
+// **bold**, [label](https://link) and bare links, in that order of preference.
+const FORMAT_RE = /\*\*([^*\n]+?)\*\*|\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s<>"]+/g
 
-/** The comment's rich text: every URL becomes a link, and every "@Name" of a tagged person becomes a Notion mention (which notifies them). */
+/**
+ * Text with a little formatting as Notion rich text (Dean, 2026-10-15: briefs easier to digest): **bold**
+ * becomes bold, [label](https://…) becomes a link on the label, and any other http(s) URL becomes a link
+ * (Notion only makes text clickable when it's sent with a link).
+ */
+export function formattedRichText(text: string): RichTextItem[] {
+  const out: RichTextItem[] = []
+  const push = (content: string, extra: { link?: string; bold?: boolean } = {}) => {
+    for (let i = 0; i < content.length; i += MAX_TEXT) {
+      const piece = content.slice(i, i + MAX_TEXT)
+      out.push({ type: "text", text: { content: piece, ...(extra.link ? { link: { url: extra.link } } : {}) }, ...(extra.bold ? { annotations: { bold: true as const } } : {}) })
+    }
+  }
+  let last = 0
+  for (const m of text.matchAll(FORMAT_RE)) {
+    const at = m.index
+    let end = at + m[0].length
+    if (at > last) push(text.slice(last, at))
+    if (m[1] !== undefined) push(m[1], { bold: true })
+    else if (m[2] !== undefined) push(m[2], m[3].length <= MAX_TEXT ? { link: m[3] } : {})
+    else {
+      const url = m[0].replace(TRAILING_PUNCT, "")
+      end = at + url.length
+      push(url, url.length <= MAX_TEXT ? { link: url } : {})
+    }
+    last = end
+  }
+  if (last < text.length) push(text.slice(last))
+  return out
+}
+
+/** The comment's rich text: formatted as formattedRichText, and every "@Name" of a tagged person becomes a Notion mention (which notifies them). */
 export function commentRichText(text: string, mentions: Mention[]): RichTextItem[] {
   const people = uniquePeople(mentions).sort((a, b) => b.name.length - a.name.length) // longest name first
   const out: RichTextItem[] = []
-  const pushPlain = (t: string) => {
-    for (let i = 0; i < t.length; i += MAX_TEXT) out.push({ type: "text", text: { content: t.slice(i, i + MAX_TEXT) } })
-  }
-  // Notion only makes text clickable when it's sent with a link, so every http(s) URL becomes one.
-  const pushText = (t: string) => {
-    let last = 0
-    for (const m of t.matchAll(URL_RE)) {
-      const url = m[0].replace(TRAILING_PUNCT, "")
-      if (m.index > last) pushPlain(t.slice(last, m.index))
-      if (url.length <= MAX_TEXT) out.push({ type: "text", text: { content: url, link: { url } } })
-      else pushPlain(url)
-      last = m.index + url.length
-    }
-    if (last < t.length) pushPlain(t.slice(last))
-  }
+  const pushText = (s: string) => out.push(...formattedRichText(s))
   let rest = commentBody(text, mentions)
   while (rest) {
     let hit: { at: number; p: Mention } | null = null
@@ -162,12 +187,24 @@ export function buildActionPayload(input: ActionInput, env: Pick<WriteDeps["env"
     [PROP.status]: { status: { name: ACTION_DEFAULTS.status } },
     [PROP.productionType]: { select: { name: ACTION_DEFAULTS.productionType } },
     [PROP.createdBy]: { rich_text: richText(APP_CREATED_PREFIX + createdByName) },
-    [PROP.description]: { rich_text: richText(input.description.trim()) },
     [PROP.appLink]: { url: appLinkFor(input, env.appUrl) },
   }
+  // Left off when empty: test briefs write the plan as a comment instead.
+  if (input.description.trim()) properties[PROP.description] = { rich_text: formattedRichText(input.description.trim()).slice(0, 100) }
   if (input.dueDate) properties[PROP.dueDate] = { date: { start: input.dueDate } }
   if (input.priority) properties[PROP.priority] = { select: { name: input.priority } }
   if (input.sprintTestId) properties[PROP.statusContent] = { select: { name: TEST_BRIEF_STATUS_CONTENT } }
+  if (input.sequenceBrief) {
+    const s = SEQUENCE_BRIEF
+    properties[PROP.productionType] = { select: { name: s.productionType } }
+    properties[PROP.statusContent] = { select: { name: s.statusContent } }
+    properties[PROP.statusProofing] = { select: { name: s.statusProofing } }
+    properties[PROP.statusAutomation] = { select: { name: s.statusAutomation } }
+    properties[PROP.statusDesign] = { select: { name: s.statusDesign } }
+    properties[PROP.statusPaid] = { select: { name: s.statusPaid } }
+    properties[PROP.statusReporting] = { select: { name: s.statusReporting } }
+    if (input.sequenceBrief.vertical) properties[PROP.vertical] = { select: { name: input.sequenceBrief.vertical } }
+  }
   return { parent: { data_source_id: env.dataSourceId }, properties }
 }
 
@@ -178,7 +215,7 @@ export async function createNotionAction(deps: WriteDeps, input: ActionInput): P
   const clientAllowed = !deps.env.liveClients || deps.env.liveClients.includes(input.client.slug.toLowerCase())
   const live = deps.env.writesEnabled && !deps.env.dryRun && clientAllowed
   const payload = buildActionPayload(input, deps.env)
-  const operation: WriteOperation = input.sprintTestId ? "create_test_brief" : "create_action"
+  const operation: WriteOperation = input.sequenceBrief ? "create_sequence_brief" : input.sprintTestId ? "create_test_brief" : "create_action"
 
   // 1. Log first. No log, no write.
   const { data: log, error: logError } = await deps.db
@@ -192,10 +229,12 @@ export async function createNotionAction(deps: WriteDeps, input: ActionInput): P
       endpoint: "POST /v1/pages",
       payload,
       dry_run: !live,
+      ...(input.sequenceBrief ? { content_piece_id: input.sequenceBrief.contentPieceId, brief_key: input.sequenceBrief.briefKey } : {}),
     })
     .select("id")
     .single()
-  // A unique index allows one live page per test brief and per check action (migration 20261013000057).
+  // A unique index allows one live page per test brief and per check action (migration 20261013000057),
+  // and per sequence approval (brief_key, migration 20261014000058).
   if (logError?.code === "23505") return { status: "failed", logId: null, payload, error: "This was already sent to Notion. Refresh to see it." }
   if (logError || !log) return { status: "failed", logId: null, payload, error: `Couldn't write the log, so nothing was sent to Notion. ${logError?.message ?? ""}`.trim() }
   const logId = log.id as number
@@ -262,6 +301,9 @@ export async function createNotionAction(deps: WriteDeps, input: ActionInput): P
   if (input.checkResultId) await deps.db.from("check_results").update({ notion_action_page_id: page.id }).eq("id", input.checkResultId)
   if (input.sprintTestId) {
     await deps.db.from("sprint_tests").update({ notion_page_id: page.id, status: "briefed", briefed_at: new Date().toISOString() }).eq("id", input.sprintTestId)
+  }
+  if (input.sequenceBrief) {
+    await deps.db.from("content_pieces").update({ notion_page_id: page.id, notion_page_url: page.url, notion_briefed_at: new Date().toISOString() }).eq("id", input.sequenceBrief.contentPieceId)
   }
   const comment = await addComment(page.id)
 

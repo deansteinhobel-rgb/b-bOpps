@@ -119,9 +119,9 @@ export function linkedInPostLink(input: string): string | null {
  */
 const IMAGE_HOSTS = ["licdn.com", "fbcdn.net", "googlesyndication.com", "googleusercontent.com", "gstatic.com", "ggpht.com", "ytimg.com"]
 const POST_HOSTS = ["linkedin.com"]
-const hostAllowed = (url: URL, hosts: string[]) => url.protocol === "https:" && !url.port && hosts.some((h) => url.hostname === h || url.hostname.endsWith(`.${h}`))
+const hostAllowed = (url: URL, hosts: readonly string[]) => url.protocol === "https:" && !url.port && hosts.some((h) => url.hostname === h || url.hostname.endsWith(`.${h}`))
 
-async function fetchFrom(hosts: string[], url: string, init: RequestInit): Promise<Response> {
+export async function fetchFrom(hosts: readonly string[], url: string, init: RequestInit): Promise<Response> {
   let next = new URL(url)
   for (let hop = 0; hop < 4; hop++) {
     if (!hostAllowed(next, hosts)) throw new Error(`Not an allowed host (${next.hostname})`)

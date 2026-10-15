@@ -65,16 +65,9 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* MADE Avenue is licensed, so it isn't in the (public) repo: production loads it from the public
-   "brand" bucket (`pnpm upload:font`); public/fonts/ is a git-ignored local copy for development. */
-@font-face {
-  font-family: "MADE Avenue";
-  src: url("/fonts/MADEAvenue-Regular.otf") format("opentype"),
-    url("https://mazdffcxbgfspjemqhqx.supabase.co/storage/v1/object/public/brand/fonts/MADEAvenue-Regular.otf") format("opentype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
+/* MADE Avenue is licensed, so it isn't in the (public) repo. Its @font-face is in the root layout
+   (src/app/layout.tsx), because production loads it from the Supabase project's public "brand"
+   bucket and that address comes from NEXT_PUBLIC_SUPABASE_URL. */
 
 /* Lumaux by Bordeaux & Burgundy, on George's B&B design system (2026-10-01): a well-set magazine
    spread on a dark screen. The page is #1a1a1a; boxes are black with a 1px hairline and a 12px

@@ -351,3 +351,109 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
     console.log("FAIL: signed-in user wrote the avatars bucket directly")
   } catch { console.log("profile pictures only go through the server: OK") }
 }
+
+// Content library (migration 20261014000058): the client's team adds and edits pieces and sequences;
+// viewers and other clients' teams can't; approval, Notion and Claude's pick are the server's; archiving
+// is for admins; editing an approved sequence sends it back for approval; nothing is deleted.
+{
+  const andrea = "aaaaaaaa-0000-0000-0000-000000000002", danny = "aaaaaaaa-0000-0000-0000-000000000003", dean = "aaaaaaaa-0000-0000-0000-000000000001"
+  const camber = "11111111-1111-1111-1111-111111111111", dnsf = "22222222-2222-2222-2222-222222222222"
+  const piece = (code, client = camber) => `insert into public.content_pieces (client_id, code, title, type) values ('${client}', '${code}', 'Piece ${code}', 'Guide') returning id`
+  const tries = async (what, uid, sql) => {
+    try { await as(uid, () => q(sql)); console.log(`FAIL: ${what}`) } catch { console.log(`blocked, ${what}: OK`) }
+  }
+  const p1 = (await as(andrea, () => q(piece("C01"))))[0].id
+  const p2 = (await as(andrea, () => q(piece("C02"))))[0].id
+  const other = (await q(piece("C01", dnsf)))[0].id
+  console.log(p1 && p2 ? "team member adds content: OK" : "FAIL: team couldn't add content")
+  await tries("viewer adds content", vera, piece("C03"))
+  await tries("other client's AM adds content", danny, piece("C03"))
+  await tries("add content already approved", andrea, `insert into public.content_pieces (client_id, code, title, type, seq_status) values ('${camber}', 'C04', 'x', 'Guide', 'approved')`)
+  const slot1 = await as(andrea, () => q(`insert into public.content_sequences (piece_id, slot, client_id, target_piece_id, angle) values ('${p1}', 1, '${camber}', '${p2}', 'Go deeper') returning slot`))
+  console.log(slot1.length === 1 ? "team member sets a sequence email: OK" : "FAIL: sequence email")
+  await tries("send another client's content in a sequence", andrea, `insert into public.content_sequences (piece_id, slot, client_id, target_piece_id) values ('${p1}', 2, '${camber}', '${other}')`)
+  await tries("send a piece in its own sequence", andrea, `insert into public.content_sequences (piece_id, slot, client_id, target_piece_id) values ('${p1}', 3, '${camber}', '${p1}')`)
+  await tries("set Claude's pick by hand", andrea, `update public.content_sequences set suggested_target_piece_id = '${p2}' where piece_id = '${p1}' and slot = 1`)
+  await tries("approve a sequence by hand", andrea, `update public.content_pieces set seq_status = 'approved' where id = '${p1}'`)
+  await tries("set the Notion brief by hand", andrea, `update public.content_pieces set notion_page_id = 'abc' where id = '${p1}'`)
+  await tries("archive content (team member)", andrea, `update public.content_pieces set archived_at = now() where id = '${p2}'`)
+  await tries("change a piece's code", andrea, `update public.content_pieces set code = 'C09' where id = '${p1}'`)
+  const notReq = await as(andrea, () => q(`update public.content_pieces set seq_status = 'not_required' where id = '${p2}' returning id`))
+  const veraEdits = await as(vera, () => q(`update public.content_pieces set title = 'x' where client_id = '${camber}' returning id`))
+  const dannyEdits = await as(danny, () => q(`update public.content_pieces set title = 'x' where client_id = '${camber}' returning id`))
+  console.log(notReq.length === 1 && veraEdits.length === 0 && dannyEdits.length === 0 ? "team marks not required; viewers and other teams can't edit: OK" : `FAIL: content edit scoping (team ${notReq.length}, viewer ${veraEdits.length}, other AM ${dannyEdits.length})`)
+  // The server approves (Notion brief sent), then a team member changes the sequence.
+  await q(`update public.content_pieces set seq_status = 'approved', approved_at = now(), approval_round = 1, notion_page_id = 'n1' where id = '${p1}'`)
+  await q(`update public.content_sequences set suggested_target_piece_id = '${p2}', suggested_angle = 'Go deeper', suggested_at = now() where piece_id = '${p1}' and slot = 1`)
+  await as(andrea, () => q(`update public.content_sequences set angle = 'A sharper hook' where piece_id = '${p1}' and slot = 1`))
+  // Revert to Claude's pick (the sequence builder): the team copies Claude's pick back; the pick itself is untouched.
+  const reverted = await as(andrea, () => q(`update public.content_sequences set target_piece_id = suggested_target_piece_id, handoff = coalesce(suggested_handoff, false), angle = suggested_angle where piece_id = '${p1}' and slot = 1 returning angle`))
+  await as(andrea, () => q(`update public.content_sequences set angle = 'A sharper hook' where piece_id = '${p1}' and slot = 1`))
+  console.log(reverted.length === 1 && reverted[0].angle === "Go deeper" ? "team member reverts an email to Claude's pick: OK" : "FAIL: revert to Claude's pick")
+  const back = await q(`select seq_status, reapproval, notion_page_id from public.content_pieces where id = '${p1}'`)
+  console.log(back[0].seq_status === "pending" && back[0].reapproval && back[0].notion_page_id === "n1" ? "editing an approved sequence sends it back for approval: OK" : `FAIL: reapproval (${JSON.stringify(back[0])})`)
+  // Aikido (PR #10): approval state is the server's. A reopened sequence keeps "changed since
+  // approval"; an approved one can't be taken to "not required"; the handoff is email 3 only.
+  await tries("clear 'changed since approval'", andrea, `update public.content_pieces set reapproval = false where id = '${p1}'`)
+  await q(`update public.content_pieces set seq_status = 'approved', reapproval = false, approval_round = 2 where id = '${p1}'`)
+  await tries("take an approved sequence to not required", andrea, `update public.content_pieces set seq_status = 'not_required' where id = '${p1}'`)
+  await tries("reopen an approved sequence without flagging it", andrea, `update public.content_pieces set seq_status = 'pending' where id = '${p1}'`)
+  const reopened = await as(andrea, () => q(`update public.content_pieces set seq_status = 'pending', reapproval = true where id = '${p1}' returning id`))
+  console.log(reopened.length === 1 ? "team member reopens an approved sequence with the flag: OK" : "FAIL: reopen with the flag")
+  await tries("send the sales handoff as email 1", andrea, `insert into public.content_sequences (piece_id, slot, client_id, handoff) values ('${p1}', 2, '${camber}', true)`)
+  try { await q(`insert into public.content_sequences (piece_id, slot, client_id, suggested_handoff) values ('${p1}', 2, '${camber}', true)`); console.log("FAIL: early handoff accepted as Claude's pick") } catch { console.log("Claude's pick can't hand off before email 3 either: OK") }
+  const andreaSees = await as(andrea, () => q("select id from public.content_pieces"))
+  const veraSees = await as(vera, () => q("select id from public.content_pieces where client_id = '11111111-1111-1111-1111-111111111111'"))
+  const dannySees = await as(danny, () => q("select id from public.content_pieces where client_id = '11111111-1111-1111-1111-111111111111'"))
+  console.log(andreaSees.length === 2 && veraSees.length === 2 && dannySees.length === 0 ? "content is read by the client's team and viewers only: OK" : "FAIL: content visibility")
+  // Archived rows are hidden by the read policy, so archiving goes through the server (after the app's
+  // admin check), as with sprint tests.
+  const archived = await q(`update public.content_pieces set archived_at = now(), archived_by_profile_id = '${dean}' where id = '${p2}' returning id`)
+  const hidden = await as(andrea, () => q(`select id from public.content_pieces where id = '${p2}'`))
+  const kept = await q(`select id from public.content_pieces where id = '${p2}'`)
+  console.log(archived.length === 1 && hidden.length === 0 && kept.length === 1 ? "admins archive content; it's hidden, not deleted: OK" : "FAIL: content archive")
+  const contentDel = await as(dean, () => q("with a as (delete from public.content_sequences returning 1), b as (delete from public.content_pieces returning 1) select (select count(*) from a) + (select count(*) from b) as n"))
+  console.log(Number(contentDel[0].n) === 0 ? "content and sequences can't be deleted: OK" : "FAIL: content deleted")
+  // One live Notion sequence brief per key; dry runs and failed sends can repeat.
+  const brief = (dry, success, key = `sequence:${p1}:1`) => `insert into public.notion_write_log (client_id, content_piece_id, brief_key, operation, endpoint, payload, dry_run, success) values ('${camber}', '${p1}', '${key}', 'create_sequence_brief', 'POST /v1/pages', '{}', ${dry}, ${success})`
+  await q(brief(true, true)); await q(brief(true, true)); await q(brief(false, false)); await q(brief(false, null))
+  try { await q(brief(false, null)); console.log("FAIL: second live sequence brief logged") } catch { console.log("one live Notion brief per sequence approval: OK") }
+  await q(brief(false, null, `sequence:${p1}:2`))
+  console.log("a re-approval gets its own brief: OK")
+  try { await q(`insert into public.notion_write_log (client_id, operation, endpoint, payload, dry_run) values ('${camber}', 'create_sequence_brief', 'POST /v1/pages', '{}', true)`); console.log("FAIL: sequence brief without a key") } catch { console.log("sequence briefs need a piece and a key: OK") }
+}
+
+// client_data_range (2026-10-15): the fast replacement for the account_data_range view keeps its RLS.
+{
+  const camber = "11111111-1111-1111-1111-111111111111"
+  const andrea = "aaaaaaaa-0000-0000-0000-000000000002" // Camber's team
+  const danny = "aaaaaaaa-0000-0000-0000-000000000003" // DNSFilter's team, not Camber's
+  await q(`insert into public.windsor_daily_metrics (client_id, platform, external_account_id, date, campaign_id, ad_id, impressions) values
+    ('${camber}', 'linkedin', 'li-1', '2026-09-01', 'c1', 'a1', 10), ('${camber}', 'linkedin', 'li-1', '2026-10-14', 'c1', 'a1', 10),
+    ('${camber}', 'meta', 'fb-1', '2026-10-01', 'c2', 'a2', 0), ('${camber}', 'meta', 'fb-1', '2026-10-13', 'c2', 'a2', 5)`)
+  const range = (uid) => as(uid, () => q(`select platform::text, external_account_id, data_from::text, data_through::text from public.client_data_range('${camber}') order by 1, 2`))
+  const mine = await range(andrea)
+  const view = await as(andrea, () => q(`select platform::text, external_account_id, data_from::text, data_through::text from public.account_data_range where client_id = '${camber}' order by 1, 2`))
+  console.log(JSON.stringify(mine) === JSON.stringify(view) && mine.length >= 2 ? "client_data_range matches the view for the team: OK" : `FAIL: client_data_range ${JSON.stringify(mine)} vs view ${JSON.stringify(view)}`)
+  console.log((await range(danny)).length === 0 ? "client_data_range shows nothing to someone off the team: OK" : "FAIL: client_data_range leaked another client's range")
+  const fatigue = await as(andrea, () => q(`select ad_id, first_seen::text, live from public.ad_fatigue_inputs('${camber}') order by ad_id`))
+  console.log(fatigue.length === 2 && fatigue[1].first_seen === "2026-10-13" ? "ad_fatigue_inputs reads recent ads, first seen = first day with impressions: OK" : `FAIL: ad_fatigue_inputs ${JSON.stringify(fatigue)}`)
+  // sprint_ad_events (bounded by the range, 2026-10-15): a2 started in the range; a1 still runs on the last day.
+  const events = (uid) => as(uid, () => q(`select ad_id, first_seen::text, data_through::text from public.sprint_ad_events('${camber}', '2026-10-12', '2026-10-25') order by ad_id`))
+  const ev = await events(andrea)
+  console.log(ev.length === 1 && ev[0].ad_id === "a2" && ev[0].first_seen === "2026-10-13" && ev[0].data_through === "2026-10-13" ? "sprint_ad_events finds ads that started in the sprint: OK" : `FAIL: sprint_ad_events ${JSON.stringify(ev)}`)
+  console.log((await events(danny)).length === 0 ? "sprint_ad_events shows nothing to someone off the team: OK" : "FAIL: sprint_ad_events leaked another client's ads")
+}
+
+// ad_fatigue_snapshots (2026-10-15): server-written once a day, the client's team reads, nobody else.
+{
+  const camber = "11111111-1111-1111-1111-111111111111"
+  await q(`insert into public.ad_fatigue_snapshots (client_id, snapshot_on, data_through, ad_count, rows) values ('${camber}', '2026-10-15', '2026-10-14', 1, '[{"ad_id":"a1"}]')`)
+  const team = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select ad_count from public.ad_fatigue_snapshots"))
+  console.log(team.length === 1 ? "ad fatigue snapshots: the team reads them: OK" : "FAIL: team can't read ad fatigue snapshots")
+  const other = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select ad_count from public.ad_fatigue_snapshots"))
+  console.log(other.length === 0 ? "ad fatigue snapshots: hidden from other teams: OK" : "FAIL: another team read Camber's snapshot")
+  try { await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.ad_fatigue_snapshots (client_id, snapshot_on, ad_count) values ('${camber}', '2026-10-16', 0)`)); console.log("FAIL: a signed-in user wrote a snapshot") } catch { console.log("ad fatigue snapshots are server-written: OK") }
+  const del = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.ad_fatigue_snapshots returning id"))
+  console.log(del.length === 0 ? "ad fatigue snapshots can't be deleted: OK" : "FAIL: snapshot deleted")
+}

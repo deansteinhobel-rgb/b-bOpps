@@ -7,6 +7,7 @@ import { rpcAll } from "@/lib/supabase/rpc-all"
 import type { SprintTest } from "./data"
 import { add, metricValue, verdictFor, ZERO, type Comparison, type TestAd, type TestDetail, type TestKind, type Totals } from "./results"
 import { METRICS } from "./tests"
+import { dataRanges } from "@/lib/metrics/data-range"
 
 const n = (v: unknown) => Number(v) || 0
 const totalsOf = (r: Record<string, unknown>): Totals => ({ spend: n(r.spend), impressions: n(r.impressions), clicks: n(r.clicks), conversions: n(r.conversions), leads: n(r.leads) })
@@ -21,7 +22,7 @@ export async function loadTestDetail(supabase: SupabaseClient, clientId: string,
   if (!test.live_on || !test.campaign_ids.length) return null
   const liveFrom = test.live_on
   const [ranges, campaignDays] = await Promise.all([
-    supabase.from("account_data_range").select("platform, data_through").eq("client_id", clientId),
+    dataRanges(supabase, clientId),
     rpcAll(supabase, "campaign_daily", { p_client: clientId, p_from: addDays(liveFrom, -90), p_to: opts.today }),
   ])
   const through =

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { evaluate, notionStage, stageOf, successLine } from "./tests"
+import { briefComment, evaluate, notionStage, stageOf, successLine } from "./tests"
+import { emptyNeeds, needsText } from "./brief-needs"
 
 describe("stageOf", () => {
   const b = (master: string | null, paid: string | null = null) => ({ master, paid })
@@ -54,5 +55,36 @@ describe("successLine", () => {
     expect(successLine("cost_per_result", 250, null, money)).toBe("Cost per result at or below $250")
     expect(successLine("ctr", 0.8, "and at least 10 leads", money)).toBe("CTR at or above 0.8%. and at least 10 leads")
     expect(successLine(null, null, null, money)).toBe("Not set")
+  })
+})
+
+describe("briefComment (Dean, 2026-10-15: easier to digest in Notion)", () => {
+  const needs = needsText({ ...emptyNeeds("google_ads"), formats: { search: 1, display: 1 }, notes: "1 x Search ad group", designNotes: "8 x single images in 1200x1200 & 1200x628" })
+  const text = briefComment({
+    sprintNumber: 2,
+    platformLabel: "Google Ads",
+    title: "Launch Cisco Umbrella end-of-sale ads",
+    hypothesis: "A Cisco Umbrella ad group sending clicks to /compare gets takeout leads at ≤$350.",
+    notes: "Why (our data): Google is at 145% of pace.\nWhy (market): Cisco announced end-of-sale on Sep 1, 2026.",
+    needs,
+    success: "Cost per result at or below $350",
+    deadline: "23 Oct 2026",
+    appUrl: "https://bbmopsapp.vercel.app/clients/dnsfilter/sprint#test-1",
+  })
+
+  it("opens with a bold title, then platform, due date and a short link to the plan", () => {
+    expect(text.split("\n").slice(0, 2)).toEqual([
+      "**Sprint 2 test: Launch Cisco Umbrella end-of-sale ads**",
+      "Google Ads · Due 23 Oct 2026 · [Full plan in Lumaux](https://bbmopsapp.vercel.app/clients/dnsfilter/sprint#test-1)",
+    ])
+  })
+
+  it("puts the asks in bold sections with short template links, and the background last with bold labels", () => {
+    expect(text).toContain("**What we need from copy**\n• Search Ad ([template](https://docs.google.com/")
+    expect(text).toContain("**What we need from design**\n• Display Ad ([template](")
+    expect(text).toContain("Notes: 8 x single images")
+    expect(text.indexOf("**Success looks like**")).toBeLessThan(text.indexOf("**Background**"))
+    expect(text).toContain("**Background**\n**Why (our data):** Google is at 145% of pace.\n**Why (market):** Cisco")
+    expect(text).not.toMatch(/\(template: https/)
   })
 })

@@ -4,6 +4,7 @@ import { rpcAll } from "@/lib/supabase/rpc-all"
 import { addDaysIso, bucketsFor, encodeRange, resolveRange, type Periods, type RangeSpec } from "./range"
 import { segmentOf, type SegmentDef } from "./segments"
 import type { Platform } from "./types"
+import { dataRanges } from "./data-range"
 
 /** The Performance tab's numbers: a period against the one before it, per platform and campaign. */
 export type { Periods } from "./range"
@@ -87,7 +88,7 @@ const num = (v: unknown) => Number(v ?? 0)
  * keeps one segment's campaigns (by each campaign's latest name, so a rename can't split one).
  */
 export async function getPerformance(supabase: SupabaseClient, clientId: string, opts: { range: RangeSpec; platform?: Platform | null; campaignId?: string | null; segment?: { key: string; defs: SegmentDef[] } | null }): Promise<Performance | null> {
-  const { data: range } = await supabase.from("account_data_range").select("data_from, data_through").eq("client_id", clientId)
+  const { data: range } = await dataRanges(supabase, clientId)
   const dataThrough = (range ?? []).map((r) => r.data_through as string).sort().at(-1)
   const dataFrom = (range ?? []).map((r) => r.data_from as string).sort()[0]
   if (!dataThrough || !dataFrom) return null

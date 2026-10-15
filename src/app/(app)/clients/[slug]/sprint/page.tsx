@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { Suspense } from "react"
 import { ActionForm } from "@/components/action-form"
+import { SectionLoading, Spinner } from "@/components/loading"
 import { NotionSyncBar } from "@/components/notion-sync-bar"
 import { StatusBadge } from "@/components/status-badge"
 import { aiConfigured } from "@/lib/ai/claude"
@@ -8,13 +10,13 @@ import { canEdit, getProfile, isAdmin } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { longDate, money, oneDp, signedPct } from "@/lib/format"
 import { addDays, pctChange } from "@/lib/metrics/ads"
-import { PLATFORM_LABEL } from "@/lib/metrics/types"
+import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { byDue, lastNotionSync, minutesAgo, mirrorItems } from "@/lib/notion/mirror"
 import { notionWritesLive } from "@/lib/notion/server"
 import { peopleForClient } from "@/lib/people"
 import { testBoardData } from "@/lib/sprints/board"
 import { cachedSprintNumbers, ensureSprint, loadSprintDetails, type Sprint } from "@/lib/sprints/data"
-import { suggestChanges } from "@/lib/sprints/detect"
+import { suggestChanges, type Suggestion } from "@/lib/sprints/detect"
 import { sprintByNumber, sprintDay, sprintOf, SPRINT_DAYS } from "@/lib/sprints/periods"
 import { CARRY_REASONS, stageOf, type Stage } from "@/lib/sprints/tests"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -27,6 +29,8 @@ import { EditableText } from "./editable-text"
 import { PlanTestForm } from "./plan-test-form"
 import { TestBoard } from "./test-board"
 import { TestCard } from "./test-card"
+
+const PLATFORMS: Platform[] = ["linkedin", "google_ads", "meta"]
 
 export default async function SprintPage({ params, searchParams }: PageProps<"/clients/[slug]/sprint">) {
   const { slug } = await params
@@ -62,9 +66,22 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
     )
   }
 
-  const [details, numbers, { data: runs }, actions, owners, { data: aiRuns }, { data: aiRecs }, { data: pourRuns }, { data: pourRecs }] = await Promise.all([
-    loadSprintDetails(supabase, sprint),
-    cachedSprintNumbers(client.id, period), // access confirmed: sprint loaded through RLS
+  // Shown in pieces (Dean, 2026-10-15): the plan, the review and the pours show straight away; the Windsor numbers
+  // (stats, the review's spend line, detected changes) and the test board's live results stream in behind them.
+  // Everything starts at once; the board chains straight off the tests.
+  const detailsP = loadSprintDetails(supabase, sprint)
+  const targetCpr = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
+  const closed = Boolean(sprint.closed_at)
+  // A closed sprint keeps its numbers and has no suggestions, so it never waits on Windsor.
+  const frozen = closed && sprint.summary ? sprint.summary : null
+  const numbersP = frozen ? null : cachedSprintNumbers(client.id, period) // access confirmed: sprint loaded through RLS
+  const shownP = frozen ? Promise.resolve(frozen) : numbersP!.then((x) => x.summary)
+  const boardP = detailsP.then((d) => testBoardData(supabase, client.id, d.tests, { currency: client.currency, targetCpr }))
+  const [details, notionSynced, { data: accounts }, { data: runs }, actions, owners, { data: aiRuns }, { data: aiRecs }, { data: pourRuns }, { data: pourRecs }] = await Promise.all([
+    detailsP,
+    detailsP.then((d) => (d.tests.some((t) => t.notion_page_id) ? lastNotionSync(supabase).then(minutesAgo) : null)),
+    // The plan form's platforms: the client's ad accounts, so it doesn't wait on the numbers.
+    supabase.from("client_platform_accounts").select("platform").eq("client_id", client.id).eq("active", true),
     supabase
       .from("check_runs")
       .select("id, check_results(id, status, findings, notion_action_page_id, check_definitions(name))")
@@ -97,44 +114,78 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
     }
   })
   const { changes, history, previous, tests } = details
-  const board = await testBoardData(supabase, client.id, tests, { currency: client.currency, targetCpr: client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target) })
-  const { summary, events, detectionDaily } = numbers
-  const closed = Boolean(sprint.closed_at)
   const cur = client.currency
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
-  const shown = closed && sprint.summary ? sprint.summary : summary
   const day = sprintDay(period, today)
   const writesLive = notionWritesLive(slug)
-  const notionSynced = tests.some((t) => t.notion_page_id) ? minutesAgo(await lastNotionSync(supabase)) : null
-  const platforms = summary.byPlatform.map((p) => p.platform)
+  const platforms = PLATFORMS.filter((p) => (accounts ?? []).some((a) => a.platform === p))
   const ownerOptions = owners.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam }))
-
-  const staged = tests.map((t) => ({ t, stage: stageOf(t, t.notion_page_id && board.briefs[t.notion_page_id] ? { master: board.briefs[t.notion_page_id].status, paid: board.briefs[t.notion_page_id].paid } : null) }))
   const withoutOutcome = tests.filter((t) => !t.outcome).length
 
   const knownKeys = new Set(changes.map((c) => c.detected_key).filter(Boolean))
-  const detectTo = summary.dataThrough && summary.dataThrough < period.end ? summary.dataThrough : period.end
-  const suggestions = closed ? [] : suggestChanges({ events, daily: detectionDaily, from: period.start, to: detectTo, currency: cur }).filter((s) => !knownKeys.has(s.key))
+  const suggestionsP: Promise<Suggestion[]> =
+    closed || !numbersP
+      ? Promise.resolve([])
+      : numbersP.then(({ summary, events, detectionDaily }) => {
+          const detectTo = summary.dataThrough && summary.dataThrough < period.end ? summary.dataThrough : period.end
+          return suggestChanges({ events, daily: detectionDaily, from: period.start, to: detectTo, currency: cur }).filter((s) => !knownKeys.has(s.key))
+        })
   const results = (runs ?? []).flatMap((r) => (r.check_results ?? []) as unknown as { id: string; status: string | null; findings: string | null; notion_action_page_id: string | null; check_definitions: { name: string } | null }[])
   const reds = results.filter((r) => r.status === "red")
   const openActions = actions.filter((a) => !a.closed).sort(byDue)
-  const card = (t: (typeof tests)[number], stage: Stage) => (
-    <TestCard
-      key={t.id}
-      test={t}
-      stage={stage}
-      brief={t.notion_page_id ? board.briefs[t.notion_page_id] : undefined}
-      results={board.results[t.id]}
-      detail={board.details[t.id]}
-      previews={board.previews}
-      campaigns={board.campaigns.filter((c) => !t.platform || c.platform === t.platform)}
-      currency={cur}
-      readOnly={closed}
-      canRename={!closed && isAdmin(me)}
-      writesLive={writesLive}
-      today={today}
-    />
-  )
+
+  // Streamed sections: promises React renders inside Suspense when they settle.
+  const numbersSection = shownP.then((shown) => (
+    <>
+      {shown.dataThrough && shown.dataThrough < period.start && (
+        <p className="rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
+          No ad data for this sprint yet: Windsor data runs through {longDate(shown.dataThrough)} and syncs daily.
+        </p>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Spend" value={money(shown.current.spend, cur)} change={pctChange(shown.current.spend, shown.previous.spend)} />
+        <Stat label="Results" value={oneDp(shown.current.results)} change={pctChange(shown.current.results, shown.previous.results)} goodWhenUp />
+        <Stat
+          label="Cost per result"
+          value={money(shown.current.costPerResult, cur)}
+          change={pctChange(shown.current.costPerResult, shown.previous.costPerResult)}
+          goodWhenDown
+          note={target ? `Target ${money(target, cur)}` : undefined}
+        />
+        <Trend trend={shown.trend} current={period.number} currency={cur} />
+      </div>
+    </>
+  ))
+  const spendLine = shownP.then((shown) => (
+    <li>
+      Spend {money(shown.current.spend, cur)} ({signedPct(pctChange(shown.current.spend, shown.previous.spend))}) · {oneDp(shown.current.results)} results · {money(shown.current.costPerResult, cur)} per result
+    </li>
+  ))
+  const boardSection = boardP.then((board) => {
+    const staged = tests.map((t) => ({ t, stage: stageOf(t, t.notion_page_id && board.briefs[t.notion_page_id] ? { master: board.briefs[t.notion_page_id].status, paid: board.briefs[t.notion_page_id].paid } : null) }))
+    const card = (t: (typeof tests)[number], stage: Stage) => (
+      <TestCard
+        key={t.id}
+        test={t}
+        stage={stage}
+        brief={t.notion_page_id ? board.briefs[t.notion_page_id] : undefined}
+        results={board.results[t.id]}
+        detail={board.details[t.id]}
+        previews={board.previews}
+        campaigns={board.campaigns.filter((c) => !t.platform || c.platform === t.platform)}
+        currency={cur}
+        readOnly={closed}
+        canRename={!closed && isAdmin(me)}
+        writesLive={writesLive}
+        today={today}
+      />
+    )
+    return <TestBoard items={staged} card={card} />
+  })
+  const detectedCount = suggestionsP.then((s) => <>{s.length}</>)
+  const changeLog = suggestionsP.then((suggestions) => (
+    <ChangeLog sprintId={sprint.id} changes={changes} suggestions={suggestions} hypotheses={[]} platforms={platforms} today={today < period.end ? today : period.end} readOnly={closed} />
+  ))
 
   return (
     <div className="space-y-10">
@@ -182,23 +233,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
 
       {/* Numbers */}
       <section aria-label="Sprint numbers" className="space-y-2">
-        {shown.dataThrough && shown.dataThrough < period.start && (
-          <p className="rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
-            No ad data for this sprint yet: Windsor data runs through {longDate(shown.dataThrough)} and syncs daily.
-          </p>
-        )}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Spend" value={money(shown.current.spend, cur)} change={pctChange(shown.current.spend, shown.previous.spend)} />
-          <Stat label="Results" value={oneDp(shown.current.results)} change={pctChange(shown.current.results, shown.previous.results)} goodWhenUp />
-          <Stat
-            label="Cost per result"
-            value={money(shown.current.costPerResult, cur)}
-            change={pctChange(shown.current.costPerResult, shown.previous.costPerResult)}
-            goodWhenDown
-            note={target ? `Target ${money(target, cur)}` : undefined}
-          />
-          <Trend trend={shown.trend} current={period.number} currency={cur} />
-        </div>
+        <Suspense fallback={<SectionLoading label="Loading the sprint's numbers…" className="min-h-28" lines={2} />}>{numbersSection}</Suspense>
       </section>
 
       {/* Claude: suggested tests, reviewed then approved into the plan */}
@@ -233,7 +268,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
         {tests.length === 0 ? (
           <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No tests planned yet. Plan one to get the sprint going.</p>
         ) : (
-          <TestBoard items={staged} card={card} />
+          <Suspense fallback={<SectionLoading label="Loading the test board…" className="min-h-64" lines={5} />}>{boardSection}</Suspense>
         )}
       </section>
 
@@ -260,10 +295,15 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
           <div className="grid gap-4 lg:grid-cols-2">
             <Box title="Highlights (work done + impact)" accent>
               <ul className="space-y-1">
-                <li>
-                  Spend {money(shown.current.spend, cur)} ({signedPct(pctChange(shown.current.spend, shown.previous.spend))}) · {oneDp(shown.current.results)} results ·{" "}
-                  {money(shown.current.costPerResult, cur)} per result
-                </li>
+                <Suspense
+                  fallback={
+                    <li className="flex items-center gap-2 text-muted-foreground">
+                      <Spinner label="Loading spend" /> Loading spend…
+                    </li>
+                  }
+                >
+                  {spendLine}
+                </Suspense>
                 {tests
                   .filter((t) => t.live_on)
                   .map((t) => (
@@ -314,11 +354,12 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
         <summary className="cursor-pointer text-lg">
           Change log{" "}
           <span className="text-sm text-muted-foreground">
-            ({changes.filter((c) => c.status === "logged").length} logged, {suggestions.length} detected in Windsor)
+            ({changes.filter((c) => c.status === "logged").length} logged,{" "}
+            <Suspense fallback={<Spinner className="inline size-3 align-[-1px]" label="Loading detected changes" />}>{detectedCount}</Suspense> detected in Windsor)
           </span>
         </summary>
         <div className="mt-4">
-          <ChangeLog sprintId={sprint.id} changes={changes} suggestions={suggestions} hypotheses={[]} platforms={platforms} today={today < period.end ? today : period.end} readOnly={closed} />
+          <Suspense fallback={<SectionLoading label="Loading the change log…" lines={3} />}>{changeLog}</Suspense>
         </div>
       </details>
 

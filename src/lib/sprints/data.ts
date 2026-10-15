@@ -8,6 +8,7 @@ import type { Platform } from "@/lib/metrics/types"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { AdEvent } from "./detect"
 import { sprintByNumber, type SprintPeriod } from "./periods"
+import { dataRanges } from "@/lib/metrics/data-range"
 
 export type ItemKind = "hypothesis" | "learning" | "mitigation" | "action" | "carried"
 export type Sprint = {
@@ -246,7 +247,7 @@ export async function computeSprintNumbers(clientId: string, period: SprintPerio
   const db = createAdminClient()
   const trendFrom = sprintByNumber(period.number - 5).start
   const [{ data: ranges }, { data: dailyRaw }, { data: adRaw }, { data: eventsRaw }] = await Promise.all([
-    db.from("account_data_range").select("data_through").eq("client_id", clientId),
+    dataRanges(db, clientId),
     db.rpc("platform_daily", { p_client: clientId, p_from: trendFrom, p_to: period.end }),
     db.rpc("ad_stats", { p_client: clientId, p_from: period.start, p_to: period.end }),
     rpcAll(db, "sprint_ad_events", { p_client: clientId, p_from: period.start, p_to: period.end }).then((data) => ({ data })),
