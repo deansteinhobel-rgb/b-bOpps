@@ -1,5 +1,5 @@
 import { after, NextResponse } from "next/server"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { aiConfigured } from "@/lib/ai/claude"
 import { buildClientBrief } from "@/lib/knowledge/brief"
 import { discoverClientHq, readClientHq } from "@/lib/knowledge/notion-hq"
@@ -15,11 +15,11 @@ export const maxDuration = 300
  *   step "discover": find the HQ's pages (read only)
  *   step "read":     read changed pages for up to ~60s; returns how many are left (call again)
  *   step "brief":    rebuild the brief with Claude in the background; returns the row id to poll
- * GTM leads and admins only.
+ * Anyone who can edit the client.
  */
 export async function POST(request: Request) {
   const me = await getProfile()
-  if (!isAdmin(me)) return NextResponse.json({ error: "Only GTM leads and admins can refresh the brain." }, { status: 403 })
+  if (!canEdit(me)) return NextResponse.json({ error: VIEW_ONLY }, { status: 403 })
   const body = (await request.json().catch(() => ({}))) as { clientSlug?: string; step?: string; since?: string; force?: boolean }
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, notion_hq_page_id").eq("slug", body.clientSlug ?? "").maybeSingle()

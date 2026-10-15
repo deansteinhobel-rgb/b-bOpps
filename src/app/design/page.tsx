@@ -26,6 +26,7 @@ import type { CheckDefinition, CheckResult } from "@/lib/checks/runs"
 import { applyActions, computeInsights, type InsightInputs } from "@/lib/insights/rules"
 import { InsightFeed } from "../(app)/clients/[slug]/insights/feed"
 import { Controls } from "../(app)/clients/[slug]/reporting/controls"
+import { tabGroups } from "@/lib/tab-groups"
 import { ClientTabs } from "../(app)/clients/[slug]/client-tabs"
 import { AdsPanel } from "../(app)/clients/[slug]/_glance/ads-panel"
 import { AdsSummary, ChangesSummary, GlanceBoard, PlansSummary } from "../(app)/clients/[slug]/_glance/glance-board"
@@ -343,7 +344,7 @@ export default async function DesignPreview() {
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
-      <AppSidebar clients={clients ?? []} name="Dean Steinhobel" roleLabel="Admin" isAdmin hasRole profileId="sample" avatarUrl={null} lens={null} />
+      <AppSidebar clients={clients ?? []} name="Dean Steinhobel" roleLabel="Admin" isAdmin hasRole profileId="sample" avatarUrl={null} />
       <main className="min-w-0 flex-1">
         <div className="mx-auto w-full max-w-7xl space-y-12 px-4 py-8 sm:px-8 lg:py-10">
           <PageHeader
@@ -480,7 +481,7 @@ export default async function DesignPreview() {
           <section className="space-y-4">
             <SectionHeader title="Performance" description="Synthetic sample data." />
             <div className="border-b">
-              <ClientTabs slug="sample" />
+              <ClientTabs slug="sample" groups={tabGroups()} />
             </div>
             <Controls base="/design" range={{ kind: "days", days: 30 }} platform={null} platforms={[{ platform: "linkedin", spend: 3800 }, { platform: "google_ads", spend: 12400 }, { platform: "meta", spend: 3967 }]} currency="USD" periods={{ from: "2026-08-29", to: "2026-09-27", prevFrom: "2026-07-30", prevTo: "2026-08-28", days: 30, compare: true, bucket: "day", label: "Last 30 days" }} dataFrom="2018-01-01" dataThrough="2026-09-27" />
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">

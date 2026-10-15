@@ -2,7 +2,7 @@
 
 import { revalidatePath, revalidateTag } from "next/cache"
 import { z } from "zod"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { windsorTag } from "@/lib/metrics/cached"
 import { createClient } from "@/lib/supabase/server"
 
@@ -14,12 +14,12 @@ const Input = z.object({
   amount: z.number().nonnegative().max(100_000_000),
 })
 
-/** Set this month's budget for a platform or a campaign. Admins and GTM leads (RLS enforces it too). */
+/** Set this month's budget for a platform or a campaign. Anyone who can edit the client (RLS enforces it too). */
 export async function saveMonthBudget(raw: z.input<typeof Input>): Promise<{ ok: boolean; message?: string }> {
   const parsed = Input.safeParse(raw)
   if (!parsed.success) return { ok: false, message: "Enter a budget amount." }
   const me = await getProfile()
-  if (!isAdmin(me)) return { ok: false, message: "Only admins and GTM leads can change budgets." }
+  if (!canEdit(me)) return { ok: false, message: VIEW_ONLY }
   const { clientSlug, platform, campaignId, month, amount } = parsed.data
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id").eq("slug", clientSlug).maybeSingle()

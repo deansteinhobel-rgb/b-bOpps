@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 
-// Client goal figures (e.g. DNSFilter's Activated Free Trials). Admins and GTM leads only (checked
+// Client goal figures (e.g. DNSFilter's Activated Free Trials). Anyone who can edit the client (checked
 // here and by RLS). One figure per goal per month, updated in place as the month goes on; no deletes.
 
 const Input = z.object({
@@ -17,7 +17,7 @@ const Input = z.object({
 
 export async function saveGoalValue(slug: string, raw: z.input<typeof Input>): Promise<{ ok: boolean; message?: string }> {
   const me = await getProfile()
-  if (!isAdmin(me)) return { ok: false, message: "Only admins and GTM leads can update this." }
+  if (!canEdit(me)) return { ok: false, message: VIEW_ONLY }
   const p = Input.safeParse(raw)
   if (!p.success) return { ok: false, message: "Enter a number." }
   const supabase = await createClient()

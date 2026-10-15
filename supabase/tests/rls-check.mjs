@@ -124,14 +124,14 @@ console.log(delTest.length === 0 ? "tests can't be deleted: OK" : "FAIL: test de
   }
   const test = `where id = '${t1[0].id}'`
   await refused("archive a test", `update public.sprint_tests set archived_at = now() ${test}`)
-  await refused("rename a test", `update public.sprint_tests set title = 'Renamed' ${test}`)
   await refused("set a test's Notion brief", `update public.sprint_tests set notion_page_id = 'abc' ${test}`)
   await refused("change who created a test", `update public.sprint_tests set created_by_profile_id = '${dean}' ${test}`)
   await refused("plan an archived test", `insert into public.sprint_tests (sprint_id, client_id, title, archived_at) values ('${sp[0].id}', '11111111-1111-1111-1111-111111111111', 'Hidden', now())`)
   const teamEdit = await as(andrea, () => q(`update public.sprint_tests set status = 'ready', findings_notes = 'x', owner_name = 'Andrea' ${test} returning id`))
   console.log(teamEdit.length === 1 ? "team member still moves a test on and writes findings: OK" : "FAIL: team edit refused")
+  const teamRename = await as(andrea, () => q(`update public.sprint_tests set title = 'Renamed' ${test} returning id`))
   const adminRename = await as(dean, () => q(`update public.sprint_tests set title = 'Test' ${test} returning id`))
-  console.log(adminRename.length === 1 ? "admin renames a test: OK" : "FAIL: admin rename refused")
+  console.log(teamRename.length === 1 && adminRename.length === 1 ? "team member and admin rename a test: OK" : "FAIL: rename refused")
 
   const res = await q(`insert into public.check_results (check_run_id, client_id, check_definition_id) select '${run[0].id}', '11111111-1111-1111-1111-111111111111', id from public.check_definitions returning id`)
   const result = `where id = '${res[0].id}'`
@@ -145,25 +145,24 @@ console.log(delTest.length === 0 ? "tests can't be deleted: OK" : "FAIL: test de
   const sprint = `where id = '${sp[0].id}'`
   const closed = await as(andrea, () => q(`update public.sprints set closed_at = now() ${sprint} returning id`))
   console.log(closed.length === 1 ? "team member closes a sprint: OK" : "FAIL: close refused")
-  await refused("reopen a sprint", `update public.sprints set closed_at = null ${sprint}`)
   await refused("change a sprint's dates", `update public.sprints set number = 7 ${sprint}`)
-  const reopened = await as(dean, () => q(`update public.sprints set closed_at = null ${sprint} returning id`))
-  console.log(reopened.length === 1 ? "admin reopens a sprint: OK" : "FAIL: admin reopen refused")
+  const reopened = await as(andrea, () => q(`update public.sprints set closed_at = null ${sprint} returning id`))
+  console.log(reopened.length === 1 ? "team member reopens a sprint: OK" : "FAIL: team reopen refused")
 }
 
-// Claude's sprint suggestions: the team reads, only GTM leads / admins create and decide, no deletes.
-try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}')`)); console.log("FAIL: specialist started a run") } catch { console.log("specialist can't start a sprint run: OK") }
-const aiRun = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}') returning id`))
-console.log(aiRun.length === 1 ? "admin starts a sprint run: OK" : "FAIL: admin run not created")
+// Claude's sprint suggestions: the client's team reads, starts and decides (2026-10-15: every full role); no deletes.
+try { await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}')`)); console.log("FAIL: another client's AM started a run") } catch { console.log("another client's AM can't start a sprint run: OK") }
+const aiRun = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}') returning id`))
+console.log(aiRun.length === 1 ? "specialist starts a sprint run: OK" : "FAIL: specialist run not created")
 await db.exec(`insert into public.sprint_recommendations (run_id, client_id, sprint_id, platform, title) values ('${aiRun[0].id}', '11111111-1111-1111-1111-111111111111', '${sp[0].id}', 'reddit', 'Try Reddit conversation ads')`)
 const seen = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select id from public.sprint_recommendations"))
 console.log(seen.length === 1 ? "andrea reads camber suggestions: OK" : "FAIL: andrea can't read suggestions")
 const unseen = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select id from public.sprint_recommendations"))
 console.log(unseen.length === 0 ? "danny (dnsfilter) can't see camber suggestions: OK" : "FAIL: cross-client suggestion visible")
+const dannyApproves = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("update public.sprint_recommendations set status = 'approved' returning id"))
+console.log(dannyApproves.length === 0 ? "another client's AM can't approve: OK" : "FAIL: another client's AM approved")
 const andreaApproves = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.sprint_recommendations set status = 'approved' returning id"))
-console.log(andreaApproves.length === 0 ? "specialist can't approve: OK" : "FAIL: specialist approved")
-const deanApproves = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("update public.sprint_recommendations set status = 'approved' returning id"))
-console.log(deanApproves.length === 1 ? "admin approves: OK" : "FAIL: admin couldn't approve")
+console.log(andreaApproves.length === 1 ? "specialist approves: OK" : "FAIL: specialist couldn't approve")
 const delRec = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.sprint_recommendations returning id"))
 console.log(delRec.length === 0 ? "suggestions can't be deleted: OK" : "FAIL: suggestion deleted")
 
@@ -249,25 +248,28 @@ const veraEdit = await as(vera, () => q("select public.can_edit_client('11111111
 const andreaEdit = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select public.can_edit_client('11111111-1111-1111-1111-111111111111') as ok"))
 console.log(!veraEdit[0].ok && andreaEdit[0].ok ? "can_edit_client: viewer no, team member yes: OK" : "FAIL: can_edit_client")
 
-// Client goals: the team reads its client's goals; only admins set them; no deletes.
+// Client goals: the team reads and sets its client's goals (2026-10-15); other teams can't; no deletes.
 const goal = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.client_goals (client_id, name, monthly_target) values ('11111111-1111-1111-1111-111111111111', 'Demos', 50) returning id`))
 const gv = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.client_goal_values (goal_id, client_id, month, value) values ('${goal[0].id}', '11111111-1111-1111-1111-111111111111', '2026-09-01', 12) returning value`))
 console.log(goal.length === 1 && gv.length === 1 ? "admin sets a client goal: OK" : "FAIL: admin couldn't set a goal")
-try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.client_goal_values (goal_id, client_id, month, value) values ('${goal[0].id}', '11111111-1111-1111-1111-111111111111', '2026-08-01', 9)`)); console.log("FAIL: specialist set a goal value") } catch { console.log("specialist can't set goal figures: OK") }
+const andreaSets = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.client_goal_values (goal_id, client_id, month, value) values ('${goal[0].id}', '11111111-1111-1111-1111-111111111111', '2026-08-01', 9) returning value`))
+console.log(andreaSets.length === 1 ? "specialist sets goal figures: OK" : "FAIL: specialist couldn't set a goal figure")
+try { await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`insert into public.client_goal_values (goal_id, client_id, month, value) values ('${goal[0].id}', '11111111-1111-1111-1111-111111111111', '2026-07-01', 9)`)); console.log("FAIL: another client's AM set a goal value") } catch { console.log("another client's AM can't set goal figures: OK") }
 const andreaSees = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select value from public.client_goal_values"))
 const dannySees = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select value from public.client_goal_values"))
-console.log(andreaSees.length === 1 && dannySees.length === 0 ? "goals are read by the client's team only: OK" : "FAIL: goal visibility")
+console.log(andreaSees.length === 2 && dannySees.length === 0 ? "goals are read by the client's team only: OK" : "FAIL: goal visibility")
 const goalDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.client_goal_values returning value"))
 console.log(goalDel.length === 0 ? "goal figures can't be deleted: OK" : "FAIL: goal figure deleted")
 
-// Report links: admins, GTM leads and the client's AMs create and turn off links; specialists and
-// viewers can't; other columns can't be changed; nothing is deleted.
+// Report links: anyone who can edit the client creates and turns off links (2026-10-15); viewers and
+// other teams can't; other columns can't be changed; nothing is deleted.
 const tok = (c) => c.repeat(40)
 const adminLink = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.report_links (client_id, board, token, created_by_profile_id) values ('11111111-1111-1111-1111-111111111111', 'all', '${tok("a")}', 'aaaaaaaa-0000-0000-0000-000000000001') returning id`))
 const amLink = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`insert into public.report_links (client_id, board, token, created_by_profile_id) values ('22222222-2222-2222-2222-222222222222', 'linkedin', '${tok("b")}', 'aaaaaaaa-0000-0000-0000-000000000003') returning id`))
 console.log(adminLink.length === 1 && amLink.length === 1 ? "admin and the client's AM create report links: OK" : "FAIL: report link create")
 try { await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`insert into public.report_links (client_id, board, token, created_by_profile_id) values ('11111111-1111-1111-1111-111111111111', 'all', '${tok("c")}', 'aaaaaaaa-0000-0000-0000-000000000003')`)); console.log("FAIL: AM shared another client's report") } catch { console.log("AM can't share another client's report: OK") }
-try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.report_links (client_id, board, token, created_by_profile_id) values ('11111111-1111-1111-1111-111111111111', 'all', '${tok("d")}', 'aaaaaaaa-0000-0000-0000-000000000002')`)); console.log("FAIL: specialist created a link") } catch { console.log("specialist can't create report links: OK") }
+const specialistLink = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.report_links (client_id, board, token, created_by_profile_id) values ('11111111-1111-1111-1111-111111111111', 'all', '${tok("d")}', 'aaaaaaaa-0000-0000-0000-000000000002') returning id`))
+console.log(specialistLink.length === 1 ? "specialist creates report links: OK" : "FAIL: specialist couldn't create a link")
 try { await as(vera, () => q(`insert into public.report_links (client_id, board, token, created_by_profile_id) values ('11111111-1111-1111-1111-111111111111', 'all', '${tok("e")}', '${vera}')`)); console.log("FAIL: viewer created a link") } catch { console.log("viewer can't create report links: OK") }
 const veraLinks = await as(vera, () => q("select id from public.report_links"))
 const dannyLinks = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select id from public.report_links"))
@@ -456,4 +458,31 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   try { await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.ad_fatigue_snapshots (client_id, snapshot_on, ad_count) values ('${camber}', '2026-10-16', 0)`)); console.log("FAIL: a signed-in user wrote a snapshot") } catch { console.log("ad fatigue snapshots are server-written: OK") }
   const del = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.ad_fatigue_snapshots returning id"))
   console.log(del.length === 0 ? "ad fatigue snapshots can't be deleted: OK" : "FAIL: snapshot deleted")
+}
+
+// Content writers (2026-10-15): see every client like a viewer, change nothing, and may run content ideas.
+// Budgets: the client's team sets them; viewers, content writers and other teams can't.
+{
+  const camber = "11111111-1111-1111-1111-111111111111"
+  await db.exec(`
+    insert into public.team_invites (email, full_name, role) values ('cora.writer@bordeauxandburgundy.co.uk','Cora Writer','content_writer');
+    insert into auth.users values ('aaaaaaaa-0000-0000-0000-000000000011','cora.writer@bordeauxandburgundy.co.uk');
+  `)
+  const cora = "aaaaaaaa-0000-0000-0000-000000000011"
+  const sees = await as(cora, () => q("select slug from public.clients"))
+  console.log(sees.length === 2 ? "content writer sees every client: OK" : `FAIL: content writer sees ${sees.length} clients`)
+  const rights = await as(cora, () => q(`select public.can_edit_client('${camber}') as edit, public.can_run_content_ideas('${camber}') as ideas`))
+  console.log(!rights[0].edit && rights[0].ideas ? "content writer: no edits, runs content ideas: OK" : "FAIL: content writer rights")
+  const viewerIdeas = await as(vera, () => q(`select public.can_run_content_ideas('${camber}') as ok`))
+  const andreaIdeas = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`select public.can_run_content_ideas('${camber}') as ok`))
+  const dannyIdeas = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`select public.can_run_content_ideas('${camber}') as ok`))
+  console.log(!viewerIdeas[0].ok && andreaIdeas[0].ok && !dannyIdeas[0].ok ? "content ideas: not viewers, the team yes, other teams no: OK" : "FAIL: can_run_content_ideas")
+  try { await as(cora, () => q(`insert into public.sprints (client_id, number, start_date, end_date) values ('${camber}', 98, '2030-02-04', '2030-02-17')`)); console.log("FAIL: content writer created a sprint") } catch { console.log("content writer can't create sprints: OK") }
+
+  const budget = (who, amount) => as(who, () => q(`insert into public.client_budgets (client_id, platform, campaign_id, month, amount) values ('${camber}', 'linkedin', '', '2031-01-01', ${amount}) on conflict do nothing returning amount`))
+  for (const [who, label] of [[cora, "content writer"], [vera, "viewer"], ["aaaaaaaa-0000-0000-0000-000000000003", "another client's AM"]]) {
+    try { const r = await budget(who, 1); console.log(r.length === 0 ? `${label} can't set budgets: OK` : `FAIL: ${label} set a budget`) } catch { console.log(`${label} can't set budgets: OK`) }
+  }
+  const set = await budget("aaaaaaaa-0000-0000-0000-000000000002", 5000)
+  console.log(set.length === 1 ? "specialist sets the client's budget: OK" : "FAIL: specialist couldn't set a budget")
 }

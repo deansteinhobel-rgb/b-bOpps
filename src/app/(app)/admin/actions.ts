@@ -218,7 +218,7 @@ export async function creativesChunk(accountId: string, dateFrom: string, dateTo
 }
 
 // ── People ─────────────────────────────────────────────────────────────────
-const Role = z.enum(["admin", "gtm_lead", "am", "specialist", "viewer"])
+const Role = z.enum(["admin", "gtm_lead", "am", "specialist", "content_writer", "viewer"])
 
 export async function saveInvite(_prev: FormState, form: FormData): Promise<FormState> {
   await requireAdmin()

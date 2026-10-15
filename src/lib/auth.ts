@@ -3,20 +3,16 @@ import { cache } from "react"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 
-export type AppRole = "admin" | "gtm_lead" | "am" | "specialist" | "viewer"
+export type AppRole = "admin" | "gtm_lead" | "am" | "specialist" | "content_writer" | "viewer"
 export type Preferences = {
   /** Performance tab period when the URL doesn't say (7, 14, 30 or 90). */
   default_days?: number
   /** Optimize now: Claude's order or the rules' priority. */
   optimise_order?: "claude" | "priority"
-  /** Where the app opens: "clients" (all clients) or a client slug. */
+  /** Where the app opens: "clients" (all clients), "today" or a client slug. */
   start_page?: string
   /** Background effects and animations (starfield, pours, sliding highlights). */
   animations?: boolean
-  /** "new" = the Hands-on / Overview layout; anything else = the classic one (the rollback switch). */
-  layout?: "classic" | "new"
-  /** Hands-on or Overview (new layout). Unset = from your role (see lensOf). */
-  lens?: "hands_on" | "overview"
 }
 export type Profile = { id: string; email: string; full_name: string | null; role: AppRole | null; notion_user_id: string | null; avatar_url: string | null; preferences: Preferences }
 
@@ -31,20 +27,29 @@ export const getProfile = cache(async (): Promise<Profile> => {
   return data as Profile
 })
 
+/** The Admin area (clients, people, ad accounts, feedback): admins and GTM leads. Not a feature gate. */
 export const isAdmin = (p: Profile) => p.role === "admin" || p.role === "gtm_lead"
-/** Viewers (everyone in B&B's Notion workspace) read every client but change nothing. */
+/**
+ * Roles are limited by feature, not by view (Dean, 2026-10-15): admins, GTM leads, account managers and
+ * paid media specialists run every feature on the clients they can see. Content writers and viewers read
+ * every client; content writers can also generate content ideas (canRunContentIdeas).
+ */
+const FULL_ROLES: ReadonlySet<AppRole> = new Set(["admin", "gtm_lead", "am", "specialist"])
 export const VIEW_ONLY = "You have view access. Ask an admin if you need to make changes."
-export const canEdit = (p: Profile) => p.role !== null && p.role !== "viewer"
+export const canEdit = (p: Profile) => p.role !== null && FULL_ROLES.has(p.role)
+/** Content ideas: everyone who can edit, plus content writers. */
+export const canRunContentIdeas = (p: Profile) => canEdit(p) || p.role === "content_writer"
 
 export const ROLE_LABEL: Record<AppRole, string> = {
   admin: "Admin",
   gtm_lead: "GTM lead",
   am: "Account manager",
   specialist: "Paid media specialist",
+  content_writer: "Content writer",
   viewer: "Viewer",
 }
 
-/** For server actions that change anything: everyone with a role except viewers. */
+/** For server actions that change anything: admins, GTM leads, account managers and specialists. */
 export async function requireEditor(): Promise<Profile> {
   const p = await getProfile()
   if (!canEdit(p)) throw new Error("View only")

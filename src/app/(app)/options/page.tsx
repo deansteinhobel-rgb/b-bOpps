@@ -6,7 +6,6 @@ import { lastActive, longDate } from "@/lib/format"
 import { myStats } from "@/lib/stats"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
-import { lensOf, newLayout } from "@/lib/lens"
 import { FeedbackForm, PreferencesForm } from "./options-forms"
 
 export const metadata = { title: "Options" }
@@ -57,8 +56,6 @@ export default async function OptionsPage({ searchParams }: PageProps<"/options"
             optimise_order: me.preferences?.optimise_order ?? "claude",
             start_page: me.preferences?.start_page ?? "clients",
             animations: me.preferences?.animations !== false,
-            layout: newLayout(me.preferences) ? "new" : "classic",
-            lens: lensOf(me.preferences, me.role),
           }}
         />
       )}

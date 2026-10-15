@@ -90,7 +90,7 @@ export default async function PersonPage({ params }: PageProps<"/people/[id]">) 
 
           <section className="surface divide-y text-sm">
             <h3 className="px-5 py-3 text-sm font-semibold">Clients</h3>
-            {(teams ?? []).length === 0 && <p className="px-5 py-3 text-muted-foreground">{p.role === "admin" || p.role === "gtm_lead" ? "Sees every client." : "Not on a client team yet."}</p>}
+            {(teams ?? []).length === 0 && <p className="px-5 py-3 text-muted-foreground">{p.role && ["admin", "gtm_lead", "content_writer", "viewer"].includes(p.role) ? "Sees every client." : "Not on a client team yet."}</p>}
             {(teams ?? []).map((t, i) => {
               const c = t.clients as unknown as { slug: string; name: string; logo_url: string | null } | null
               if (!c) return null

@@ -1,19 +1,14 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
-import { toast } from "sonner"
-import { setLens } from "@/app/(app)/options/actions"
+import { usePathname } from "next/navigation"
+import { useState } from "react"
 import { AppMark, Avatar, ClientLogo } from "@/components/brand"
 import { CommandMenu, Kbd, SHORTCUT_LABEL } from "@/components/command-menu"
-import { Segmented } from "@/components/segmented"
-import { clientHome, type Lens } from "@/lib/lens"
 import { cn } from "@/lib/utils"
 
 export type SidebarClient = { slug: string; name: string; logo_url: string | null }
-/** `lens` is set in the new layout only (null = classic). */
-type Props = { clients: SidebarClient[]; name: string; roleLabel: string | null; isAdmin: boolean; hasRole: boolean; profileId: string; avatarUrl: string | null; lens: Lens | null }
+type Props = { clients: SidebarClient[]; name: string; roleLabel: string | null; isAdmin: boolean; hasRole: boolean; profileId: string; avatarUrl: string | null }
 
 function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
   return (
@@ -58,61 +53,24 @@ const Icon = {
   ),
 }
 
-/**
- * Hands-on / Overview (new layout): the same app through two lenses. Saved on your profile, so the
- * home page, the order of the client tabs and where client links open all follow it.
- */
-function LensSwitch({ lens }: { lens: Lens }) {
-  const router = useRouter()
-  const [value, setValue] = useState(lens)
-  const [, start] = useTransition()
-  return (
-    <div className="px-1" title="Hands-on: Today and Do first. Overview: performance and planning first. Everything stays reachable in both.">
-      <Segmented
-        label="Lens"
-        tone="quiet"
-        value={value}
-        onChange={(v) => {
-          setValue(v)
-          start(async () => {
-            const r = await setLens(v)
-            if (!r.ok) {
-              setValue(lens)
-              return void toast.error(r.message ?? "Couldn't switch.")
-            }
-            router.refresh()
-          })
-        }}
-        options={[
-          { value: "hands_on", label: "Hands-on" },
-          { value: "overview", label: "Overview" },
-        ]}
-      />
-    </div>
-  )
-}
-
 /** Clients in the list to see how they look, not set up yet (Dean, 2026-10-01). */
 const COMING_SOON = new Set(["drillsense", "filevine"])
 
 /** The client list (Dean: no separate "Clients" item; the heading links to all clients). */
-function NavBody({ clients, hasRole, pathname, lens }: Props & { pathname: string }) {
+function NavBody({ clients, hasRole, pathname }: Props & { pathname: string }) {
   if (!hasRole) return null
   return (
     <nav className="space-y-0.5" aria-label="Clients">
-      {lens && (
-        <div className="mb-4 space-y-3">
-          <LensSwitch lens={lens} />
-          <NavLink href="/today" active={pathname.startsWith("/today")}>
-            {Icon.today} Today
-          </NavLink>
-        </div>
-      )}
+      <div className="mb-4">
+        <NavLink href="/today" active={pathname.startsWith("/today")}>
+          {Icon.today} Today
+        </NavLink>
+      </div>
       <Link href="/clients" className={cn("block px-2.5 pb-1.5 text-xs font-medium transition-colors hover:text-foreground", pathname === "/clients" ? "text-foreground" : "text-muted-foreground")}>
         Clients
       </Link>
       {clients.map((c) => (
-        <NavLink key={c.slug} href={lens ? clientHome(c.slug, lens) : `/clients/${c.slug}`} active={pathname.startsWith(`/clients/${c.slug}`)}>
+        <NavLink key={c.slug} href={`/clients/${c.slug}`} active={pathname.startsWith(`/clients/${c.slug}`)}>
           <ClientLogo name={c.name} logoUrl={c.logo_url} size="xs" />
           <span className="truncate">{c.name}</span>
           {COMING_SOON.has(c.slug) && <span className="pill ml-auto h-5 px-2 text-[11px] font-medium">Coming soon</span>}
@@ -168,7 +126,7 @@ export function AppSidebar(props: Props) {
   return (
     <>
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-4 lg:flex">
-        <Link href={props.lens ? "/" : "/clients"} className="mb-5 px-1.5">
+        <Link href="/" className="mb-5 px-1.5">
           <AppMark />
         </Link>
         {props.hasRole && (
@@ -186,7 +144,7 @@ export function AppSidebar(props: Props) {
       </aside>
 
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-sidebar-border bg-sidebar/95 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur lg:hidden">
-        <Link href={props.lens ? "/" : "/clients"}>
+        <Link href="/">
           <AppMark />
         </Link>
         <div className="flex items-center gap-2">
@@ -207,7 +165,7 @@ export function AppSidebar(props: Props) {
           </details>
         </div>
       </header>
-      {props.hasRole && <CommandMenu open={jump} onOpenChange={setJump} clients={props.clients} isAdmin={props.isAdmin} lens={props.lens} profileId={props.profileId} />}
+      {props.hasRole && <CommandMenu open={jump} onOpenChange={setJump} clients={props.clients} isAdmin={props.isAdmin} profileId={props.profileId} />}
     </>
   )
 }

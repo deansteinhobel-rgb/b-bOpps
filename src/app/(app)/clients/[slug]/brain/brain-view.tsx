@@ -154,7 +154,7 @@ function BriefPanel({ slug, brief, sources, canAdmin }: { slug: string; brief: B
       <section className="surface flex flex-col items-center justify-center gap-2 p-10 text-center">
         <p className="font-heading text-xl">No brief yet</p>
         <p className="max-w-md text-sm text-muted-foreground">
-          {canAdmin ? "Tick the HQ pages that matter below, add any must-knows, then Build the brain." : "A GTM lead or admin can build it from the Notion HQ."}
+          {canAdmin ? "Tick the HQ pages that matter below, add any must-knows, then Build the brain." : "Someone on the client's team can build it from the Notion HQ."}
         </p>
       </section>
     )

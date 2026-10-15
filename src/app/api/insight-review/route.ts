@@ -1,5 +1,5 @@
 import { after, NextResponse } from "next/server"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { aiConfigured } from "@/lib/ai/claude"
 import { runInsightReview, startInsightReview } from "@/lib/insights/review"
 import { rateLimit } from "@/lib/rate-limit"
@@ -8,10 +8,10 @@ import { createClient } from "@/lib/supabase/server"
 // A review takes about a minute and runs after the response (see `after`), within this limit.
 export const maxDuration = 300
 
-/** "Ask Claude to review" on Optimize now. GTM leads and admins only. Returns the review id to poll. */
+/** "Ask Claude to review" on Optimize now. Anyone who can edit the client. Returns the review id to poll. */
 export async function POST(request: Request) {
   const me = await getProfile()
-  if (!isAdmin(me)) return NextResponse.json({ error: "Only GTM leads and admins can run a review." }, { status: 403 })
+  if (!canEdit(me)) return NextResponse.json({ error: VIEW_ONLY }, { status: 403 })
   if (!aiConfigured()) return NextResponse.json({ error: "Claude isn't set up yet: add ANTHROPIC_API_KEY to .env.local and restart." }, { status: 503 })
   const { clientSlug } = (await request.json().catch(() => ({}))) as { clientSlug?: string }
   const supabase = await createClient()

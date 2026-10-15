@@ -3,7 +3,7 @@ import { ClientLogo, PlatformIcon } from "@/components/brand"
 import { ParticleAmpersand } from "@/components/fx/particle-ampersand"
 import { PageHeader } from "@/components/page-header"
 import { StatusBadge } from "@/components/status-badge"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { getProfile } from "@/lib/auth"
 import { clientCards } from "@/lib/clients-summary"
 import { longDate } from "@/lib/format"
 import { PLATFORM_LABEL } from "@/lib/metrics/types"
@@ -12,53 +12,37 @@ import { cn } from "@/lib/utils"
 
 export const metadata = { title: "Clients" }
 
-export default async function ClientsPage({ searchParams }: PageProps<"/clients">) {
+/** Every client's mini dashboard, for everyone (Dean, 2026-10-15). Clients you can't open show the summary only. */
+export default async function ClientsPage() {
   const profile = await getProfile()
-  const admin = isAdmin(profile)
-  const { all } = await searchParams
-  // Defaults to "my clients". Admins can switch to all clients.
-  const showAll = admin && all === "1"
   const supabase = await createClient()
-  const cards = await clientCards(supabase, { profileId: profile.id, onlyMine: !showAll })
+  // The cards are read with the secret key, so only people with a role get them.
+  const cards = profile.role ? await clientCards(supabase) : []
   const first = (profile.full_name ?? "").split(" ")[0]
 
   return (
     <div className="relative space-y-8">
       <ParticleAmpersand className="pointer-events-none absolute -top-6 right-0 hidden h-40 w-36 opacity-60 xl:block" density={0.8} />
       <PageHeader
-        eyebrow={showAll ? "All clients" : "My clients"}
+        eyebrow="All clients"
         title={first ? `Good to see you, ${first}` : "Clients"}
-        description="Pacing, this week's checks and this sprint's tests for every client you look after."
-        actions={
-          admin && (
-            <div className="flex rounded-full border bg-card p-0.5 text-sm">
-              {[
-                ["/clients", "My clients", !showAll],
-                ["/clients?all=1", "All clients", showAll],
-              ].map(([href, label, active]) => (
-                <Link key={String(href)} href={String(href)} className={cn("rounded-full px-3 py-1 transition-colors", active ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>
-                  {label}
-                </Link>
-              ))}
-            </div>
-          )
-        }
+        description="Pacing, this week's checks and this sprint's tests for every client."
       />
-
       {cards.length === 0 ? (
         <div className="surface px-6 py-16 text-center text-sm text-muted-foreground">
-          {showAll ? "No clients yet. Add one in Admin." : admin ? "You're not on any client team. Switch to All clients." : "You're not assigned to a client yet. Ask Dean or Esa."}
+          No clients yet. Add one in Admin.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {cards.map((c) => (
-            <Link key={c.id} href={`/clients/${c.slug}`} className="group surface flex flex-col gap-5 p-5 transition-colors hover:border-foreground/20">
+            <CardShell key={c.id} href={c.canOpen ? `/clients/${c.slug}` : null}>
               <div className="flex items-start justify-between gap-3">
                 <span className="flex items-center gap-3">
                   <ClientLogo name={c.name} logoUrl={c.logo_url} size="lg" />
                   <span>
                     <span className="block font-heading text-2xl leading-tight">{c.name}</span>
                     <span className="text-xs text-muted-foreground">{c.team.slice(0, 3).join(", ") || "No team yet"}</span>
+                    {!c.canOpen && <span className="block text-[11px] text-subtle-foreground">Not on your team: summary only</span>}
                   </span>
                 </span>
                 {c.worstPacing && c.worstPacing !== "no_budget" && <StatusBadge status={c.worstPacing} label="Pacing" />}
@@ -89,11 +73,23 @@ export default async function ClientsPage({ searchParams }: PageProps<"/clients"
                 <Stat label="Reds open" value={c.redsNotActioned} alert={c.redsNotActioned > 0} />
               </dl>
               {c.dataThrough && <p className="-mt-2 text-[11px] text-subtle-foreground">Ad data through {longDate(c.dataThrough)}</p>}
-            </Link>
+            </CardShell>
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+/** A card links into the client when you can open it; otherwise it's the summary on its own. */
+function CardShell({ href, children }: { href: string | null; children: React.ReactNode }) {
+  const cls = "group surface flex flex-col gap-5 p-5 transition-colors"
+  return href ? (
+    <Link href={href} className={cn(cls, "hover:border-foreground/20")}>
+      {children}
+    </Link>
+  ) : (
+    <div className={cls}>{children}</div>
   )
 }
 

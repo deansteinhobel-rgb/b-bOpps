@@ -6,7 +6,7 @@ import { SectionLoading, Spinner } from "@/components/loading"
 import { NotionSyncBar } from "@/components/notion-sync-bar"
 import { StatusBadge } from "@/components/status-badge"
 import { aiConfigured } from "@/lib/ai/claude"
-import { canEdit, getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { longDate, money, oneDp, signedPct } from "@/lib/format"
 import { addDays, pctChange } from "@/lib/metrics/ads"
@@ -177,7 +177,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
         campaigns={board.campaigns.filter((c) => !t.platform || c.platform === t.platform)}
         currency={cur}
         readOnly={closed}
-        canRename={!closed && isAdmin(me)}
+        canRename={!closed && canEdit(me)}
         writesLive={writesLive}
         canBuildGoogle={canBuildGoogle}
         today={today}
@@ -242,7 +242,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
       {/* Claude: suggested tests, reviewed then approved into the plan */}
       <AiPanel
         sprintId={sprint.id}
-        canGenerate={isAdmin(me)}
+        canGenerate={canEdit(me)}
         aiReady={aiConfigured()}
         closed={closed}
         run={(aiRuns?.[0] as AiRun | undefined) ?? null}
@@ -347,7 +347,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
                 {withoutOutcome} test{withoutOutcome === 1 ? " has" : "s have"} no outcome yet. Call each one (proven, disproven, inconclusive) or carry it over before closing.
               </p>
             )}
-            <CloseSprint sprintId={sprint.id} closed={closed} isAdmin={isAdmin(me)} carryCount={tests.filter((t) => t.outcome === "carried").length} />
+            <CloseSprint sprintId={sprint.id} closed={closed} canReopen={canEdit(me)} carryCount={tests.filter((t) => t.outcome === "carried").length} />
           </div>
         </div>
       </section>

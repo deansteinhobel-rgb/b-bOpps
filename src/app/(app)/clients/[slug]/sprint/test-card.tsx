@@ -59,9 +59,9 @@ export function TestCard(props: {
   /** Live results for the side panel (live and review tests with campaigns). */
   detail?: TestDetail
   previews?: PreviewMap
-  /** Admins and GTM leads can rename the test (Dean, 2026-09-30). */
+  /** Anyone who can edit the client can rename the test (Dean, 2026-10-15). */
   canRename?: boolean
-  /** Admins, GTM leads and the specialist can create paused ads and pause ads in Google Ads (Dean, 2026-10-15). */
+  /** Anyone who can edit the client can create paused ads and pause ads in Google Ads (Dean, 2026-10-15). */
   canBuildGoogle?: boolean
 }) {
   const { test: t, stage } = props

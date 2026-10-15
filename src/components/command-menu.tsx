@@ -6,13 +6,12 @@ import { useRouter } from "next/navigation"
 import { useEffect, useId } from "react"
 import { ClientLogo } from "@/components/brand"
 import type { SidebarClient } from "@/components/app-sidebar"
-import type { Lens } from "@/lib/lens"
 import { cn } from "@/lib/utils"
 
 type Item = { id: string; label: string; href: string; search: string; client?: SidebarClient }
 type Group = { value: string; items: Item[] }
 
-// Every client page, in both layouts (every URL works in both).
+// Every client page.
 const CLIENT_PAGES = [
   { href: "", label: "At a glance" },
   { href: "/do", label: "To do" },
@@ -25,9 +24,9 @@ const CLIENT_PAGES = [
   { href: "/brain", label: "Brain" },
 ]
 
-function groups({ clients, isAdmin, lens, profileId }: { clients: SidebarClient[]; isAdmin: boolean; lens: Lens | null; profileId: string }): Group[] {
+function groups({ clients, isAdmin, profileId }: { clients: SidebarClient[]; isAdmin: boolean; profileId: string }): Group[] {
   const go: Item[] = [
-    ...(lens ? [{ href: "/today", label: "Today" }] : []),
+    { href: "/today", label: "Today" },
     { href: "/clients", label: "All clients" },
     { href: "/learnings", label: "Learnings" },
     { href: "/options", label: "Options" },
@@ -50,7 +49,7 @@ const matchWords = (item: Item, query: string) => query.toLowerCase().split(/\s+
  * "Jump to" (⌘K / Ctrl+K): every client page and the app's own pages, filtered as you type.
  * Base UI's Autocomplete handles the keyboard and focus; Enter or a click opens the page.
  */
-export function CommandMenu({ open, onOpenChange, ...props }: { open: boolean; onOpenChange: (open: boolean) => void; clients: SidebarClient[]; isAdmin: boolean; lens: Lens | null; profileId: string }) {
+export function CommandMenu({ open, onOpenChange, ...props }: { open: boolean; onOpenChange: (open: boolean) => void; clients: SidebarClient[]; isAdmin: boolean; profileId: string }) {
   const router = useRouter()
   const hintId = useId()
 

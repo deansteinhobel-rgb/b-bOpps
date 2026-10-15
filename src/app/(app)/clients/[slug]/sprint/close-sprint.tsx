@@ -4,11 +4,11 @@ import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import { closeSprint, reopenSprint } from "./actions"
 
-export function CloseSprint({ sprintId, closed, isAdmin, carryCount }: { sprintId: string; closed: boolean; isAdmin: boolean; carryCount: number }) {
+export function CloseSprint({ sprintId, closed, canReopen, carryCount }: { sprintId: string; closed: boolean; canReopen: boolean; carryCount: number }) {
   const [pending, start] = useTransition()
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
   if (closed) {
-    return isAdmin ? (
+    return canReopen ? (
       <Button variant="outline" disabled={pending} onClick={() => start(async () => void (await reopenSprint(sprintId)))}>
         Reopen sprint
       </Button>

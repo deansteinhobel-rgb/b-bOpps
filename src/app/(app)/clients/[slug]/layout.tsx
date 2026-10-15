@@ -2,9 +2,9 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ClientLogo } from "@/components/brand"
 import { PageHeader } from "@/components/page-header"
-import { canEdit, getProfile } from "@/lib/auth"
+import { canEdit, canRunContentIdeas, getProfile } from "@/lib/auth"
 import { libraryConfig } from "@/lib/content-library/config"
-import { lensOf, newLayout, tabGroups } from "@/lib/lens"
+import { tabGroups } from "@/lib/tab-groups"
 import { createClient } from "@/lib/supabase/server"
 import { ClientTabs } from "./client-tabs"
 
@@ -35,11 +35,13 @@ export default async function ClientLayout({ children, params }: LayoutProps<"/c
         description={client.website ?? undefined}
       />
       <div className="border-b">
-        <ClientTabs slug={slug} groups={newLayout(me.preferences) ? tabGroups(lensOf(me.preferences, me.role), { contentLibrary: libraryConfig(slug) !== null }) : undefined} />
+        <ClientTabs slug={slug} groups={tabGroups({ contentLibrary: libraryConfig(slug) !== null })} />
       </div>
       {!canEdit(me) && (
         <p className="rounded-md border bg-card px-4 py-2 text-sm text-muted-foreground">
-          You have view access: you can see everything here, but saving, briefing and editing are for the paid media team.
+          {canRunContentIdeas(me)
+            ? "You can see everything here and get content ideas. Saving, briefing and editing are for the paid media team."
+            : "You have view access: you can see everything here, but saving, briefing and editing are for the paid media team."}
         </p>
       )}
       <div>{children}</div>

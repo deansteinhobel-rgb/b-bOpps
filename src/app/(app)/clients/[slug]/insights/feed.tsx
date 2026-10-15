@@ -592,7 +592,7 @@ function ClaudeMark({ className }: { className?: string }) {
 
 /**
  * Claude's take (phase 4): the daily review's headline and the 1-3 things to do first, each opening
- * its insight. GTM leads and admins can ask for a fresh review (about a minute).
+ * its insight. Anyone who can edit the client can ask for a fresh review (about a minute).
  */
 function ClaudeTake(p: Parameters<typeof InsightFeed>[0] & { onOpen: (key: string) => void }) {
   const router = useRouter()
