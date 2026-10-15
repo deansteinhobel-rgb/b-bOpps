@@ -429,3 +429,16 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   const fatigue = await as(andrea, () => q(`select ad_id, first_seen::text, live from public.ad_fatigue_inputs('${camber}') order by ad_id`))
   console.log(fatigue.length === 2 && fatigue[1].first_seen === "2026-10-13" ? "ad_fatigue_inputs reads recent ads, first seen = first day with impressions: OK" : `FAIL: ad_fatigue_inputs ${JSON.stringify(fatigue)}`)
 }
+
+// ad_fatigue_snapshots (2026-10-15): server-written once a day, the client's team reads, nobody else.
+{
+  const camber = "11111111-1111-1111-1111-111111111111"
+  await q(`insert into public.ad_fatigue_snapshots (client_id, snapshot_on, data_through, ad_count, rows) values ('${camber}', '2026-10-15', '2026-10-14', 1, '[{"ad_id":"a1"}]')`)
+  const team = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select ad_count from public.ad_fatigue_snapshots"))
+  console.log(team.length === 1 ? "ad fatigue snapshots: the team reads them: OK" : "FAIL: team can't read ad fatigue snapshots")
+  const other = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select ad_count from public.ad_fatigue_snapshots"))
+  console.log(other.length === 0 ? "ad fatigue snapshots: hidden from other teams: OK" : "FAIL: another team read Camber's snapshot")
+  try { await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.ad_fatigue_snapshots (client_id, snapshot_on, ad_count) values ('${camber}', '2026-10-16', 0)`)); console.log("FAIL: a signed-in user wrote a snapshot") } catch { console.log("ad fatigue snapshots are server-written: OK") }
+  const del = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.ad_fatigue_snapshots returning id"))
+  console.log(del.length === 0 ? "ad fatigue snapshots can't be deleted: OK" : "FAIL: snapshot deleted")
+}
