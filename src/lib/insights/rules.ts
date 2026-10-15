@@ -19,6 +19,7 @@ export type RuleKey =
   | "meta_frequency" | "meta_learning" | "meta_placements" | "meta_ages" | "meta_lookalike"
   | "landing_pages"
   | "li_not_icp" | "icp_terms"
+  | "settings_geo" | "settings_networks" | "settings_ai_max" | "settings_advantage" | "settings_meta_location" | "settings_audience_network"
 
 /** `campaigns`: where the item was seen (LinkedIn companies); `flag`: a short warning shown beside it. */
 /** `campaigns`: where the item was seen (LinkedIn companies); `flag`: a short tag beside it, `flagTone` its color. */
@@ -44,6 +45,8 @@ export type Insight = {
   atStake: number | null
   /** An ad preview to show (ad insights). */
   ad?: { platform: Platform; external_account_id: string; ad_id: string }
+  /** A risky platform setting (Dean, 2026-10-15): shown first, in its own "Urgent" section. */
+  urgent?: boolean
 }
 
 /** What each rule looks for, shown under "Why am I seeing this?". */
@@ -68,6 +71,12 @@ export const RULES: Record<RuleKey, { label: string; rule: string }> = {
   meta_lookalike: { label: "Lookalike", rule: "100+ Meta results in the last 90 days, enough people to seed a lookalike audience." },
   li_not_icp: { label: "Not ICP", rule: "LinkedIn companies that clicked in the last 30 days and don't fit the ICP in the client brief, as judged by Claude's daily review." },
   icp_terms: { label: "Off-ICP search terms", rule: "Search terms with spend and no conversions in the last 30 days that don't fit what the client sells or who it sells to, as judged by Claude's daily review (the client brief)." },
+  settings_geo: { label: "Location option", rule: "Enabled Google Ads campaigns whose location option is \"Presence or interest\" (people searching about the locations from anywhere), not just people in them. Urgent." },
+  settings_networks: { label: "Search networks", rule: "Enabled Google Ads search campaigns with Search Partners or the Display Network switched on. Urgent." },
+  settings_ai_max: { label: "AI Max", rule: "Enabled Google Ads campaigns with AI Max for Search on: it finds search terms beyond your keywords, so its terms need watching." },
+  settings_advantage: { label: "Advantage+ audience", rule: "Meta ad sets that spent in the last 3 days, built on a custom audience (a list or website visitors, not a lookalike) with Advantage+ audience on, so Meta treats the list as a suggestion and reaches beyond it. Urgent." },
+  settings_meta_location: { label: "Location: recently in", rule: "Meta ad sets that spent in the last 3 days and also reach people only recently in (or traveling in) the targeted locations, not just people who live there." },
+  settings_audience_network: { label: "Audience Network", rule: "Any spend in the last 3 days served on the LinkedIn Audience Network or the Meta Audience Network (partner apps and sites, off the platform itself). Urgent." },
   landing_pages: { label: "Landing pages", rule: "paid search landing pages with 100+ sessions in 30 days and under half the average engagement rate, or no conversions where 2+ were expected." },
 }
 
@@ -102,7 +111,12 @@ export type InsightInputs = {
   review?: ReviewVerdicts | null
   /** Search terms with spend and no conversions (30 days), for the ICP check. */
   costlyTerms?: TermRow[]
+  /** Platform settings from the latest settings check (platform_settings). */
+  settings?: SettingRow[]
 }
+
+/** One campaign (Google, LinkedIn) or ad set (Meta) from the latest settings check; see src/lib/windsor/settings.ts. */
+export type SettingRow = { platform: Platform; level: "campaign" | "adset"; entityId: string; entityName: string; campaignId: string; campaignName: string; settings: Record<string, unknown> }
 
 export type ReviewVerdicts = {
   companies: { name: string; fit: "icp" | "not_icp" | "unsure"; reason: string }[]
@@ -176,7 +190,9 @@ export const effectiveThrough = (input: InsightInputs): Partial<Record<Platform,
   Object.fromEntries(Object.entries(input.dataThrough).map(([p, d]) => [p, completeThrough(input.campaigns, p as Platform, d!)]))
 
 /** Something to capitalize on: shown first, in its own section, with a lime dot and border (Dean). */
-export const isOpportunity = (i: Pick<Insight, "category" | "rule">) => i.category === "opportunity"
+export const isOpportunity = (i: Pick<Insight, "category" | "rule" | "urgent">) => i.category === "opportunity" && !i.urgent
+/** A risky platform setting: shown first, above opportunities, in its own section (Dean, 2026-10-15). */
+export const isUrgent = (i: Pick<Insight, "urgent">) => Boolean(i.urgent)
 
 export function computeInsights(raw: InsightInputs): Insight[] {
   const out: Insight[] = []
@@ -469,7 +485,7 @@ export function computeInsights(raw: InsightInputs): Insight[] {
     })
   }
 
-  out.push(...linkedinInsights(input, money), ...metaInsights(input, money), ...landingInsights(input))
+  out.push(...linkedinInsights(input, money), ...metaInsights(input, money), ...landingInsights(input), ...settingsInsights(input, money))
   return out
 }
 
@@ -898,6 +914,166 @@ function landingInsights(input: InsightInputs): Insight[] {
   ]
 }
 
+// ---- platform settings (Dean, 2026-10-15) ----------------------------------------------------------
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+export function settingsInsights(input: InsightInputs, money: (v: number) => string): Insight[] {
+  const out: Insight[] = []
+  const rows = input.settings ?? []
+  const s = (r: SettingRow) => r.settings
+  const list = (v: unknown) => (Array.isArray(v) ? (v as string[]) : [])
+  const item = (r: SettingRow, note: string, spend?: number): InsightItem => ({
+    id: r.entityId,
+    label: r.entityName || r.entityId,
+    note: r.level === "adset" && r.campaignName ? `${r.campaignName} · ${note}` : note,
+    spend,
+  })
+  const google = rows.filter((r) => r.platform === "google_ads")
+
+  const geo = google.filter((r) => s(r).geo_target_type === "PRESENCE_OR_INTEREST")
+  if (geo.length) {
+    out.push({
+      key: "settings_geo:google_ads",
+      rule: "settings_geo",
+      category: "problem",
+      severity: "high",
+      urgent: true,
+      platform: "google_ads",
+      campaignId: null,
+      campaignName: null,
+      title: `${plural(geo.length, "campaign targets", "campaigns target")} people interested in your locations, not just in them`,
+      why: 'The location option is "Presence or interest", so the ads also show to people anywhere who search about the targeted places.',
+      todo: 'In each campaign: Settings → Locations → Location options → "Presence: people in or regularly in your included locations".',
+      numbers: [{ label: "Campaigns", value: String(geo.length), tone: "bad" }],
+      items: geo.map((r) => item(r, "Presence or interest")),
+      listed: true,
+      itemsLabel: "Campaigns",
+      atStake: null,
+    })
+  }
+
+  // Search campaigns only: Display, Demand Gen and Performance Max use those networks on purpose.
+  const isSearch = (r: SettingRow) => (s(r).channel_type ? s(r).channel_type === "SEARCH" : /search/i.test(r.campaignName))
+  const networks = google.filter((r) => isSearch(r) && (s(r).search_partners === true || s(r).display_network === true))
+  if (networks.length) {
+    const which = (r: SettingRow) => [s(r).search_partners === true && "Search Partners", s(r).display_network === true && "Display Network"].filter(Boolean).join(" and ")
+    out.push({
+      key: "settings_networks:google_ads",
+      rule: "settings_networks",
+      category: "problem",
+      severity: "high",
+      urgent: true,
+      platform: "google_ads",
+      campaignId: null,
+      campaignName: null,
+      title: `${plural(networks.length, "search campaign is", "search campaigns are")} also running on partner sites or the Display Network`,
+      why: "Search Partners and the Display Network spend a search budget on traffic that rarely converts for B2B and is hard to see in the reports.",
+      todo: 'In each campaign: Settings → Networks → untick "Google search partners" and "Google Display Network".',
+      numbers: [{ label: "Campaigns", value: String(networks.length), tone: "bad" }],
+      items: networks.map((r) => item(r, which(r))),
+      listed: true,
+      itemsLabel: "Campaigns",
+      atStake: null,
+    })
+  }
+
+  const aiMax = google.filter((r) => s(r).ai_max === true)
+  if (aiMax.length) {
+    out.push({
+      key: "settings_ai_max:google_ads",
+      rule: "settings_ai_max",
+      category: "problem",
+      severity: "medium",
+      platform: "google_ads",
+      campaignId: null,
+      campaignName: null,
+      title: `AI Max is on for ${plural(aiMax.length, "campaign", "campaigns")}`,
+      why: "AI Max matches search terms beyond your keywords (match source AI_MAX in the search terms table). It can find new demand, but also off-ICP searches.",
+      todo: "Check its search terms on each campaign (Check against the ICP helps) and add negatives. Turn it off in the campaign's AI Max setting if it keeps bringing in the wrong searches.",
+      numbers: [{ label: "Campaigns", value: String(aiMax.length) }],
+      items: aiMax.map((r) => item(r, "AI Max on")),
+      listed: true,
+      itemsLabel: "Campaigns",
+      atStake: null,
+    })
+  }
+
+  const meta = rows.filter((r) => r.platform === "meta")
+  const advantage = meta.filter((r) => s(r).advantage_audience === true && list(s(r).matched_audiences).length > 0)
+  if (advantage.length) {
+    out.push({
+      key: "settings_advantage:meta",
+      rule: "settings_advantage",
+      category: "problem",
+      severity: "high",
+      urgent: true,
+      platform: "meta",
+      campaignId: null,
+      campaignName: null,
+      title: `Advantage+ audience is on for ${plural(advantage.length, "ad set", "ad sets")} built on a list`,
+      why: "With Advantage+ audience on, Meta treats the custom audience as a suggestion and shows the ads to people outside it.",
+      todo: "In each ad set: Audience → switch to the original audience options (Advantage+ audience off), keeping the custom audience as the targeting.",
+      numbers: [{ label: "Ad sets", value: String(advantage.length), tone: "bad" }],
+      items: advantage.map((r) => item(r, list(s(r).matched_audiences).join(", "))),
+      listed: true,
+      itemsLabel: "Ad sets",
+      atStake: null,
+    })
+  }
+
+  const recent = meta.filter((r) => list(s(r).location_types).some((t) => t === "recent" || t === "travel_in"))
+  if (recent.length) {
+    out.push({
+      key: "settings_meta_location:meta",
+      rule: "settings_meta_location",
+      category: "problem",
+      severity: "medium",
+      platform: "meta",
+      campaignId: null,
+      campaignName: null,
+      title: `${plural(recent.length, "ad set reaches", "ad sets reach")} people only recently in the targeted locations`,
+      why: "The location setting includes people recently in (or traveling in) the area, not just people who live there.",
+      todo: 'In each ad set: Audience → Locations → "People living in this location", where the client only sells there.',
+      numbers: [{ label: "Ad sets", value: String(recent.length) }],
+      items: recent.map((r) => item(r, list(s(r).location_types).join(", "))),
+      listed: true,
+      itemsLabel: "Ad sets",
+      atStake: null,
+    })
+  }
+
+  for (const platform of ["linkedin", "meta"] as const) {
+    const an = rows.filter((r) => r.platform === platform && Number(s(r).audience_network_spend) > 0)
+    if (!an.length) continue
+    const spent = an.reduce((t, r) => t + Number(s(r).audience_network_spend), 0)
+    const days = Number(s(an[0]).days) || 3
+    const unit = platform === "linkedin" ? ["campaign", "campaigns", "Campaigns"] : ["ad set", "ad sets", "Ad sets"]
+    out.push({
+      key: `settings_audience_network:${platform}`,
+      rule: "settings_audience_network",
+      category: "waste",
+      severity: "high",
+      urgent: true,
+      platform,
+      campaignId: null,
+      campaignName: null,
+      title: `${money(spent)} went to the ${platform === "linkedin" ? "LinkedIn" : "Meta"} Audience Network in the last ${days} days`,
+      why: `${plural(an.length, unit[0], unit[1])} served ads on partner apps and sites instead of ${platform === "linkedin" ? "LinkedIn" : "Facebook and Instagram"}, where B2B results are rare and clicks are often accidental.`,
+      todo: platform === "linkedin" ? 'In each campaign: Placements → untick "LinkedIn Audience Network".' : "In each ad set: Placements → Manual placements → untick Audience Network.",
+      numbers: [
+        { label: `Spent, last ${days} days`, value: money(spent), tone: "bad" },
+        { label: unit[2], value: String(an.length) },
+      ],
+      items: an.map((r) => item(r, `${money(Number(s(r).audience_network_spend))} of ${money(Number(s(r).spend) || 0)}`, Number(s(r).audience_network_spend))),
+      listed: true,
+      itemsLabel: unit[2],
+      atStake: spent,
+    })
+  }
+  return out
+}
+
 // ---- what the team did with them ----------------------------------------------------------------
 
 export type LoggedAction = { insight_key: string; action: "done" | "dismissed" | "snoozed" | "briefed" | "tested" | "reopened"; items: string[]; snooze_until: string | null; created_at: string; note?: string | null; notion_page_id?: string | null; sprint_test_id?: string | null; profile_name?: string | null }
@@ -913,8 +1089,8 @@ export type FeedInsight = Insight & {
 }
 
 const SEVERITY_WEIGHT: Record<Severity, number> = { high: 3, medium: 2, low: 1 }
-/** Highest severity first, then the most money at stake. */
-export const priority = (i: Insight) => SEVERITY_WEIGHT[i.severity] * 1e9 + (i.atStake ?? 0)
+/** Urgent settings first, then the highest severity, then the most money at stake. */
+export const priority = (i: Insight) => (i.urgent ? 1e10 : 0) + SEVERITY_WEIGHT[i.severity] * 1e9 + (i.atStake ?? 0)
 
 /**
  * Applies the log to the computed insights. Done / dismissed hide the items they covered (an empty
@@ -954,7 +1130,7 @@ export function applyActions(insights: Insight[], log: LoggedAction[], today: st
  * Changes whenever the rules' code changes, so a cached feed from older rules is never shown (the
  * cache key includes it; on Vercel the data cache outlives a deploy).
  */
-export const RULES_FINGERPRINT = codeFingerprint(computeInsights, linkedinInsights, segmentsByCampaign, strongSegments, metaInsights, landingInsights, completeThrough, goalOf, isAwareness)
+export const RULES_FINGERPRINT = codeFingerprint(computeInsights, linkedinInsights, segmentsByCampaign, strongSegments, metaInsights, landingInsights, settingsInsights, completeThrough, goalOf, isAwareness)
 
 /** A short hash of some functions' source code. */
 export function codeFingerprint(...fns: ((...args: never[]) => unknown)[]) {
