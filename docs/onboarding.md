@@ -32,7 +32,7 @@ corepack pnpm install
    NOTION_DRY_RUN=true
    ```
    and the Windsor ones, if present, `WINDSOR_WRITES_ENABLED=false` and `WINDSOR_DRY_RUN=true`.
-   Never change them. Only Dean switches them, and never on a laptop.
+   Never change them. Only Dean (or Claude in Dean's own sessions) switches them, never on a laptop.
 3. Put the font at `public/fonts/MADEAvenue-Regular.otf` (the folder is git-ignored). Without it the
    titles fall back to Georgia, which is fine for most work.
 4. Start the app and sign in:
