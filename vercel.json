@@ -59,6 +59,10 @@
     {
       "path": "/api/cron/changes",
       "schedule": "30 4 * * *"
+    },
+    {
+      "path": "/api/cron/settings",
+      "schedule": "45 4 * * *"
     }
   ]
 }

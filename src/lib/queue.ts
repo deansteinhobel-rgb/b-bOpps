@@ -6,7 +6,7 @@ import { currentPeriods } from "@/lib/checks/periods"
 import { isRedNotActioned } from "@/lib/checks/runs"
 import { longDate } from "@/lib/format"
 import { loadFeed } from "@/lib/insights/feed"
-import { isOpportunity } from "@/lib/insights/rules"
+import { isOpportunity, isUrgent } from "@/lib/insights/rules"
 import { cachedPacing } from "@/lib/metrics/cached"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { PROP } from "@/lib/notion/config"
@@ -96,11 +96,12 @@ async function clientQueue(
   const startHere = new Set((feed?.review?.startHere ?? []).map((x) => x.key))
   const fixes = open.filter((i) => !isOpportunity(i))
   const opps = open.filter((i) => isOpportunity(i))
-  const picked = new Set([...open.filter((i) => startHere.has(i.key)), ...fixes.slice(0, INSIGHTS_PER_CLIENT), ...opps.slice(0, OPPORTUNITIES_PER_CLIENT)].map((i) => i.key))
+  // Urgent platform settings always make the list (Dean, 2026-10-15).
+  const picked = new Set([...open.filter((i) => startHere.has(i.key) || isUrgent(i)), ...fixes.slice(0, INSIGHTS_PER_CLIENT), ...opps.slice(0, OPPORTUNITIES_PER_CLIENT)].map((i) => i.key))
   for (const i of open) {
     if (!picked.has(i.key)) continue
     const opp = isOpportunity(i)
-    const group: QueueGroup = opp ? "opportunity" : i.severity === "high" || startHere.has(i.key) ? "attention" : i.severity === "medium" ? "week" : "later"
+    const group: QueueGroup = isUrgent(i) ? "attention" : opp ? "opportunity" : i.severity === "high" || startHere.has(i.key) ? "attention" : i.severity === "medium" ? "week" : "later"
     push({
       key: `insight:${i.key}`,
       source: "insight",
@@ -109,11 +110,11 @@ async function clientQueue(
       platform: i.platform,
       title: i.title,
       detail: i.claude?.whyNow || i.todo,
-      meta: [SOURCE_LABEL.insight, startHere.has(i.key) ? "Claude: start here" : null, i.campaignName, i.listed && i.open.length ? `${i.open.length} to handle` : null].filter(Boolean).join(" · "),
+      meta: [SOURCE_LABEL.insight, isUrgent(i) ? "Urgent setting" : null, startHere.has(i.key) ? "Claude: start here" : null, i.campaignName, i.listed && i.open.length ? `${i.open.length} to handle` : null].filter(Boolean).join(" · "),
       when: null,
       href: `${base}/insights?i=${encodeURIComponent(i.key)}`,
       act: { kind: "insight", slug: client.slug, key: i.key },
-      sort: (i.claude ? i.claude.rank : 100) * 1e6 - Math.min(i.atStake ?? 0, 999_999),
+      sort: isUrgent(i) ? -Math.min(i.atStake ?? 0, 999_999) : (i.claude ? i.claude.rank : 100) * 1e6 - Math.min(i.atStake ?? 0, 999_999),
     })
   }
   const more = open.length - picked.size

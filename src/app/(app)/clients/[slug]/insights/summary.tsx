@@ -2,7 +2,7 @@ import Link from "next/link"
 import { PlatformIcon } from "@/components/brand"
 import { money } from "@/lib/format"
 import { loadFeed } from "@/lib/insights/feed"
-import { isOpportunity, RULES, type FeedInsight } from "@/lib/insights/rules"
+import { isOpportunity, isUrgent, RULES, type FeedInsight } from "@/lib/insights/rules"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 
@@ -10,8 +10,8 @@ const DOT = { high: "bg-rag-red", medium: "bg-rag-amber", low: "bg-muted-foregro
 
 /** A short list of open insights (the campaign drill-down, the Reporting tab), each linking into the feed. */
 export function InsightSummary({ slug, insights, currency, limit = 5, title = "Optimize now" }: { slug: string; insights: FeedInsight[]; currency: string; limit?: number; title?: string }) {
-  // Opportunities first, then Claude's order from the daily review (when there is one).
-  const open = insights.filter((i) => i.state === "open").sort((a, b) => Number(isOpportunity(b)) - Number(isOpportunity(a)) || (a.claude?.rank ?? 1e6) - (b.claude?.rank ?? 1e6))
+  // Urgent settings first, then opportunities, then Claude's order from the daily review (when there is one).
+  const open = insights.filter((i) => i.state === "open").sort((a, b) => Number(isUrgent(b)) - Number(isUrgent(a)) || Number(isOpportunity(b)) - Number(isOpportunity(a)) || (a.claude?.rank ?? 1e6) - (b.claude?.rank ?? 1e6))
   if (!open.length) return null
   return (
     <div className="surface overflow-hidden">
