@@ -144,6 +144,7 @@ export function BriefDialog(props: { testId: string; live: boolean; disabled?: b
                       />
                       <p className="text-xs text-muted-foreground">
                         {tagIds.length ? "Anyone you tag is greeted at the top, unless you write @ and their full name yourself. " : "Leave it empty to skip the comment. "}
+                        **Bold** and [text](link) show as bold and links in Notion.{" "}
                         {commentEdited && (
                           <button
                             type="button"
@@ -374,7 +375,7 @@ function Review({ rows, comment, tagged, live }: { rows: [string, string][]; com
             </div>
           ))}
         </dl>
-        <p className="text-xs text-muted-foreground">The plan and what we need go in the comment, with a link back to the test in QA Document. Description of Request is left empty, unless there's no comment.</p>
+        <p className="text-xs text-muted-foreground">The plan and what we need go in the comment, with a link back to the test in QA Document. Description of Request is left empty, unless there&apos;s no comment.</p>
       </div>
       <div className="space-y-1">
         <p className="text-xs text-muted-foreground">The comment{tagged.length ? `, tagging ${tagged.join(", ")}` : ""}</p>
@@ -390,18 +391,27 @@ function Review({ rows, comment, tagged, live }: { rows: [string, string][]; com
 }
 
 /** Shows each "@Name" of a tagged person as a mention chip, like Notion does. */
+// The same formatting formattedRichText sends to Notion: **bold**, [label](link), bare links.
+const PREVIEW_FORMAT = /\*\*([^*\n]+?)\*\*|\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"]+)/.source
+
+/** The comment as Notion will show it: **bold**, [label](link) and bare links formatted, tagged people highlighted. */
 function highlight(text: string, names: string[]) {
-  if (!names.length) return text
   const escaped = [...names].sort((a, b) => b.length - a.length).map((n) => `@${n}`.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-  return text.split(new RegExp(`(${escaped.join("|")})`)).map((part, i) =>
-    names.some((n) => part === `@${n}`) ? (
-      <span key={i} className="rounded bg-primary/15 px-1 text-primary">
-        {part}
-      </span>
-    ) : (
-      part
-    ),
-  )
+  const mention = escaped.length ? `|(${escaped.join("|")})` : ""
+  const re = new RegExp(PREVIEW_FORMAT + mention, "g")
+  const out: React.ReactNode[] = []
+  let last = 0
+  for (const m of text.matchAll(re)) {
+    if (m.index > last) out.push(text.slice(last, m.index))
+    const key = m.index
+    if (m[1] !== undefined) out.push(<strong key={key}>{m[1]}</strong>)
+    else if (m[2] !== undefined) out.push(<a key={key} href={m[3]} target="_blank" rel="noreferrer" className="underline">{m[2]}</a>)
+    else if (m[4] !== undefined) out.push(<a key={key} href={m[4]} target="_blank" rel="noreferrer" className="underline break-all">{m[4]}</a>)
+    else out.push(<span key={key} className="rounded bg-primary/15 px-1 text-primary">{m[0]}</span>)
+    last = m.index + m[0].length
+  }
+  if (last < text.length) out.push(text.slice(last))
+  return out
 }
 
 function DoneStep({ done, onClose }: { done: Done; onClose: () => void }) {

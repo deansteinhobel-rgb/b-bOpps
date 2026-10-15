@@ -84,8 +84,8 @@ export function cleanNeeds(n: Needs): Needs {
 }
 
 /**
- * "What we need from copy / design" as the team writes it. Notes are left out when empty. Search
- * and display ads carry their template link.
+ * "What we need from copy / design" as the team writes it, as bold sections for the Notion comment. Notes are
+ * left out when empty. Search and display ads carry their template as a short link.
  */
 export function needsText(raw: Needs): string {
   const n = cleanNeeds(raw)
@@ -94,17 +94,15 @@ export function needsText(raw: Needs): string {
   // A template link goes once: under design for display ads, under copy for search ads.
   const item = (f: Format, withTemplate: boolean) => {
     const qty = def.quantities ? `${n.formats[f.key]} x ` : ""
-    const template = withTemplate && f.template ? ` (template: ${TEMPLATES[f.template]})` : ""
+    const template = withTemplate && f.template ? ` ([template](${TEMPLATES[f.template]}))` : ""
     return `• ${qty}${f.label}${template}`
   }
   const copy = chosen.map((f) => item(f, !f.design))
   if (n.leadForm) copy.push(`• ${n.leadFormQty} x Lead form copy`)
   const design = chosen.filter((f) => f.design).map((f) => item(f, true))
-  const parts = [`Platform: ${def.label}`]
-  if (copy.length) parts.push(`What we need from copy:\n${copy.join("\n")}`)
-  if (n.notes) parts.push(`Notes: ${n.notes}`)
-  if (design.length) parts.push(`What we need from design:\n${design.join("\n")}`)
-  if (n.designNotes) parts.push(`Notes for design: ${n.designNotes}`)
+  const parts: string[] = []
+  if (copy.length || n.notes) parts.push([`**What we need from copy**`, ...copy, n.notes ? `Notes: ${n.notes}` : null].filter(Boolean).join("\n"))
+  if (design.length || n.designNotes) parts.push([`**What we need from design**`, ...design, n.designNotes ? `Notes: ${n.designNotes}` : null].filter(Boolean).join("\n"))
   return parts.join("\n\n")
 }
 
