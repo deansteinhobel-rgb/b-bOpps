@@ -8,6 +8,7 @@ import type { SprintTest } from "./data"
 import { add, metricValue, verdictFor, ZERO, type Comparison, type TestAd, type TestDetail, type TestKind, type Totals } from "./results"
 import { METRICS } from "./tests"
 import { dataRanges } from "@/lib/metrics/data-range"
+import { loadPlatformTargets, targetFor } from "@/lib/metrics/targets"
 
 const n = (v: unknown) => Number(v) || 0
 const totalsOf = (r: Record<string, unknown>): Totals => ({ spend: n(r.spend), impressions: n(r.impressions), clicks: n(r.clicks), conversions: n(r.conversions), leads: n(r.leads) })
@@ -19,6 +20,8 @@ const dayCount = (from: string, to: string) => Math.round((Date.parse(to) - Date
  * passes the admin client after its own access check. Null when there's nothing to measure yet.
  */
 export async function loadTestDetail(supabase: SupabaseClient, clientId: string, test: SprintTest, opts: { today: string; currency: string; targetCpr: number | null }): Promise<TestDetail | null> {
+  // The test's platform may have its own target (Reddit for DNSFilter).
+  if (test.platform) opts = { ...opts, targetCpr: targetFor(opts.targetCpr, await loadPlatformTargets(supabase, clientId), test.platform as Platform) }
   if (!test.live_on || !test.campaign_ids.length) return null
   const liveFrom = test.live_on
   const [ranges, campaignDays] = await Promise.all([

@@ -14,6 +14,7 @@ import { sprintOf } from "@/lib/sprints/periods"
 import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { leverForInsight } from "@/lib/taxonomy"
+import { PLATFORMS } from "@/lib/metrics/types"
 
 // What the team does with an insight. All as the signed-in user (RLS: the client's team and
 // admins), logged append-only in insight_actions. Nothing is written to the ad platforms (Dean:
@@ -22,7 +23,7 @@ import { leverForInsight } from "@/lib/taxonomy"
 
 export type InsightResult = { ok: boolean; message?: string; payload?: unknown; url?: string; dryRun?: boolean }
 const fail = (message: string): InsightResult => ({ ok: false, message })
-const CONNECTED = ["linkedin", "google_ads", "meta"]
+const CONNECTED: string[] = [...PLATFORMS]
 
 async function load(slug: string, key: string, items: string[]) {
   const supabase = await createClient()

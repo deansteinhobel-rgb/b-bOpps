@@ -11,6 +11,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { loadInsightInputs } from "./load"
 import { audienceCandidates, computeInsights, isOpportunity, RULES } from "./rules"
+import { ownTargets } from "@/lib/metrics/targets"
 
 /**
  * Performance phase 4: Claude's daily review of a client's "Optimize now" feed (see the
@@ -74,7 +75,7 @@ const SUBMIT = {
         items: {
           type: "object",
           properties: {
-            platform: { type: "string", enum: ["linkedin", "google_ads", "meta"] },
+            platform: { type: "string", enum: ["linkedin", "google_ads", "meta", "reddit"] },
             campaign_id: { type: "string" },
             goal: { type: "string", enum: [...CAMPAIGN_GOALS] },
             note: { type: "string", description: "Under 20 words: what the campaign is for and where you read it (name, Notion brief title, client brief)." },
@@ -156,7 +157,7 @@ async function reviewContext(clientId: string) {
 
   const lines = [
     `# Client: ${input.clientName}`,
-    `Target cost per result: ${input.target ? money(input.target, cur) : "not set"}. Data to ${through}.`,
+    `Target cost per result: ${input.target ? money(input.target, cur) : "not set"}${ownTargets(input.targets ?? {}, (n) => money(n, cur))}. Data to ${through}.`,
     await briefForPrompt(clientId),
     `\n## Open insights (key | severity | kind | campaign | title | why | what to do | items)`,
     ...open.map((i) => `- ${i.key} | ${i.severity}${isOpportunity(i) ? " (opportunity)" : ""} | ${RULES[i.rule].label} | ${i.campaignName ?? "account"} | ${withSymbols(i.title)} | ${withSymbols(i.why)} | ${i.todo}${i.listed ? ` | ${i.items.length} items: ${i.items.slice(0, 8).map((x) => x.label).join("; ")}` : ""}`),

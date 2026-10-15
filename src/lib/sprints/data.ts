@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { unstable_cache } from "next/cache"
 import { addDays, rankAds, totals, type AdStat, type DailyRow, type Totals } from "@/lib/metrics/ads"
 import { windsorTag } from "@/lib/metrics/cached"
-import type { Platform } from "@/lib/metrics/types"
+import { type Platform, PLATFORMS } from "@/lib/metrics/types"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { AdEvent } from "./detect"
 import { sprintByNumber, type SprintPeriod } from "./periods"
@@ -241,7 +241,6 @@ export type SprintSummary = {
 }
 
 const n = (v: unknown) => Number(v) || 0
-const PLATFORMS: Platform[] = ["linkedin", "google_ads", "meta"]
 
 export async function computeSprintNumbers(clientId: string, period: SprintPeriod) {
   const db = createAdminClient()

@@ -22,7 +22,7 @@ import { LEVER_KEYS } from "@/lib/taxonomy"
 
 export type TestResult = { ok: boolean; message?: string; payload?: unknown; url?: string; dryRun?: boolean }
 const fail = (message: string): TestResult => ({ ok: false, message })
-const PlatformEnum = z.enum(["linkedin", "google_ads", "meta"])
+const PlatformEnum = z.enum(["linkedin", "google_ads", "meta", "reddit"])
 
 async function loadTest(testId: string) {
   const supabase = await createClient()

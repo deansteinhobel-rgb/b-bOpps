@@ -28,6 +28,8 @@ export function GlanceBoard(p: {
   name: string
   currency: string
   target: number | null
+  /** "the $300 target ($650 on Reddit)". */
+  targetText?: string
   numbers: AccountNumbers | null
   month: string | null
   budget: number
@@ -103,7 +105,7 @@ export function GlanceBoard(p: {
             id="spend"
             title="Where the money went"
             meta={`${p.month} so far`}
-            detailDescription={`${p.month} so far, by platform and by campaign. Colors compare cost per result with the ${money(p.target, cur)} target: green under it, amber up to 20% over, red further.`}
+            detailDescription={`${p.month} so far, by platform and by campaign. Colors compare cost per result with ${p.targetText ?? `the ${money(p.target, cur)} target`}: green under it, amber up to 20% over, red further.`}
             summary={<SpendSummary platforms={p.platforms} currency={cur} target={p.target} />}
             detail={p.spendDetail}
           />
@@ -190,7 +192,7 @@ function SpendSummary({ platforms, currency, target }: { platforms: PlatformSpen
               {x.budget ? <PaceBar spend={x.spend} expected={x.expected ?? 0} budget={x.budget} /> : <span className="block h-1.5 rounded-full bg-secondary" />}
             </span>
             <span className="text-right text-xs leading-tight">
-              <span className={cn("block tabular-nums", cprTone(x.cpr, target))}>{x.cpr === null ? "–" : money(x.cpr, currency)}</span>
+              <span className={cn("block tabular-nums", cprTone(x.cpr, x.target ?? target))}>{x.cpr === null ? "–" : money(x.cpr, currency)}</span>
               <span className="block text-[10px] text-muted-foreground">{whole(x.results)} results</span>
             </span>
           </span>

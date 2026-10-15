@@ -312,12 +312,13 @@ const glanceNumbers: AccountNumbers = {
   ],
 }
 const glancePlatforms = [
-  { platform: "google_ads" as const, spend: 80015, budget: 70000, expected: 67667, results: 289, cpr: 277, lastSpend: 70000, lastCpr: 260 },
-  { platform: "linkedin" as const, spend: 24235, budget: 20000, expected: 19333, results: 73, cpr: 332, lastSpend: 19000, lastCpr: 350 },
-  { platform: "meta" as const, spend: 5518, budget: 15000, expected: 14500, results: 40, cpr: 138, lastSpend: 6000, lastCpr: 150 },
+  { platform: "google_ads" as const, spend: 80015, budget: 70000, expected: 67667, results: 289, cpr: 277, target: 300, lastSpend: 70000, lastCpr: 260 },
+  { platform: "linkedin" as const, spend: 24235, budget: 20000, expected: 19333, results: 73, cpr: 332, target: 300, lastSpend: 19000, lastCpr: 350 },
+  { platform: "meta" as const, spend: 5518, budget: 15000, expected: 14500, results: 40, cpr: 138, target: 300, lastSpend: 6000, lastCpr: 150 },
+  { platform: "reddit" as const, spend: 4380, budget: 5000, expected: 4833, results: 8, cpr: 548, target: 650, lastSpend: 4100, lastCpr: 610 },
 ]
 const glanceAdStats: AdStat[] = [1, 2, 3, 4, 5, 6, 7, 8].flatMap((i) =>
-  (["linkedin", "google_ads", "meta"] as const).map((platform) => ({ platform, external_account_id: "a", ad_id: `${platform}-${i}`, ad_name: `${platform === "google_ads" ? "Search ad" : platform === "meta" ? "Video testimonial" : "AI Security report"} ${i}`, campaign_name: "Sample campaign", spend: 900 + i * 310, impressions: 30000 + i * 900, clicks: 300 + i * 25 + (i % 3) * 40, conversions: 2 + ((i * 7) % 6), leads: i % 2 }))
+  (["linkedin", "google_ads", "meta", "reddit"] as const).map((platform) => ({ platform, external_account_id: "a", ad_id: `${platform}-${i}`, ad_name: `${platform === "google_ads" ? "Search ad" : platform === "meta" ? "Video testimonial" : platform === "reddit" ? "Interactive demo" : "AI Security report"} ${i}`, campaign_name: "Sample campaign", spend: 900 + i * 310, impressions: 30000 + i * 900, clicks: 300 + i * 25 + (i % 3) * 40, conversions: 2 + ((i * 7) % 6), leads: i % 2 }))
 )
 const glanceTimeline: TimelineEntry[] = [
   { id: "1", at: "2026-09-29T10:00:00Z", source: "team", platform: "linkedin", campaign: null, who: "Andrea Sample", kind: "Budget", title: "Moved £2k from Generic to the AI Security report", detail: null },

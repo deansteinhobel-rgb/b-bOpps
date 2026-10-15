@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server"
 
 const Input = z.object({
   clientSlug: z.string().min(1),
-  platform: z.enum(["linkedin", "google_ads", "meta"]),
+  platform: z.enum(["linkedin", "google_ads", "meta", "reddit"]),
   campaignId: z.string().max(100), // "" = the whole platform
   month: z.string().regex(/^\d{4}-\d{2}-01$/),
   amount: z.number().nonnegative().max(100_000_000),

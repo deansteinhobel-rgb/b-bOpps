@@ -4,6 +4,7 @@ import type { Platform } from "@/lib/metrics/types"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { computeInsights, effectiveThrough, type CampaignDays, type InsightPlatform, type InsightInputs, type LinkedInKind, type SegmentRow, type SettingRow, type Sums } from "./rules"
 import { dataRanges } from "@/lib/metrics/data-range"
+import { loadPlatformTargets } from "@/lib/metrics/targets"
 
 /** Loads everything the insight rules read, for one client, and runs them. */
 
@@ -30,6 +31,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     supabase.from("insight_reviews").select("companies, terms, goals, audiences").eq("client_id", clientId).eq("status", "ready").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("platform_settings").select("platform, external_account_id, level, entity_id, entity_name, campaign_id, campaign_name, settings, checked_at").eq("client_id", clientId).limit(5000),
   ])
+  const targets = await loadPlatformTargets(supabase, clientId)
   const statusOf = new Map((statuses ?? []).map((r) => [`${r.platform}|${r.campaign_id}`, r.status as string]))
   if (!client || !range?.length) return null
   const dataThrough: Partial<Record<Platform, string>> = {}
@@ -99,6 +101,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     settings,
     currency: client.currency,
     target,
+    targets,
     dataThrough,
     campaigns: [...campaigns.values()],
     ads,

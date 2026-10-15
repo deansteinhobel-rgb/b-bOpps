@@ -4,6 +4,8 @@ import { canEdit, getProfile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { money, whole } from "@/lib/format"
 import { cachedPacing } from "@/lib/metrics/cached"
+import { loadPlatformTargets, targetWords } from "@/lib/metrics/targets"
+import { PLATFORM_LABEL } from "@/lib/metrics/types"
 import { sprintOf } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
 import { GlanceBoard } from "./_glance/glance-board"
@@ -32,18 +34,20 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
 
   // Pages load in pieces (Dean, 2026-10-15): only the month line, the tiles and the spend card wait;
   // the Ads, What's changed and What's planned cards stream in with a spinner while they load.
-  const [numbers, pacing, goals] = await Promise.all([
+  const [numbers, pacing, goals, targets] = await Promise.all([
     getAccountNumbers(supabase, client.id, throughP),
     cachedPacing(client.id), // access confirmed above (client loaded through RLS)
     loadGoals(supabase, client.id, today),
+    loadPlatformTargets(supabase, client.id),
   ])
-  const { budget, expected, platforms } = spendOf(numbers, pacing)
+  const { budget, expected, platforms } = spendOf(numbers, pacing, target, targets)
   return (
     <GlanceBoard
       slug={slug}
       name={client.name}
       currency={cur}
       target={target}
+      targetText={targetWords(target, targets, (n) => money(n, cur), (p) => PLATFORM_LABEL[p])}
       numbers={numbers}
       month={numbers ? monthName(numbers.month) : null}
       budget={budget}

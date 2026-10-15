@@ -16,6 +16,7 @@ import { fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import { decodeRange, encodeRange, rangeLabel, rangeParams, rangeText } from "@/lib/metrics/range"
 import { resultFieldLines } from "@/lib/metrics/result-fields"
 import { parseSegment, segmentLabel, segmentOf, segmentOptions, segmentsFor, splitBySegment } from "@/lib/metrics/segments"
+import { loadPlatformTargets, targetFor } from "@/lib/metrics/targets"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { Hint } from "@/components/hint"
 import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
@@ -75,11 +76,14 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
     cachedOverview(client.id),
     supabase.from("client_platform_accounts").select("platform, conversion_fields, lead_fields").eq("client_id", client.id).eq("active", true),
   ])
+  const targets = await loadPlatformTargets(supabase, client.id)
   if (!perf || !o) return <p className="text-muted-foreground">No ad data yet. An admin can run a Windsor backfill for this client.</p>
   const split = segmentDefs.length ? splitBySegment(unsegmented ?? perf, segmentDefs, segmentOpts) : null
   const segmentName = segment ? segmentLabel(segmentDefs, segment) : null
   const cur = client.currency
-  const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
+  const clientTarget = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
+  // A platform's own target where it has one (Reddit for DNSFilter); the page's tiles use the picked platform's.
+  const target = targetFor(clientTarget, targets, platform)
   const base = `/clients/${slug}/reporting`
   const q = rangeParams(range, new URLSearchParams(), defaultDays)
   if (platform) q.set("platform", platform)
@@ -153,7 +157,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
             <SegmentSplit segments={split} currency={cur} base={base} query={q} active={segment} platform={platform} />
             {segmentOption && (
               <SegmentDetail segment={segmentOption} platform={platform} platforms={segmentPlatforms} base={base} query={q}>
-                <CampaignTable slug={slug} currency={cur} target={target} query={query ? `?${query}` : ""} rows={campaignRows} />
+                <CampaignTable slug={slug} currency={cur} target={clientTarget} targets={targets} query={query ? `?${query}` : ""} rows={campaignRows} />
                 <SegmentAds ads={segmentAds} previews={previews} currency={cur} />
               </SegmentDetail>
             )}
@@ -255,7 +259,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
               {!platform && <PlatformSplit platforms={perf.platforms} currency={cur} />}
             </div>
           </div>
-          <CampaignTable slug={slug} currency={cur} target={target} query={query ? `?${query}` : ""} rows={campaignRows} />
+          <CampaignTable slug={slug} currency={cur} target={clientTarget} targets={targets} query={query ? `?${query}` : ""} rows={campaignRows} />
           {pages && <LandingPages rows={pages} />}
         </section>
       </>
@@ -338,7 +342,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
                     </td>
                     {(["spend", "results", "cpr", "ctr", "cpc"] as MetricKey[]).map((k) => (
                       <td key={k} className="px-4 py-3 text-right">
-                        <span className={cn(k === "cpr" && target && p.now.cpr !== null && (p.now.cpr <= target ? "text-rag-green" : p.now.cpr <= target * 1.2 ? "text-rag-amber" : "text-rag-red"))}>{fmt(k, p.now[k], cur)}</span>
+                        <span className={cn(k === "cpr" && cprClass(p.now.cpr, targetFor(clientTarget, targets, p.platform)))}>{fmt(k, p.now[k], cur)}</span>
                         <Delta k={k} now={p.now[k]} before={p.prev[k]} className="ml-2" />
                         {k === "results" && p.platform !== "google_ads" && (
                           <span className="block text-xs text-muted-foreground">
@@ -392,3 +396,5 @@ function AdLine({ label, ad, basis, currency, previews }: { label: "Best" | "Wor
     </div>
   )
 }
+
+const cprClass = (cpr: number | null, target: number | null) => (target && cpr !== null ? (cpr <= target ? "text-rag-green" : cpr <= target * 1.2 ? "text-rag-amber" : "text-rag-red") : undefined)

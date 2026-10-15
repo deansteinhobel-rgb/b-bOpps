@@ -7,6 +7,7 @@
 import { money as fmtMoney } from "@/lib/format"
 import { addDays } from "@/lib/metrics/ads"
 import type { Platform } from "@/lib/metrics/types"
+import { targetFor, type PlatformTargets } from "@/lib/metrics/targets"
 
 export type Sums = { spend: number; impressions: number; clicks: number; results: number }
 export type Severity = "high" | "medium" | "low"
@@ -93,6 +94,8 @@ export type InsightInputs = {
   clientName: string
   currency: string
   target: number | null
+  /** Platforms with their own target cost per result (Reddit for DNSFilter); the rest use `target`. */
+  targets?: PlatformTargets
   /** The last day with data, per platform (a lagging account mustn't look like "stopped spending"). */
   dataThrough: Partial<Record<Platform, string>>
   campaigns: CampaignDays[] // the last 90 days
@@ -363,6 +366,7 @@ export function computeInsights(raw: InsightInputs): Insight[] {
   for (const c of input.campaigns) {
     const through = input.dataThrough[c.platform]
     if (!through) continue
+    const target = targetFor(input.target, input.targets, c.platform)
     const last2 = span(c, addDays(through, -1), through)
     const weekBefore = span(c, addDays(through, -8), addDays(through, -2))
     // Paused, removed, archived or completed campaigns are off on purpose: ignore them.

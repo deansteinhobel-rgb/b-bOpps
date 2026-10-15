@@ -7,6 +7,7 @@ import { markCallItemPlanned } from "@/lib/calls/refs"
 import { peopleForClient } from "@/lib/people"
 import { createClient } from "@/lib/supabase/server"
 import { isLever } from "@/lib/taxonomy"
+import { PLATFORMS } from "@/lib/metrics/types"
 
 // Review → approve / reject for Claude's sprint suggestions. Anyone who can edit the client (checked
 // here and by RLS). Approving creates a planned test; nothing goes to Notion until someone clicks
@@ -14,7 +15,7 @@ import { isLever } from "@/lib/taxonomy"
 
 export type AiResult = { ok: boolean; message?: string }
 const fail = (message: string): AiResult => ({ ok: false, message })
-const CONNECTED = ["linkedin", "google_ads", "meta"]
+const CONNECTED: string[] = [...PLATFORMS]
 const OTHER_LABEL: Record<string, string> = { reddit: "Reddit Ads", bing: "Microsoft Ads (Bing)", x: "X Ads", chatgpt: "ChatGPT Ads" }
 
 const Edit = z.object({

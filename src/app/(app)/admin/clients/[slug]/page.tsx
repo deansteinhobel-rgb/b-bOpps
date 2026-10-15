@@ -114,7 +114,7 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
       <section>
         <h2 className="text-2xl">Ad accounts</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Conversion and lead fields are Windsor field IDs, comma-separated. Results = conversions + leads. Changes apply from the next sync or backfill.
+          Conversion and lead fields are Windsor field IDs, comma-separated. Results = conversions + leads. Changes apply from the next sync or backfill. A platform&apos;s target cost per result replaces the client&apos;s for that platform; leave it empty to use the client&apos;s.
         </p>
         <div className="mt-4 space-y-3">
           {(accounts ?? []).map((a) => (
@@ -124,10 +124,14 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
                 <PlatformLabel platform={a.platform as Platform} /> · {a.account_name ?? a.external_account_id}{" "}
                 <span className="font-normal text-muted-foreground">({a.external_account_id})</span>
               </p>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-1">
                   <Label htmlFor={`b-${a.id}`}>Default monthly budget</Label>
                   <Input id={`b-${a.id}`} name="monthly_budget" type="number" min="0" step="1" defaultValue={a.monthly_budget ?? ""} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor={`t-${a.id}`}>Target cost per result</Label>
+                  <Input id={`t-${a.id}`} name="target_cost_per_result" type="number" min="0" step="0.01" placeholder="The client's target" defaultValue={a.target_cost_per_result ?? ""} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor={`c-${a.id}`}>Conversion fields</Label>
@@ -195,6 +199,10 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
             <div className="w-44 space-y-1">
               <Label htmlFor="acct-budget">Monthly budget</Label>
               <Input id="acct-budget" name="monthly_budget" type="number" min="0" step="1" />
+            </div>
+            <div className="w-52 space-y-1">
+              <Label htmlFor="acct-target">Target cost per result</Label>
+              <Input id="acct-target" name="target_cost_per_result" type="number" min="0" step="0.01" placeholder="The client's target" />
             </div>
           </AdminForm>
         )}
