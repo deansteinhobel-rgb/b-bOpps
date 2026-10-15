@@ -3,7 +3,7 @@ import { createdAdId, createSearchAd, pauseAds, proofread, type SearchAdCopy } f
 import type { PushDb } from "./negatives"
 
 // A fake Supabase that records every call, in order. Never a real database.
-function fakeDb(opts: { failLogInsert?: boolean } = {}) {
+function fakeDb(opts: { failLogInsert?: boolean; duplicateKey?: boolean } = {}) {
   const calls: { table: string; op: string; args: unknown[] }[] = []
   let next = 1
   const db: PushDb = {
@@ -11,7 +11,7 @@ function fakeDb(opts: { failLogInsert?: boolean } = {}) {
       return {
         insert(row) {
           calls.push({ table, op: "insert", args: [row] })
-          return { select: () => ({ single: async () => (opts.failLogInsert ? { data: null, error: { message: "db down" } } : { data: { id: next++ }, error: null }) }) }
+          return { select: () => ({ single: async () => (opts.duplicateKey ? { data: null, error: { message: "duplicate key value", code: "23505" } } : opts.failLogInsert ? { data: null, error: { message: "db down" } } : { data: { id: next++ }, error: null }) }) }
         },
         update(values) {
           return {
@@ -103,6 +103,21 @@ describe("createSearchAd", () => {
     expect(r.ok).toBe(false)
     expect(calls).toEqual([])
     expect(windsor.createSearchAd).not.toHaveBeenCalled()
+  })
+  it("refuses a second create with the same key, without calling Windsor", async () => {
+    const { db } = fakeDb({ duplicateKey: true })
+    const windsor = fakeWindsor()
+    const r = await createSearchAd({ db, windsor, env: LIVE }, { ...target, idempotencyKey: "k1", adGroupId: "148312638842", copy })
+    expect(r.ok).toBe(false)
+    expect(r.writes[0].error).toContain("already created")
+    expect(windsor.createSearchAd).not.toHaveBeenCalled()
+  })
+  it("logs the key, and frees it when Google refuses so it can be tried again", async () => {
+    const { db, calls } = fakeDb()
+    const r = await createSearchAd({ db, windsor: fakeWindsor(true), env: LIVE }, { ...target, idempotencyKey: "k1", adGroupId: "148312638842", copy })
+    expect(r.ok).toBe(false)
+    expect(calls[0].args[0]).toMatchObject({ idempotency_key: "k1" })
+    expect(calls[1].args[0]).toMatchObject({ success: false, idempotency_key: null })
   })
   it("respects WINDSOR_LIVE_CLIENTS", async () => {
     const { db } = fakeDb()

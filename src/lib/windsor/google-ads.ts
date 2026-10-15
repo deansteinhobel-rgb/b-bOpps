@@ -33,6 +33,8 @@ export type AdWriteDeps = {
 }
 
 type Target = { client: { id: string; slug: string }; accountId: string; campaignId: string; testId: string | null; by: { id: string } }
+/** Unique per test, day and exact ad (the database refuses a second row with it). Set by the server action. */
+type Key = { idempotencyKey?: string | null }
 export type AdWriteOutcome = { adGroupId: string; adId: string | null; status: "dry_run" | "sent" | "failed"; logId: number | null; error?: string }
 export type AdWriteResult = { ok: boolean; live: boolean; writes: AdWriteOutcome[]; error?: string }
 
@@ -127,7 +129,7 @@ function isLive(deps: AdWriteDeps, slug: string) {
 async function write(
   deps: AdWriteDeps,
   t: Target,
-  w: { operation: "create_responsive_search_ad" | "pause_ad"; adGroupId: string; adId: string | null; params: CreateAdParams | PauseAdParams },
+  w: { operation: "create_responsive_search_ad" | "pause_ad"; adGroupId: string; adId: string | null; params: CreateAdParams | PauseAdParams; idempotencyKey?: string | null },
   live: boolean,
   note: string,
   send: () => Promise<{ isError: boolean; result: unknown }>,
@@ -146,9 +148,11 @@ async function write(
       operation: w.operation,
       payload: { connector: "google_ads", action: w.operation, account: t.accountId, params: w.params },
       dry_run: !live,
+      idempotency_key: w.idempotencyKey ?? null,
     })
     .select("id")
     .single()
+  if (logError?.code === "23505") return { adGroupId: w.adGroupId, adId: w.adId, status: "failed", logId: null, error: "This exact ad was already created for this test today." }
   if (logError || !log) return { adGroupId: w.adGroupId, adId: w.adId, status: "failed", logId: null, error: "Couldn't write the log, so nothing was sent to Google Ads." }
   const logId = log.id as number
   const finish = (values: object) => deps.db.from("platform_write_log").update({ ...values, completed_at: new Date().toISOString() }).eq("id", logId)
@@ -160,13 +164,14 @@ async function write(
   try {
     const r = await send()
     const createdId = w.operation === "create_responsive_search_ad" && !r.isError ? createdAdId(r.result) : null
-    await finish({ success: !r.isError, response: r.result ?? null, ...(createdId ? { ad_id: createdId } : {}) })
+    // A refused write frees its key, so the same ad can be tried again.
+    await finish({ success: !r.isError, response: r.result ?? null, ...(createdId ? { ad_id: createdId } : {}), ...(r.isError ? { idempotency_key: null } : {}) })
     return r.isError
       ? { adGroupId: w.adGroupId, adId: w.adId, status: "failed", logId, error: resultText(r.result) || "Windsor refused it." }
       : { adGroupId: w.adGroupId, adId: createdId ?? w.adId, status: "sent", logId }
   } catch (e) {
     const message = (e as Error).message
-    await finish({ success: false, response: { error: message } })
+    await finish({ success: false, response: { error: message }, idempotency_key: null })
     return { adGroupId: w.adGroupId, adId: w.adId, status: "failed", logId, error: message }
   }
 }
@@ -177,13 +182,13 @@ export function createdAdId(result: unknown): string | null {
   return text.match(/\d+~(\d+)/)?.[1] ?? null
 }
 
-export async function createSearchAd(deps: AdWriteDeps, input: Target & { adGroupId: string; copy: SearchAdCopy }): Promise<AdWriteResult> {
+export async function createSearchAd(deps: AdWriteDeps, input: Target & Key & { adGroupId: string; copy: SearchAdCopy }): Promise<AdWriteResult> {
   if (!isAccount(input.accountId) || !isId(input.campaignId) || !isId(input.adGroupId)) return { ok: false, live: false, writes: [], error: "That isn't a Google Ads ad group." }
   const problems = proofread(input.copy).filter((p) => p.blocking)
   if (problems.length) return { ok: false, live: false, writes: [], error: `${problems[0].where}: ${problems[0].problem}` }
   const { live, note } = isLive(deps, input.client.slug)
   const params = createParams(input.adGroupId, input.copy)
-  const out = await write(deps, input, { operation: "create_responsive_search_ad", adGroupId: input.adGroupId, adId: null, params }, live, note, () => deps.windsor!.createSearchAd(input.accountId, params))
+  const out = await write(deps, input, { operation: "create_responsive_search_ad", adGroupId: input.adGroupId, adId: null, params, idempotencyKey: input.idempotencyKey }, live, note, () => deps.windsor!.createSearchAd(input.accountId, params))
   return { ok: out.status !== "failed", live, writes: [out] }
 }
 

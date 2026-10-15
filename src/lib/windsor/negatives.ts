@@ -41,7 +41,7 @@ export type PushParams = { level: NegativeLevel; campaign_id?: string; ad_group_
 export type PushDb = {
   from(table: string): {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    insert(row: object): { select(cols: string): { single(): PromiseLike<{ data: any; error: { message: string } | null }> } }
+    insert(row: object): { select(cols: string): { single(): PromiseLike<{ data: any; error: { message: string; code?: string } | null }> } }
     update(values: object): { eq(col: string, val: unknown): PromiseLike<{ error: { message: string } | null }> }
   }
 }
