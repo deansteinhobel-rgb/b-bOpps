@@ -11,7 +11,7 @@ export type SidebarClient = { slug: string; name: string; logo_url: string | nul
 type Props = { clients: SidebarClient[]; name: string; roleLabel: string | null; isAdmin: boolean; hasRole: boolean; profileId: string; avatarUrl: string | null }
 
 /** Clients in the list to see how they look, not set up yet (Dean, 2026-10-01). */
-const COMING_SOON = new Set(["drillsense", "filevine"])
+const COMING_SOON = new Set(["drillsense"])
 
 // The sidebar is one navigation system (Dean, 2026-10-15; Linear as the reference). Every row shares
 // one shape: 36px high, 8px padding, a 20px icon slot, 14px text on one baseline. The current page is a
