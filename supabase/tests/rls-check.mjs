@@ -412,3 +412,20 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   console.log("a re-approval gets its own brief: OK")
   try { await q(`insert into public.notion_write_log (client_id, operation, endpoint, payload, dry_run) values ('${camber}', 'create_sequence_brief', 'POST /v1/pages', '{}', true)`); console.log("FAIL: sequence brief without a key") } catch { console.log("sequence briefs need a piece and a key: OK") }
 }
+
+// client_data_range (2026-10-15): the fast replacement for the account_data_range view keeps its RLS.
+{
+  const camber = "11111111-1111-1111-1111-111111111111"
+  const andrea = "aaaaaaaa-0000-0000-0000-000000000002" // Camber's team
+  const danny = "aaaaaaaa-0000-0000-0000-000000000003" // DNSFilter's team, not Camber's
+  await q(`insert into public.windsor_daily_metrics (client_id, platform, external_account_id, date, campaign_id, ad_id, impressions) values
+    ('${camber}', 'linkedin', 'li-1', '2026-09-01', 'c1', 'a1', 10), ('${camber}', 'linkedin', 'li-1', '2026-10-14', 'c1', 'a1', 10),
+    ('${camber}', 'meta', 'fb-1', '2026-10-01', 'c2', 'a2', 0), ('${camber}', 'meta', 'fb-1', '2026-10-13', 'c2', 'a2', 5)`)
+  const range = (uid) => as(uid, () => q(`select platform::text, external_account_id, data_from::text, data_through::text from public.client_data_range('${camber}') order by 1, 2`))
+  const mine = await range(andrea)
+  const view = await as(andrea, () => q(`select platform::text, external_account_id, data_from::text, data_through::text from public.account_data_range where client_id = '${camber}' order by 1, 2`))
+  console.log(JSON.stringify(mine) === JSON.stringify(view) && mine.length >= 2 ? "client_data_range matches the view for the team: OK" : `FAIL: client_data_range ${JSON.stringify(mine)} vs view ${JSON.stringify(view)}`)
+  console.log((await range(danny)).length === 0 ? "client_data_range shows nothing to someone off the team: OK" : "FAIL: client_data_range leaked another client's range")
+  const fatigue = await as(andrea, () => q(`select ad_id, first_seen::text, live from public.ad_fatigue_inputs('${camber}') order by ad_id`))
+  console.log(fatigue.length === 2 && fatigue[1].first_seen === "2026-10-13" ? "ad_fatigue_inputs reads recent ads, first seen = first day with impressions: OK" : `FAIL: ad_fatigue_inputs ${JSON.stringify(fatigue)}`)
+}

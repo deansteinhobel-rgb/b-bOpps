@@ -9,6 +9,7 @@ import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { getInsights } from "./load"
 import { RULES, weekOf } from "./rules"
+import { dataRanges } from "@/lib/metrics/data-range"
 
 /**
  * Everything "Ask about this campaign" knows about one campaign, as text: 12 weeks of weekly numbers,
@@ -18,8 +19,8 @@ import { RULES, weekOf } from "./rules"
  */
 export async function buildCampaignContext(db: SupabaseClient, clientId: string, platform: Platform, campaignId: string) {
   const { data: client } = await db.from("clients").select("name, currency, monthly_kpi_target").eq("id", clientId).single()
-  const { data: range } = await db.from("account_data_range").select("data_through").eq("client_id", clientId).eq("platform", platform)
-  const through = (range ?? []).map((r) => r.data_through as string).sort().at(-1)
+  const { data: range } = await dataRanges(db, clientId)
+  const through = (range ?? []).filter((r) => r.platform === platform).map((r) => r.data_through).sort().at(-1)
   if (!client || !through) return null
   const cur = client.currency
   const money = (v: number) => withSymbols(new Intl.NumberFormat("en-GB", { style: "currency", currency: cur, currencyDisplay: "narrowSymbol", maximumFractionDigits: v < 10 ? 2 : 0 }).format(v))

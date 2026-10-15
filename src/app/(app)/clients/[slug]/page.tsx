@@ -2,7 +2,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { PlatformIcon } from "@/components/brand"
 import { Hint } from "@/components/hint"
-import { getAccountNumbers } from "@/lib/account"
+import { getAccountNumbers, latestDataDay } from "@/lib/account"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { newLayout } from "@/lib/lens"
 import { londonToday } from "@/lib/checks/periods"
@@ -60,14 +60,32 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
   // The client's main business goals (e.g. DNSFilter's Activated Free Trials), this month and last.
   const month = `${today.slice(0, 7)}-01`
   const lastMonth = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 2, 1)).toISOString().slice(0, 10)
-  const [numbers, pacing, overview, { data: sprints }, timeline, { data: goals }, me] = await Promise.all([
-    getAccountNumbers(supabase, client.id),
+  // Everything starts at once; reads that need an earlier one (the latest day, the sprints, the profile) chain
+  // straight off it instead of waiting for the whole first batch (DNSFilter loads were a waterfall, 2026-10-15).
+  const throughP = latestDataDay(supabase, client.id)
+  const sprintsP = supabase
+    .from("sprints")
+    .select("id, number, start_date, end_date, key_takeaway, closed_at")
+    .eq("client_id", client.id)
+    .in("start_date", [sprintByNumber(period.number - 1).start, period.start, sprintByNumber(period.number + 1).start])
+    .then(({ data }) => data ?? [])
+  const meP = getProfile()
+  const [numbers, through, pacing, overview, sprints, tests, adRows, timeline, { data: goals }, me, ideas] = await Promise.all([
+    getAccountNumbers(supabase, client.id, throughP),
+    throughP,
     cachedPacing(client.id), // access confirmed above (client loaded through RLS)
     cachedOverview(client.id), // live ads and their first vs last 14 days
-    supabase.from("sprints").select("id, number, start_date, end_date, key_takeaway, closed_at").eq("client_id", client.id).in("start_date", [sprintByNumber(period.number - 1).start, period.start, sprintByNumber(period.number + 1).start]),
+    sprintsP,
+    sprintsP.then((rows) =>
+      rows.length ? supabase.from("sprint_tests").select("id, sprint_id, title, platform, status, outcome, owner_name, deadline, live_on").in("sprint_id", rows.map((s) => s.id)).order("created_at").then(({ data }) => data ?? []) : [],
+    ),
+    // Ads: the best over the last 30 days.
+    throughP.then((t) => (t ? rpcAll(supabase, "ad_totals", { p_client: client.id, p_from: addDays(t, -29), p_to: t }) : [])),
     loadTimeline(supabase, createAdminClient(), client, since), // admin only reads the Notion write log, after the RLS check
     supabase.from("client_goals").select("id, name, monthly_target, client_goal_values(month, value, target, updated_at, profiles(full_name, email))").eq("client_id", client.id).eq("active", true).order("position"),
-    getProfile(),
+    meP,
+    // Content ideas: on this page in the classic layout; the new layout has them under Plan › Content ideas.
+    Promise.all([meP, throughP]).then(([me, t]) => (!newLayout(me.preferences) && t ? loadContentIdeas(supabase, client, today) : null)),
   ])
   const goalViews: GoalView[] = (goals ?? []).map((g) => {
     const values = (g.client_goal_values ?? []) as unknown as { month: string; value: number | string; target: number | string | null; updated_at: string; profiles: { full_name: string | null; email: string } | null }[]
@@ -90,18 +108,12 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
   })
 
   // Sprint tests: this sprint, the next and the last.
-  const byNumber = new Map((sprints ?? []).map((s) => [s.number as number, s]))
+  const byNumber = new Map(sprints.map((s) => [s.number as number, s]))
   const current = byNumber.get(period.number)
   const next = byNumber.get(period.number + 1)
   const previous = byNumber.get(period.number - 1)
-  const ids = [current?.id, next?.id, previous?.id].filter(Boolean) as string[]
 
   // Ads: the best over the last 30 days, and the live ones that look tired.
-  const through = numbers?.dataThrough ?? overview?.dataThrough
-  const [{ data: tests }, adRows] = await Promise.all([
-    ids.length ? supabase.from("sprint_tests").select("id, sprint_id, title, platform, status, outcome, owner_name, deadline, live_on").in("sprint_id", ids).order("created_at") : Promise.resolve({ data: [] as never[] }),
-    through ? rpcAll(supabase, "ad_totals", { p_client: client.id, p_from: addDays(through, -29), p_to: through }) : Promise.resolve([]),
-  ])
   const best = topAds(
     adRows.map(
       (r): AdStat => ({
@@ -122,11 +134,7 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
   const tiring = tiringAds(liveAds)
   const previews = await previewsFor(supabase, client.id, [...best.flatMap((p) => p.ads), ...tiring.slice(0, 6)])
 
-  // Content ideas: on this page in the classic layout; the new layout has them under Plan › Content ideas.
-  const withIdeas = !newLayout(me.preferences)
-  const ideas = withIdeas && through ? await loadContentIdeas(supabase, client, today) : null
-
-  const testsOf = (id?: string) => (tests ?? []).filter((t) => t.sprint_id === id)
+  const testsOf = (id?: string) => tests.filter((t) => t.sprint_id === id)
   const now = testsOf(current?.id)
     .map((t) => ({ ...t, stage: stageOf({ status: t.status as TestStatus, outcome: t.outcome }, null) }))
     .sort((a, b) => STAGES.findIndex((s) => s.key === a.stage) - STAGES.findIndex((s) => s.key === b.stage))

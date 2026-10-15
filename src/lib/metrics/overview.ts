@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { addDays, adHealth, fatiguedAds, newCreativesThisMonth, rankAds, totals, type AdStat, type DailyRow, type FatigueInput } from "./ads"
 import { calculatePacing, type PacingResult } from "./pacing"
 import type { Platform } from "./types"
+import { dataRanges } from "./data-range"
 
 const n = (v: unknown) => Number(v) || 0
 const PLATFORMS: Platform[] = ["linkedin", "google_ads", "meta"]
@@ -76,7 +77,7 @@ function pacingFor(ranges: Range[], accounts: AccountBudget[], budgets: MonthBud
 /** Pacing only: the lighter query set used by the client list cards. */
 export async function getPacing(supabase: SupabaseClient, clientId: string): Promise<{ dataThrough: string; pacing: PlatformPacing[] } | null> {
   const [{ data: ranges }, { data: accounts }, { data: budgets }] = await Promise.all([
-    supabase.from("account_data_range").select("platform, external_account_id, data_from, data_through").eq("client_id", clientId),
+    dataRanges(supabase, clientId),
     supabase.from("client_platform_accounts").select("platform, monthly_budget").eq("client_id", clientId).eq("active", true),
     budgetsQuery(supabase, clientId),
   ])
@@ -93,7 +94,7 @@ export async function getPacing(supabase: SupabaseClient, clientId: string): Pro
  */
 export async function getOverview(supabase: SupabaseClient, clientId: string) {
   const [{ data: ranges }, { data: accounts }] = await Promise.all([
-    supabase.from("account_data_range").select("platform, external_account_id, data_from, data_through").eq("client_id", clientId),
+    dataRanges(supabase, clientId),
     supabase.from("client_platform_accounts").select("platform, external_account_id, monthly_budget").eq("client_id", clientId).eq("active", true),
   ])
   if (!ranges?.length) return null
