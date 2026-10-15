@@ -40,7 +40,7 @@ const SEVERITY: Record<Severity, { label: string; dot: string }> = {
   medium: { label: "Medium priority", dot: "bg-rag-amber" },
   low: { label: "Low priority", dot: "bg-muted-foreground/50" },
 }
-const PLATFORMS: InsightPlatform[] = ["google_ads", "linkedin", "meta", "ga4"]
+const PLATFORMS: InsightPlatform[] = ["google_ads", "linkedin", "meta", "reddit", "ga4"]
 const platformName = (p: InsightPlatform) => (p === "ga4" ? "GA4" : PLATFORM_LABEL[p as Platform])
 
 function Ga4Icon({ className }: { className?: string }) {

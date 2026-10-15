@@ -192,7 +192,7 @@ export async function buildContentContext(db: SupabaseClient, clientId: string):
 
   const lines = [
     `# Client: ${client.name}`,
-    `Currency ${cur}. Target cost per result: ${describeTargets(await loadTargets(db, clientId, client.monthly_kpi_target), (v) => money(v))}. Result = conversions + leads. Data ${from} to ${to}. Platforms: ${[...new Set(campaigns.map((c) => PLATFORM_LABEL[c.platform]))].join(", ")}.`,
+    `Currency ${cur}. Target cost per result: ${describeTargets(await loadTargets(db, clientId, client.monthly_kpi_target), (v) => money(v))}. Result = conversions + leads (on Reddit: lead and sign-up conversions, view-through included). Data ${from} to ${to}. Platforms: ${[...new Set(campaigns.map((c) => PLATFORM_LABEL[c.platform]))].join(", ")}.`,
     await briefForPrompt(clientId, { contentBank: false }),
     `\n## Campaigns in the last ${DAYS} days, biggest spend first (names often encode the offer, the audience, the targeting and the format)`,
     ...campaignLines,

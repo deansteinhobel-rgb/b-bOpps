@@ -8,6 +8,10 @@ const FIELD_LABEL: Record<string, string> = {
   all_conversions: "all conversion actions",
   actions_lead: "leads",
   conversions_offsite_conversion_fb_pixel_custom_marketingqualifiedlead: "pixel event: Marketing Qualified Lead",
+  conversion_lead_clicks: "leads after a click",
+  conversion_lead_views: "leads after a view (view-through)",
+  conversion_sign_up_clicks: "sign-ups after a click",
+  conversion_sign_up_views: "sign-ups after a view (view-through)",
 }
 const label = (f: string) => FIELD_LABEL[f] ?? f
 

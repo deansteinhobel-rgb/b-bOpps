@@ -2,12 +2,11 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { addDays, adHealth, fatiguedAds, newCreativesThisMonth, rankAds, totals, type AdStat, type DailyRow, type FatigueInput } from "./ads"
 import { calculatePacing, type PacingResult } from "./pacing"
-import type { Platform } from "./types"
+import { type Platform, PLATFORMS } from "./types"
 import { dataRanges } from "./data-range"
 import { fatigueInputs } from "./fatigue-snapshot"
 
 const n = (v: unknown) => Number(v) || 0
-const PLATFORMS: Platform[] = ["linkedin", "google_ads", "meta"]
 
 export type PlatformPacing = PacingResult & {
   platform: Platform

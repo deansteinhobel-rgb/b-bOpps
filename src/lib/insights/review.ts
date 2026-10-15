@@ -75,7 +75,7 @@ const SUBMIT = {
         items: {
           type: "object",
           properties: {
-            platform: { type: "string", enum: ["linkedin", "google_ads", "meta"] },
+            platform: { type: "string", enum: ["linkedin", "google_ads", "meta", "reddit"] },
             campaign_id: { type: "string" },
             goal: { type: "string", enum: [...CAMPAIGN_GOALS] },
             note: { type: "string", description: "Under 20 words: what the campaign is for and where you read it (name, Notion brief title, client brief)." },

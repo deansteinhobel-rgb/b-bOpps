@@ -7,12 +7,12 @@ import { fieldClass } from "@/components/field-class"
 import { PlatformIcon, PlatformLabel } from "@/components/brand"
 import { money, whole } from "@/lib/format"
 import { change, DRIVERS, fmt, METRIC, tone, type Derived, type MetricKey } from "@/lib/metrics/performance"
-import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
+import { PLATFORM_LABEL, PLATFORMS, type Platform } from "@/lib/metrics/types"
 import { cn } from "@/lib/utils"
 import { targetFor, type Targets } from "@/lib/targets"
 
 /** Platform colors (validated for the dark surface: lightness band, chroma, color-blind separation). Always shown with the platform's logo and name. */
-export const PLATFORM_COLOR: Record<Platform, string> = { linkedin: "#7f6ae0", google_ads: "#869a14", meta: "#cf4f86" }
+export const PLATFORM_COLOR: Record<Platform, string> = { linkedin: "#7f6ae0", google_ads: "#869a14", meta: "#cf4f86", reddit: "#2aa198" }
 
 
 export function Delta({ k, now, before, className }: { k: MetricKey; now: number | null; before: number | null; className?: string }) {
@@ -193,7 +193,7 @@ export function TrendPanel({ daily, prevDaily, currency }: { daily: Point[]; pre
 
 /** Share of spend and of results by platform, as two 100% bars with direct labels. */
 export function PlatformSplit({ platforms, currency }: { platforms: { platform: Platform; now: Derived }[]; currency: string }) {
-  const order: Platform[] = ["linkedin", "google_ads", "meta"]
+  const order = PLATFORMS
   const list = order.map((p) => platforms.find((x) => x.platform === p)).filter((x): x is { platform: Platform; now: Derived } => Boolean(x))
   const bar = (key: "spend" | "results", label: string) => {
     const total = list.reduce((s, p) => s + p.now[key], 0)

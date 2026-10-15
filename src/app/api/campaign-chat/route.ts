@@ -4,7 +4,7 @@ import { aiConfigured, claude, SOURCE_GUIDE, WEB_SAFETY, webTools } from "@/lib/
 import { londonToday } from "@/lib/checks/periods"
 import { buildCampaignContext } from "@/lib/insights/campaign-context"
 import { WEEKLY_READ } from "@/lib/insights/campaign-starters"
-import type { Platform } from "@/lib/metrics/types"
+import { type Platform, PLATFORMS } from "@/lib/metrics/types"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   if (!me.role) return new Response("No access", { status: 403 })
   if (!aiConfigured()) return new Response("Add ANTHROPIC_API_KEY to .env.local and restart.", { status: 503 })
   const body = (await request.json().catch(() => ({}))) as { clientSlug?: string; platform?: string; campaignId?: string; messages?: ChatMessage[]; fresh?: boolean }
-  const platform = (["linkedin", "google_ads", "meta"] as const).find((p) => p === body.platform)
+  const platform = PLATFORMS.find((p) => p === body.platform)
   if (!platform || !body.campaignId) return new Response("Missing campaign.", { status: 400 })
   // Access: the client must load through the user's own RLS client.
   const supabase = await createClient()

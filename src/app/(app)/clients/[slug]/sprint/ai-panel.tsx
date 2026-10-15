@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { money, shortDate, withSymbols } from "@/lib/format"
-import type { Platform } from "@/lib/metrics/types"
+import { type Platform, PLATFORMS } from "@/lib/metrics/types"
 import { ASSETS, METRICS, successLine } from "@/lib/sprints/tests"
 import { cn } from "@/lib/utils"
 import { approveRecommendation, rejectRecommendation, reviewRecommendation } from "./ai-actions"
@@ -50,7 +50,7 @@ export type Recommendation = {
   call_commitment_id: string | null
 }
 
-const CONNECTED = ["linkedin", "google_ads", "meta"]
+const CONNECTED: string[] = [...PLATFORMS]
 const OTHER: Record<string, string> = { reddit: "Reddit Ads", bing: "Microsoft Ads", x: "X Ads", chatgpt: "ChatGPT Ads" }
 const W: Record<Level, number> = { low: 1, medium: 2, high: 3 }
 type Tab = "open" | "approved" | "rejected"

@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { resolveCallRef } from "@/lib/calls/refs"
 import { AD_CONTENT_TYPES } from "@/lib/taxonomy"
 import { buildContentContext } from "./context"
+import { PLATFORMS } from "@/lib/metrics/types"
 
 /**
  * Content ideas (Dean, 2026-09-29): Claude works out what content is working, for whom, and suggests
@@ -44,7 +45,7 @@ const SUBMIT = {
             content_type: { type: "string", enum: [...CONTENT_TYPES] },
             topic: { type: "string", description: "The piece or its subject, e.g. 'Contract Management Problem Solver whitepaper'." },
             format: { type: "string", description: "e.g. Single image, Document ad, Video, Carousel, Search ad." },
-            platform: { type: "string", enum: ["linkedin", "google_ads", "meta"] },
+            platform: { type: "string", enum: ["linkedin", "google_ads", "meta", "reddit"] },
             audience: { type: "string", description: "Who it reached, from the targeting data and the campaign name, e.g. 'Procurement and commercial managers in UK public sector'." },
             campaigns: { type: "array", items: { type: "string" }, description: "Campaign names exactly as given." },
             spend: { type: "number" },
@@ -68,7 +69,7 @@ const SUBMIT = {
             kind: { type: "string", enum: [...IDEA_KINDS] },
             content_type: { type: "string", enum: [...CONTENT_TYPES] },
             topic: { type: "string", description: "What the piece is about, in one line." },
-            platform: { type: "string", enum: ["linkedin", "google_ads", "meta"] },
+            platform: { type: "string", enum: ["linkedin", "google_ads", "meta", "reddit"] },
             format: { type: "string", description: "An ad format that exists on that platform, e.g. LinkedIn single image with a lead gen form, Thought Leader Ad, Conversation ad, Meta lead ad, Google responsive search ad." },
             audience: { type: "string", description: "Exactly who it's for: job titles or functions, seniority, sector." },
             audience_basis: { type: "string", enum: ["same", "new"], description: "'same' if it goes to an audience that already ran; 'new' if it's a new audience." },
@@ -161,11 +162,11 @@ export async function runContentIdeas(runId: string) {
     }
     if (!submitted) throw new Error("Claude didn't submit any ideas.")
 
-    const platforms = ["linkedin", "google_ads", "meta"]
+    const platforms: string[] = [...PLATFORMS]
     const names = new Set(ctx.campaignNames)
     // Claude refers to ads by [key] and sometimes prefixes campaign names with the platform: show names.
-    const unprefix = (s: string) => s.replace(/^(LinkedIn|Google Ads|Meta)\s*\|\s*/i, "").trim()
-    const deKey = (s: string) => s.replace(/\[((?:linkedin|google_ads|meta)\|[^\]]+)\]/g, (_, k: string) => (ctx.adNames[k] ? `"${ctx.adNames[k]}"` : "an ad"))
+    const unprefix = (s: string) => s.replace(/^(LinkedIn|Google Ads|Meta|Reddit)\s*\|\s*/i, "").trim()
+    const deKey = (s: string) => s.replace(/\[((?:linkedin|google_ads|meta|reddit)\|[^\]]+)\]/g, (_, k: string) => (ctx.adNames[k] ? `"${ctx.adNames[k]}"` : "an ad"))
     const clip = (s: unknown, n: number) => {
       const t = deKey(withSymbols(String(s ?? "")))
       return t.length > n ? `${t.slice(0, n - 1).replace(/\s+\S*$/, "")}…` : t

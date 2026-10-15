@@ -4,7 +4,7 @@ import { money } from "@/lib/format"
 import { briefForPrompt } from "@/lib/knowledge/brief"
 import { addDays, type DailyRow } from "@/lib/metrics/ads"
 import { getOverview } from "@/lib/metrics/overview"
-import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
+import { PLATFORM_LABEL, type Platform, PLATFORMS } from "@/lib/metrics/types"
 import { describeTargets, loadTargets } from "@/lib/targets"
 
 /**
@@ -27,7 +27,7 @@ export async function buildSprintContext(db: SupabaseClient, clientId: string, s
   const lines: string[] = []
   lines.push(`# Client: ${client.name}`)
   lines.push(`Currency ${cur} (write amounts with the symbol, e.g. ${money(1200, cur)}, never the code). Main KPI: cost per result (spend / (conversions + leads)). Target per result: ${describeTargets(await loadTargets(db, clientId, client.monthly_kpi_target), (v) => m(v))}.`)
-  lines.push(`Connected platforms (via Windsor): ${overview ? [...new Set(overview.pacing.map((p) => PLATFORM_LABEL[p.platform]))].join(", ") : "none yet"}. Google Ads counts conversions; LinkedIn and Meta count conversions + leads.`)
+  lines.push(`Connected platforms (via Windsor): ${overview ? [...new Set(overview.pacing.map((p) => PLATFORM_LABEL[p.platform]))].join(", ") : "none yet"}. Google Ads counts conversions; LinkedIn and Meta count conversions + leads; Reddit counts lead and sign-up conversions, view-through included.`)
   lines.push(`Sprint being planned: Sprint ${sprint.number}, ${sprint.start_date} to ${sprint.end_date} (two weeks).`)
 
   // The Client brain: must-knows and the brief built from the client's Notion HQ.
@@ -83,7 +83,7 @@ export async function buildSprintContext(db: SupabaseClient, clientId: string, s
     for (const a of live.filter((x) => x.comparable && (x.ctrDown || x.cprUp)).slice(0, 10)) {
       lines.push(`- ${PLATFORM_LABEL[a.platform]} "${a.ad_name ?? a.ad_id}", ${a.ageDays} days live: CTR ${pct(a.earlyCtr)} → ${pct(a.recentCtr)}, cost per result ${m(a.earlyCpr)} → ${m(a.recentCpr)}, spend last 14d ${m(a.recent_spend)}`)
     }
-    const byPlat = (["linkedin", "google_ads", "meta"] as const).map((p) => `${PLATFORM_LABEL[p]} ${overview.newCreatives.filter((a) => a.platform === p).length}`).join(", ")
+    const byPlat = PLATFORMS.map((p) => `${PLATFORM_LABEL[p]} ${overview.newCreatives.filter((a) => a.platform === p).length}`).join(", ")
     lines.push(`New creatives this month: ${byPlat}.`)
   } else {
     lines.push("\nNo Windsor data yet.")

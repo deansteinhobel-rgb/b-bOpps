@@ -15,13 +15,13 @@ import { PLATFORM_COLOR } from "./charts"
 
 type PlatformOption = { platform: Platform; spend: number }
 
-const PLATFORM_KEYS: Record<string, Platform> = { l: "linkedin", g: "google_ads", m: "meta" }
+const PLATFORM_KEYS: Record<string, Platform> = { l: "linkedin", g: "google_ads", m: "meta", r: "reddit" }
 
 /**
  * The Reporting toolbar (Dean: modern, easy on the eye, quick to act): quick 7/14/30/90 days with a
  * sliding highlight, the date range picker (presets and custom dates), platform chips in their
  * platform color with this range's spend, and "copy link". The URL holds the view; switching shows
- * a loading bar straight away. Keys: 1–4 pick the quick periods, A / L / G / M the platform.
+ * a loading bar straight away. Keys: 1–4 pick the quick periods, A / L / G / M / R the platform.
  * Clients with campaign segments (e.g. Camber's SMB and ABX) also get a segment picker.
  */
 export function Controls({ base, range, defaultDays = 30, platform, platforms, currency, periods, dataFrom, dataThrough, segment = null, segments = [] }: { base: string; range: RangeSpec; defaultDays?: number; platform: Platform | null; platforms?: PlatformOption[]; currency?: string; periods: Periods; dataFrom: string; dataThrough: string; segment?: string | null; segments?: SegmentOption[] }) {

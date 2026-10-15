@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { AdStat } from "@/lib/metrics/ads"
 import type { Performance } from "@/lib/metrics/performance"
-import type { Platform } from "@/lib/metrics/types"
+import { type Platform, PLATFORMS, PLATFORM_LABEL } from "@/lib/metrics/types"
 import { adKey } from "@/lib/previews"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import type { Board } from "./report-board"
@@ -12,9 +12,9 @@ import type { Board } from "./report-board"
  */
 
 export type BoardKey = "all" | Platform
-export const BOARD_KEYS: BoardKey[] = ["all", "linkedin", "google_ads", "meta"]
+export const BOARD_KEYS: BoardKey[] = ["all", ...PLATFORMS]
 export const isBoardKey = (v: unknown): v is BoardKey => typeof v === "string" && (BOARD_KEYS as string[]).includes(v)
-export const boardTitle = (p: Platform | null) => (p ? `${{ linkedin: "LinkedIn", google_ads: "Google Ads", meta: "Meta" }[p]} overview` : "All platforms")
+export const boardTitle = (p: Platform | null) => (p ? `${PLATFORM_LABEL[p]} overview` : "All platforms")
 
 const num = (v: unknown) => Number(v ?? 0)
 

@@ -5,13 +5,15 @@ import "server-only"
  * windsor_daily_metrics and pages read from there.
  */
 
-export type Platform = "linkedin" | "google_ads" | "meta"
+import type { Platform } from "@/lib/metrics/types"
+export type { Platform }
 
 // Confirmed in Phase 0 (see CLAUDE.md "Windsor field mapping").
 const DIMENSIONS: Record<string, { campaign_id: string; campaign_name: string; ad_id: string; ad_name: string }> = {
   linkedin: { campaign_id: "campaign_id", campaign_name: "campaign", ad_id: "creative_id", ad_name: "sponsored_creative_content_title" },
   google_ads: { campaign_id: "campaign_id", campaign_name: "campaign", ad_id: "ad_id", ad_name: "ad_name" },
   facebook: { campaign_id: "campaign_id", campaign_name: "campaign", ad_id: "ad_id", ad_name: "ad_name" },
+  reddit: { campaign_id: "campaign_id", campaign_name: "campaign", ad_id: "ad_id", ad_name: "ad_name" },
 }
 const METRICS = ["spend", "impressions", "clicks"] as const
 

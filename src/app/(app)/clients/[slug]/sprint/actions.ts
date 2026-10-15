@@ -82,7 +82,7 @@ export async function updateItem(itemId: string, patch: z.infer<typeof ItemPatch
 
 const Change = z.object({
   changed_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date."),
-  platform: z.enum(["linkedin", "google_ads", "meta"]).nullable(),
+  platform: z.enum(["linkedin", "google_ads", "meta", "reddit"]).nullable(),
   campaign_name: z.string().trim().max(300).nullable(),
   type: z.enum(["budget", "creative", "targeting", "bidding", "landing_page", "tracking", "structure", "other"]),
   description: z.string().trim().min(1, "Describe the change.").max(2000),

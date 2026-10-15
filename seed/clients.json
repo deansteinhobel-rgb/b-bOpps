@@ -170,6 +170,21 @@
           "lead_fields": [
             "actions_lead"
           ]
+        },
+        {
+          "platform": "reddit",
+          "windsor_connector": "reddit",
+          "external_account_id": "t2_3q8y68o7",
+          "account_name": "dnsfilter",
+          "monthly_budget": 5000,
+          "kpi_target": 650,
+          "conversion_fields": [
+            "conversion_lead_clicks",
+            "conversion_sign_up_clicks",
+            "conversion_lead_views",
+            "conversion_sign_up_views"
+          ],
+          "lead_fields": []
         }
       ]
     },

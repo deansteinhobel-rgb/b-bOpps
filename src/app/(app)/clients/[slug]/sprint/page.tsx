@@ -10,7 +10,7 @@ import { canEdit, getProfile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { longDate, money, oneDp, signedPct } from "@/lib/format"
 import { addDays, pctChange } from "@/lib/metrics/ads"
-import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
+import { PLATFORM_LABEL, PLATFORMS } from "@/lib/metrics/types"
 import { byDue, lastNotionSync, minutesAgo, mirrorItems } from "@/lib/notion/mirror"
 import { notionWritesLive } from "@/lib/notion/server"
 import { peopleForClient } from "@/lib/people"
@@ -32,7 +32,6 @@ import { TestBoard } from "./test-board"
 import { TestCard } from "./test-card"
 import { loadTargets } from "@/lib/targets"
 
-const PLATFORMS: Platform[] = ["linkedin", "google_ads", "meta"]
 
 export default async function SprintPage({ params, searchParams }: PageProps<"/clients/[slug]/sprint">) {
   const { slug } = await params

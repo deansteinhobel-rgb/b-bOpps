@@ -130,6 +130,9 @@ export async function addAccount(_prev: FormState, form: FormData): Promise<Form
   if (!platform || !accountId) return fail("Pick a Windsor account.")
   const budget = optionalNumber.safeParse(form.get("monthly_budget"))
   if (!budget.success) return fail("Budget must be a number.")
+  // Blank = use the client's target (src/lib/targets.ts); 0 is treated as blank.
+  const target = optionalNumber.safeParse(form.get("kpi_target"))
+  if (!target.success) return fail("Target cost per result must be a number.")
   const supabase = await createClient()
   const { error } = await supabase.from("client_platform_accounts").insert({
     client_id: String(form.get("client_id")),
@@ -138,6 +141,7 @@ export async function addAccount(_prev: FormState, form: FormData): Promise<Form
     external_account_id: accountId,
     account_name: nameParts.join("|") || null,
     monthly_budget: budget.data,
+    kpi_target: target.data || null,
     ...DEFAULT_FIELDS[connector],
   })
   if (error) return fail(error.code === "23505" ? "That account is already mapped (to this or another client)." : error.message)

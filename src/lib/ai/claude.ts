@@ -15,7 +15,7 @@ export function claude() {
   return client
 }
 
-/** The platforms Claude watches for news and may suggest tests on (only the first three are connected). */
+/** The platforms Claude watches for news and may suggest tests on (LinkedIn, Google Ads, Meta and Reddit can be connected; the rest are tracked by hand). */
 export const WATCHED_PLATFORMS = "Google Ads, Microsoft Advertising (Bing), LinkedIn Ads, Meta Ads, Reddit Ads, ChatGPT / OpenAI Ads and X (Twitter) Ads"
 
 /** Research sources that tend to be reliable. Reddit (e.g. r/PPC) is practitioner opinion, not fact. */

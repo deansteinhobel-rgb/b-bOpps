@@ -209,6 +209,10 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
               <Label htmlFor="acct-budget">Monthly budget</Label>
               <Input id="acct-budget" name="monthly_budget" type="number" min="0" step="1" />
             </div>
+            <div className="w-52 space-y-1">
+              <Label htmlFor="acct-target">Target cost per result</Label>
+              <Input id="acct-target" name="kpi_target" type="number" min="0" step="0.01" placeholder="The client's target" />
+            </div>
           </AdminForm>
         )}
       </section>

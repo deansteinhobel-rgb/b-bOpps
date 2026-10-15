@@ -39,7 +39,7 @@ export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, 
 
   return (
     <div className="space-y-4">
-      <div className={cn("grid gap-3", platforms.length >= 3 ? "md:grid-cols-3" : platforms.length === 2 ? "md:grid-cols-2" : "")}>
+      <div className={cn("grid gap-3", platforms.length >= 4 ? "md:grid-cols-2" : platforms.length === 3 ? "md:grid-cols-3" : platforms.length === 2 ? "md:grid-cols-2" : "")}>
         {platforms.map((p) => {
           const active = platform === p.platform
           const words = paceWords(p.spend, p.expected, p.budget)

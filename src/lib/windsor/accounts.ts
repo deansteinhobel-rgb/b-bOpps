@@ -5,6 +5,7 @@ export const CONNECTORS: { connector: string; platform: Platform }[] = [
   { connector: "linkedin", platform: "linkedin" },
   { connector: "google_ads", platform: "google_ads" },
   { connector: "facebook", platform: "meta" },
+  { connector: "reddit", platform: "reddit" },
 ]
 
 /** Default conversion/lead fields per connector (Phase 0 scan; CLAUDE.md "Windsor field mapping"). */
@@ -12,6 +13,9 @@ export const DEFAULT_FIELDS: Record<string, { conversion_fields: string[]; lead_
   linkedin: { conversion_fields: ["externalwebsiteconversions"], lead_fields: ["oneclickleads"] },
   google_ads: { conversion_fields: ["conversions"], lead_fields: [] },
   facebook: { conversion_fields: [], lead_fields: ["actions_lead"] },
+  // Reddit (DNSFilter, Dean 2026-10-15: "cost per result or view through"): lead and sign-up
+  // conversions, click-through and view-through. Page visits and view content are far too loose.
+  reddit: { conversion_fields: ["conversion_lead_clicks", "conversion_sign_up_clicks", "conversion_lead_views", "conversion_sign_up_views"], lead_fields: [] },
 }
 
 export type WindsorAccountOption = { connector: string; platform: Platform; account_id: string; account_name: string }

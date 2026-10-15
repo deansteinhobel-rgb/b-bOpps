@@ -13,6 +13,7 @@ import { ensureSprint } from "@/lib/sprints/data"
 import { sprintOf } from "@/lib/sprints/periods"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { PLATFORMS } from "@/lib/metrics/types"
 
 // Client calls on the Brain tab and the follow-up pop-up. What the team does about an item is
 // logged append-only as the signed-in user (RLS: the client's team, not viewers). Linking the
@@ -21,7 +22,7 @@ import { createClient } from "@/lib/supabase/server"
 
 export type CallResult = { ok: boolean; message?: string; url?: string; options?: string[] }
 const fail = (message: string): CallResult => ({ ok: false, message })
-const CONNECTED = ["linkedin", "google_ads", "meta"]
+const CONNECTED: string[] = [...PLATFORMS]
 
 const refresh = (slug: string) => {
   revalidatePath(`/clients/${slug}/brain`)

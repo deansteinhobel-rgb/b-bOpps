@@ -316,7 +316,7 @@ export async function syncLinkedInChanges(a: Account, from: string, to: string) 
 }
 
 /** A campaign's status moved on since the last check (from the daily status sync; LinkedIn only, because Google and Meta log it themselves). */
-export async function recordStatusChange(x: { client_id: string; platform: "linkedin"; external_account_id: string; campaign_id: string; campaign_name: string | null; from: string; to: string }) {
+export async function recordStatusChange(x: { client_id: string; platform: "linkedin" | "reddit"; external_account_id: string; campaign_id: string; campaign_name: string | null; from: string; to: string }) {
   const words: Record<string, string> = { ACTIVE: "active", PAUSED: "paused", ARCHIVED: "archived", COMPLETED: "completed", CANCELED: "canceled", DRAFT: "draft" }
   const at = new Date().toISOString()
   await createAdminClient()
@@ -335,7 +335,7 @@ export async function recordStatusChange(x: { client_id: string; platform: "link
         campaign_name: x.campaign_name,
         object_name: null,
         summary: `Campaign ${words[x.to] ?? x.to.toLowerCase()}`,
-        detail: `Status: ${words[x.from] ?? x.from.toLowerCase()} → ${words[x.to] ?? x.to.toLowerCase()} (seen on the daily check; LinkedIn doesn't say who)`,
+        detail: `Status: ${words[x.from] ?? x.from.toLowerCase()} → ${words[x.to] ?? x.to.toLowerCase()} (seen on the daily check; ${x.platform === "reddit" ? "Reddit" : "LinkedIn"} doesn't say who)`,
         change_count: 1,
         campaigns: x.campaign_name ? [x.campaign_name] : [],
         bulk: false,
@@ -354,6 +354,7 @@ export async function syncPlatformChanges(opts: { from: string; to: string; clie
   const results: { account: string; rows?: number; error?: string; seconds: number }[] = []
   await Promise.all(
     (accounts ?? [])
+      .filter((a) => a.platform !== "reddit") // no change log on Reddit: status changes come from statuses.ts
       .filter((a) => !opts.platforms || opts.platforms.includes(a.platform as Account["platform"]))
       .map(async (raw) => {
         const a: Account = { client_id: raw.client_id, platform: raw.platform as Account["platform"], connector: raw.windsor_connector, external_account_id: raw.external_account_id }
