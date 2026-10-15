@@ -8,6 +8,7 @@ import { writeTestRead } from "@/lib/sprints/test-read"
 import { loadTestDetail } from "@/lib/sprints/test-results"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { loadTargets } from "@/lib/targets"
 
 // A read takes 20-60 seconds; the panel waits for it.
 export const maxDuration = 120
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
   const limited = await rateLimit(supabase, "test_read")
   if (limited) return NextResponse.json({ read: stored ?? null, error: limited }, { status: 429 })
   const client = test.clients as { id: string; currency: string; monthly_kpi_target: number | null }
-  const opts = { today, currency: client.currency, targetCpr: client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target) }
+  const opts = { today, currency: client.currency, targets: await loadTargets(supabase, client.id, client.monthly_kpi_target) }
   const detail = await loadTestDetail(supabase, client.id, test as SprintTest, opts)
   if (!detail) return NextResponse.json({ read: null, error: "Pick the test's campaigns first, so there's something to read." }, { status: 400 })
   try {

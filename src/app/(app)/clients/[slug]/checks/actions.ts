@@ -8,6 +8,7 @@ import { weekOf } from "@/lib/checks/periods"
 import { cachedOverview } from "@/lib/metrics/cached"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { loadTargets } from "@/lib/targets"
 
 const Input = z.object({
   resultId: z.string().uuid(),
@@ -49,7 +50,7 @@ export async function saveCheckResult(input: z.input<typeof Input>): Promise<Sav
   const autoData = overview
     ? buildAutoData(def.key, overview, {
         currency: client.currency,
-        target: client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target),
+        targets: await loadTargets(supabase, current.client_id, client.monthly_kpi_target),
         weekStart: weekOf(run.period_start).start,
       })
     : null

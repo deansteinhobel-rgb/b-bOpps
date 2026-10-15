@@ -209,6 +209,58 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Filevine",
+      "slug": "filevine",
+      "notion_client_option": "Filevine",
+      "currency": "USD",
+      "team": [
+        {
+          "email": "dean.steinhobel@bordeauxandburgundy.co.uk",
+          "role": "gtm_lead"
+        },
+        {
+          "email": "esa.burki@bordeauxandburgundy.co.uk",
+          "role": "gtm_lead"
+        },
+        {
+          "email": "andrea.restrepo@bordeauxandburgundy.co.uk",
+          "role": "specialist"
+        },
+        {
+          "email": "kieran.carmon@bordeauxandburgundy.co.uk",
+          "role": "am"
+        }
+      ],
+      "main_kpi": "cost_per_result",
+      "monthly_kpi_target": 507,
+      "platform_accounts": [
+        {
+          "platform": "linkedin",
+          "windsor_connector": "linkedin",
+          "external_account_id": "503169196",
+          "account_name": "Filevine",
+          "monthly_budget": 367000,
+          "conversion_fields": [
+            "externalwebsitepostclickconversions"
+          ],
+          "lead_fields": [
+            "oneclickleads"
+          ]
+        },
+        {
+          "platform": "meta",
+          "windsor_connector": "facebook",
+          "external_account_id": "41375870",
+          "account_name": "Filevine",
+          "monthly_budget": 229000,
+          "conversion_fields": [],
+          "lead_fields": [
+            "actions_lead"
+          ]
+        }
+      ]
     }
   ]
 }
