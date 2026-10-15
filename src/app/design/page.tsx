@@ -28,7 +28,9 @@ import { InsightFeed } from "../(app)/clients/[slug]/insights/feed"
 import { Controls } from "../(app)/clients/[slug]/reporting/controls"
 import { ClientTabs } from "../(app)/clients/[slug]/client-tabs"
 import { AdsPanel } from "../(app)/clients/[slug]/_glance/ads-panel"
-import { GlanceBoard } from "../(app)/clients/[slug]/_glance/glance-board"
+import { AdsSummary, ChangesSummary, GlanceBoard, PlansSummary } from "../(app)/clients/[slug]/_glance/glance-board"
+import { GlanceCard } from "../(app)/clients/[slug]/_glance/glance-card"
+import { SectionLoading } from "@/components/loading"
 import { SpendBreakdown } from "../(app)/clients/[slug]/_glance/spend-breakdown"
 import { Timeline } from "../(app)/clients/[slug]/_glance/timeline"
 import { tiringAds, topAds, type AdStat } from "@/lib/metrics/ads"
@@ -370,22 +372,17 @@ export default async function DesignPreview() {
               goals={[{ id: "goal", name: "Activated Free Trials (non PLG)", month: "2026-09-01", monthLabel: "September", value: 243, target: 300, lastMonthLabel: "August", lastMonth: 189, dayOfMonth: 29, daysInMonth: 30, updated: "29 Sept by Dean Steinhobel" }]}
               canEditGoals={false}
               platforms={glancePlatforms}
-              best={topAds(glanceAdStats)}
-              tiring={tiringAds(sampleAds)}
-              previews={{}}
-              recent={glanceTimeline}
-              recentCount={9}
-              recentBy={{ team: 3, platform: 5, app: 1 }}
-              sprint={{ number: 1, day: 3, start: "2026-09-28", end: "2026-10-11" }}
-              tests={glanceTests}
-              nextCount={1}
               headline={<p className="max-w-5xl font-heading text-xl leading-snug sm:text-xl">DNSFilter has spent $109,768 of its $105,000 September budget and is <span className="text-rag-red">4% over the month&apos;s budget</span>. That&apos;s 402 results at <span className="text-rag-green">$273 each</span>, under the $300 target.</p>}
-              details={{
-                spend: <SpendBreakdown slug="sample" currency="USD" target={300} platforms={glancePlatforms} campaigns={glanceNumbers.campaigns} total={glanceNumbers.mtd.spend} />,
-                ads: <AdsPanel slug="sample" currency="USD" best={topAds(glanceAdStats)} tiring={tiringAds(sampleAds)} unknown={0} previews={{}} />,
-                changes: <Timeline entries={glanceTimeline} pageSize={20} />,
-                plans: <p className="text-muted-foreground">The sprint list, next sprint and last sprint go here.</p>,
-              }}
+              spendDetail={<SpendBreakdown slug="sample" currency="USD" target={300} platforms={glancePlatforms} campaigns={glanceNumbers.campaigns} total={glanceNumbers.mtd.spend} />}
+              cards={
+                <>
+                  <GlanceCard id="ads" title="Ads" meta="last 30 days" summary={<AdsSummary best={topAds(glanceAdStats)} tiring={tiringAds(sampleAds)} previews={{}} currency="USD" />} detail={<AdsPanel slug="sample" currency="USD" best={topAds(glanceAdStats)} tiring={tiringAds(sampleAds)} unknown={0} previews={{}} />} />
+                  <GlanceCard id="changes" title="What's changed" meta="last 7 days" summary={<ChangesSummary recent={glanceTimeline.slice(0, 4)} count={9} by={{ team: 3, platform: 5, app: 1 }} />} detail={<Timeline entries={glanceTimeline} pageSize={20} />} />
+                  <GlanceCard id="plans" title="What's planned" meta="Sprint 1" summary={<PlansSummary sprint={{ number: 1, day: 3, start: "2026-09-28", end: "2026-10-11" }} tests={glanceTests} nextCount={1} />} detail={<p className="text-muted-foreground">The sprint list, next sprint and last sprint go here.</p>} />
+                  {/* While a card loads, it shows this (the real page streams each card in on its own). */}
+                  <SectionLoading label="Loading the sprint…" className="min-h-56" lines={4} />
+                </>
+              }
             />
           </section>
 

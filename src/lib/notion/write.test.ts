@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
-import { commentRichText, createNotionAction, type ActionInput, type WriteDb, type WriteDeps } from "./write"
+import { commentRichText, createNotionAction, formattedRichText, type ActionInput, type WriteDb, type WriteDeps } from "./write"
 
 // A fake Supabase that records every call, in order.
 function fakeDb(opts: { failLogInsert?: boolean; duplicate?: boolean } = {}) {
@@ -157,6 +157,14 @@ describe("createNotionAction: live write (mocked Notion)", () => {
     expect(sent.properties["Date of Brief - Completion of Project"]).toEqual({ date: { start: "2026-10-05" } })
     expect(sent.properties["Brief Submitted by"]).toEqual({ rich_text: [{ type: "text", text: { content: "B&B Ops app · Dean Steinhobel" } }] })
     expect(sent.properties["QA Document"]).toEqual({ url: "http://localhost:3000/clients/camber/checks?result=result-1" })
+  })
+
+  it("leaves Description of Request off when there's no description (test briefs put the plan in the comment)", async () => {
+    const { db } = fakeDb()
+    const notion = fakeNotion()
+    await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, { ...input, description: "  " })
+    const sent = (notion.pages.create.mock.calls[0] as unknown[])[0] as { properties: Record<string, unknown> }
+    expect(sent.properties).not.toHaveProperty("Description of Request")
   })
 
   it("splits long findings into Notion's 2,000-character text pieces", async () => {
@@ -318,6 +326,34 @@ describe("commentRichText links", () => {
       { type: "text", text: { content: ") " } },
       { type: "mention", mention: { user: { id: "notion-kieran" } } },
     ])
+  })
+})
+
+describe("formattedRichText (Dean, 2026-10-15: briefs easier to digest)", () => {
+  it("turns **bold** into bold text and [label](link) into a link on the label", () => {
+    expect(formattedRichText("**What we need from copy**\n• Search Ad ([template](https://docs.google.com/s)) and https://x.com/a.")).toEqual([
+      { type: "text", text: { content: "What we need from copy" }, annotations: { bold: true } },
+      { type: "text", text: { content: "\n• Search Ad (" } },
+      { type: "text", text: { content: "template", link: { url: "https://docs.google.com/s" } } },
+      { type: "text", text: { content: ") and " } },
+      { type: "text", text: { content: "https://x.com/a", link: { url: "https://x.com/a" } } },
+      { type: "text", text: { content: "." } },
+    ])
+  })
+
+  it("leaves lone asterisks and brackets alone", () => {
+    expect(formattedRichText("8 * 2 [draft] (soon)")).toEqual([{ type: "text", text: { content: "8 * 2 [draft] (soon)" } }])
+  })
+
+  it("formats the comment around mentions, and Description of Request too", async () => {
+    const rt = commentRichText("**Hi** @Kieran Smith, see [the plan](https://app/x)", [{ id: "notion-kieran", name: "Kieran Smith" }])
+    expect(rt[0]).toEqual({ type: "text", text: { content: "Hi" }, annotations: { bold: true } })
+    expect(rt).toContainEqual({ type: "text", text: { content: "the plan", link: { url: "https://app/x" } } })
+    const { db } = fakeDb()
+    const notion = fakeNotion()
+    await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, { ...input, description: "**Why:** overspend" })
+    const sent = (notion.pages.create.mock.calls[0] as unknown[])[0] as { properties: Record<string, { rich_text: unknown[] }> }
+    expect(sent.properties["Description of Request"].rich_text[0]).toEqual({ type: "text", text: { content: "Why:" }, annotations: { bold: true } })
   })
 })
 

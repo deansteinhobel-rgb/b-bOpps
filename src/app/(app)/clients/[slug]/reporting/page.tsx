@@ -1,8 +1,10 @@
 import { Download } from "lucide-react"
 import { notFound } from "next/navigation"
+import { Suspense } from "react"
 import { AdThumb, ViewAdLink } from "@/components/ad-thumb"
 import { PlatformIcon, PlatformLabel } from "@/components/brand"
 import { SectionHeader } from "@/components/page-header"
+import { SectionLoading } from "@/components/loading"
 import { SectionNav } from "@/components/section-nav"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { landingPages } from "@/lib/metrics/breakdowns"
@@ -65,12 +67,13 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   const { data: client } = await supabase.from("clients").select("id, name, logo_url, currency, monthly_kpi_target, ga4_property_id").eq("slug", slug).maybeSingle()
   if (!client) notFound()
   // Access confirmed above (client loaded through RLS), so the shared caches are safe to use.
-  const [perf, all, unsegmented, o] = await Promise.all([
+  const [perf, all, unsegmented, o, { data: accounts }] = await Promise.all([
     cachedPerformance(client.id, range, platform, null, seg),
     platform ? cachedPerformance(client.id, range, null, null, seg) : null,
     // The split always shows every segment on every platform (it's how you pick one), so it needs the page without either filter.
     segmentDefs.length && (segment || platform) ? cachedPerformance(client.id, range, null) : null,
     cachedOverview(client.id),
+    supabase.from("client_platform_accounts").select("platform, conversion_fields, lead_fields").eq("client_id", client.id).eq("active", true),
   ])
   if (!perf || !o) return <p className="text-muted-foreground">No ad data yet. An admin can run a Windsor backfill for this client.</p>
   const split = segmentDefs.length ? splitBySegment(unsegmented ?? perf, segmentDefs, segmentOpts) : null
@@ -87,52 +90,177 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   const dates = rangeText(from, to, perf.dataThrough)
   const against = compare ? `against ${rangeText(prevFrom, prevTo, perf.dataThrough)}` : "all time, so nothing to compare with"
 
-  // Ads over the period: best and worst per platform, and each board's top ads.
-  const [allAds, pages, { data: links }, { data: canShare }, { data: accounts }] = await Promise.all([
-    adsForPeriod(supabase, client.id, from, to),
-    client.ga4_property_id ? landingPages(supabase, client.id, from, to) : null,
-    supabase.from("report_links").select("id, board, default_days, default_range, label, token, created_at, last_viewed_at, created_by_profile_id").eq("client_id", client.id).is("revoked_at", null).order("created_at", { ascending: false }),
-    supabase.rpc("can_share_reports", { cid: client.id }),
-    supabase.from("client_platform_accounts").select("platform, conversion_fields, lead_fields").eq("client_id", client.id).eq("active", true),
-  ])
   // What counts as a result, per platform, for the Results and Cost per result tiles (Dean).
   const resultAccounts = (accounts ?? []).filter((a) => !platform || a.platform === platform).map((a) => ({ platform: a.platform as Platform, conversions: a.conversion_fields ?? [], leads: a.lead_fields ?? [] }))
   const resultLines = resultFieldLines(resultAccounts)
   const hasLeads = resultAccounts.some((a) => a.leads.length > 0)
   const perUnit = (spend: number, n: number) => (n > 0 ? fmt("cpr", spend / n, cur) : "–")
-  const ads = allAds.filter((a) => (!platform || a.platform === platform) && inSegment(a.campaign_name))
-  const rankings = rankAds(ads)
-
-  // The boards: all platforms, then each platform (or just the one picked).
   const platformsShown = perf.platforms.filter((p) => p.now.spend > 0 || p.prev.spend > 0).sort((a, b) => b.now.spend - a.now.spend)
-  const boards = platform ? [buildBoard(perf, ads, platform)] : [...(platformsShown.length > 1 ? [buildBoard(perf, ads, null)] : []), ...platformsShown.map((p) => buildBoard(perf, ads, p.platform))]
-
-  // View-only links to the boards, for Notion.
-  const creators = [...new Set((links ?? []).map((l) => l.created_by_profile_id).filter(Boolean))] as string[]
-  const { data: people } = creators.length ? await supabase.from("profiles").select("id, full_name, email").in("id", creators) : { data: [] }
-  const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]))
-  const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")
-  const linkViews: EmbedLink[] = (links ?? []).map((l) => ({
-    id: l.id,
-    board: l.board,
-    opens: rangeLabel(decodeRange(l.default_range) ?? { kind: "days", days: l.default_days }),
-    label: l.label,
-    url: `${appUrl}/embed/report/${l.token}`,
-    created: `${shortDate(l.created_at.slice(0, 10))}${nameOf.get(l.created_by_profile_id) ? ` by ${nameOf.get(l.created_by_profile_id)}` : ""}`,
-    lastViewed: l.last_viewed_at ? shortDate(l.last_viewed_at.slice(0, 10)) : null,
-  }))
-
-  const liveAds = o.liveAds.filter((a) => (!platform || a.platform === platform) && inSegment(a.campaign_name))
-  const newest = o.newCreatives.filter((a) => (!platform || a.platform === platform) && inSegment(a.campaign_name)).slice(0, 12)
   const sections = split ? [SECTIONS[0], { id: "segments", label: segmentDefs.map((d) => d.label).join(" vs ") }, ...SECTIONS.slice(1)] : SECTIONS
   const scopeName = [segmentName, platform ? PLATFORM_LABEL[platform] : null].filter(Boolean).join(" · ")
-  const boardLabel = (p: Platform | null) => [segmentName, p ? PLATFORM_LABEL[p] : "All platforms"].filter(Boolean).join(" · ")
-  // The picked segment's ads (Segment detail), biggest spend first; previews for the first 40.
-  const segmentAds = segment ? ads.filter((a) => a.spend > 0 || a.impressions > 0).sort((a, b) => b.spend - a.spend) : []
-  const segmentOption = segment ? segmentOpts.find((s) => s.key === segment)! : null
-  const segmentPlatforms = segment ? (split?.find((s) => s.key === segment)?.platforms ?? []).map((p) => p.platform) : []
-  const previews = await previewsFor(supabase, client.id, [...rankings.flatMap((r) => [r.best, r.worst]).filter((a) => a !== null), ...boardAds(boards, ads), ...liveAds, ...newest, ...segmentAds.slice(0, 40)])
-  const campaignRows = perf.campaigns.map((c) => ({ ...c, live: Boolean(c.lastSpendDate && c.lastSpendDate >= twoDaysAgo) }))
+
+  // Shown in pieces (Dean, 2026-10-15): the controls and the overview first; everything that needs the period's
+  // ads and their previews (segments, best and worst, fatigue, the report, the deep dive) streams in after them.
+  // A promise React renders when it settles; it starts now, alongside the rest of the page.
+  const adSections = (async () => {
+    // Ads over the period: best and worst per platform, and each board's top ads.
+    const [allAds, pages, { data: links }, { data: canShare }] = await Promise.all([
+      adsForPeriod(supabase, client.id, from, to),
+      client.ga4_property_id ? landingPages(supabase, client.id, from, to) : null,
+      supabase.from("report_links").select("id, board, default_days, default_range, label, token, created_at, last_viewed_at, created_by_profile_id").eq("client_id", client.id).is("revoked_at", null).order("created_at", { ascending: false }),
+      supabase.rpc("can_share_reports", { cid: client.id }),
+    ])
+    const ads = allAds.filter((a) => (!platform || a.platform === platform) && inSegment(a.campaign_name))
+    const rankings = rankAds(ads)
+
+    // The boards: all platforms, then each platform (or just the one picked).
+    const boards = platform ? [buildBoard(perf, ads, platform)] : [...(platformsShown.length > 1 ? [buildBoard(perf, ads, null)] : []), ...platformsShown.map((p) => buildBoard(perf, ads, p.platform))]
+
+    // View-only links to the boards, for Notion.
+    const creators = [...new Set((links ?? []).map((l) => l.created_by_profile_id).filter(Boolean))] as string[]
+    const { data: people } = creators.length ? await supabase.from("profiles").select("id, full_name, email").in("id", creators) : { data: [] }
+    const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]))
+    const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")
+    const linkViews: EmbedLink[] = (links ?? []).map((l) => ({
+      id: l.id,
+      board: l.board,
+      opens: rangeLabel(decodeRange(l.default_range) ?? { kind: "days", days: l.default_days }),
+      label: l.label,
+      url: `${appUrl}/embed/report/${l.token}`,
+      created: `${shortDate(l.created_at.slice(0, 10))}${nameOf.get(l.created_by_profile_id) ? ` by ${nameOf.get(l.created_by_profile_id)}` : ""}`,
+      lastViewed: l.last_viewed_at ? shortDate(l.last_viewed_at.slice(0, 10)) : null,
+    }))
+
+    const liveAds = o.liveAds.filter((a) => (!platform || a.platform === platform) && inSegment(a.campaign_name))
+    const newest = o.newCreatives.filter((a) => (!platform || a.platform === platform) && inSegment(a.campaign_name)).slice(0, 12)
+    const boardLabel = (p: Platform | null) => [segmentName, p ? PLATFORM_LABEL[p] : "All platforms"].filter(Boolean).join(" · ")
+    // The picked segment's ads (Segment detail), biggest spend first; previews for the first 40.
+    const segmentAds = segment ? ads.filter((a) => a.spend > 0 || a.impressions > 0).sort((a, b) => b.spend - a.spend) : []
+    const segmentOption = segment ? segmentOpts.find((s) => s.key === segment)! : null
+    const segmentPlatforms = segment ? (split?.find((s) => s.key === segment)?.platforms ?? []).map((p) => p.platform) : []
+    const previews = await previewsFor(supabase, client.id, [...rankings.flatMap((r) => [r.best, r.worst]).filter((a) => a !== null), ...boardAds(boards, ads), ...liveAds, ...newest, ...segmentAds.slice(0, 40)])
+    const campaignRows = perf.campaigns.map((c) => ({ ...c, live: Boolean(c.lastSpendDate && c.lastSpendDate >= twoDaysAgo) }))
+
+    return (
+      <>
+        {/* 1b. Segments side by side (e.g. Camber SMB vs ABX) */}
+        {split && (
+          <section id="segments" className="scroll-mt-28 space-y-4">
+            <SectionHeader
+              title={segmentDefs.map((d) => d.label).join(" vs ")}
+              description={`Each segment's campaigns added up across every platform, ${dates}, ${against}. Click a segment, or one of its platforms, to see only its campaigns and ads (the rest of the page follows).`}
+            />
+            <SegmentSplit segments={split} currency={cur} base={base} query={q} active={segment} platform={platform} />
+            {segmentOption && (
+              <SegmentDetail segment={segmentOption} platform={platform} platforms={segmentPlatforms} base={base} query={q}>
+                <CampaignTable slug={slug} currency={cur} target={target} query={query ? `?${query}` : ""} rows={campaignRows} />
+                <SegmentAds ads={segmentAds} previews={previews} currency={cur} />
+              </SegmentDetail>
+            )}
+          </section>
+        )}
+
+        {/* 2. Best and worst ad */}
+        <section id="best-worst" className="scroll-mt-28 space-y-4">
+          <SectionHeader title="Best and worst ads" description={`${dates}. Only ads above their account's median spend. Ranked by cost per result when at least two have 3+ results, otherwise by CTR.`} />
+          {rankings.length === 0 ? (
+            <p className="surface px-4 py-6 text-sm text-muted-foreground">Not enough ad data in this period.</p>
+          ) : (
+            <div className="surface divide-y">
+              {rankings.map((r) => (
+                <div key={r.platform} className="grid gap-4 p-4 md:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)] md:items-start">
+                  <div className="text-sm">
+                    <PlatformLabel platform={r.platform} />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      By {r.basis === "cost_per_result" ? "cost per result" : "CTR"} · {r.eligible} eligible ad{r.eligible === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <AdLine label="Best" ad={r.best} basis={r.basis} currency={cur} previews={previews} />
+                  <AdLine label="Worst" ad={r.worst} basis={r.basis} currency={cur} previews={previews} />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* 3. Ad fatigue in detail */}
+        <section id="fatigue" className="scroll-mt-28 space-y-4">
+          <SectionHeader
+            title="Ad fatigue"
+            description={`Every live ad: its first 14 days against its last 14 days. First seen is red when it's over ${AD_OLD_DAYS} days ago; the last 14 days are red when worse. Age counts from the first day with impressions in our data (from ${longDate(o.dataFrom)}), because Windsor can't see creative edits.`}
+            actions={
+              o.liveAds.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {o.liveAds.some((a) => isAbx(a.campaign_name)) && (
+                    <a href={`${base}/live-ads?abx=1`} download className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground">
+                      <Download className="size-3.5" aria-hidden /> Export live ABX ads
+                    </a>
+                  )}
+                  <a href={`${base}/live-ads`} download className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground">
+                    <Download className="size-3.5" aria-hidden /> Export all live ads
+                  </a>
+                </div>
+              )
+            }
+          />
+          <FatiguePanel ads={liveAds} previews={previews} currency={cur} />
+          <div className="space-y-3">
+            <h3 className="text-base font-semibold">New creatives this month</h3>
+            {newest.length === 0 ? (
+              <p className="text-sm text-muted-foreground">None yet.</p>
+            ) : (
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+                {newest.map((a) => (
+                  <li key={adKey(a)} className="surface overflow-hidden transition-colors hover:border-foreground/20">
+                    <AdThumb preview={previews[adKey(a)]} alt={a.ad_name ?? a.ad_id} size="card" className="rounded-none border-0 border-b" />
+                    <div className="space-y-1.5 p-3">
+                      <p className="line-clamp-2 min-h-[2lh] text-xs font-medium leading-snug" title={a.ad_name ?? a.ad_id}>
+                        {a.ad_name ?? a.ad_id}
+                      </p>
+                      <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <PlatformIcon platform={a.platform} className="size-3.5" />
+                        <span className="min-w-0 flex-1 truncate">First seen {shortDate(a.first_seen)}</span>
+                        <span className={cn("size-1.5 shrink-0 rounded-full", a.live ? "bg-rag-green" : "bg-rag-na")} title={a.live ? "Live" : "Not live"} aria-label={a.live ? "Live" : "Not live"} />
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        {/* 4. The report: client-facing boards */}
+        <section id="report" className="scroll-mt-28 space-y-4">
+          <SectionHeader title="Report" description="Written for the client, one board per platform, like our Databox reports. Use ‹ › or the arrow keys to step through them, and “Embed in Notion” for a view-only link to a board." />
+          <BoardDeck
+            boards={boards.map((b) => ({
+              key: b.key,
+              label: boardLabel(b.platform),
+              platform: b.platform,
+              // View-only links show every campaign, so they're made from the unsegmented boards.
+              actions: segment ? null : <EmbedButton key={encodeRange(range)} slug={slug} board={b.key as BoardKey} boardLabel={b.platform ? PLATFORM_LABEL[b.platform] : "All platforms"} range={range} links={linkViews.filter((l) => l.board === b.key)} canShare={Boolean(canShare)} />,
+              node: <ReportBoard board={b} client={{ name: client.name, logoUrl: client.logo_url }} currency={cur} from={from} to={to} prevFrom={prevFrom} prevTo={prevTo} compare={compare} latest={perf.dataThrough} previews={previews} />,
+            }))}
+          />
+        </section>
+
+        {/* 5. The deep dive, for the team */}
+        <section id="deep-dive" className="scroll-mt-28 space-y-6">
+          <SectionHeader title="Deep dive" description={`${perf.periods.bucket === "day" ? "Day by day" : perf.periods.bucket === "week" ? "Week by week" : "Month by month"}, why the numbers moved, every campaign (click one for its ads, search terms and audiences), and landing pages.`} />
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+            <TrendPanel daily={perf.daily} prevDaily={perf.prevDaily} currency={cur} />
+            <div className="space-y-6">
+              <Investigator now={perf.now} prev={perf.prev} currency={cur} />
+              {!platform && <PlatformSplit platforms={perf.platforms} currency={cur} />}
+            </div>
+          </div>
+          <CampaignTable slug={slug} currency={cur} target={target} query={query ? `?${query}` : ""} rows={campaignRows} />
+          {pages && <LandingPages rows={pages} />}
+        </section>
+      </>
+    )
+  })()
 
   return (
     <div className="space-y-12">
@@ -236,121 +364,9 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
         </details>
       </section>
 
-      {/* 1b. Segments side by side (e.g. Camber SMB vs ABX) */}
-      {split && (
-        <section id="segments" className="scroll-mt-28 space-y-4">
-          <SectionHeader
-            title={segmentDefs.map((d) => d.label).join(" vs ")}
-            description={`Each segment's campaigns added up across every platform, ${dates}, ${against}. Click a segment, or one of its platforms, to see only its campaigns and ads (the rest of the page follows).`}
-          />
-          <SegmentSplit segments={split} currency={cur} base={base} query={q} active={segment} platform={platform} />
-          {segmentOption && (
-            <SegmentDetail segment={segmentOption} platform={platform} platforms={segmentPlatforms} base={base} query={q}>
-              <CampaignTable slug={slug} currency={cur} target={target} query={query ? `?${query}` : ""} rows={campaignRows} />
-              <SegmentAds ads={segmentAds} previews={previews} currency={cur} />
-            </SegmentDetail>
-          )}
-        </section>
-      )}
-
-      {/* 2. Best and worst ad */}
-      <section id="best-worst" className="scroll-mt-28 space-y-4">
-        <SectionHeader title="Best and worst ads" description={`${dates}. Only ads above their account's median spend. Ranked by cost per result when at least two have 3+ results, otherwise by CTR.`} />
-        {rankings.length === 0 ? (
-          <p className="surface px-4 py-6 text-sm text-muted-foreground">Not enough ad data in this period.</p>
-        ) : (
-          <div className="surface divide-y">
-            {rankings.map((r) => (
-              <div key={r.platform} className="grid gap-4 p-4 md:grid-cols-[10rem_minmax(0,1fr)_minmax(0,1fr)] md:items-start">
-                <div className="text-sm">
-                  <PlatformLabel platform={r.platform} />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    By {r.basis === "cost_per_result" ? "cost per result" : "CTR"} · {r.eligible} eligible ad{r.eligible === 1 ? "" : "s"}
-                  </p>
-                </div>
-                <AdLine label="Best" ad={r.best} basis={r.basis} currency={cur} previews={previews} />
-                <AdLine label="Worst" ad={r.worst} basis={r.basis} currency={cur} previews={previews} />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* 3. Ad fatigue in detail */}
-      <section id="fatigue" className="scroll-mt-28 space-y-4">
-        <SectionHeader
-          title="Ad fatigue"
-          description={`Every live ad: its first 14 days against its last 14 days. First seen is red when it's over ${AD_OLD_DAYS} days ago; the last 14 days are red when worse. Age counts from the first day with impressions in our data (from ${longDate(o.dataFrom)}), because Windsor can't see creative edits.`}
-          actions={
-            o.liveAds.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {o.liveAds.some((a) => isAbx(a.campaign_name)) && (
-                  <a href={`${base}/live-ads?abx=1`} download className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground">
-                    <Download className="size-3.5" aria-hidden /> Export live ABX ads
-                  </a>
-                )}
-                <a href={`${base}/live-ads`} download className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground">
-                  <Download className="size-3.5" aria-hidden /> Export all live ads
-                </a>
-              </div>
-            )
-          }
-        />
-        <FatiguePanel ads={liveAds} previews={previews} currency={cur} />
-        <div className="space-y-3">
-          <h3 className="text-base font-semibold">New creatives this month</h3>
-          {newest.length === 0 ? (
-            <p className="text-sm text-muted-foreground">None yet.</p>
-          ) : (
-            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-              {newest.map((a) => (
-                <li key={adKey(a)} className="surface overflow-hidden transition-colors hover:border-foreground/20">
-                  <AdThumb preview={previews[adKey(a)]} alt={a.ad_name ?? a.ad_id} size="card" className="rounded-none border-0 border-b" />
-                  <div className="space-y-1.5 p-3">
-                    <p className="line-clamp-2 min-h-[2lh] text-xs font-medium leading-snug" title={a.ad_name ?? a.ad_id}>
-                      {a.ad_name ?? a.ad_id}
-                    </p>
-                    <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                      <PlatformIcon platform={a.platform} className="size-3.5" />
-                      <span className="min-w-0 flex-1 truncate">First seen {shortDate(a.first_seen)}</span>
-                      <span className={cn("size-1.5 shrink-0 rounded-full", a.live ? "bg-rag-green" : "bg-rag-na")} title={a.live ? "Live" : "Not live"} aria-label={a.live ? "Live" : "Not live"} />
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
-
-      {/* 4. The report: client-facing boards */}
-      <section id="report" className="scroll-mt-28 space-y-4">
-        <SectionHeader title="Report" description="Written for the client, one board per platform, like our Databox reports. Use ‹ › or the arrow keys to step through them, and “Embed in Notion” for a view-only link to a board." />
-        <BoardDeck
-          boards={boards.map((b) => ({
-            key: b.key,
-            label: boardLabel(b.platform),
-            platform: b.platform,
-            // View-only links show every campaign, so they're made from the unsegmented boards.
-            actions: segment ? null : <EmbedButton key={encodeRange(range)} slug={slug} board={b.key as BoardKey} boardLabel={b.platform ? PLATFORM_LABEL[b.platform] : "All platforms"} range={range} links={linkViews.filter((l) => l.board === b.key)} canShare={Boolean(canShare)} />,
-            node: <ReportBoard board={b} client={{ name: client.name, logoUrl: client.logo_url }} currency={cur} from={from} to={to} prevFrom={prevFrom} prevTo={prevTo} compare={compare} latest={perf.dataThrough} previews={previews} />,
-          }))}
-        />
-      </section>
-
-      {/* 5. The deep dive, for the team */}
-      <section id="deep-dive" className="scroll-mt-28 space-y-6">
-        <SectionHeader title="Deep dive" description={`${perf.periods.bucket === "day" ? "Day by day" : perf.periods.bucket === "week" ? "Week by week" : "Month by month"}, why the numbers moved, every campaign (click one for its ads, search terms and audiences), and landing pages.`} />
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
-          <TrendPanel daily={perf.daily} prevDaily={perf.prevDaily} currency={cur} />
-          <div className="space-y-6">
-            <Investigator now={perf.now} prev={perf.prev} currency={cur} />
-            {!platform && <PlatformSplit platforms={perf.platforms} currency={cur} />}
-          </div>
-        </div>
-        <CampaignTable slug={slug} currency={cur} target={target} query={query ? `?${query}` : ""} rows={campaignRows} />
-        {pages && <LandingPages rows={pages} />}
-      </section>
+      <Suspense fallback={<SectionLoading label="Loading ads, the report and the deep dive…" className="min-h-64" lines={6} />}>
+        {adSections}
+      </Suspense>
     </div>
   )
 }

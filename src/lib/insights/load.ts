@@ -3,6 +3,7 @@ import { addDays } from "@/lib/metrics/ads"
 import type { Platform } from "@/lib/metrics/types"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { computeInsights, effectiveThrough, type CampaignDays, type InsightPlatform, type InsightInputs, type LinkedInKind, type SegmentRow, type SettingRow, type Sums } from "./rules"
+import { dataRanges } from "@/lib/metrics/data-range"
 
 /** Loads everything the insight rules read, for one client, and runs them. */
 
@@ -23,7 +24,7 @@ async function latest(supabase: SupabaseClient, clientId: string, kind: string) 
 export async function loadInsightInputs(supabase: SupabaseClient, clientId: string): Promise<InsightInputs | null> {
   const [{ data: client }, { data: range }, { data: statuses }, { data: review }, { data: settingRows }] = await Promise.all([
     supabase.from("clients").select("name, currency, monthly_kpi_target, ga4_property_id").eq("id", clientId).single(),
-    supabase.from("account_data_range").select("platform, data_through").eq("client_id", clientId),
+    dataRanges(supabase, clientId),
     supabase.from("campaign_statuses").select("platform, campaign_id, status").eq("client_id", clientId),
     // Claude's latest daily review: ICP verdicts and campaign goals feed the rules.
     supabase.from("insight_reviews").select("companies, terms, goals, audiences").eq("client_id", clientId).eq("status", "ready").order("created_at", { ascending: false }).limit(1).maybeSingle(),

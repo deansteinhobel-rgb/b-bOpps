@@ -422,3 +422,38 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   console.log("a re-approval gets its own brief: OK")
   try { await q(`insert into public.notion_write_log (client_id, operation, endpoint, payload, dry_run) values ('${camber}', 'create_sequence_brief', 'POST /v1/pages', '{}', true)`); console.log("FAIL: sequence brief without a key") } catch { console.log("sequence briefs need a piece and a key: OK") }
 }
+
+// client_data_range (2026-10-15): the fast replacement for the account_data_range view keeps its RLS.
+{
+  const camber = "11111111-1111-1111-1111-111111111111"
+  const andrea = "aaaaaaaa-0000-0000-0000-000000000002" // Camber's team
+  const danny = "aaaaaaaa-0000-0000-0000-000000000003" // DNSFilter's team, not Camber's
+  await q(`insert into public.windsor_daily_metrics (client_id, platform, external_account_id, date, campaign_id, ad_id, impressions) values
+    ('${camber}', 'linkedin', 'li-1', '2026-09-01', 'c1', 'a1', 10), ('${camber}', 'linkedin', 'li-1', '2026-10-14', 'c1', 'a1', 10),
+    ('${camber}', 'meta', 'fb-1', '2026-10-01', 'c2', 'a2', 0), ('${camber}', 'meta', 'fb-1', '2026-10-13', 'c2', 'a2', 5)`)
+  const range = (uid) => as(uid, () => q(`select platform::text, external_account_id, data_from::text, data_through::text from public.client_data_range('${camber}') order by 1, 2`))
+  const mine = await range(andrea)
+  const view = await as(andrea, () => q(`select platform::text, external_account_id, data_from::text, data_through::text from public.account_data_range where client_id = '${camber}' order by 1, 2`))
+  console.log(JSON.stringify(mine) === JSON.stringify(view) && mine.length >= 2 ? "client_data_range matches the view for the team: OK" : `FAIL: client_data_range ${JSON.stringify(mine)} vs view ${JSON.stringify(view)}`)
+  console.log((await range(danny)).length === 0 ? "client_data_range shows nothing to someone off the team: OK" : "FAIL: client_data_range leaked another client's range")
+  const fatigue = await as(andrea, () => q(`select ad_id, first_seen::text, live from public.ad_fatigue_inputs('${camber}') order by ad_id`))
+  console.log(fatigue.length === 2 && fatigue[1].first_seen === "2026-10-13" ? "ad_fatigue_inputs reads recent ads, first seen = first day with impressions: OK" : `FAIL: ad_fatigue_inputs ${JSON.stringify(fatigue)}`)
+  // sprint_ad_events (bounded by the range, 2026-10-15): a2 started in the range; a1 still runs on the last day.
+  const events = (uid) => as(uid, () => q(`select ad_id, first_seen::text, data_through::text from public.sprint_ad_events('${camber}', '2026-10-12', '2026-10-25') order by ad_id`))
+  const ev = await events(andrea)
+  console.log(ev.length === 1 && ev[0].ad_id === "a2" && ev[0].first_seen === "2026-10-13" && ev[0].data_through === "2026-10-13" ? "sprint_ad_events finds ads that started in the sprint: OK" : `FAIL: sprint_ad_events ${JSON.stringify(ev)}`)
+  console.log((await events(danny)).length === 0 ? "sprint_ad_events shows nothing to someone off the team: OK" : "FAIL: sprint_ad_events leaked another client's ads")
+}
+
+// ad_fatigue_snapshots (2026-10-15): server-written once a day, the client's team reads, nobody else.
+{
+  const camber = "11111111-1111-1111-1111-111111111111"
+  await q(`insert into public.ad_fatigue_snapshots (client_id, snapshot_on, data_through, ad_count, rows) values ('${camber}', '2026-10-15', '2026-10-14', 1, '[{"ad_id":"a1"}]')`)
+  const team = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select ad_count from public.ad_fatigue_snapshots"))
+  console.log(team.length === 1 ? "ad fatigue snapshots: the team reads them: OK" : "FAIL: team can't read ad fatigue snapshots")
+  const other = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select ad_count from public.ad_fatigue_snapshots"))
+  console.log(other.length === 0 ? "ad fatigue snapshots: hidden from other teams: OK" : "FAIL: another team read Camber's snapshot")
+  try { await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.ad_fatigue_snapshots (client_id, snapshot_on, ad_count) values ('${camber}', '2026-10-16', 0)`)); console.log("FAIL: a signed-in user wrote a snapshot") } catch { console.log("ad fatigue snapshots are server-written: OK") }
+  const del = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.ad_fatigue_snapshots returning id"))
+  console.log(del.length === 0 ? "ad fatigue snapshots can't be deleted: OK" : "FAIL: snapshot deleted")
+}

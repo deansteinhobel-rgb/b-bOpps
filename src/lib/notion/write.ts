@@ -76,7 +76,7 @@ export type WriteResult =
   | { status: "failed"; logId: number | null; payload: ActionPayload | null; error: string }
 
 export type ActionPayload = { parent: { data_source_id: string }; properties: Record<string, unknown> }
-export type RichTextItem = { type: "text"; text: { content: string; link?: { url: string } } } | { type: "mention"; mention: { user: { id: string } } }
+export type RichTextItem = { type: "text"; text: { content: string; link?: { url: string } }; annotations?: { bold: true } } | { type: "mention"; mention: { user: { id: string } } }
 export type CommentPayload = { parent: { page_id: string }; rich_text: RichTextItem[] }
 
 const MAX_TEXT = 2000 // Notion's limit per rich text item
@@ -97,28 +97,46 @@ export function commentBody(text: string, mentions: Mention[]) {
   return missing.length ? `Hey ${missing.map((p) => `@${p.name}`).join(", ")}\n\n${body}` : body
 }
 
-const URL_RE = /https?:\/\/[^\s<>"]+/g
 const TRAILING_PUNCT = /[.,;:!?)\]']+$/ // "see https://x.com/a." links to https://x.com/a
+// **bold**, [label](https://link) and bare links, in that order of preference.
+const FORMAT_RE = /\*\*([^*\n]+?)\*\*|\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s<>"]+/g
 
-/** The comment's rich text: every URL becomes a link, and every "@Name" of a tagged person becomes a Notion mention (which notifies them). */
+/**
+ * Text with a little formatting as Notion rich text (Dean, 2026-10-15: briefs easier to digest): **bold**
+ * becomes bold, [label](https://…) becomes a link on the label, and any other http(s) URL becomes a link
+ * (Notion only makes text clickable when it's sent with a link).
+ */
+export function formattedRichText(text: string): RichTextItem[] {
+  const out: RichTextItem[] = []
+  const push = (content: string, extra: { link?: string; bold?: boolean } = {}) => {
+    for (let i = 0; i < content.length; i += MAX_TEXT) {
+      const piece = content.slice(i, i + MAX_TEXT)
+      out.push({ type: "text", text: { content: piece, ...(extra.link ? { link: { url: extra.link } } : {}) }, ...(extra.bold ? { annotations: { bold: true as const } } : {}) })
+    }
+  }
+  let last = 0
+  for (const m of text.matchAll(FORMAT_RE)) {
+    const at = m.index
+    let end = at + m[0].length
+    if (at > last) push(text.slice(last, at))
+    if (m[1] !== undefined) push(m[1], { bold: true })
+    else if (m[2] !== undefined) push(m[2], m[3].length <= MAX_TEXT ? { link: m[3] } : {})
+    else {
+      const url = m[0].replace(TRAILING_PUNCT, "")
+      end = at + url.length
+      push(url, url.length <= MAX_TEXT ? { link: url } : {})
+    }
+    last = end
+  }
+  if (last < text.length) push(text.slice(last))
+  return out
+}
+
+/** The comment's rich text: formatted as formattedRichText, and every "@Name" of a tagged person becomes a Notion mention (which notifies them). */
 export function commentRichText(text: string, mentions: Mention[]): RichTextItem[] {
   const people = uniquePeople(mentions).sort((a, b) => b.name.length - a.name.length) // longest name first
   const out: RichTextItem[] = []
-  const pushPlain = (t: string) => {
-    for (let i = 0; i < t.length; i += MAX_TEXT) out.push({ type: "text", text: { content: t.slice(i, i + MAX_TEXT) } })
-  }
-  // Notion only makes text clickable when it's sent with a link, so every http(s) URL becomes one.
-  const pushText = (t: string) => {
-    let last = 0
-    for (const m of t.matchAll(URL_RE)) {
-      const url = m[0].replace(TRAILING_PUNCT, "")
-      if (m.index > last) pushPlain(t.slice(last, m.index))
-      if (url.length <= MAX_TEXT) out.push({ type: "text", text: { content: url, link: { url } } })
-      else pushPlain(url)
-      last = m.index + url.length
-    }
-    if (last < t.length) pushPlain(t.slice(last))
-  }
+  const pushText = (s: string) => out.push(...formattedRichText(s))
   let rest = commentBody(text, mentions)
   while (rest) {
     let hit: { at: number; p: Mention } | null = null
@@ -169,9 +187,10 @@ export function buildActionPayload(input: ActionInput, env: Pick<WriteDeps["env"
     [PROP.status]: { status: { name: ACTION_DEFAULTS.status } },
     [PROP.productionType]: { select: { name: ACTION_DEFAULTS.productionType } },
     [PROP.createdBy]: { rich_text: richText(APP_CREATED_PREFIX + createdByName) },
-    [PROP.description]: { rich_text: richText(input.description.trim()) },
     [PROP.appLink]: { url: appLinkFor(input, env.appUrl) },
   }
+  // Left off when empty: test briefs write the plan as a comment instead.
+  if (input.description.trim()) properties[PROP.description] = { rich_text: formattedRichText(input.description.trim()).slice(0, 100) }
   if (input.dueDate) properties[PROP.dueDate] = { date: { start: input.dueDate } }
   if (input.priority) properties[PROP.priority] = { select: { name: input.priority } }
   if (input.sprintTestId) properties[PROP.statusContent] = { select: { name: TEST_BRIEF_STATUS_CONTENT } }

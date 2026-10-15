@@ -7,6 +7,7 @@ import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { PAID_PRODUCTION_TYPES, PROP } from "@/lib/notion/config"
 import { adKey } from "@/lib/previews"
 import { rpcAll } from "@/lib/supabase/rpc-all"
+import { dataRanges } from "@/lib/metrics/data-range"
 
 /**
  * What Claude reads for content ideas (Dean, 2026-09-29): every campaign of the last 90 days with who
@@ -41,7 +42,7 @@ export async function buildContentContext(db: SupabaseClient, clientId: string):
   const money = (v: number | null) => (v === null ? "–" : new Intl.NumberFormat("en-GB", { style: "currency", currency: cur, currencyDisplay: "narrowSymbol", maximumFractionDigits: 0 }).format(v))
   const cpr = (t: Totals) => (t.results > 0 ? money(t.spend / t.results) : "no results")
 
-  const { data: range } = await db.from("account_data_range").select("platform, data_through").eq("client_id", clientId)
+  const { data: range } = await dataRanges(db, clientId)
   const to = (range ?? []).map((r) => r.data_through as string).sort().at(-1)
   if (!to) throw new Error("No ad data for this client yet.")
   const from = addDays(to, -(DAYS - 1))

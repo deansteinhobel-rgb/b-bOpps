@@ -105,10 +105,11 @@ export function successLine(metric: string | null, target: number | null, text: 
 }
 
 /**
- * The first comment on the Notion brief, written like the team briefs each other (Dean,
- * 2026-09-30): what we're testing and why, what we need from copy and design (from the pop-up's
- * "What we need" step, `needsText`), success, deadline. A draft the person briefing can edit.
- * Tagged people are greeted at the top.
+ * The first comment on the Notion brief, written like the team briefs each other (Dean, 2026-09-30), and laid out
+ * to be easy to digest (Dean, 2026-10-15): a bold title line with the platform, due date and a link to the plan,
+ * then bold sections (what we're testing, what we need from copy and design (`needsText`), success), and the
+ * longer background last with its "Label:" lead-ins in bold. **bold** and [label](link) become Notion formatting
+ * (formattedRichText). A draft the person briefing can edit. Tagged people are greeted at the top.
  */
 export function briefComment(opts: {
   sprintNumber: number
@@ -121,16 +122,20 @@ export function briefComment(opts: {
   deadline: string | null
   appUrl: string
 }) {
+  const meta = [opts.platformLabel, opts.deadline ? `Due ${opts.deadline}` : null, `[Full plan in Lumaux](${opts.appUrl})`].filter(Boolean).join(" · ")
   const parts = [
-    `For Sprint ${opts.sprintNumber} we're testing ${opts.title} on ${opts.platformLabel}.`,
-    opts.hypothesis ? `Why: ${opts.hypothesis}` : null,
-    opts.notes ? opts.notes : null,
+    `**Sprint ${opts.sprintNumber} test: ${opts.title}**\n${meta}`,
+    opts.hypothesis ? `**What we're testing**\n${opts.hypothesis.trim()}` : null,
     opts.needs,
-    `Success looks like: ${opts.success}`,
-    opts.deadline ? `We need it by ${opts.deadline}.` : null,
-    `The full plan is in Lumaux: ${opts.appUrl}`,
+    `**Success looks like**\n${opts.success}`,
+    opts.notes?.trim() ? `**Background**\n${boldLeadIns(opts.notes.trim())}` : null,
   ]
   return parts.filter(Boolean).join("\n\n")
+}
+
+/** "Why (our data): …" at the start of a line → "**Why (our data):** …", so long notes scan by their labels. */
+export function boldLeadIns(text: string) {
+  return text.replace(/^([A-Z][^:\n*]{0,40}):(?=\s)/gm, "**$1:**")
 }
 
 /** The Notion brief's description: everything the production team needs in one place. */
