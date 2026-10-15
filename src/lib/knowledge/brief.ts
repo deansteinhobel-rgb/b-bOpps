@@ -3,6 +3,7 @@ import { createHash } from "node:crypto"
 import type Anthropic from "@anthropic-ai/sdk"
 import { claude, MODEL } from "@/lib/ai/claude"
 import { callRef } from "@/lib/calls/refs"
+import { contentBankForPrompt } from "@/lib/knowledge/content-bank"
 import { londonToday } from "@/lib/checks/periods"
 import { money, withSymbols } from "@/lib/format"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -27,14 +28,14 @@ export const BRIEF_HEADINGS = [
   "Gaps and open questions",
 ] as const
 
-type Source = { id: string; source: "notion" | "note" | "file"; title: string; path: string | null; category: string | null; content: string | null; updated_at: string; file_path: string | null; file_type: string | null }
+type Source = { id: string; source: "notion" | "note" | "file"; notion_collection: string | null; title: string; path: string | null; category: string | null; content: string | null; updated_at: string; file_path: string | null; file_type: string | null }
 
 /** Everything the brain holds for a client that counts toward the brief. */
 export async function brainSources(clientId: string) {
   const db = createAdminClient()
   const { data } = await db
     .from("client_knowledge")
-    .select("id, source, title, path, category, content, updated_at, file_path, file_type, include")
+    .select("id, source, notion_collection, title, path, category, content, updated_at, file_path, file_type, include")
     .eq("client_id", clientId)
     .is("removed_at", null)
   return ((data ?? []) as (Source & { include: boolean })[]).filter((s) => (s.source === "notion" ? s.include && s.content : s.source === "note" ? s.content : s.file_path))
@@ -64,7 +65,7 @@ const digestOf = (sources: Source[], calls: Call[] = []) =>
     .digest("hex")
 
 const system = (today: string, client: string) => `You keep the "client brain" for ${client} at Bordeaux & Burgundy, a B2B performance marketing agency. Today is ${today}. Write in US English (optimize, color, program, center).
-From the sources (the client's GTM HQ pages in Notion, notes from calls with the client, team notes and uploaded files), write a client brief that a paid media strategist can read in five minutes before planning a two-week sprint of ad tests.
+From the sources (the client's GTM HQ pages in Notion, the client's entries in B&B's Content Bank (content pieces, webinar and call transcripts, source notes), notes from calls with the client, team notes and uploaded files), write a client brief that a paid media strategist can read in five minutes before planning a two-week sprint of ad tests.
 
 Use exactly these sections, as markdown "## " headings, in this order:
 ${BRIEF_HEADINGS.map((h) => `- ${h}`).join("\n")}
@@ -93,6 +94,10 @@ export async function buildClientBrief(clientId: string, opts: { force?: boolean
   if (!client) throw new Error("Client not found")
   const [sources, calls] = await Promise.all([brainSources(clientId), recentCalls(clientId)])
   const digest = digestOf(sources, calls)
+  if (!sources.length && !calls.length) {
+    if (opts.briefId) await db.from("client_briefs").update({ status: "failed", error: "Nothing to build the brief from yet: link an HQ, add Content Bank entries, call notes, must-knows or files.", finished_at: new Date().toISOString() }).eq("id", opts.briefId)
+    return { skipped: true as const }
+  }
 
   const { data: last } = await db.from("client_briefs").select("id, source_digest, written_by, content").eq("client_id", clientId).eq("status", "ready").order("created_at", { ascending: false }).limit(5)
   const lastClaude = last?.find((b) => b.written_by === "claude")
@@ -122,7 +127,7 @@ export async function buildClientBrief(clientId: string, opts: { force?: boolean
     const kpi = client.monthly_kpi_target === null ? "not set" : `${money(Number(client.monthly_kpi_target), client.currency)} per result (conversions + leads)`
     blocks.push({ type: "text", text: `Client: ${client.name}. Currency ${client.currency}. Main KPI in the app: cost per result, target ${kpi}.` })
     for (const s of text) {
-      const label = s.source === "note" ? `Team note (${s.category ?? "note"})` : `${s.title}${s.path ? ` (HQ › ${s.path})` : ""}`
+      const label = s.source === "note" ? `Team note (${s.category ?? "note"})` : s.notion_collection === "content_bank" ? `${s.title} (Content Bank${s.path ? `: ${s.path}` : ""})` : `${s.title}${s.path ? ` (HQ › ${s.path})` : ""}`
       blocks.push({ type: "text", text: `### Source: ${label}\n${(s.content ?? "").slice(0, cap.get(s.id))}` })
     }
     // Calls, newest first: the full notes while they fit, then summaries.
@@ -163,15 +168,16 @@ export async function buildClientBrief(clientId: string, opts: { force?: boolean
   }
 }
 
-/** The brief and must-know notes as text for "Pour me a sprint" (empty when there's nothing yet). */
-export async function briefForPrompt(clientId: string) {
+/** The brief and must-know notes as text for "Pour me a sprint" (empty when there's nothing yet). `contentBank: false` leaves out the Content Bank list for prompts that list it themselves. */
+export async function briefForPrompt(clientId: string, opts: { contentBank?: boolean } = {}) {
   const db = createAdminClient()
   const since = new Date(Date.now() - 60 * 86_400_000).toISOString().slice(0, 10)
-  const [{ data: brief }, { data: notes }, { data: calls }, { data: open }] = await Promise.all([
+  const [{ data: brief }, { data: notes }, { data: calls }, { data: open }, bank] = await Promise.all([
     db.from("client_briefs").select("content, created_at").eq("client_id", clientId).eq("status", "ready").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     db.from("client_knowledge").select("category, content").eq("client_id", clientId).eq("source", "note").is("removed_at", null).order("created_at"),
     db.from("client_calls").select("title, call_date, summary").eq("client_id", clientId).is("removed_at", null).not("summary", "is", null).gte("call_date", since).order("call_date", { ascending: false }).limit(6),
     db.from("call_commitments").select("id, kind, title, said_on, owner_side").eq("client_id", clientId).is("superseded_at", null).is("acted_at", null).gte("said_on", since).order("said_on", { ascending: false }).limit(40),
+    opts.contentBank === false ? [] : contentBankForPrompt(clientId, { limit: 15 }),
   ])
   // Items someone closed (done, not doing, planned as a test) aren't open any more.
   const { data: closed } = open?.length ? await db.from("call_commitment_actions").select("commitment_id, action, created_at").in("commitment_id", open.map((o) => o.id)).order("created_at", { ascending: false }) : { data: [] }
@@ -191,6 +197,10 @@ export async function briefForPrompt(clientId: string) {
     lines.push("\n## Said on recent calls, not done yet (follow these up; a suggestion that follows one up gives its [call-…] ref)")
     for (const o of stillOpen) lines.push(`- [${callRef(o.id)}] ${o.said_on} (${o.owner_side === "client" ? "client to do" : "B&B to do"}, ${o.kind.replace("_", " ")}): ${o.title}`)
   }
-  if (brief?.content) lines.push(`\n## Client brief (from the client's Notion HQ and team notes, updated ${brief.created_at.slice(0, 10)})\n${brief.content}`)
+  if (bank.length) {
+    lines.push("\n## In B&B's Content Bank for this client (content pieces, transcripts and source notes, newest first)")
+    lines.push(...bank)
+  }
+  if (brief?.content) lines.push(`\n## Client brief (from the client's Notion HQ, Content Bank and team notes, updated ${brief.created_at.slice(0, 10)})\n${brief.content}`)
   return lines.join("\n")
 }

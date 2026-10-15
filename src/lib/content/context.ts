@@ -2,6 +2,7 @@ import "server-only"
 import type Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { briefForPrompt } from "@/lib/knowledge/brief"
+import { contentBankForPrompt } from "@/lib/knowledge/content-bank"
 import { addDays } from "@/lib/metrics/ads"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { PAID_PRODUCTION_TYPES, PROP } from "@/lib/notion/config"
@@ -14,7 +15,7 @@ import { dataRanges } from "@/lib/metrics/data-range"
  * it reached (LinkedIn job titles, seniority, functions, industries; Meta age and placement; Google's
  * converting search terms), every ad's numbers, the images of the ads that matter most (so Claude sees
  * the creative, not just its name), the client brief (ICP, must-knows), past sprint tests, the
- * content already in production in Notion, and what the team said about earlier ideas.
+ * content already in production in Notion, the client's Content Bank entries (Dean, 2026-10-15), and what the team said about earlier ideas.
  */
 
 const DAYS = 90
@@ -176,10 +177,11 @@ export async function buildContentContext(db: SupabaseClient, clientId: string):
   }
 
   // Past tests, content in production (Notion mirror, read only), and what the team said about earlier ideas.
-  const [{ data: tests }, { data: mirror }, { data: actions }] = await Promise.all([
+  const [{ data: tests }, { data: mirror }, { data: actions }, bank] = await Promise.all([
     db.from("sprint_tests").select("title, platform, outcome, status, findings_worked, findings_blockers, findings_notes, sprints(number)").eq("client_id", clientId).is("archived_at", null).order("created_at", { ascending: false }).limit(60),
     db.from("notion_pages_mirror").select("title, properties, last_edited_time").eq("client_id", clientId).eq("page_type", "brief").eq("in_trash", false).order("last_edited_time", { ascending: false }).limit(200),
     db.from("content_idea_actions").select("idea_id, action, reason, snapshot, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(60),
+    contentBankForPrompt(clientId, { limit: 30, summaryChars: 600, notesChars: 1500 }),
   ])
   const text = (v: unknown) => (typeof v === "string" ? v : "")
   const briefs = (mirror ?? [])
@@ -190,7 +192,7 @@ export async function buildContentContext(db: SupabaseClient, clientId: string):
   const lines = [
     `# Client: ${client.name}`,
     `Currency ${cur}. Target cost per result: ${client.monthly_kpi_target ? money(Number(client.monthly_kpi_target)) : "not set"}. Result = conversions + leads. Data ${from} to ${to}. Platforms: ${[...new Set(campaigns.map((c) => PLATFORM_LABEL[c.platform]))].join(", ")}.`,
-    await briefForPrompt(clientId),
+    await briefForPrompt(clientId, { contentBank: false }),
     `\n## Campaigns in the last ${DAYS} days, biggest spend first (names often encode the offer, the audience, the targeting and the format)`,
     ...campaignLines,
     `\n## Ads in the last ${DAYS} days, most results first ([key] platform | ad name or headline | campaign | ad type | numbers)`,
@@ -202,6 +204,8 @@ export async function buildContentContext(db: SupabaseClient, clientId: string):
       : ["(none)"]),
     `\n## Paid media briefs in Notion, newest first (title | status | description) — content already made or in production`,
     ...(briefs.length ? briefs.map((b) => `- ${b.title} | ${b.status || "–"} | ${b.desc.replace(/\s+/g, " ").slice(0, 240)}`) : ["(none)"]),
+    `\n## The client's Content Bank, newest first (content we already have: pieces, webinar and call transcripts, source notes; material to repurpose or build on)`,
+    ...(bank.length ? bank : ["(nothing yet)"]),
     `\n## What the team said about earlier content ideas (newest first)`,
     ...((actions ?? []).length
       ? (actions ?? []).map((a) => `- ${a.action === "planned" ? "PLANNED as a sprint test" : a.action === "dismissed" ? "NOT FOR US" : "reopened"}: ${(a.snapshot as { title?: string } | null)?.title ?? a.idea_id}${a.reason ? ` — reason: ${a.reason}` : ""}`)

@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { aiConfigured } from "@/lib/ai/claude"
 import { buildClientBrief } from "@/lib/knowledge/brief"
+import { discoverContentBank, readContentBank, staleEntries } from "@/lib/knowledge/content-bank"
 import { discoverClientHq, readClientHq } from "@/lib/knowledge/notion-hq"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit } from "@/lib/rate-limit"
@@ -12,8 +13,8 @@ export const maxDuration = 300
 
 /**
  * Refresh the Client brain in steps the browser drives, so no request runs long:
- *   step "discover": find the HQ's pages (read only)
- *   step "read":     read changed pages for up to ~60s; returns how many are left (call again)
+ *   step "discover": find the HQ's pages and the client's Content Bank rows (read only)
+ *   step "read":     read changed pages and rows for up to ~60s; returns how many are left (call again)
  *   step "brief":    rebuild the brief with Claude in the background; returns the row id to poll
  * Anyone who can edit the client.
  */
@@ -30,10 +31,17 @@ export async function POST(request: Request) {
       // A refresh starts with "discover" (then reads and a Claude brief), so that's what is counted.
       const limited = await rateLimit(supabase, "brain_refresh")
       if (limited) return NextResponse.json({ error: limited }, { status: 429 })
-      if (!client.notion_hq_page_id) return NextResponse.json({ pages: 0, added: 0 })
-      return NextResponse.json(await discoverClientHq(client.id, { full: Boolean(body.force) }))
+      const hq = client.notion_hq_page_id ? await discoverClientHq(client.id, { full: Boolean(body.force) }) : { pages: 0, added: 0 }
+      const bank = await discoverContentBank(client.id)
+      return NextResponse.json({ ...hq, bank })
     }
-    if (body.step === "read") return NextResponse.json(await readClientHq(client.id, { since: body.since, budgetMs: 60_000 }))
+    if (body.step === "read") {
+      const started = Date.now()
+      const hq = await readClientHq(client.id, { since: body.since, budgetMs: 60_000 })
+      // The Content Bank's rows once the HQ is done; until then they count as left.
+      const bank = hq.remaining ? { read: 0, remaining: (await staleEntries(client.id, body.since)).length, errors: [] as string[] } : await readContentBank(client.id, { since: body.since, budgetMs: Math.max(5_000, 60_000 - (Date.now() - started)) })
+      return NextResponse.json({ read: hq.read + bank.read, remaining: hq.remaining + bank.remaining, errors: [...hq.errors, ...bank.errors] })
+    }
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 })
   }

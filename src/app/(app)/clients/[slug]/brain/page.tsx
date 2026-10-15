@@ -14,7 +14,7 @@ const startedRecently = (iso: string) => Date.now() - Date.parse(iso) < 10 * 60_
 const CALLISH = /call|meeting|sync|catch.?up|minutes/i
 const norm = (id: string | null) => (id ?? "").replace(/-/g, "")
 
-/** The Client brain: the client's Notion HQ, call notes, team must-knows and files, condensed into a brief. */
+/** The Client brain: the client's Notion HQ, its Content Bank entries, call notes, team must-knows and files, condensed into a brief. */
 export default async function BrainPage({ params }: PageProps<"/clients/[slug]/brain">) {
   const { slug } = await params
   const supabase = await createClient()
@@ -24,7 +24,7 @@ export default async function BrainPage({ params }: PageProps<"/clients/[slug]/b
     supabase.from("client_briefs").select("id, status, content, written_by, source_count, error, created_at, finished_at, profiles:created_by_profile_id(full_name)").eq("client_id", client.id).order("created_at", { ascending: false }).limit(10),
     supabase
       .from("client_knowledge")
-      .select("id, source, notion_page_id, notion_kind, path, include, category, file_type, title, content_chars, synced_at, error, created_at")
+      .select("id, source, notion_collection, notion_page_id, notion_kind, path, include, category, file_type, title, content_chars, synced_at, error, created_at")
       .eq("client_id", client.id)
       .is("removed_at", null)
       .order("created_at"),
@@ -33,7 +33,7 @@ export default async function BrainPage({ params }: PageProps<"/clients/[slug]/b
   ])
   const all = (briefs ?? []) as unknown as (Brief & { status: string; error: string | null })[]
   const pages = (knowledge ?? []) as Knowledge[]
-  const hq = pages.filter((k) => k.source === "notion")
+  const hq = pages.filter((k) => k.source === "notion" && !k.notion_collection)
   const sourceTitle = client.call_notes_notion_id ? (hq.find((k) => norm(k.notion_page_id) === norm(client.call_notes_notion_id))?.title ?? client.call_notes_title) : null
   return (
     <div className="space-y-12">

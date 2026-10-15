@@ -90,3 +90,14 @@ export const dataSourceId = () => {
   }
   return MASTER_PRODUCTION_DATA_SOURCE_ID
 }
+
+/**
+ * The Content Bank (Dean, 2026-10-15): one row per content piece, transcript or source note, for
+ * every client, told apart by a free-text "Client" property. READ ONLY, never written: each row
+ * feeds only the brain of the client its Client names (`src/lib/knowledge/content-bank.ts`).
+ */
+export const CONTENT_BANK = {
+  databaseId: "8257ba939dc04875a56b8858f095dae6",
+  dataSourceId: "9c8e8d69-df62-40d7-858a-0c570c614790",
+  prop: { title: "Title", client: "Client", format: "Format", tags: "Tags", summary: "Summary", sourceNote: "Source Note", dateAdded: "Date Added", addedBy: "Added By" },
+} as const
