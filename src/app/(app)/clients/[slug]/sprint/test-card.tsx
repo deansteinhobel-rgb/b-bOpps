@@ -728,11 +728,11 @@ export function ContentIdeaTag({ className }: { className?: string }) {
 
 export function OptimizeTag({ className }: { className?: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full border border-violet/40 bg-violet/10 px-2 py-0.5 text-[11px] font-medium text-violet", className)} title="Made from an Optimize now insight">
+    <span className={cn("inline-flex items-center gap-1 rounded-full border border-violet/40 bg-violet/10 px-2 py-0.5 text-[11px] font-medium text-violet", className)} title="Made from a Lumaux recommendation">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden>
         <path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8l1-5.5Z" />
       </svg>
-      Optimize now
+      Recommendation
     </span>
   )
 }

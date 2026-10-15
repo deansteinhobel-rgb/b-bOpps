@@ -3,6 +3,12 @@ export function money(value: number | null | undefined, currency = "USD", digits
   return new Intl.NumberFormat("en-GB", { style: "currency", currency, currencyDisplay: "narrowSymbol", maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
 }
 
+/** Money in a tight space: "$24.2K", "$325K", "£1.3M", "$840". */
+export function compactMoney(value: number | null | undefined, currency = "USD") {
+  if (value === null || value === undefined) return "–"
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency, currencyDisplay: "narrowSymbol", notation: "compact", maximumFractionDigits: Math.abs(value) >= 1000 && Math.abs(value) < 100_000 ? 1 : 0 }).format(value)
+}
+
 export const whole = (v: number | null | undefined) => (v === null || v === undefined ? "–" : new Intl.NumberFormat("en-GB", { maximumFractionDigits: 0 }).format(v))
 
 export const oneDp = (v: number) => new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 }).format(v)

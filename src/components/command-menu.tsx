@@ -6,23 +6,14 @@ import { useRouter } from "next/navigation"
 import { useEffect, useId } from "react"
 import { ClientLogo } from "@/components/brand"
 import type { SidebarClient } from "@/components/app-sidebar"
+import { CLIENT_PAGES as ALL_CLIENT_PAGES } from "@/lib/tab-groups"
 import { cn } from "@/lib/utils"
 
 type Item = { id: string; label: string; href: string; search: string; client?: SidebarClient }
 type Group = { value: string; items: Item[] }
 
-// Every client page.
-const CLIENT_PAGES = [
-  { href: "", label: "At a glance" },
-  { href: "/do", label: "To do" },
-  { href: "/reporting", label: "Reporting" },
-  { href: "/insights", label: "Optimize now" },
-  { href: "/checks", label: "Checks" },
-  { href: "/sprint", label: "Sprint" },
-  { href: "/ideas", label: "Content ideas" },
-  { href: "/briefs", label: "Briefs" },
-  { href: "/brain", label: "Brain" },
-]
+// Every client page by its section name (the content library only exists for some clients, so it's left out).
+const CLIENT_PAGES = ALL_CLIENT_PAGES.filter((p) => p.href !== "/library")
 
 function groups({ clients, isAdmin, profileId }: { clients: SidebarClient[]; isAdmin: boolean; profileId: string }): Group[] {
   const go: Item[] = [

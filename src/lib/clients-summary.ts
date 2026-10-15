@@ -5,6 +5,7 @@ import { currentPeriods } from "@/lib/checks/periods"
 import { isRedNotActioned } from "@/lib/checks/runs"
 import { cachedPacing } from "@/lib/metrics/cached"
 import type { PlatformPacing } from "@/lib/metrics/overview"
+import { mockFunnel, type Funnel } from "@/lib/mock-funnel"
 import { CLOSED_STATUSES, PROP } from "@/lib/notion/config"
 import { sprintOf } from "@/lib/sprints/periods"
 
@@ -13,6 +14,7 @@ export type ClientCard = {
   name: string
   slug: string
   logo_url: string | null
+  currency: string
   sprint: { number: number; tests: number; live: number; called: number }
   pacing: PlatformPacing[]
   worstPacing: PlatformPacing["status"] | null
@@ -23,6 +25,10 @@ export type ClientCard = {
   team: string[]
   /** The viewer can open this client's pages (RLS). Cards for other clients are summary only. */
   canOpen: boolean
+  /** MQL, SQL and pipeline against target (sample numbers for now, see src/lib/mock-funnel.ts). */
+  funnel: Funnel
+  /** Share of the month gone, for the "on pace" marks (London days). */
+  monthPace: number
 }
 
 const SEVERITY = { red: 3, amber: 2, green: 1, no_budget: 0 } as const
@@ -37,10 +43,12 @@ export async function clientCards(supabase: SupabaseClient): Promise<ClientCard[
   const { weekly, today } = currentPeriods()
   const sprintPeriod = sprintOf(today)
   const db = createAdminClient()
+  const [y, m, d] = today.split("-").map(Number)
+  const monthPace = d / new Date(Date.UTC(y, m, 0)).getUTCDate()
   const [{ data: clients }, { data: openable }] = await Promise.all([
     db
       .from("clients")
-      .select("id, name, slug, logo_url, client_team(profile_id, removed_at, profiles(full_name, email)), client_team_invites(email, removed_at, team_invites(full_name))")
+      .select("id, name, slug, logo_url, currency, client_team(profile_id, removed_at, profiles(full_name, email)), client_team_invites(email, removed_at, team_invites(full_name))")
       .eq("active", true)
       .is("client_team.removed_at", null)
       .is("client_team_invites.removed_at", null)
@@ -70,6 +78,7 @@ export async function clientCards(supabase: SupabaseClient): Promise<ClientCard[
         name: c.name,
         slug: c.slug,
         logo_url: (c.logo_url as string | null) ?? null,
+        currency: (c.currency as string | null) ?? "USD",
         sprint: {
           number: sprintPeriod.number,
           tests: (tests ?? []).length,
@@ -84,6 +93,8 @@ export async function clientCards(supabase: SupabaseClient): Promise<ClientCard[
         redsNotActioned: (reds ?? []).filter((r) => isRedNotActioned(r as never, now)).length,
         team: [...new Set([...members, ...invited].filter(Boolean) as string[])],
         canOpen: canOpen.has(c.id),
+        funnel: mockFunnel(c.slug, monthPace),
+        monthPace,
       }
     }),
   )

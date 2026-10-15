@@ -12,7 +12,7 @@ import { loadGoals, monthName, spendOf } from "./_glance/glance-data"
 import { SpendBreakdown } from "./_glance/spend-breakdown"
 import { cprTone, paceWords } from "./_glance/tones"
 
-export const metadata = { title: "At a glance" }
+export const metadata = { title: "Summary" }
 
 /**
  * At a glance, the client's overview (Dean, 2026-09-29; cards since 2026-09-30): how the account is doing,

@@ -22,8 +22,8 @@ export function PageHeader({
         {lead}
         <div className="min-w-0">
           {eyebrow && <div className="eyebrow mb-1.5">{eyebrow}</div>}
-          <h1 className="text-3xl leading-tight sm:text-4xl">{title}</h1>
-          {description && <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{description}</p>}
+          <h1 className="text-[28px] leading-9">{title}</h1>
+          {description && <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>}
         </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

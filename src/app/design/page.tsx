@@ -27,6 +27,8 @@ import { applyActions, computeInsights, type InsightInputs } from "@/lib/insight
 import { InsightFeed } from "../(app)/clients/[slug]/insights/feed"
 import { Controls } from "../(app)/clients/[slug]/reporting/controls"
 import { tabGroups } from "@/lib/tab-groups"
+import { QueueView } from "@/components/queue/queue-view"
+import type { QueueItem } from "@/lib/queue"
 import { ClientTabs } from "../(app)/clients/[slug]/client-tabs"
 import { AdsPanel } from "../(app)/clients/[slug]/_glance/ads-panel"
 import { AdsSummary, ChangesSummary, GlanceBoard, PlansSummary } from "../(app)/clients/[slug]/_glance/glance-board"
@@ -330,6 +332,16 @@ const glanceTests = [
   { id: "g4", title: "Broad match with smart bidding on Generic", platform: "google_ads", stage: "in_production" as const, owner_name: "Kieran", deadline: "2026-10-07", live_on: null, outcome: null },
 ]
 
+// Tasks: a few sample rows for the task list and its filters.
+const qClient = (slug: string, name: string) => ({ id: slug, slug, name, logo_url: null })
+const sampleQueue: QueueItem[] = [
+  { key: "q1", source: "insight", group: "attention", tone: "red", client: qClient("sample", "Sample Co"), platform: "google_ads", title: "Add 6 negative keywords to Non-Brand Core", detail: "Search terms that spent 2x the target with no conversions.", meta: "Recommendation · Search terms", when: null, href: "/design", act: null, sort: 1 },
+  { key: "q2", source: "check", group: "attention", tone: "red", client: qClient("other", "Other Co"), platform: null, title: "Red: LinkedIn overspend 24%", detail: null, meta: "QA check · Weekly", when: { text: "2d overdue", tone: "red" }, href: "/design", act: null, sort: 2 },
+  { key: "q3", source: "insight", group: "opportunity", tone: "lime", client: qClient("sample", "Sample Co"), platform: "google_ads", title: "3 search terms converting that aren't keywords", detail: null, meta: "Recommendation · Keywords", when: null, href: "/design", act: null, sort: 3 },
+  { key: "q4", source: "test", group: "week", tone: "amber", client: qClient("other", "Other Co"), platform: "linkedin", title: "Brief the team: document ads for CFOs", detail: null, meta: "Sprint test · Planned", when: { text: "Due in 2d", tone: "amber" }, href: "/design", act: null, sort: 4 },
+  { key: "q5", source: "check", group: "week", tone: "na", client: qClient("sample", "Sample Co"), platform: null, title: "Leads in CRM", detail: null, meta: "QA check · Weekly", when: { text: "Due Sun 18 Oct", tone: "na" }, href: "/design", act: null, sort: 5 },
+]
+
 export default async function DesignPreview() {
   if (process.env.NODE_ENV !== "development") notFound()
   const { data: clients } = await createAdminClient().from("clients").select("slug, name, logo_url").order("name")
@@ -474,15 +486,18 @@ export default async function DesignPreview() {
           </section>
 
           <section className="space-y-4">
-            <SectionHeader title="Optimize now" description="The real rules on made-up numbers." />
+            <SectionHeader title="Recommendations" description="The real rules on made-up numbers." />
             <InsightFeed slug="sample" clientName="Sample Co" currency="USD" target={300} insights={sampleFeed} dataThrough={day(0)} checked={[{ platform: "google_ads", through: day(0) }, { platform: "linkedin", through: day(0) }, { platform: "meta", through: day(0) }, { platform: "ga4", through: day(0) }]} previews={{}} owners={[{ id: "00000000-0000-0000-0000-000000000000", name: "Sample Person", onTeam: true }]} live={false} defaultDue="2026-10-02" sprintNumber={1} openKey={null} review={{ id: "x", headline: "Sample: the Non-Brand campaign is losing most searches to Ad Rank while its keyword opportunities go untargeted. Fix rank first; it's the most spend at stake.", startHere: sampleFeed.filter((i) => i.state === "open").slice(0, 3).map((i) => ({ key: i.key, why: "Sample reason: the most money at stake and a quick fix." })), at: "2026-09-29T07:00:00Z" }} reviewRunning={null} lastReviewFailed={null} canReview aiReady />
           </section>
 
           <section className="space-y-4">
+            <SectionHeader title="Client navigation and tasks" description="Sections, the Tasks sub-pages and the task list's filters, on sample rows." />
+            <ClientTabs slug="sample" groups={tabGroups()} />
+            <QueueView items={sampleQueue} showClient canEdit={false} empty="Nothing to act on." />
+          </section>
+
+          <section className="space-y-4">
             <SectionHeader title="Performance" description="Synthetic sample data." />
-            <div className="border-b">
-              <ClientTabs slug="sample" groups={tabGroups()} />
-            </div>
             <Controls base="/design" range={{ kind: "days", days: 30 }} platform={null} platforms={[{ platform: "linkedin", spend: 3800 }, { platform: "google_ads", spend: 12400 }, { platform: "meta", spend: 3967 }]} currency="USD" periods={{ from: "2026-08-29", to: "2026-09-27", prevFrom: "2026-07-30", prevTo: "2026-08-28", days: 30, compare: true, bucket: "day", label: "Last 30 days" }} dataFrom="2018-01-01" dataThrough="2026-09-27" />
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
               <TrendPanel daily={perfDaily} prevDaily={perfPrev} currency="USD" />

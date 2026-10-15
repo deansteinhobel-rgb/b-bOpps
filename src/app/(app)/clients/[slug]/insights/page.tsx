@@ -11,7 +11,7 @@ import { sprintOf } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
 import { InsightFeed } from "./feed"
 
-export const metadata = { title: "Optimize now" }
+export const metadata = { title: "Recommendations" }
 
 /**
  * "Optimize now" (Performance phase 3): what to fix or try, from rules over our Windsor data.
