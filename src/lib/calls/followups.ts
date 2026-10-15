@@ -152,7 +152,7 @@ export async function checkFollowUps(clientId: string) {
   }
   // First time each one becomes a reminder: tell Slack (does nothing until SLACK_WEBHOOK_URL is set).
   if (due.length) {
-    const app = process.env.APP_URL ?? "https://bbmopsapp.vercel.app"
+    const app = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")
     await postToSlack(
       [`*${client.name}: said on a call, no sign of it yet*`, ...due.map((c) => `• ${c.title} (${daysBetween(c.said_on, today)} days ago, "${(c.client_calls as unknown as { title: string } | null)?.title ?? "a call"}")`), `${app}/clients/${client.slug}/brain#calls`].join("\n"),
     ).catch((e) => console.error("[calls] slack", e))
