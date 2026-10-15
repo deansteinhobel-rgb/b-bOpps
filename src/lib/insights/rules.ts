@@ -926,7 +926,7 @@ export function settingsInsights(input: InsightInputs, money: (v: number) => str
   const item = (r: SettingRow, note: string, spend?: number): InsightItem => ({
     id: r.entityId,
     label: r.entityName || r.entityId,
-    note: r.level === "adset" && r.campaignName ? `${r.campaignName} · ${note}` : note,
+    note: r.level === "adset" && r.campaignName && r.campaignName !== r.entityName ? `${r.campaignName} · ${note}` : note,
     spend,
   })
   const google = rows.filter((r) => r.platform === "google_ads")
