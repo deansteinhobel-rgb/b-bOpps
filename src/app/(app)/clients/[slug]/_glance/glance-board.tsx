@@ -15,12 +15,13 @@ import { GoalCard, type GoalView } from "./goal-card"
 import type { PlatformSpend } from "./spend-breakdown"
 import { cprTone, paceTone, paceWords } from "./tones"
 
-type Test = { id: string; title: string; platform: string | null; stage: Stage; owner_name: string | null; deadline: string | null; live_on: string | null; outcome: string | null }
+export type GlanceTest = { id: string; title: string; platform: string | null; stage: Stage; owner_name: string | null; deadline: string | null; live_on: string | null; outcome: string | null }
 
 /**
  * At a glance in the new layout (Dean, 2026-09-30: less scrolling, click in for more): the month in
  * one line and a row of tiles, then four cards (money, ads, changes, plans) that fit on one screen.
- * Each card shows its headline numbers; the full section opens in a side panel.
+ * Each card shows its headline numbers; the full section opens in a side panel. The month line, the tiles and
+ * the spend card come first; the other cards stream in with a spinner while they load (Dean, 2026-10-15).
  */
 export function GlanceBoard(p: {
   slug: string
@@ -34,17 +35,11 @@ export function GlanceBoard(p: {
   goals: GoalView[]
   canEditGoals: boolean
   platforms: PlatformSpend[]
-  best: ReturnType<typeof topAds>
-  tiring: FatiguedAd[]
-  previews: PreviewMap
-  recent: TimelineEntry[]
-  recentCount: number
-  recentBy: { team: number; platform: number; app: number }
-  sprint: { number: number; day: number; start: string; end: string }
-  tests: Test[]
-  nextCount: number
   headline: React.ReactNode
-  details: { spend: React.ReactNode; ads: React.ReactNode; changes: React.ReactNode; plans: React.ReactNode }
+  /** The full spend breakdown for the side panel. */
+  spendDetail: React.ReactNode
+  /** The Ads, What's changed and What's planned cards: each streams in on its own (glance-cards.tsx). */
+  cards: React.ReactNode
 }) {
   const cur = p.currency
   const n = p.numbers
@@ -103,35 +98,17 @@ export function GlanceBoard(p: {
 
       {/* Four cards, one screen: click any for the full picture */}
       <div className="grid gap-3 lg:grid-cols-2">
-        {p.details.spend && n && (
+        {p.spendDetail && n && (
           <GlanceCard
             id="spend"
             title="Where the money went"
             meta={`${p.month} so far`}
             detailDescription={`${p.month} so far, by platform and by campaign. Colors compare cost per result with the ${money(p.target, cur)} target: green under it, amber up to 20% over, red further.`}
             summary={<SpendSummary platforms={p.platforms} currency={cur} target={p.target} />}
-            detail={p.details.spend}
+            detail={p.spendDetail}
           />
         )}
-        {p.details.ads && (
-          <GlanceCard id="ads" title="Ads" meta="last 30 days" detailDescription="Which ads are doing the work, and which have run long enough that people are tuning them out." summary={<AdsSummary best={p.best} tiring={p.tiring} previews={p.previews} currency={cur} />} detail={p.details.ads} />
-        )}
-        <GlanceCard
-          id="changes"
-          title="What's changed"
-          meta="last 7 days"
-          detailDescription="Everything done to the account in the last 60 days: changes the team logged, what Google Ads and Meta recorded, what we can see on LinkedIn, and what was done in this app."
-          summary={<ChangesSummary recent={p.recent} count={p.recentCount} by={p.recentBy} />}
-          detail={p.details.changes}
-        />
-        <GlanceCard
-          id="plans"
-          title="What's planned"
-          meta={`Sprint ${p.sprint.number}`}
-          detailDescription="We work in two-week sprints. Each sprint runs a few tests (a new audience, ad or bid approach) and keeps what works."
-          summary={<PlansSummary sprint={p.sprint} tests={p.tests} nextCount={p.nextCount} />}
-          detail={p.details.plans}
-        />
+        {p.cards}
       </div>
     </div>
   )
@@ -224,7 +201,7 @@ function SpendSummary({ platforms, currency, target }: { platforms: PlatformSpen
   )
 }
 
-function AdsSummary({ best, tiring, previews, currency }: { best: ReturnType<typeof topAds>; tiring: FatiguedAd[]; previews: PreviewMap; currency: string }) {
+export function AdsSummary({ best, tiring, previews, currency }: { best: ReturnType<typeof topAds>; tiring: FatiguedAd[]; previews: PreviewMap; currency: string }) {
   // The best ad on each platform first, then the runners-up, three in all.
   const round = (i: number) => best.flatMap((b) => (b.ads[i] ? [{ ad: b.ads[i], basis: b.basis }] : []))
   const top = [...round(0), ...round(1), ...round(2)].slice(0, 3)
@@ -266,7 +243,7 @@ function AdsSummary({ best, tiring, previews, currency }: { best: ReturnType<typ
   )
 }
 
-function ChangesSummary({ recent, count, by }: { recent: TimelineEntry[]; count: number; by: { team: number; platform: number; app: number } }) {
+export function ChangesSummary({ recent, count, by }: { recent: TimelineEntry[]; count: number; by: { team: number; platform: number; app: number } }) {
   return (
     <span className="block space-y-3">
       <span className="flex items-baseline gap-2">
@@ -289,7 +266,7 @@ function ChangesSummary({ recent, count, by }: { recent: TimelineEntry[]; count:
   )
 }
 
-function PlansSummary({ sprint, tests, nextCount }: { sprint: { number: number; day: number; start: string; end: string }; tests: Test[]; nextCount: number }) {
+export function PlansSummary({ sprint, tests, nextCount }: { sprint: { number: number; day: number; start: string; end: string }; tests: GlanceTest[]; nextCount: number }) {
   const counts = STAGES.map((s) => ({ ...s, n: tests.filter((t) => t.stage === s.key).length })).filter((s) => s.n > 0)
   return (
     <span className="block space-y-3">

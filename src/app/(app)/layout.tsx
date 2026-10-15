@@ -1,7 +1,9 @@
+import { Suspense } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { CallReminders } from "@/components/call-followups"
 import { Starfield } from "@/components/fx/starfield"
 import { AskChat } from "@/components/ask-chat"
+import { NavProgress } from "@/components/nav-progress"
 import { NewsChat } from "@/components/news-chat"
 import { aiConfigured } from "@/lib/ai/claude"
 import { canEdit, getProfile, isAdmin, ROLE_LABEL } from "@/lib/auth"
@@ -26,6 +28,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <a href="#main" className="sr-only rounded-full bg-lime px-4 py-2 text-sm font-medium text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50">
         Skip to content
       </a>
+      <Suspense fallback={null}>
+        <NavProgress />
+      </Suspense>
       {animations && <Starfield />}
       <AppSidebar
         clients={clients ?? []}
