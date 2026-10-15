@@ -21,6 +21,7 @@ import { canPushNegatives } from "@/lib/windsor/access"
 import { windsorWritesLive } from "@/lib/windsor/mcp"
 import { latestTermReview } from "@/lib/insights/term-review"
 import type { PushedNegative } from "../../breakdowns"
+import { loadTargets, targetFor } from "@/lib/targets"
 
 const CARDS: MetricKey[] = ["spend", "impressions", "clicks", "ctr", "cpc", "results", "cpr"]
 const AD_COLS: MetricKey[] = ["spend", "impressions", "ctr", "results", "cpr"]
@@ -43,7 +44,8 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
   if (!perf || !campaign) notFound()
   const cur = client.currency
 
-  const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
+  // This campaign's platform's target (its own, else the client's).
+  const target = targetFor(await loadTargets(supabase, client.id, client.monthly_kpi_target), platform)
   const [{ data: nowAds }, { data: prevAds }, { data: tests }, detail] = await Promise.all([
     supabase.rpc("campaign_ads", { p_client: client.id, p_platform: platform, p_campaign_id: campaignId, p_from: perf.periods.from, p_to: perf.periods.to }),
     supabase.rpc("campaign_ads", { p_client: client.id, p_platform: platform, p_campaign_id: campaignId, p_from: perf.periods.prevFrom, p_to: perf.periods.prevTo }),

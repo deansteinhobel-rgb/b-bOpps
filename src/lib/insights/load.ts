@@ -4,7 +4,7 @@ import type { Platform } from "@/lib/metrics/types"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { computeInsights, effectiveThrough, type CampaignDays, type InsightPlatform, type InsightInputs, type LinkedInKind, type SegmentRow, type SettingRow, type Sums } from "./rules"
 import { dataRanges } from "@/lib/metrics/data-range"
-import { loadPlatformTargets } from "@/lib/metrics/targets"
+import { loadTargets, targetFor } from "@/lib/targets"
 
 /** Loads everything the insight rules read, for one client, and runs them. */
 
@@ -31,7 +31,6 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     supabase.from("insight_reviews").select("companies, terms, goals, audiences").eq("client_id", clientId).eq("status", "ready").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("platform_settings").select("platform, external_account_id, level, entity_id, entity_name, campaign_id, campaign_name, settings, checked_at").eq("client_id", clientId).limit(5000),
   ])
-  const targets = await loadPlatformTargets(supabase, clientId)
   const statusOf = new Map((statuses ?? []).map((r) => [`${r.platform}|${r.campaign_id}`, r.status as string]))
   if (!client || !range?.length) return null
   const dataThrough: Partial<Record<Platform, string>> = {}
@@ -40,7 +39,10 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     if (!dataThrough[p] || r.data_through > dataThrough[p]!) dataThrough[p] = r.data_through as string
   }
   const to = Object.values(dataThrough).sort().at(-1)!
-  const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
+  const targets = await loadTargets(supabase, clientId, client.monthly_kpi_target)
+  const target = targets.client
+  // Search terms are Google's, so they're judged on Google's target.
+  const googleTarget = targetFor(targets, "google_ads")
   const d30 = addDays(to, -29)
 
   const [daily, last7, prev7, terms, share, adsets, learning, ages, placements, landing, costly] = await Promise.all([
@@ -48,7 +50,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     rpcAll(supabase, "ad_totals", { p_client: clientId, p_from: addDays(to, -6), p_to: to }),
     rpcAll(supabase, "ad_totals", { p_client: clientId, p_from: addDays(to, -13), p_to: addDays(to, -7) }),
     // Candidates only: spent 2x target with no results, or 2+ results (no target: results only).
-    rpcAll(supabase, "search_term_candidates", { p_client: clientId, p_from: d30, p_to: to, p_min_spend: target ? 2 * target : 1e12, p_min_results: 2 }),
+    rpcAll(supabase, "search_term_candidates", { p_client: clientId, p_from: d30, p_to: to, p_min_spend: googleTarget ? 2 * googleTarget : 1e12, p_min_results: 2 }),
     supabase.from("windsor_breakdowns").select("campaign_id, campaign_name, date, extra").eq("client_id", clientId).eq("kind", "impression_share").gte("date", addDays(dataThrough.google_ads ?? to, -13)).limit(5000),
     latest(supabase, clientId, "meta_adset_7d").then((at) => (at ? breakdown(supabase, clientId, "meta_adset_7d", at, at) : [])),
     supabase.from("windsor_breakdowns").select("dim1, date, extra").eq("client_id", clientId).eq("kind", "meta_adset").gte("date", addDays(dataThrough.meta ?? to, -6)).limit(5000),
@@ -56,7 +58,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     breakdown(supabase, clientId, "meta_placement", d30, to),
     rpcAll(supabase, "ga4_landing_totals", { p_client: clientId, p_from: d30, p_to: to }),
     // For the ICP check: terms with some spend and no results (same list Claude's review judged).
-    review?.terms?.length ? rpcAll(supabase, "search_term_candidates", { p_client: clientId, p_from: d30, p_to: to, p_min_spend: Math.max(25, 0.25 * (target ?? 200)), p_min_results: 1e9 }) : Promise.resolve([]),
+    review?.terms?.length ? rpcAll(supabase, "search_term_candidates", { p_client: clientId, p_from: d30, p_to: to, p_min_spend: Math.max(25, 0.25 * (googleTarget ?? 200)), p_min_results: 1e9 }) : Promise.resolve([]),
   ])
 
   const campaigns = new Map<string, CampaignDays>()
@@ -101,7 +103,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     settings,
     currency: client.currency,
     target,
-    targets,
+    platformTargets: targets.platforms,
     dataThrough,
     campaigns: [...campaigns.values()],
     ads,

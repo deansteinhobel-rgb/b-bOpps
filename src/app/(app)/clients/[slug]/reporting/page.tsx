@@ -16,7 +16,6 @@ import { fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import { decodeRange, encodeRange, rangeLabel, rangeParams, rangeText } from "@/lib/metrics/range"
 import { resultFieldLines } from "@/lib/metrics/result-fields"
 import { parseSegment, segmentLabel, segmentOf, segmentOptions, segmentsFor, splitBySegment } from "@/lib/metrics/segments"
-import { loadPlatformTargets, targetFor } from "@/lib/metrics/targets"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { Hint } from "@/components/hint"
 import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
@@ -33,6 +32,7 @@ import { adsForPeriod, boardAds, buildBoard, type BoardKey } from "./boards"
 import { EmbedButton, type EmbedLink } from "./embed-button"
 import { ReportBoard } from "./report-board"
 import { SegmentAds, SegmentDetail, SegmentSplit } from "./segment-split"
+import { loadTargets, targetFor } from "@/lib/targets"
 
 export const metadata = { title: "Reporting" }
 
@@ -68,22 +68,21 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   const { data: client } = await supabase.from("clients").select("id, name, logo_url, currency, monthly_kpi_target, ga4_property_id").eq("slug", slug).maybeSingle()
   if (!client) notFound()
   // Access confirmed above (client loaded through RLS), so the shared caches are safe to use.
-  const [perf, all, unsegmented, o, { data: accounts }] = await Promise.all([
+  const [perf, all, unsegmented, o, { data: accounts }, targets] = await Promise.all([
     cachedPerformance(client.id, range, platform, null, seg),
     platform ? cachedPerformance(client.id, range, null, null, seg) : null,
     // The split always shows every segment on every platform (it's how you pick one), so it needs the page without either filter.
     segmentDefs.length && (segment || platform) ? cachedPerformance(client.id, range, null) : null,
     cachedOverview(client.id),
     supabase.from("client_platform_accounts").select("platform, conversion_fields, lead_fields").eq("client_id", client.id).eq("active", true),
+    loadTargets(supabase, client.id, client.monthly_kpi_target),
   ])
-  const targets = await loadPlatformTargets(supabase, client.id)
   if (!perf || !o) return <p className="text-muted-foreground">No ad data yet. An admin can run a Windsor backfill for this client.</p>
   const split = segmentDefs.length ? splitBySegment(unsegmented ?? perf, segmentDefs, segmentOpts) : null
   const segmentName = segment ? segmentLabel(segmentDefs, segment) : null
   const cur = client.currency
-  const clientTarget = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
-  // A platform's own target where it has one (Reddit for DNSFilter); the page's tiles use the picked platform's.
-  const target = targetFor(clientTarget, targets, platform)
+  // One platform picked: its own target. All platforms: the client's (src/lib/targets.ts).
+  const target = targetFor(targets, platform)
   const base = `/clients/${slug}/reporting`
   const q = rangeParams(range, new URLSearchParams(), defaultDays)
   if (platform) q.set("platform", platform)
@@ -157,7 +156,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
             <SegmentSplit segments={split} currency={cur} base={base} query={q} active={segment} platform={platform} />
             {segmentOption && (
               <SegmentDetail segment={segmentOption} platform={platform} platforms={segmentPlatforms} base={base} query={q}>
-                <CampaignTable slug={slug} currency={cur} target={clientTarget} targets={targets} query={query ? `?${query}` : ""} rows={campaignRows} />
+                <CampaignTable slug={slug} currency={cur} targets={targets} query={query ? `?${query}` : ""} rows={campaignRows} />
                 <SegmentAds ads={segmentAds} previews={previews} currency={cur} />
               </SegmentDetail>
             )}
@@ -259,7 +258,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
               {!platform && <PlatformSplit platforms={perf.platforms} currency={cur} />}
             </div>
           </div>
-          <CampaignTable slug={slug} currency={cur} target={clientTarget} targets={targets} query={query ? `?${query}` : ""} rows={campaignRows} />
+          <CampaignTable slug={slug} currency={cur} targets={targets} query={query ? `?${query}` : ""} rows={campaignRows} />
           {pages && <LandingPages rows={pages} />}
         </section>
       </>
@@ -342,7 +341,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
                     </td>
                     {(["spend", "results", "cpr", "ctr", "cpc"] as MetricKey[]).map((k) => (
                       <td key={k} className="px-4 py-3 text-right">
-                        <span className={cn(k === "cpr" && cprClass(p.now.cpr, targetFor(clientTarget, targets, p.platform)))}>{fmt(k, p.now[k], cur)}</span>
+                        <span className={cn(k === "cpr" && cprClass(p.now.cpr, targetFor(targets, p.platform)))}>{fmt(k, p.now[k], cur)}</span>
                         <Delta k={k} now={p.now[k]} before={p.prev[k]} className="ml-2" />
                         {k === "results" && p.platform !== "google_ads" && (
                           <span className="block text-xs text-muted-foreground">
@@ -397,4 +396,5 @@ function AdLine({ label, ad, basis, currency, previews }: { label: "Best" | "Wor
   )
 }
 
+/** Cost per result against a target: green on or under it, amber up to 20% over, red further. */
 const cprClass = (cpr: number | null, target: number | null) => (target && cpr !== null ? (cpr <= target ? "text-rag-green" : cpr <= target * 1.2 ? "text-rag-amber" : "text-rag-red") : undefined)

@@ -6,7 +6,7 @@ import { PlatformLabel } from "@/components/brand"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { londonToday } from "@/lib/checks/periods"
-import { money } from "@/lib/format"
+import { currencySymbol, money } from "@/lib/format"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { createClient } from "@/lib/supabase/server"
 import { RESULT_TIERS, suggestTier } from "@/lib/taxonomy"
@@ -114,7 +114,8 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
       <section>
         <h2 className="text-2xl">Ad accounts</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Conversion and lead fields are Windsor field IDs, comma-separated. Results = conversions + leads. Changes apply from the next sync or backfill. A platform&apos;s target cost per result replaces the client&apos;s for that platform; leave it empty to use the client&apos;s.
+          Conversion and lead fields are Windsor field IDs, comma-separated. Results = conversions + leads. Changes apply from the next sync or backfill. A target cost per result here is used for
+          everything judged on this platform (its campaigns, tests and Optimize now rules); leave it blank to use the client&apos;s target{client.monthly_kpi_target !== null ? ` (${money(Number(client.monthly_kpi_target), client.currency)})` : ""}.
         </p>
         <div className="mt-4 space-y-3">
           {(accounts ?? []).map((a) => (
@@ -130,16 +131,24 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
                   <Input id={`b-${a.id}`} name="monthly_budget" type="number" min="0" step="1" defaultValue={a.monthly_budget ?? ""} />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor={`t-${a.id}`}>Target cost per result</Label>
-                  <Input id={`t-${a.id}`} name="target_cost_per_result" type="number" min="0" step="0.01" placeholder="The client's target" defaultValue={a.target_cost_per_result ?? ""} />
-                </div>
-                <div className="space-y-1">
                   <Label htmlFor={`c-${a.id}`}>Conversion fields</Label>
                   <Input id={`c-${a.id}`} name="conversion_fields" defaultValue={(a.conversion_fields as string[]).join(", ")} />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor={`l-${a.id}`}>Lead fields</Label>
                   <Input id={`l-${a.id}`} name="lead_fields" defaultValue={(a.lead_fields as string[]).join(", ")} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor={`t-${a.id}`}>Target cost per result ({currencySymbol(client.currency)})</Label>
+                  <Input
+                    id={`t-${a.id}`}
+                    name="kpi_target"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    defaultValue={a.kpi_target ?? ""}
+                    placeholder={client.monthly_kpi_target !== null ? `Client target: ${money(Number(client.monthly_kpi_target), client.currency)}` : "Client target"}
+                  />
                 </div>
               </div>
               {[...(a.conversion_fields as string[]), ...(a.lead_fields as string[])].length > 0 && (
@@ -202,7 +211,7 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
             </div>
             <div className="w-52 space-y-1">
               <Label htmlFor="acct-target">Target cost per result</Label>
-              <Input id="acct-target" name="target_cost_per_result" type="number" min="0" step="0.01" placeholder="The client's target" />
+              <Input id="acct-target" name="kpi_target" type="number" min="0" step="0.01" placeholder="The client's target" />
             </div>
           </AdminForm>
         )}

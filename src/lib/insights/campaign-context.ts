@@ -10,7 +10,7 @@ import { rpcAll } from "@/lib/supabase/rpc-all"
 import { getInsights } from "./load"
 import { RULES, weekOf } from "./rules"
 import { dataRanges } from "@/lib/metrics/data-range"
-import { loadPlatformTargets, targetFor } from "@/lib/metrics/targets"
+import { loadTargets, targetFor } from "@/lib/targets"
 
 /**
  * Everything "Ask about this campaign" knows about one campaign, as text: 12 weeks of weekly numbers,
@@ -21,13 +21,13 @@ import { loadPlatformTargets, targetFor } from "@/lib/metrics/targets"
 export async function buildCampaignContext(db: SupabaseClient, clientId: string, platform: Platform, campaignId: string) {
   const { data: client } = await db.from("clients").select("name, currency, monthly_kpi_target").eq("id", clientId).single()
   const { data: range } = await dataRanges(db, clientId)
-  const campaignTarget = targetFor(client?.monthly_kpi_target == null ? null : Number(client.monthly_kpi_target), await loadPlatformTargets(db, clientId), platform)
   const through = (range ?? []).filter((r) => r.platform === platform).map((r) => r.data_through).sort().at(-1)
   if (!client || !through) return null
   const cur = client.currency
   const money = (v: number) => withSymbols(new Intl.NumberFormat("en-GB", { style: "currency", currency: cur, currencyDisplay: "narrowSymbol", maximumFractionDigits: v < 10 ? 2 : 0 }).format(v))
   const pct = (a: number, b: number, d = 2) => (b > 0 ? `${((a / b) * 100).toFixed(d)}%` : "–")
   const num = (v: unknown) => Number(v ?? 0)
+  const target = targetFor(await loadTargets(db, clientId, client.monthly_kpi_target), platform)
 
   const from = addDays(weekOf(through), -77) // 12 full weeks, Monday to Sunday
   const [daily, ads, detail, feed, { data: review }, { data: tests }] = await Promise.all([
@@ -52,7 +52,7 @@ export async function buildCampaignContext(db: SupabaseClient, clientId: string,
 
   const out = [
     `# ${client.name}: ${PLATFORM_LABEL[platform]} campaign "${name}" (id ${campaignId})`,
-    `Target cost per result: ${campaignTarget !== null ? money(campaignTarget) : "not set"}${campaignTarget !== null && campaignTarget !== Number(client.monthly_kpi_target) ? ` (${PLATFORM_LABEL[platform]}'s own target)` : ""}. Data to ${through}. Results = conversions + leads${platform === "reddit" ? " (on Reddit: lead and sign-up conversions, view-through included)" : ""}.`,
+    `Target cost per result (${PLATFORM_LABEL[platform]}): ${target === null ? "not set" : money(target)}. Data to ${through}. Results = conversions + leads.`,
     goal ? `Goal (Claude's daily review, from the name, Notion briefs and client brief): ${goal.goal}. ${goal.note}` : `Goal: read it from the name and the client brief.`,
     `\n## Weekly (week from | spend | impressions | clicks | CTR | CPC | results | cost per result)`,
     ...weeks.map((w) => {

@@ -8,6 +8,7 @@ import type { SprintTest } from "./data"
 import type { TestDetail } from "./results"
 import { loadTestDetail } from "./test-results"
 import type { TestTotals } from "./tests"
+import type { Targets } from "@/lib/targets"
 
 /** Links on the Notion brief that show "what we created" (url and files properties on the board). */
 const LINK_PROPS = ["Figma Board", "Campaign Folder", "Brief Uploads / Links", "Useful Links", "Proposal Deck"]
@@ -16,7 +17,7 @@ export type BriefInfo = { status: string | null; paid: string | null; url: strin
 export type Campaign = { platform: Platform; campaign_id: string; campaign_name: string; spend: number; last_date: string }
 
 /** Everything the test cards need beyond the tests themselves. User's client: RLS applies. */
-export async function testBoardData(supabase: SupabaseClient, clientId: string, tests: SprintTest[], opts: { currency: string; targetCpr: number | null }) {
+export async function testBoardData(supabase: SupabaseClient, clientId: string, tests: SprintTest[], opts: { currency: string; targets: Targets }) {
   const pageIds = tests.map((t) => t.notion_page_id).filter(Boolean) as string[]
   const today = londonToday()
   const [{ data: pages }, { data: campaigns }, results] = await Promise.all([

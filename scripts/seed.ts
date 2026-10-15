@@ -25,7 +25,7 @@ type Account = {
   external_account_id: string
   account_name: string
   monthly_budget: number | null
-  target_cost_per_result?: number | null
+  kpi_target?: number | null
   conversion_fields: string[]
   lead_fields: string[]
 }

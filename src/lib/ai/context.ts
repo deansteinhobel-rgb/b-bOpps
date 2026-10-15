@@ -5,7 +5,7 @@ import { briefForPrompt } from "@/lib/knowledge/brief"
 import { addDays, type DailyRow } from "@/lib/metrics/ads"
 import { getOverview } from "@/lib/metrics/overview"
 import { PLATFORM_LABEL, type Platform, PLATFORMS } from "@/lib/metrics/types"
-import { loadPlatformTargets, ownTargets } from "@/lib/metrics/targets"
+import { describeTargets, loadTargets } from "@/lib/targets"
 
 /**
  * Everything Claude reads about one client, as a compact text brief: weekly numbers per platform
@@ -21,13 +21,12 @@ export async function buildSprintContext(db: SupabaseClient, clientId: string, s
   ])
   if (!client || !sprint) throw new Error("Client or sprint not found")
   const cur = client.currency as string
-  const targets = await loadPlatformTargets(db, clientId)
   const m = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? "–" : money(v, cur))
   const pct = (v: number | null | undefined, d = 2) => (v === null || v === undefined ? "–" : `${(v * 100).toFixed(d)}%`)
 
   const lines: string[] = []
   lines.push(`# Client: ${client.name}`)
-  lines.push(`Currency ${cur} (write amounts with the symbol, e.g. ${money(1200, cur)}, never the code). Main KPI: cost per result (spend / (conversions + leads)). Target: ${m(client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target))} per result${ownTargets(targets, m)}.`)
+  lines.push(`Currency ${cur} (write amounts with the symbol, e.g. ${money(1200, cur)}, never the code). Main KPI: cost per result (spend / (conversions + leads)). Target per result: ${describeTargets(await loadTargets(db, clientId, client.monthly_kpi_target), (v) => m(v))}.`)
   lines.push(`Connected platforms (via Windsor): ${overview ? [...new Set(overview.pacing.map((p) => PLATFORM_LABEL[p.platform]))].join(", ") : "none yet"}. Google Ads counts conversions; LinkedIn and Meta count conversions + leads; Reddit counts lead and sign-up conversions, view-through included.`)
   lines.push(`Sprint being planned: Sprint ${sprint.number}, ${sprint.start_date} to ${sprint.end_date} (two weeks).`)
 

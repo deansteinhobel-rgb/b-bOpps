@@ -8,7 +8,7 @@ import type { SprintTest } from "./data"
 import { add, metricValue, verdictFor, ZERO, type Comparison, type TestAd, type TestDetail, type TestKind, type Totals } from "./results"
 import { METRICS } from "./tests"
 import { dataRanges } from "@/lib/metrics/data-range"
-import { loadPlatformTargets, targetFor } from "@/lib/metrics/targets"
+import { targetFor, type Targets } from "@/lib/targets"
 
 const n = (v: unknown) => Number(v) || 0
 const totalsOf = (r: Record<string, unknown>): Totals => ({ spend: n(r.spend), impressions: n(r.impressions), clicks: n(r.clicks), conversions: n(r.conversions), leads: n(r.leads) })
@@ -19,9 +19,7 @@ const dayCount = (from: string, to: string) => Math.round((Date.parse(to) - Date
  * results.ts for the rules). Uses the caller's Supabase client, so RLS applies; the read route
  * passes the admin client after its own access check. Null when there's nothing to measure yet.
  */
-export async function loadTestDetail(supabase: SupabaseClient, clientId: string, test: SprintTest, opts: { today: string; currency: string; targetCpr: number | null }): Promise<TestDetail | null> {
-  // The test's platform may have its own target (Reddit for DNSFilter).
-  if (test.platform) opts = { ...opts, targetCpr: targetFor(opts.targetCpr, await loadPlatformTargets(supabase, clientId), test.platform as Platform) }
+export async function loadTestDetail(supabase: SupabaseClient, clientId: string, test: SprintTest, opts: { today: string; currency: string; targets: Targets }): Promise<TestDetail | null> {
   if (!test.live_on || !test.campaign_ids.length) return null
   const liveFrom = test.live_on
   const [ranges, campaignDays] = await Promise.all([
@@ -100,7 +98,9 @@ export async function loadTestDetail(supabase: SupabaseClient, clientId: string,
 
   // The verdict judges what was changed: the test ads (or the campaign), against the first comparison.
   const metric = test.success_metric && METRICS[test.success_metric] ? test.success_metric : "cost_per_result"
-  const target = test.success_metric === metric ? test.success_target : metric === "cost_per_result" ? opts.targetCpr : null
+  // The test's platform's target cost per result (its own, else the client's; src/lib/targets.ts).
+  const targetCpr = targetFor(opts.targets, test.platform)
+  const target = test.success_metric === metric ? test.success_target : metric === "cost_per_result" ? targetCpr : null
   const primary = comparisons[0]
   const m = (v: number) => money(v, opts.currency)
   const unit = METRICS[metric].unit
@@ -110,7 +110,7 @@ export async function loadTestDetail(supabase: SupabaseClient, clientId: string,
     target,
     days,
     spend: primary.now.spend,
-    targetCpr: opts.targetCpr,
+    targetCpr,
     now: metricValue(metric, primary.now),
     baseline: primary.then ? metricValue(metric, primary.then) : null,
     fmt,

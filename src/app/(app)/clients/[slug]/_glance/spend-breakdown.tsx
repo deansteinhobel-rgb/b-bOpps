@@ -9,6 +9,7 @@ import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { cn } from "@/lib/utils"
 import { PLATFORM_COLOR } from "../reporting/charts"
 import { cprTone, paceTone, paceWords } from "./tones"
+import { targetFor, type Targets } from "@/lib/targets"
 
 export type PlatformSpend = {
   platform: Platform
@@ -18,8 +19,6 @@ export type PlatformSpend = {
   expected: number | null
   results: number
   cpr: number | null
-  /** The platform's target cost per result (its own, else the client's). */
-  target: number | null
   /** The same days last month. */
   lastSpend: number | null
   lastCpr: number | null
@@ -31,13 +30,12 @@ const SHOW = 8
  * Where the money went this month (Dean: spend per platform and per campaign, for anyone to read).
  * One card per platform, which also filters the campaign list under it.
  */
-export function SpendBreakdown({ slug, currency, target, platforms, campaigns, total }: { slug: string; currency: string; target: number | null; platforms: PlatformSpend[]; campaigns: AccountNumbers["campaigns"]; total: number }) {
+export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, total }: { slug: string; currency: string; targets: Targets; platforms: PlatformSpend[]; campaigns: AccountNumbers["campaigns"]; total: number }) {
   const [platform, setPlatform] = useState<Platform | null>(null)
   const [all, setAll] = useState(false)
   const list = campaigns.filter((c) => !platform || c.platform === platform)
   const shown = all ? list : list.slice(0, SHOW)
   const max = Math.max(...list.map((c) => c.spend), 1)
-  const targetOf = (p: Platform) => platforms.find((x) => x.platform === p)?.target ?? target
 
   return (
     <div className="space-y-4">
@@ -84,7 +82,7 @@ export function SpendBreakdown({ slug, currency, target, platforms, campaigns, t
                 </span>
                 <span>
                   <span className="block text-muted-foreground">Cost per result</span>
-                  <span className={cn("text-sm tabular-nums", cprTone(p.cpr, p.target))} title={p.target !== null && p.target !== target ? `Target ${money(p.target, currency)} on ${PLATFORM_LABEL[p.platform]}` : undefined}>{p.cpr !== null ? money(p.cpr, currency) : p.spend > 0 ? "No results yet" : "–"}</span>
+                  <span className={cn("text-sm tabular-nums", cprTone(p.cpr, targetFor(targets, p.platform)))}>{p.cpr !== null ? money(p.cpr, currency) : p.spend > 0 ? "No results yet" : "–"}</span>
                   {p.cpr !== null && p.lastCpr !== null && <span className="ml-1 text-[11px] text-muted-foreground">was {money(p.lastCpr, currency)}</span>}
                 </span>
               </span>
@@ -132,7 +130,7 @@ export function SpendBreakdown({ slug, currency, target, platforms, campaigns, t
                     {money(c.spend, currency)}
                     <span className="block text-[11px] text-muted-foreground">{total ? `${Math.round((c.spend / total) * 100)}% of all` : ""}</span>
                   </span>
-                  <span className={cn("text-right tabular-nums", cprTone(c.cpr, targetOf(c.platform)))}>
+                  <span className={cn("text-right tabular-nums", cprTone(c.cpr, targetFor(targets, c.platform)))}>
                     {c.cpr !== null ? money(c.cpr, currency) : "No results"}
                     <span className="block text-[11px] text-muted-foreground">per result</span>
                   </span>

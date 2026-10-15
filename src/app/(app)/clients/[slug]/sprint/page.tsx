@@ -30,6 +30,7 @@ import { EditableText } from "./editable-text"
 import { PlanTestForm } from "./plan-test-form"
 import { TestBoard } from "./test-board"
 import { TestCard } from "./test-card"
+import { loadTargets } from "@/lib/targets"
 
 
 export default async function SprintPage({ params, searchParams }: PageProps<"/clients/[slug]/sprint">) {
@@ -70,13 +71,13 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
   // (stats, the review's spend line, detected changes) and the test board's live results stream in behind them.
   // Everything starts at once; the board chains straight off the tests.
   const detailsP = loadSprintDetails(supabase, sprint)
-  const targetCpr = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
+  const targetsP = loadTargets(supabase, client.id, client.monthly_kpi_target)
   const closed = Boolean(sprint.closed_at)
   // A closed sprint keeps its numbers and has no suggestions, so it never waits on Windsor.
   const frozen = closed && sprint.summary ? sprint.summary : null
   const numbersP = frozen ? null : cachedSprintNumbers(client.id, period) // access confirmed: sprint loaded through RLS
   const shownP = frozen ? Promise.resolve(frozen) : numbersP!.then((x) => x.summary)
-  const boardP = detailsP.then((d) => testBoardData(supabase, client.id, d.tests, { currency: client.currency, targetCpr }))
+  const boardP = Promise.all([detailsP, targetsP]).then(([d, targets]) => testBoardData(supabase, client.id, d.tests, { currency: client.currency, targets }))
   const [details, notionSynced, { data: accounts }, { data: runs }, actions, owners, { data: aiRuns }, { data: aiRecs }, { data: pourRuns }, { data: pourRecs }] = await Promise.all([
     detailsP,
     detailsP.then((d) => (d.tests.some((t) => t.notion_page_id) ? lastNotionSync(supabase).then(minutesAgo) : null)),

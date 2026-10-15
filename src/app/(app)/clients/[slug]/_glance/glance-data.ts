@@ -3,7 +3,6 @@ import type { AccountNumbers } from "@/lib/account"
 import { shortDate } from "@/lib/format"
 import { addDays, tiringAds, topAds, type AdStat, type FatiguedAd } from "@/lib/metrics/ads"
 import type { getPacing } from "@/lib/metrics/overview"
-import { targetFor, type PlatformTargets } from "@/lib/metrics/targets"
 import type { Platform } from "@/lib/metrics/types"
 import { previewsFor } from "@/lib/previews"
 import { sprintByNumber, type sprintOf } from "@/lib/sprints/periods"
@@ -47,7 +46,7 @@ export async function loadGoals(supabase: SupabaseClient, clientId: string, toda
 }
 
 /** Budget, where spend should be today, and spend per platform against it. */
-export function spendOf(numbers: AccountNumbers | null, pacing: Awaited<ReturnType<typeof getPacing>>, target: number | null = null, targets: PlatformTargets = {}) {
+export function spendOf(numbers: AccountNumbers | null, pacing: Awaited<ReturnType<typeof getPacing>>) {
   const pacingBy = new Map((pacing?.pacing ?? []).map((p) => [p.platform, p]))
   const budget = (pacing?.pacing ?? []).reduce((s, p) => s + (p.budget ?? 0), 0)
   const expected = (pacing?.pacing ?? []).reduce((s, p) => s + (p.budget ? p.expected : 0), 0)
@@ -55,7 +54,7 @@ export function spendOf(numbers: AccountNumbers | null, pacing: Awaited<ReturnTy
     .filter((p) => p.mtd.spend > 0 || pacingBy.get(p.platform)?.budget)
     .map((p) => {
       const pc = pacingBy.get(p.platform)
-      return { platform: p.platform, spend: p.mtd.spend, budget: pc?.budget ?? null, expected: pc?.budget ? pc.expected : null, results: p.mtd.results, cpr: p.mtd.cpr, target: targetFor(target, targets, p.platform), lastSpend: p.lastMonthSameDays.spend || null, lastCpr: p.lastMonthSameDays.cpr }
+      return { platform: p.platform, spend: p.mtd.spend, budget: pc?.budget ?? null, expected: pc?.budget ? pc.expected : null, results: p.mtd.results, cpr: p.mtd.cpr, lastSpend: p.lastMonthSameDays.spend || null, lastCpr: p.lastMonthSameDays.cpr }
     })
     .sort((a, b) => b.spend - a.spend)
   return { budget, expected, platforms }

@@ -4,8 +4,6 @@ import { canEdit, getProfile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { money, whole } from "@/lib/format"
 import { cachedPacing } from "@/lib/metrics/cached"
-import { loadPlatformTargets, targetWords } from "@/lib/metrics/targets"
-import { PLATFORM_LABEL } from "@/lib/metrics/types"
 import { sprintOf } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
 import { GlanceBoard } from "./_glance/glance-board"
@@ -13,6 +11,7 @@ import { GlanceCards } from "./_glance/glance-cards"
 import { loadGoals, monthName, spendOf } from "./_glance/glance-data"
 import { SpendBreakdown } from "./_glance/spend-breakdown"
 import { cprTone, paceWords } from "./_glance/tones"
+import { loadTargets } from "@/lib/targets"
 
 export const metadata = { title: "Summary" }
 
@@ -28,6 +27,7 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
   if (!client) notFound()
   const cur = client.currency
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
+  const targetsP = loadTargets(supabase, client.id, client.monthly_kpi_target)
   const today = londonToday()
   const period = sprintOf(today)
   const throughP = latestDataDay(supabase, client.id)
@@ -38,16 +38,16 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
     getAccountNumbers(supabase, client.id, throughP),
     cachedPacing(client.id), // access confirmed above (client loaded through RLS)
     loadGoals(supabase, client.id, today),
-    loadPlatformTargets(supabase, client.id),
+    targetsP,
   ])
-  const { budget, expected, platforms } = spendOf(numbers, pacing, target, targets)
+  const { budget, expected, platforms } = spendOf(numbers, pacing)
   return (
     <GlanceBoard
       slug={slug}
       name={client.name}
       currency={cur}
       target={target}
-      targetText={targetWords(target, targets, (n) => money(n, cur), (p) => PLATFORM_LABEL[p])}
+      targets={targets}
       numbers={numbers}
       month={numbers ? monthName(numbers.month) : null}
       budget={budget}
@@ -56,7 +56,7 @@ export default async function AtAGlancePage({ params }: PageProps<"/clients/[slu
       canEditGoals={canEdit(me)}
       platforms={platforms}
       headline={numbers ? <Headline name={client.name} currency={cur} target={target} budget={budget} expected={expected} month={monthName(numbers.month)} spend={numbers.mtd.spend} results={numbers.mtd.results} cpr={numbers.mtd.cpr} /> : null}
-      spendDetail={numbers && platforms.length > 0 ? <SpendBreakdown slug={slug} currency={cur} target={target} platforms={platforms} campaigns={numbers.campaigns} total={numbers.mtd.spend} /> : null}
+      spendDetail={numbers && platforms.length > 0 ? <SpendBreakdown slug={slug} currency={cur} targets={targets} platforms={platforms} campaigns={numbers.campaigns} total={numbers.mtd.spend} /> : null}
       cards={<GlanceCards supabase={supabase} slug={slug} client={client} today={today} period={period} through={throughP} />}
     />
   )

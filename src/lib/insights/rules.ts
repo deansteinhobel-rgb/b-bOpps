@@ -7,7 +7,6 @@
 import { money as fmtMoney } from "@/lib/format"
 import { addDays } from "@/lib/metrics/ads"
 import type { Platform } from "@/lib/metrics/types"
-import { targetFor, type PlatformTargets } from "@/lib/metrics/targets"
 
 export type Sums = { spend: number; impressions: number; clicks: number; results: number }
 export type Severity = "high" | "medium" | "low"
@@ -93,9 +92,9 @@ export type LandingRow = { page: string; sourceMedium: string; sessions: number;
 export type InsightInputs = {
   clientName: string
   currency: string
+  /** The client's target cost per result; `platformTargets` overrides it per platform (see src/lib/targets.ts). */
   target: number | null
-  /** Platforms with their own target cost per result (Reddit for DNSFilter); the rest use `target`. */
-  targets?: PlatformTargets
+  platformTargets?: Partial<Record<Platform, number>>
   /** The last day with data, per platform (a lagging account mustn't look like "stopped spending"). */
   dataThrough: Partial<Record<Platform, string>>
   campaigns: CampaignDays[] // the last 90 days
@@ -197,10 +196,15 @@ export const isOpportunity = (i: Pick<Insight, "category" | "rule" | "urgent">) 
 /** A risky platform setting: shown first, above opportunities, in its own section (Dean, 2026-10-15). */
 export const isUrgent = (i: Pick<Insight, "urgent">) => Boolean(i.urgent)
 
+/** The target cost per result for one platform's rules: its own, else the client's. */
+export const targetOf = (input: Pick<InsightInputs, "target" | "platformTargets">, platform: Platform) => input.platformTargets?.[platform] || input.target
+
 export function computeInsights(raw: InsightInputs): Insight[] {
   const out: Insight[] = []
   const input: InsightInputs = { ...raw, dataThrough: effectiveThrough(raw) }
-  const { target, currency } = input
+  const { currency } = input
+  // The Google rules below use Google's target; the campaign rules further down use each campaign's platform.
+  const target = targetOf(input, "google_ads")
   const money = (v: number) => fmtMoney(v, currency, Math.abs(v) < 10 && v !== 0 ? 2 : 0)
   // Brand terms (with the client's name in them) are never negative candidates.
   const brandWords = input.clientName.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3)
@@ -366,7 +370,7 @@ export function computeInsights(raw: InsightInputs): Insight[] {
   for (const c of input.campaigns) {
     const through = input.dataThrough[c.platform]
     if (!through) continue
-    const target = targetFor(input.target, input.targets, c.platform)
+    const target = targetOf(input, c.platform)
     const last2 = span(c, addDays(through, -1), through)
     const weekBefore = span(c, addDays(through, -8), addDays(through, -2))
     // Paused, removed, archived or completed campaigns are off on purpose: ignore them.
@@ -602,7 +606,7 @@ function linkedinInsights(input: InsightInputs, money: (v: number) => string): I
         key: "li_not_icp:linkedin",
         rule: "li_not_icp",
         category: "waste",
-        severity: notIcp.length >= 5 || spent >= (input.target ?? 200) ? "medium" : "low",
+        severity: notIcp.length >= 5 || spent >= (targetOf(input, "linkedin") ?? 200) ? "medium" : "low",
         platform: "linkedin",
         campaignId: null,
         campaignName: null,
@@ -692,7 +696,8 @@ function linkedinInsights(input: InsightInputs, money: (v: number) => string): I
       const camp = input.campaigns.find((c) => c.platform === "linkedin" && c.campaignId === campaignId)
       const last30 = camp && asOf ? span(camp, addDays(asOf, -29), asOf) : Z()
       const cost30 = cpr(last30)
-      const converting = isAwareness(input, "linkedin", campaignId, name) || (input.target ? cost30 !== null && cost30 <= input.target : last30.results > 0)
+      const liTarget = targetOf(input, "linkedin")
+      const converting = isAwareness(input, "linkedin", campaignId, name) || (liTarget ? cost30 !== null && cost30 <= liTarget : last30.results > 0)
       out.push({
         key: `li_strong_segments:linkedin:${campaignId}`,
         rule: "li_strong_segments",
@@ -703,14 +708,14 @@ function linkedinInsights(input: InsightInputs, money: (v: number) => string): I
         campaignName: name,
         title: `${strong.length} audience${strong.length === 1 ? "" : "s"} engaging well above the rest`,
         why: `1.5× the CTR of the rest of the campaign or better, in the 30 days to ${asOf}. LinkedIn doesn't report conversions by audience, so this is on CTR.${
-          converting ? "" : cost30 === null ? " The campaign has no results in that time, so it isn't an opportunity yet." : ` The campaign is at ${money(cost30)} per result, over the ${money(input.target!)} target, so it isn't an opportunity yet.`
+          converting ? "" : cost30 === null ? " The campaign has no results in that time, so it isn't an opportunity yet." : ` The campaign is at ${money(cost30)} per result, over the ${money(liTarget!)} target, so it isn't an opportunity yet.`
         }`,
         todo: converting
           ? "Consider their own campaign (own budget, tailored message), and check whether other campaigns with the same goal are missing them."
           : "Get the campaign converting at target first; then these are the audiences to lean into.",
         numbers: [
           { label: "Campaign CTR", value: pct(campaignCtr, 2) },
-          ...(cost30 !== null ? [{ label: "Cost per result, 30 days", value: money(cost30), ...(input.target ? { tone: cost30 <= input.target ? ("good" as const) : ("bad" as const) } : {}) }] : []),
+          ...(cost30 !== null ? [{ label: "Cost per result, 30 days", value: money(cost30), ...(liTarget ? { tone: cost30 <= liTarget ? ("good" as const) : ("bad" as const) } : {}) }] : []),
         ],
         items: strong
           .sort((a, b) => (ctr(b.r.m) ?? 0) - (ctr(a.r.m) ?? 0))
@@ -753,7 +758,7 @@ function metaInsights(input: InsightInputs, money: (v: number) => string): Insig
   const through = input.dataThrough.meta
   if (!through) return out
   const week = weekOf(through)
-  const { target } = input
+  const target = targetOf(input, "meta")
 
   for (const a of input.metaAdsets) {
     if (a.m.spend < 0.25 * (target ?? 200)) continue // too small to matter

@@ -14,6 +14,7 @@ import { GlanceCard } from "./glance-card"
 import { GoalCard, type GoalView } from "./goal-card"
 import type { PlatformSpend } from "./spend-breakdown"
 import { cprTone, paceTone, paceWords } from "./tones"
+import { describeTargets, hasPlatformTargets, targetFor, type Targets } from "@/lib/targets"
 
 export type GlanceTest = { id: string; title: string; platform: string | null; stage: Stage; owner_name: string | null; deadline: string | null; live_on: string | null; outcome: string | null }
 
@@ -28,8 +29,8 @@ export function GlanceBoard(p: {
   name: string
   currency: string
   target: number | null
-  /** "the $300 target ($650 on Reddit)". */
-  targetText?: string
+  /** Per-platform targets (src/lib/targets.ts): platform and campaign rows are judged on their own platform's. */
+  targets: Targets
   numbers: AccountNumbers | null
   month: string | null
   budget: number
@@ -105,8 +106,8 @@ export function GlanceBoard(p: {
             id="spend"
             title="Where the money went"
             meta={`${p.month} so far`}
-            detailDescription={`${p.month} so far, by platform and by campaign. Colors compare cost per result with ${p.targetText ?? `the ${money(p.target, cur)} target`}: green under it, amber up to 20% over, red further.`}
-            summary={<SpendSummary platforms={p.platforms} currency={cur} target={p.target} />}
+            detailDescription={`${p.month} so far, by platform and by campaign. Colors compare cost per result with ${hasPlatformTargets(p.targets) ? `each platform's target (${describeTargets(p.targets, (v) => money(v, cur))})` : `the ${money(p.target, cur)} target`}: green under it, amber up to 20% over, red further.`}
+            summary={<SpendSummary platforms={p.platforms} currency={cur} targets={p.targets} />}
             detail={p.spendDetail}
           />
         )}
@@ -174,7 +175,7 @@ function GoalSummary({ goal: g }: { goal: GoalView }) {
   )
 }
 
-function SpendSummary({ platforms, currency, target }: { platforms: PlatformSpend[]; currency: string; target: number | null }) {
+function SpendSummary({ platforms, currency, targets }: { platforms: PlatformSpend[]; currency: string; targets: Targets }) {
   return (
     <span className="block">
       <span className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2.5 text-sm">
@@ -192,7 +193,7 @@ function SpendSummary({ platforms, currency, target }: { platforms: PlatformSpen
               {x.budget ? <PaceBar spend={x.spend} expected={x.expected ?? 0} budget={x.budget} /> : <span className="block h-1.5 rounded-full bg-secondary" />}
             </span>
             <span className="text-right text-xs leading-tight">
-              <span className={cn("block tabular-nums", cprTone(x.cpr, x.target ?? target))}>{x.cpr === null ? "–" : money(x.cpr, currency)}</span>
+              <span className={cn("block tabular-nums", cprTone(x.cpr, targetFor(targets, x.platform)))}>{x.cpr === null ? "–" : money(x.cpr, currency)}</span>
               <span className="block text-[10px] text-muted-foreground">{whole(x.results)} results</span>
             </span>
           </span>

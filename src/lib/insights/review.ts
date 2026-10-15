@@ -10,8 +10,8 @@ import { CLOSED_STATUSES, PAID_PRODUCTION_TYPES, PROP } from "@/lib/notion/confi
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { loadInsightInputs } from "./load"
-import { audienceCandidates, computeInsights, isOpportunity, RULES } from "./rules"
-import { ownTargets } from "@/lib/metrics/targets"
+import { audienceCandidates, computeInsights, isOpportunity, RULES, targetOf } from "./rules"
+import { describeTargets } from "@/lib/targets"
 
 /**
  * Performance phase 4: Claude's daily review of a client's "Optimize now" feed (see the
@@ -136,7 +136,7 @@ async function reviewContext(clientId: string) {
   // Search terms that cost something and haven't converted (30 days).
   const to = input.dataThrough.google_ads
   const terms = to
-    ? (await rpcAll(db, "search_term_candidates", { p_client: clientId, p_from: addDays(to, -29), p_to: to, p_min_spend: Math.max(25, 0.25 * (input.target ?? 200)), p_min_results: 1e9 }))
+    ? (await rpcAll(db, "search_term_candidates", { p_client: clientId, p_from: addDays(to, -29), p_to: to, p_min_spend: Math.max(25, 0.25 * (targetOf(input, "google_ads") ?? 200)), p_min_results: 1e9 }))
         .filter((t) => Number(t.results) === 0)
         .slice(0, 120)
     : []
@@ -157,7 +157,7 @@ async function reviewContext(clientId: string) {
 
   const lines = [
     `# Client: ${input.clientName}`,
-    `Target cost per result: ${input.target ? money(input.target, cur) : "not set"}${ownTargets(input.targets ?? {}, (n) => money(n, cur))}. Data to ${through}.`,
+    `Target cost per result: ${describeTargets({ client: input.target, platforms: input.platformTargets ?? {} }, (v) => money(v, cur))}. Judge each campaign against its own platform's target. Data to ${through}.`,
     await briefForPrompt(clientId),
     `\n## Open insights (key | severity | kind | campaign | title | why | what to do | items)`,
     ...open.map((i) => `- ${i.key} | ${i.severity}${isOpportunity(i) ? " (opportunity)" : ""} | ${RULES[i.rule].label} | ${i.campaignName ?? "account"} | ${withSymbols(i.title)} | ${withSymbols(i.why)} | ${i.todo}${i.listed ? ` | ${i.items.length} items: ${i.items.slice(0, 8).map((x) => x.label).join("; ")}` : ""}`),

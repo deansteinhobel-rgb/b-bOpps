@@ -8,7 +8,7 @@ import { PAID_PRODUCTION_TYPES, PROP } from "@/lib/notion/config"
 import { adKey } from "@/lib/previews"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { dataRanges } from "@/lib/metrics/data-range"
-import { loadPlatformTargets, ownTargets } from "@/lib/metrics/targets"
+import { describeTargets, loadTargets } from "@/lib/targets"
 
 /**
  * What Claude reads for content ideas (Dean, 2026-09-29): every campaign of the last 90 days with who
@@ -190,7 +190,7 @@ export async function buildContentContext(db: SupabaseClient, clientId: string):
 
   const lines = [
     `# Client: ${client.name}`,
-    `Currency ${cur}. Target cost per result: ${client.monthly_kpi_target ? money(Number(client.monthly_kpi_target)) : "not set"}${ownTargets(await loadPlatformTargets(db, clientId), money)}. Result = conversions + leads (on Reddit: lead and sign-up conversions, view-through included). Data ${from} to ${to}. Platforms: ${[...new Set(campaigns.map((c) => PLATFORM_LABEL[c.platform]))].join(", ")}.`,
+    `Currency ${cur}. Target cost per result: ${describeTargets(await loadTargets(db, clientId, client.monthly_kpi_target), (v) => money(v))}. Result = conversions + leads (on Reddit: lead and sign-up conversions, view-through included). Data ${from} to ${to}. Platforms: ${[...new Set(campaigns.map((c) => PLATFORM_LABEL[c.platform]))].join(", ")}.`,
     await briefForPrompt(clientId),
     `\n## Campaigns in the last ${DAYS} days, biggest spend first (names often encode the offer, the audience, the targeting and the format)`,
     ...campaignLines,

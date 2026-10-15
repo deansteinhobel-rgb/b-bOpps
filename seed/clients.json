@@ -177,7 +177,7 @@
           "external_account_id": "t2_3q8y68o7",
           "account_name": "dnsfilter",
           "monthly_budget": 5000,
-          "target_cost_per_result": 650,
+          "kpi_target": 650,
           "conversion_fields": [
             "conversion_lead_clicks",
             "conversion_sign_up_clicks",
