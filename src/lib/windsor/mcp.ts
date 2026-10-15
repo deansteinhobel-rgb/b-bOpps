@@ -1,15 +1,19 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
+import type { AdWriteDeps, CreateAdParams, PauseAdParams } from "./google-ads"
 import { windsorLiveClients, type PushDb, type PushDeps, type PushParams } from "./negatives"
 
 /**
  * Windsor's write actions only exist on its MCP server (https://mcp.windsor.ai/, bearer = our
  * Windsor API key), not on the REST API we read from. This is a minimal MCP client over streamable
- * HTTP that can run ONE action: google_ads `push_negative_keywords`. There is deliberately no
- * general "execute any action" function (CLAUDE.md: the app adds negatives and nothing else).
+ * HTTP that can run exactly THREE Google Ads actions: `push_negative_keywords`,
+ * `create_responsive_search_ad` (always paused) and `pause_ad`. There is deliberately no general
+ * "execute any action" function: Windsor also offers enable, remove and delete actions, and the app
+ * must never reach them (CLAUDE.md, "Ad platform writes").
  */
 const MCP_URL = "https://mcp.windsor.ai/"
-const ALLOWED = { connector: "google_ads", action: "push_negative_keywords" } as const
+const ALLOWED = new Set(["push_negative_keywords", "create_responsive_search_ad", "pause_ad"] as const)
+type Allowed = typeof ALLOWED extends Set<infer T> ? T : never
 
 type Rpc = { result?: unknown; error?: { message?: string } }
 
@@ -38,15 +42,24 @@ async function session(key: string) {
   return send
 }
 
+async function run(key: string, action: Allowed, accountId: string, params: object) {
+  if (!ALLOWED.has(action)) throw new Error(`Windsor action ${action} isn't allowed`)
+  const send = await session(key)
+  const r = await send("tools/call", { name: "execute_action", arguments: { connector: "google_ads", action, account: accountId, params } })
+  if (r?.error) throw new Error(`Windsor: ${r.error.message ?? "the write failed"}`)
+  const result = r?.result as { isError?: boolean } | undefined
+  return { isError: Boolean(result?.isError), result: result ?? null }
+}
+
 export function windsorMcp(key: string): NonNullable<PushDeps["windsor"]> {
+  return { pushNegativeKeywords: (accountId: string, params: PushParams) => run(key, "push_negative_keywords", accountId, params) }
+}
+
+/** Creates ads paused, whatever the caller passes, and pauses ads. Nothing else. */
+export function windsorAdWriter(key: string): NonNullable<AdWriteDeps["windsor"]> {
   return {
-    async pushNegativeKeywords(accountId: string, params: PushParams) {
-      const send = await session(key)
-      const r = await send("tools/call", { name: "execute_action", arguments: { ...ALLOWED, account: accountId, params } })
-      if (r?.error) throw new Error(`Windsor: ${r.error.message ?? "the push failed"}`)
-      const result = r?.result as { isError?: boolean } | undefined
-      return { isError: Boolean(result?.isError), result: result ?? null }
-    },
+    createSearchAd: (accountId: string, params: CreateAdParams) => run(key, "create_responsive_search_ad", accountId, { ...params, status: "paused" }),
+    pauseAd: (accountId: string, params: PauseAdParams) => run(key, "pause_ad", accountId, { ad_group_id: params.ad_group_id, ad_id: params.ad_id }),
   }
 }
 
@@ -55,6 +68,11 @@ export function windsorWritesLive(clientSlug?: string) {
   const on = process.env.WINDSOR_WRITES_ENABLED === "true" && process.env.WINDSOR_DRY_RUN === "false"
   const only = windsorLiveClients()
   return on && (!clientSlug || !only || only.includes(clientSlug.toLowerCase()))
+}
+
+/** Ad writes need their own third switch, WINDSOR_AD_WRITES_ENABLED=true (Dean alone flips it). */
+export function windsorAdWritesLive(clientSlug?: string) {
+  return windsorWritesLive(clientSlug) && process.env.WINDSOR_AD_WRITES_ENABLED === "true"
 }
 
 /** Production dependencies for pushNegativeKeywords. The Windsor writer only exists when writes are live. */
@@ -66,6 +84,21 @@ export function pushDeps(): PushDeps {
     env: {
       writesEnabled: process.env.WINDSOR_WRITES_ENABLED === "true",
       dryRun: process.env.WINDSOR_DRY_RUN !== "false",
+      liveClients: windsorLiveClients(),
+    },
+  }
+}
+
+/** Production dependencies for createSearchAd / pauseAds. */
+export function adWriteDeps(): AdWriteDeps {
+  const key = process.env.WINDSOR_API_KEY
+  return {
+    db: createAdminClient() as unknown as PushDb,
+    windsor: windsorAdWritesLive() && key ? windsorAdWriter(key) : null,
+    env: {
+      writesEnabled: process.env.WINDSOR_WRITES_ENABLED === "true",
+      dryRun: process.env.WINDSOR_DRY_RUN !== "false",
+      adWritesEnabled: process.env.WINDSOR_AD_WRITES_ENABLED === "true",
       liveClients: windsorLiveClients(),
     },
   }

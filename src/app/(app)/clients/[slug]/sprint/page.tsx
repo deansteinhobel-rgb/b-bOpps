@@ -21,6 +21,7 @@ import { sprintByNumber, sprintDay, sprintOf, SPRINT_DAYS } from "@/lib/sprints/
 import { CARRY_REASONS, stageOf, type Stage } from "@/lib/sprints/tests"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { canWriteGoogleAds } from "@/lib/windsor/access"
 import { cn } from "@/lib/utils"
 import { AiPanel, type AiRun, type PourHistoryRow, type Recommendation } from "./ai-panel"
 import { ChangeLog } from "./change-log"
@@ -118,6 +119,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
   const target = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
   const day = sprintDay(period, today)
   const writesLive = notionWritesLive(slug)
+  const canBuildGoogle = !closed && (accounts ?? []).some((a) => a.platform === "google_ads") && (await canWriteGoogleAds(me, client.id))
   const platforms = PLATFORMS.filter((p) => (accounts ?? []).some((a) => a.platform === p))
   const ownerOptions = owners.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam }))
   const withoutOutcome = tests.filter((t) => !t.outcome).length
@@ -177,6 +179,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
         readOnly={closed}
         canRename={!closed && isAdmin(me)}
         writesLive={writesLive}
+        canBuildGoogle={canBuildGoogle}
         today={today}
       />
     )

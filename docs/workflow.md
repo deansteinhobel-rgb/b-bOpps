@@ -110,7 +110,7 @@ Number them `v1.0`, `v1.1`, ... (`v2.0` for a big change). To see the tags: `git
 1. **Preview environment variables**: Settings → Environment Variables. Every variable the app needs
    must exist for **Preview**, and the write switches must be the safe values there, whatever
    production has: `NOTION_WRITES_ENABLED=false`, `NOTION_DRY_RUN=true`,
-   `WINDSOR_WRITES_ENABLED=false`, `WINDSOR_DRY_RUN=true`. Leave `CRON_SECRET` out of Preview
+   `WINDSOR_WRITES_ENABLED=false`, `WINDSOR_DRY_RUN=true`, and no `WINDSOR_AD_WRITES_ENABLED`. Leave `CRON_SECRET` out of Preview
    (scheduled jobs only run in production) and set `APP_URL` for Preview to the preview's own URL
    pattern, or sign-in links will point at production.
 2. **Signing in on a preview**: add the preview URLs to Supabase Auth's redirect list in
