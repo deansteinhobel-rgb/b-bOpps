@@ -31,28 +31,33 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
   const clientCount = new Set(items.map((i) => i.client.slug)).size
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHeader
         eyebrow={showAll ? "All clients" : "Your clients"}
         title={first ? `Today, ${first}` : "Today"}
         description={
           items.length
-            ? `${items.length} thing${items.length === 1 ? "" : "s"} to act on across ${clientCount} client${clientCount === 1 ? "" : "s"}${attention ? `, ${attention} needing attention` : ""}. From Optimize now, checks, calls, the sprint and pacing.`
-            : "Everything to act on across your clients: Optimize now, checks, calls, the sprint and pacing."
+            ? `${items.length} thing${items.length === 1 ? "" : "s"} to act on across ${clientCount} client${clientCount === 1 ? "" : "s"}${attention ? `, ${attention} needing attention` : ""}. From recommendations, QA checks, calls, sprint tests and pacing.`
+            : "Everything to act on across your clients: recommendations, QA checks, calls, sprint tests and pacing."
         }
         actions={
           isAdmin(me) &&
           onTeam && (
-            <div className="flex rounded-full border bg-card p-0.5 text-sm">
+            <nav className="inline-flex gap-0.5 rounded-lg bg-white/[0.04] p-0.5" aria-label="Whose clients">
               {[
                 ["/today", "My clients", !showAll],
                 ["/today?all=1", "All clients", showAll],
               ].map(([href, label, active]) => (
-                <Link key={String(href)} href={String(href)} className={cn("rounded-full px-3 py-1 transition-colors", active ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>
+                <Link
+                  key={String(href)}
+                  href={String(href)}
+                  aria-current={active ? "page" : undefined}
+                  className={cn("flex h-8 items-center rounded-md px-3 text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", active ? "bg-white/[0.1] font-medium text-foreground" : "text-body hover:text-foreground")}
+                >
                   {label}
                 </Link>
               ))}
-            </div>
+            </nav>
           )
         }
       />

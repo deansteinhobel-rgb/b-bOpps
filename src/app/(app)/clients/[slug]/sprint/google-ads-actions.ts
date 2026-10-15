@@ -32,7 +32,7 @@ async function context(testId: string, campaignId: string) {
   if (test.platform !== "google_ads") return { error: "This isn't a Google Ads test." } as const
   // The same stages the card offers it in (in production, ready, live), checked here too (Aikido).
   if (test.outcome || !BUILDABLE.includes(test.status)) return { error: "Ads can only be built for a test that's in production, ready or live." } as const
-  if (!(await canWriteGoogleAds(me, client.id))) return { error: "Only admins, GTM leads and the client's paid media specialist can change ads in Google Ads." } as const
+  if (!(await canWriteGoogleAds(me, client.id))) return { error: "You can't change ads in Google Ads for this client." } as const
   const accountId = await campaignAccount(supabase, client.id, campaignId)
   if (!accountId) return { error: "Couldn't tell which of this client's Google Ads accounts that campaign is in." } as const
   return { me, supabase, test, client, accountId, error: null } as const

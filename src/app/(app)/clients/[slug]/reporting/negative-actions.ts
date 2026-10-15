@@ -27,7 +27,7 @@ export async function pushNegatives(raw: z.input<typeof Input>): Promise<PushRes
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, slug").eq("slug", clientSlug).maybeSingle()
   if (!client) return { ok: false, live: false, pushes: [], error: "This client isn't available to you." }
-  if (!(await canPushNegatives(me, client.id))) return { ok: false, live: false, pushes: [], error: "Only admins, GTM leads and the client's paid media specialist can add negatives." }
+  if (!(await canPushNegatives(me, client.id))) return { ok: false, live: false, pushes: [], error: "You can't add negatives for this client." }
 
   // The campaign's Google Ads account and ad groups come from our own data, never from the browser.
   const { data: seen } = await supabase

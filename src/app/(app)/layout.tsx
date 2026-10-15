@@ -4,11 +4,9 @@ import { CallReminders } from "@/components/call-followups"
 import { Starfield } from "@/components/fx/starfield"
 import { AskChat } from "@/components/ask-chat"
 import { NavProgress } from "@/components/nav-progress"
-import { NewsChat } from "@/components/news-chat"
 import { aiConfigured } from "@/lib/ai/claude"
 import { canEdit, getProfile, isAdmin, ROLE_LABEL } from "@/lib/auth"
 import { remindersFor } from "@/lib/calls/load"
-import { lensOf, newLayout } from "@/lib/lens"
 import { createClient } from "@/lib/supabase/server"
 import { cn } from "@/lib/utils"
 
@@ -40,7 +38,6 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         roleLabel={profile.role ? ROLE_LABEL[profile.role] : null}
         isAdmin={isAdmin(profile)}
         hasRole={Boolean(profile.role)}
-        lens={newLayout(profile.preferences) ? lensOf(profile.preferences, profile.role) : null}
       />
       <main id="main" className="min-w-0 flex-1">
         <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-8 lg:py-10">
@@ -57,8 +54,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           )}
         </div>
       </main>
-      {/* One Ask in the new layout (news, and the campaign when you're on one); the news cellar in the classic one. */}
-      {profile.role && aiConfigured() && (newLayout(profile.preferences) ? <AskChat aiReady /> : <NewsChat />)}
+      {/* One Ask: paid media news, and the campaign when you're on one. */}
+      {profile.role && aiConfigured() && <AskChat aiReady />}
       {reminders.length > 0 && <CallReminders reminders={reminders} canEdit />}
     </div>
   )

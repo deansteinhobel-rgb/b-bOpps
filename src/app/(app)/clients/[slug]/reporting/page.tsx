@@ -6,7 +6,7 @@ import { PlatformIcon, PlatformLabel } from "@/components/brand"
 import { SectionHeader } from "@/components/page-header"
 import { SectionLoading } from "@/components/loading"
 import { SectionNav } from "@/components/section-nav"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile } from "@/lib/auth"
 import { landingPages } from "@/lib/metrics/breakdowns"
 import { longDate, money, percent, shortDate, whole } from "@/lib/format"
 import { AD_OLD_DAYS, rankAds, type RankedAd } from "@/lib/metrics/ads"
@@ -356,10 +356,10 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
         <details className="group surface overflow-hidden">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-secondary/30">
             <span className="font-medium">Budget pacing this month</span>
-            <span className="text-xs text-muted-foreground group-open:hidden">Show spend against budget{isAdmin(me) ? " and edit budgets" : ""}</span>
+            <span className="text-xs text-muted-foreground group-open:hidden">Show spend against budget{canEdit(me) ? " and edit budgets" : ""}</span>
           </summary>
           <div className="border-t p-4">
-            <PacingPanel platforms={o.pacing} campaigns={o.campaignPacing} currency={cur} month={o.month} canEdit={isAdmin(me)} clientSlug={slug} />
+            <PacingPanel platforms={o.pacing} campaigns={o.campaignPacing} currency={cur} month={o.month} canEdit={canEdit(me)} clientSlug={slug} />
           </div>
         </details>
       </section>

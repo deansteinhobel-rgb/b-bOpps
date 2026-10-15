@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { canEdit, getProfile, isAdmin, VIEW_ONLY } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { carryForward, carryTests, cachedSprintNumbers, type Sprint } from "@/lib/sprints/data"
 import { sprintByNumber } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
@@ -156,7 +156,7 @@ export async function closeSprint(sprintId: string): Promise<Result> {
 export async function reopenSprint(sprintId: string): Promise<Result> {
   if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const me = await getProfile()
-  if (!isAdmin(me)) return fail("Only admins can reopen a sprint.")
+  if (!canEdit(me)) return fail(VIEW_ONLY)
   const supabase = await createClient()
   const { data } = await supabase.from("sprints").select("clients(slug)").eq("id", sprintId).maybeSingle()
   if (!data) return fail("This sprint isn't available to you.")

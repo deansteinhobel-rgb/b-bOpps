@@ -61,7 +61,7 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
   client's team (not viewers) can read them; a turned-off link stops at once; links are never
   deleted. No rate limit (there's no person to count by): the numbers come from the shared cache,
   and a token can't be guessed. If a link leaks, turn it off in Reporting → Embed in Notion.
-- **Notion**: no writes while testing (two flags, both safe by default; only Dean changes them).
+- **Notion**: no writes while testing (two flags, both safe by default; only Dean, or Claude in Dean's own sessions, changes them).
 - **Claude**: web content is treated as untrusted data in every prompt; web tools can't be
   scripted by the model; token use is saved per run.
 

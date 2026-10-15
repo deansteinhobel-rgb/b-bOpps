@@ -72,7 +72,7 @@ function tags(r: Recommendation, rank: number) {
 
 /**
  * "Pour me a sprint": Claude's suggested tests as a ranked review queue (list + detail, like
- * Linear's triage and Google Ads recommendations). GTM leads and admins review and approve.
+ * Linear's triage and Google Ads recommendations). Anyone who can edit the client reviews and approves.
  */
 export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady: boolean; closed: boolean; run: AiRun | null; recs: Recommendation[]; history: PourHistoryRow[]; owners: Owner[]; defaultDeadline: string; currency: string }) {
   const router = useRouter()

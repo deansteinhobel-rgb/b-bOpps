@@ -31,7 +31,7 @@ const FILL: Record<PlatformPacing["status"], string> = { green: "bg-rag-green", 
 
 /**
  * Budget pacing as sliders: spend against the month's budget, with a marker for where spend should
- * be today. Switch between platforms and campaigns; admins can edit this month's budgets.
+ * be today. Switch between platforms and campaigns; anyone who can edit the client can change this month's budgets.
  */
 export function PacingPanel(props: { platforms: PlatformPacing[]; campaigns: CampaignPacing[]; currency: string; month: string; canEdit: boolean; clientSlug: string }) {
   const [mode, setMode] = useState<"platform" | "campaign">("platform")

@@ -48,7 +48,7 @@ const INSIGHTS_PER_CLIENT = 4
 const OPPORTUNITIES_PER_CLIENT = 3
 const CALLS_PER_CLIENT = 5
 
-export const SOURCE_LABEL: Record<QueueSource, string> = { insight: "Optimize now", check: "Checks", call: "From a call", test: "Sprint", pacing: "Pacing" }
+export const SOURCE_LABEL: Record<QueueSource, string> = { insight: "Recommendation", check: "QA check", call: "From a call", test: "Sprint test", pacing: "Pacing" }
 
 const dayDiff = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5)
 const dueWhen = (due: string, today: string): QueueItem["when"] => {
@@ -125,8 +125,8 @@ async function clientQueue(
       group: "later",
       tone: "na",
       platform: null,
-      title: `${more} more in Optimize now`,
-      detail: "Lower in Claude's order or the rules' priority. Open Optimize now for the full list.",
+      title: `${more} more in Recommendations`,
+      detail: "Lower in Claude's order or the rules' priority. Open Recommendations for the full list.",
       meta: SOURCE_LABEL.insight,
       when: null,
       href: `${base}/insights`,

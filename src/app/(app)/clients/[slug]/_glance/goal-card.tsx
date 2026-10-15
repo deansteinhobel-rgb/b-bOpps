@@ -26,7 +26,7 @@ const fmt = (v: number) => new Intl.NumberFormat("en-GB", { maximumFractionDigit
 /**
  * A client's main business goal this month as a ring (Dean: DNSFilter's Activated Free Trials,
  * target 300): how much of the target is done, where it should be by today, last month beside it.
- * Admins and GTM leads update the figure as the month goes on.
+ * Anyone who can edit the client updates the figure as the month goes on.
  */
 export function GoalCard({ slug, goal, canEdit }: { slug: string; goal: GoalView; canEdit: boolean }) {
   const [editing, setEditing] = useState(false)

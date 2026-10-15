@@ -271,7 +271,7 @@ function SourcePicker({ slug, source, suggestions, canAdmin, onLinked }: { slug:
   // A shared database: which Client option is this client (when the name doesn't say).
   const [ask, setAsk] = useState<{ value: string; options: string[] } | null>(null)
   const [pending, start] = useTransition()
-  if (!canAdmin) return <p className="surface px-4 py-4 text-sm text-muted-foreground">A GTM lead or admin links where this client&apos;s call notes live in Notion.</p>
+  if (!canAdmin) return <p className="surface px-4 py-4 text-sm text-muted-foreground">Someone on the client&apos;s team links where this client&apos;s call notes live in Notion.</p>
   if (!editing) {
     return (
       <button type="button" onClick={() => setEditing(true)} className="text-[11px] text-muted-foreground underline hover:text-foreground">

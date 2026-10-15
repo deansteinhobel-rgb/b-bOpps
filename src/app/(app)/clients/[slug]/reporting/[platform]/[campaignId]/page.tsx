@@ -16,9 +16,7 @@ import { rangeParams } from "@/lib/metrics/range"
 import { campaignBreakdowns } from "@/lib/metrics/breakdowns"
 import { LoadedInsightSummary } from "../../../insights/summary"
 import { aiConfigured } from "@/lib/ai/claude"
-import { newLayout } from "@/lib/lens"
 import { CampaignAskCard } from "./ask-card"
-import { CampaignAsk } from "./campaign-ask"
 import { canPushNegatives } from "@/lib/windsor/access"
 import { windsorWritesLive } from "@/lib/windsor/mcp"
 import { latestTermReview } from "@/lib/insights/term-review"
@@ -118,7 +116,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
         </div>
       </div>
 
-      {newLayout(me.preferences) ? <CampaignAskCard aiReady={aiConfigured()} /> : <CampaignAsk slug={slug} platform={platform} campaignId={campaignId} aiReady={aiConfigured()} />}
+      <CampaignAskCard aiReady={aiConfigured()} />
 
       <div className="surface overflow-hidden">
         <div className="border-b px-4 py-3">

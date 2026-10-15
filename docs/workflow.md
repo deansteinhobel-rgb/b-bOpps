@@ -2,7 +2,7 @@
 
 Two or more people work on Lumaux, each with their own Claude Code. Every push to `main` deploys
 to production (https://bbmopsapp.vercel.app), so nobody pushes to `main` directly: changes go through
-a branch and a pull request, and **Dean approves every merge**. The ruleset in
+a branch and a pull request, and **Dean approves every merge** (Dean's own Claude sessions may merge Dean's pull requests once every check has passed, Dean 2026-10-15; see CLAUDE.md). The ruleset in
 `.github/main-ruleset.json` enforces this on GitHub once it's switched on (see "One-time setup").
 
 ## Day to day
@@ -23,7 +23,7 @@ a branch and a pull request, and **Dean approves every merge**. The ruleset in
 4. GitHub runs the checks (types, lint, tests, RLS tests, `pnpm audit`, CodeQL, Gitleaks) and Vercel
    builds a **preview** of the branch with its own URL (linked on the pull request).
 5. Dean reviews the change on the preview or on localhost, then merges (squash). The merge deploys to
-   production.
+   production. In Dean's own sessions Claude merges Dean's pull requests once every check has passed.
 6. If `main` moved while you were working, bring your branch up to date before merging:
    ```bash
    git switch main

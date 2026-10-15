@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { markCallItemPlanned } from "@/lib/calls/refs"
 import { peopleForClient } from "@/lib/people"
 import { createClient } from "@/lib/supabase/server"
 import { isLever } from "@/lib/taxonomy"
 
-// Review → approve / reject for Claude's sprint suggestions. GTM leads and admins only (checked
+// Review → approve / reject for Claude's sprint suggestions. Anyone who can edit the client (checked
 // here and by RLS). Approving creates a planned test; nothing goes to Notion until someone clicks
 // "Brief the team" on it, which stays behind the dry-run switches. Nothing is deleted.
 
@@ -28,7 +28,7 @@ const Edit = z.object({
 
 async function load(id: string) {
   const me = await getProfile()
-  if (!isAdmin(me)) return { error: "Only GTM leads and admins can review suggestions." as const }
+  if (!canEdit(me)) return { error: VIEW_ONLY }
   const supabase = await createClient()
   const { data: rec } = await supabase.from("sprint_recommendations").select("*, sprints(id, closed_at), clients(slug), sprint_ai_runs(archived_at)").eq("id", id).maybeSingle()
   if (!rec) return { error: "This suggestion isn't available to you." as const }

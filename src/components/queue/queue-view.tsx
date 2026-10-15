@@ -6,7 +6,7 @@ import { useMemo, useState, useSyncExternalStore, useTransition } from "react"
 import { toast } from "sonner"
 import { queueAct } from "@/app/(app)/today/actions"
 import { ClientLogo, PlatformIcon } from "@/components/brand"
-import { FilterChip, Segmented } from "@/components/segmented"
+import { CountBadge, FilterTabs } from "@/components/filter-tabs"
 import { StatusDot } from "@/components/status-badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import type { QueueGroup, QueueItem, QueueSource } from "@/lib/queue"
@@ -16,13 +16,13 @@ const GROUPS: { key: QueueGroup; title: string; hint: string }[] = [
   { key: "attention", title: "Needs attention", hint: "Reds, overspend, things promised on calls, tests waiting on a build." },
   { key: "opportunity", title: "Opportunities", hint: "Worth doing: keywords to add, budget-capped winners, ads doing better." },
   { key: "week", title: "This week", hint: "Checks to do and the next step for this sprint's tests." },
-  { key: "later", title: "When there's time", hint: "Lower-priority items from Optimize now and next month's checks." },
+  { key: "later", title: "When there's time", hint: "Lower-priority recommendations and next month's QA checks." },
 ]
 const SOURCES: { value: "all" | QueueSource; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "insight", label: "Optimize now" },
-  { value: "check", label: "Checks" },
-  { value: "test", label: "Sprint" },
+  { value: "insight", label: "Recommendations" },
+  { value: "check", label: "QA checks" },
+  { value: "test", label: "Sprint tests" },
   { value: "call", label: "Calls" },
   { value: "pacing", label: "Pacing" },
 ]
@@ -52,7 +52,7 @@ const onHiddenChange = (cb: () => void) => {
  * same layout and buttons everywhere. Done and Snooze use the source's own action; the rest open where
  * the work is done.
  */
-export function QueueView({ items, showClient, canEdit, empty }: { items: QueueItem[]; showClient: boolean; canEdit: boolean; empty: string }) {
+export function QueueView({ items, showClient, canEdit, empty, aside }: { items: QueueItem[]; showClient: boolean; canEdit: boolean; empty: string; aside?: React.ReactNode }) {
   const [source, setSource] = useState<"all" | QueueSource>("all")
   const [client, setClient] = useState<string | null>(null)
   // Acted on in this visit (Done, Snooze), plus anything hidden for today.
@@ -84,51 +84,66 @@ export function QueueView({ items, showClient, canEdit, empty }: { items: QueueI
   if (!live.length) return <div className="surface px-6 py-16 text-center text-sm text-muted-foreground">{empty}</div>
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center gap-3">
-        <Segmented label="Show" tone="quiet" value={source} onChange={setSource} options={SOURCES.filter((s) => s.value === "all" || count(s.value) > 0).map((s) => ({ ...s, count: count(s.value) }))} />
-        {showClient && clients.length > 1 && (
-          <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Client">
-            {clients.map((c) => (
-              <FilterChip key={c.slug} active={client === c.slug} onClick={() => setClient(client === c.slug ? null : c.slug)}>
-                <ClientLogo name={c.name} logoUrl={c.logo_url} size="xs" />
-                {c.name}
-              </FilterChip>
-            ))}
+    <div className="space-y-6">
+      {/* Toolbar (Dean, 2026-10-15): flat filters on the list's own hairline, the kind of task on the left,
+          the client (Today) and any page link on the right. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b pb-3">
+        <FilterTabs label="Show" showLabel={false} value={source} onChange={setSource} options={SOURCES.filter((s) => s.value === "all" || count(s.value) > 0).map((s) => ({ ...s, count: count(s.value) }))} />
+        {((showClient && clients.length > 1) || aside) && (
+          <div className="flex flex-wrap items-center gap-4">
+            {showClient && clients.length > 1 && (
+              <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+                Client
+                <select
+                  value={client ?? ""}
+                  onChange={(e) => setClient(e.target.value || null)}
+                  className="h-8 rounded-md border border-white/10 bg-transparent pr-7 pl-2.5 text-[13px] text-foreground transition-colors outline-none hover:border-white/20 focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">All clients</option>
+                  {clients.map((c) => (
+                    <option key={c.slug} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {aside}
           </div>
         )}
       </div>
 
-      {GROUPS.map((g) => {
-        const rows = shown.filter((i) => i.group === g.key)
-        if (!rows.length) return null
-        const folded = g.key === "later" && !openLater
-        return (
-          <section key={g.key} className="space-y-3">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div>
+      <div className="space-y-8">
+        {GROUPS.map((g) => {
+          const rows = shown.filter((i) => i.group === g.key)
+          if (!rows.length) return null
+          const folded = g.key === "later" && !openLater
+          return (
+            <section key={g.key} className="space-y-3">
+              {/* Group header on one line: title and count, then what belongs here. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <h3 className="flex items-center gap-2 text-sm font-semibold">
                   {g.title}
-                  <span className="rounded-full bg-secondary px-1.5 text-[11px] leading-5 font-normal text-muted-foreground tabular-nums">{rows.length}</span>
+                  <CountBadge>{rows.length}</CountBadge>
                 </h3>
-                <p className="text-xs text-muted-foreground">{g.hint}</p>
+                <p className="text-[13px] text-muted-foreground">{g.hint}</p>
+                {g.key === "later" && (
+                  <Button size="sm" variant="ghost" className="ml-auto" onClick={() => setOpenLater(!openLater)}>
+                    {folded ? "Show" : "Hide"}
+                  </Button>
+                )}
               </div>
-              {g.key === "later" && (
-                <Button size="sm" variant="ghost" onClick={() => setOpenLater(!openLater)}>
-                  {folded ? "Show" : "Hide"}
-                </Button>
+              {!folded && (
+                <ul className="surface divide-y overflow-hidden">
+                  {rows.map((i) => (
+                    <QueueRow key={i.key} item={i} showClient={showClient} canEdit={canEdit} onGone={hide} />
+                  ))}
+                </ul>
               )}
-            </div>
-            {!folded && (
-              <ul className="surface divide-y overflow-hidden">
-                {rows.map((i) => (
-                  <QueueRow key={i.key} item={i} showClient={showClient} canEdit={canEdit} onGone={hide} />
-                ))}
-              </ul>
-            )}
-          </section>
-        )
-      })}
+            </section>
+          )
+        })}
+      </div>
       {!shown.length && <p className="text-sm text-muted-foreground">Nothing here with these filters.</p>}
     </div>
   )
@@ -154,19 +169,19 @@ function QueueRow({ item: i, showClient, canEdit, onGone }: { item: QueueItem; s
           {i.platform === "ga4" ? <Ga4Icon /> : i.platform ? <PlatformIcon platform={i.platform} /> : null}
           <span className="min-w-0">{i.title}</span>
         </Link>
-        {i.detail && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{i.detail}</p>}
-        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-subtle-foreground">
+        {i.detail && <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-body">{i.detail}</p>}
+        <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
           {showClient && (
-            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 text-body">
               <ClientLogo name={i.client.name} logoUrl={i.client.logo_url} size="xs" />
               {i.client.name}
             </span>
           )}
           <span>{i.meta}</span>
-          {i.when && <span className={cn("rounded-full px-1.5 ring-1", i.when.tone === "red" ? "bg-rag-red-bg text-rag-red ring-rag-red/30" : i.when.tone === "amber" ? "bg-rag-amber-bg text-rag-amber ring-rag-amber/30" : "ring-border")}>{i.when.text}</span>}
+          {i.when && <span className={cn("rounded-md px-1.5 leading-5 ring-1 ring-inset", i.when.tone === "red" ? "bg-rag-red-bg text-rag-red ring-rag-red/30" : i.when.tone === "amber" ? "bg-rag-amber-bg text-rag-amber ring-rag-amber/30" : "ring-border")}>{i.when.text}</span>}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-1 sm:opacity-80 sm:group-hover:opacity-100">
+      <div className="flex w-full shrink-0 items-center gap-1 pl-5 sm:w-auto sm:pl-0 sm:opacity-80 sm:group-hover:opacity-100">
         <Link href={i.href} className={buttonVariants({ size: "sm", variant: "secondary" })}>
           Open
         </Link>

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { aiConfigured } from "@/lib/ai/claude"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { loadFeed } from "@/lib/insights/feed"
 import { addDays } from "@/lib/metrics/ads"
@@ -11,7 +11,7 @@ import { sprintOf } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
 import { InsightFeed } from "./feed"
 
-export const metadata = { title: "Optimize now" }
+export const metadata = { title: "Recommendations" }
 
 /**
  * "Optimize now" (Performance phase 3): what to fix or try, from rules over our Windsor data.
@@ -48,7 +48,7 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
       review={feed.review}
       reviewRunning={feed.reviewRunning}
       lastReviewFailed={feed.lastReviewFailed}
-      canReview={isAdmin(me)}
+      canReview={canEdit(me)}
       aiReady={aiConfigured()}
       defaultOrder={me.preferences?.optimise_order}
     />

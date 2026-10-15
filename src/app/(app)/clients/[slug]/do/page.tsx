@@ -5,9 +5,9 @@ import { canEdit, getProfile } from "@/lib/auth"
 import { loadQueue } from "@/lib/queue"
 import { createClient } from "@/lib/supabase/server"
 
-export const metadata = { title: "To do" }
+export const metadata = { title: "All tasks" }
 
-/** Do › To do (new layout): the Today queue for this client only. */
+/** Tasks › All tasks: the Today queue for this client only. */
 export default async function ClientToDoPage({ params }: PageProps<"/clients/[slug]/do">) {
   const { slug } = await params
   const supabase = await createClient()
@@ -16,11 +16,16 @@ export default async function ClientToDoPage({ params }: PageProps<"/clients/[sl
   const items = await loadQueue(supabase, [client], { profileId: me.id }) // client loaded through RLS above
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">
-        Everything to act on for {client.name}, ranked. The same list across all your clients is on <Link href="/today" className="underline hover:text-foreground">Today</Link>.
-      </p>
-      <QueueView items={items} showClient={false} canEdit={canEdit(me)} empty={`Nothing to act on for ${client.name} right now.`} />
-    </div>
+    <QueueView
+      items={items}
+      showClient={false}
+      canEdit={canEdit(me)}
+      empty={`Nothing to act on for ${client.name} right now.`}
+      aside={
+        <Link href="/today" className="text-[13px] text-muted-foreground transition-colors hover:text-foreground">
+          All clients on Today →
+        </Link>
+      }
+    />
   )
 }

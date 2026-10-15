@@ -6,28 +6,18 @@ import { useRouter } from "next/navigation"
 import { useEffect, useId } from "react"
 import { ClientLogo } from "@/components/brand"
 import type { SidebarClient } from "@/components/app-sidebar"
-import type { Lens } from "@/lib/lens"
+import { CLIENT_PAGES as ALL_CLIENT_PAGES } from "@/lib/tab-groups"
 import { cn } from "@/lib/utils"
 
 type Item = { id: string; label: string; href: string; search: string; client?: SidebarClient }
 type Group = { value: string; items: Item[] }
 
-// Every client page, in both layouts (every URL works in both).
-const CLIENT_PAGES = [
-  { href: "", label: "At a glance" },
-  { href: "/do", label: "To do" },
-  { href: "/reporting", label: "Reporting" },
-  { href: "/insights", label: "Optimize now" },
-  { href: "/checks", label: "Checks" },
-  { href: "/sprint", label: "Sprint" },
-  { href: "/ideas", label: "Content ideas" },
-  { href: "/briefs", label: "Briefs" },
-  { href: "/brain", label: "Brain" },
-]
+// Every client page by its section name (the content library only exists for some clients, so it's left out).
+const CLIENT_PAGES = ALL_CLIENT_PAGES.filter((p) => p.href !== "/library")
 
-function groups({ clients, isAdmin, lens, profileId }: { clients: SidebarClient[]; isAdmin: boolean; lens: Lens | null; profileId: string }): Group[] {
+function groups({ clients, isAdmin, profileId }: { clients: SidebarClient[]; isAdmin: boolean; profileId: string }): Group[] {
   const go: Item[] = [
-    ...(lens ? [{ href: "/today", label: "Today" }] : []),
+    { href: "/today", label: "Today" },
     { href: "/clients", label: "All clients" },
     { href: "/learnings", label: "Learnings" },
     { href: "/options", label: "Options" },
@@ -50,7 +40,7 @@ const matchWords = (item: Item, query: string) => query.toLowerCase().split(/\s+
  * "Jump to" (⌘K / Ctrl+K): every client page and the app's own pages, filtered as you type.
  * Base UI's Autocomplete handles the keyboard and focus; Enter or a click opens the page.
  */
-export function CommandMenu({ open, onOpenChange, ...props }: { open: boolean; onOpenChange: (open: boolean) => void; clients: SidebarClient[]; isAdmin: boolean; lens: Lens | null; profileId: string }) {
+export function CommandMenu({ open, onOpenChange, ...props }: { open: boolean; onOpenChange: (open: boolean) => void; clients: SidebarClient[]; isAdmin: boolean; profileId: string }) {
   const router = useRouter()
   const hintId = useId()
 

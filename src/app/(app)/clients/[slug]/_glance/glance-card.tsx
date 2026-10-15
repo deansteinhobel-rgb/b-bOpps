@@ -2,13 +2,17 @@
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 import { ChevronRight, XIcon } from "lucide-react"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 
 /**
  * An At a glance card (new layout, Dean 2026-09-30: "don't make us scroll, but let us click in"):
  * the headline numbers only, and the full section in a side panel on click. The URL carries
  * ?view=<id>, so a panel can be shared and the back button closes it.
+ *
+ * Opening and closing only change the URL in the browser (history.pushState / replaceState, which
+ * Next keeps in sync with useSearchParams), never a server navigation: the panel's content is already
+ * on the page, and a round trip re-rendered the whole Summary first (several seconds to close, 2026-10-15).
  */
 export function GlanceCard({
   id,
@@ -32,7 +36,6 @@ export function GlanceCard({
   className?: string
   wide?: boolean
 }) {
-  const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
   const open = params.get("view") === id
@@ -41,7 +44,7 @@ export function GlanceCard({
     if (next) p.set("view", id)
     else p.delete("view")
     const q = p.toString()
-    router[next ? "push" : "replace"](q ? `${pathname}?${q}` : pathname, { scroll: false })
+    window.history[next ? "pushState" : "replaceState"](null, "", q ? `${pathname}?${q}` : pathname)
   }
 
   return (

@@ -3,52 +3,33 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useLayoutEffect, useRef, useState } from "react"
-import type { TabGroup } from "@/lib/lens"
+import type { TabGroup } from "@/lib/tab-groups"
 import { cn } from "@/lib/utils"
-
-// The classic layout's tabs. The new layout passes `groups` instead (src/lib/lens.ts).
-const TABS = [
-  { href: "", label: "At a glance" },
-  { href: "/reporting", label: "Reporting" },
-  { href: "/insights", label: "Optimize now" },
-  { href: "/checks", label: "Checks" },
-  { href: "/sprint", label: "Sprint" },
-  { href: "/briefs", label: "Briefs" },
-  { href: "/brain", label: "Brain" },
-]
 
 type Box = { left: number; width: number }
 
-type Tab = { href: string; label: string; match: string[] }
-const classicTabs: Tab[] = TABS.map((t) => ({ ...t, match: [t.href] }))
-const groupTabs = (groups: TabGroup[]): Tab[] => groups.map((g) => ({ href: g.items[0].href, label: g.label, match: g.items.map((i) => i.href) }))
-
 /**
- * The client's section tabs, Stripe style (Dean): a lime pill sits behind the active tab and slides
- * to the next one on click, and a soft pill follows the pointer on hover. The active tab follows the
- * click straight away, then the URL. In the new layout each tab is a group (Do, Overview, Performance,
- * Plan, Know); a group with several pages gets a quiet second row under it.
+ * A client's navigation (Dean, 2026-10-15: one clear primary level, sub-pages that look like sub-pages).
+ * Three levels, three looks: sections (Summary, Tasks, Reporting, Planning, Knowledge) are tabs on a
+ * hairline with a lime underline that slides to the active one (the page's "you are here"); a section
+ * with several pages (Tasks, Planning) shows them as a compact view switcher under it; filters inside a
+ * page are flat text (FilterTabs). So no two levels look alike.
  */
-export function ClientTabs({ slug, groups }: { slug: string; groups?: TabGroup[] }) {
+export function ClientTabs({ slug, groups }: { slug: string; groups: TabGroup[] }) {
   const pathname = usePathname()
   const base = `/clients/${slug}`
-  const tabs = groups ? groupTabs(groups) : classicTabs
   const matches = (path: string, href: string) => (href ? path === base + href || path.startsWith(`${base + href}/`) : path === base)
-  const activeFor = (path: string) => tabs.find((t) => t.match.some((m) => m && matches(path, m)))?.label ?? tabs.find((t) => t.match.includes("") && path === base)?.label ?? null
-  const [clicked, setClicked] = useState<{ label: string; from: string } | null>(null)
-  const active = clicked && clicked.from === pathname ? clicked.label : activeFor(pathname)
+  const groupFor = (path: string) => groups.find((g) => g.items.some((i) => i.href && matches(path, i.href))) ?? groups.find((g) => g.items.some((i) => i.href === "" && path === base)) ?? null
+  // The clicked tab shows as active straight away, then the URL catches up.
+  const [clicked, setClicked] = useState<{ key: string; from: string } | null>(null)
+  const active = clicked && clicked.from === pathname ? groups.find((g) => g.key === clicked.key) ?? null : groupFor(pathname)
 
   const refs = useRef<Record<string, HTMLAnchorElement | null>>({})
-  const box = (label: string | null): Box | null => {
-    const el = label ? refs.current[label] : null
-    return el ? { left: el.offsetLeft, width: el.offsetWidth } : null
-  }
-  const [pill, setPill] = useState<Box | null>(null)
-  const [hover, setHover] = useState<Box | null>(null)
+  const [bar, setBar] = useState<Box | null>(null)
   useLayoutEffect(() => {
-    const el = active ? refs.current[active] : null
-    if (!el) return setPill(null)
-    const measure = () => setPill({ left: el.offsetLeft, width: el.offsetWidth })
+    const el = active ? refs.current[active.key] : null
+    if (!el) return setBar(null)
+    const measure = () => setBar({ left: el.offsetLeft, width: el.offsetWidth })
     measure()
     el.scrollIntoView({ block: "nearest", inline: "nearest" })
     const ro = new ResizeObserver(measure)
@@ -56,60 +37,54 @@ export function ClientTabs({ slug, groups }: { slug: string; groups?: TabGroup[]
     return () => ro.disconnect()
   }, [active])
 
-  const main = (
-    <nav className="relative -mx-1 flex overflow-x-auto px-1 pb-3 [scrollbar-width:none]" aria-label="Client sections" onMouseLeave={() => setHover(null)}>
-      <div className="relative flex">
-        {/* Hover pill: follows the pointer, hidden over the active tab. */}
-        <span
-          className={cn("pointer-events-none absolute inset-y-0 rounded-full bg-secondary transition-all duration-200 ease-out motion-reduce:transition-none", hover ? "opacity-100" : "opacity-0")}
-          style={hover ?? pill ?? { left: 0, width: 0 }}
-          aria-hidden
-        />
-        {/* Active pill. */}
-        {pill && <span className="pointer-events-none absolute inset-y-0 rounded-full bg-lime transition-all duration-300 ease-[cubic-bezier(0.3,1.3,0.5,1)] motion-reduce:transition-none" style={pill} aria-hidden />}
-        {tabs.map((t) => {
-          const isActive = active === t.label
-          return (
-            <Link
-              key={t.label}
-              ref={(el) => {
-                refs.current[t.label] = el
-              }}
-              href={base + t.href}
-              onClick={() => setClicked({ label: t.label, from: pathname })}
-              onMouseEnter={() => setHover(isActive ? null : box(t.label))}
-              onFocus={() => setHover(isActive ? null : box(t.label))}
-              onBlur={() => setHover(null)}
-              aria-current={isActive ? "page" : undefined}
-              className={cn(
-                "relative z-10 rounded-full px-3.5 py-1.5 text-sm whitespace-nowrap transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-lime/60",
-                isActive ? "font-medium text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {t.label}
-            </Link>
-          )
-        })}
-      </div>
-    </nav>
-  )
-  const group = groups?.find((g) => g.label === active)
-  const sub = group && group.items.length > 1 && (
-    <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-3 [scrollbar-width:none]" aria-label={`${group.label} pages`}>
-      {group.items.map((i) => {
-        const on = matches(pathname, i.href)
-        return (
-          <Link key={i.href} href={base + i.href} aria-current={on ? "page" : undefined} className={cn("rounded-full border px-3 py-1 text-xs whitespace-nowrap transition-colors", on ? "pill-active font-medium" : "border-transparent text-muted-foreground hover:border-border hover:text-foreground")}>
-            {i.label}
-          </Link>
-        )
-      })}
-    </nav>
-  )
+  const sub = active && active.items.length > 1 ? active : null
   return (
-    <>
-      {main}
-      {sub}
-    </>
+    <div className="space-y-5">
+      <nav className="relative overflow-x-auto border-b [scrollbar-width:none]" aria-label="Client sections">
+        <div className="relative flex gap-7">
+          {groups.map((g) => {
+            const on = active?.key === g.key
+            return (
+              <Link
+                key={g.key}
+                ref={(el) => {
+                  refs.current[g.key] = el
+                }}
+                href={base + g.items[0].href}
+                onClick={() => setClicked({ key: g.key, from: pathname })}
+                aria-current={on ? "page" : undefined}
+                className={cn(
+                  "flex h-11 items-center rounded-sm text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                  on ? "font-medium text-foreground" : "text-body hover:text-foreground",
+                )}
+              >
+                {g.label}
+              </Link>
+            )
+          })}
+          {bar && <span className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-lime transition-all duration-200 ease-out motion-reduce:transition-none" style={bar} aria-hidden />}
+        </div>
+      </nav>
+      {sub && (
+        <nav className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg bg-white/[0.04] p-0.5 [scrollbar-width:none]" aria-label={`${sub.label} pages`}>
+          {sub.items.map((i) => {
+            const on = matches(pathname, i.href)
+            return (
+              <Link
+                key={i.href}
+                href={base + i.href}
+                aria-current={on ? "page" : undefined}
+                className={cn(
+                  "flex h-8 items-center rounded-md px-3 text-[13px] whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  on ? "bg-white/[0.1] font-medium text-foreground" : "text-body hover:text-foreground",
+                )}
+              >
+                {i.label}
+              </Link>
+            )
+          })}
+        </nav>
+      )}
+    </div>
   )
 }

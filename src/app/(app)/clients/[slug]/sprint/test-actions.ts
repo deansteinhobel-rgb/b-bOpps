@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { canEdit, getProfile, isAdmin, VIEW_ONLY } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { longDate, money } from "@/lib/format"
 import { briefTitle, liveClientSlugs, PRIORITIES, type Priority } from "@/lib/notion/config"
 import { notionWritesLive, writeDeps } from "@/lib/notion/server"
@@ -295,9 +295,9 @@ export async function setTestLever(testId: string, raw: string): Promise<TestRes
   return { ok: true }
 }
 
-/** Renames a test (Dean, 2026-09-30: admins and GTM leads only). The app's copy only: the Notion brief keeps its name. */
+/** Renames a test (Dean, 2026-10-15: anyone who can edit the client). The app's copy only: the Notion brief keeps its name. */
 export async function renameTest(testId: string, raw: string): Promise<TestResult> {
-  if (!isAdmin(await getProfile())) return fail("Only admins can rename tests.")
+  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const parsed = z.string().trim().min(1, "Give it a name.").max(200, "Keep it under 200 characters.").safeParse(raw)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
   const { supabase, test, error } = await loadTest(testId)

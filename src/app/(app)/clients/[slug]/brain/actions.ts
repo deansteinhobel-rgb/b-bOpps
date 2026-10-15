@@ -2,7 +2,7 @@
 
 import { after } from "next/server"
 import { revalidatePath } from "next/cache"
-import { canEdit, getProfile, isAdmin, VIEW_ONLY } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { FILE_BUCKET, isClientFilePath } from "@/lib/knowledge/brief"
 import { readHqPage } from "@/lib/knowledge/notion-hq"
 import { rateLimit } from "@/lib/rate-limit"
@@ -96,11 +96,9 @@ export async function removeFile(slug: string, id: string): Promise<BrainResult>
   return { ok: true }
 }
 
-/** Tick or untick an HQ page. Ticking reads it straight away (read only). GTM leads and admins. */
+/** Tick or untick an HQ page. Ticking reads it straight away (read only). Anyone who can edit the client. */
 export async function setHqPageIncluded(slug: string, id: string, include: boolean): Promise<BrainResult> {
   if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
-  const me = await getProfile()
-  if (!isAdmin(me)) return fail("Only GTM leads and admins choose which HQ pages count.")
   const { clientId } = await clientFor(slug)
   if (!clientId) return fail("This client isn't available to you.")
   const db = createAdminClient()

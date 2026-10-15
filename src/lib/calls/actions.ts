@@ -3,7 +3,7 @@
 import { after } from "next/server"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
-import { canEdit, getProfile, isAdmin, VIEW_ONLY } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { extractCall } from "@/lib/calls/extract"
 import { notionIdFrom, optionFor, resolveCallSource } from "@/lib/calls/notion"
 import { londonToday } from "@/lib/checks/periods"
@@ -29,13 +29,13 @@ const refresh = (slug: string) => {
 }
 
 /**
- * Link the Notion database or page that holds the client's call notes (read only). GTM leads and
- * admins. A database shared by several clients (a "Client" select) needs this client's option: it's
+ * Link the Notion database or page that holds the client's call notes (read only). Anyone who can
+ * edit the client. A database shared by several clients (a "Client" select) needs this client's option: it's
  * picked from the client's name when that's clear, otherwise the options come back to choose from.
  */
 export async function linkCallNotes(slug: string, link: string, option?: string): Promise<CallResult> {
   const me = await getProfile()
-  if (!isAdmin(me)) return fail("Only GTM leads and admins link call notes.")
+  if (!canEdit(me)) return fail(VIEW_ONLY)
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, name, notion_client_option").eq("slug", slug).maybeSingle()
   if (!client) return fail("This client isn't available to you.")

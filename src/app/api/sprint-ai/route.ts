@@ -1,5 +1,5 @@
 import { after, NextResponse } from "next/server"
-import { getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { aiConfigured } from "@/lib/ai/claude"
 import { generateSprintPlan } from "@/lib/ai/generate"
 import { rateLimit } from "@/lib/rate-limit"
@@ -8,10 +8,10 @@ import { createClient } from "@/lib/supabase/server"
 // A generation takes 1-3 minutes and runs after the response (see `after`), within this limit.
 export const maxDuration = 300
 
-/** Start "Pour me a sprint" for a sprint. GTM leads and admins only. Returns the run id to poll. */
+/** Start "Pour me a sprint" for a sprint. Anyone who can edit the client. Returns the run id to poll. */
 export async function POST(request: Request) {
   const me = await getProfile()
-  if (!isAdmin(me)) return NextResponse.json({ error: "Only GTM leads and admins can generate a sprint." }, { status: 403 })
+  if (!canEdit(me)) return NextResponse.json({ error: VIEW_ONLY }, { status: 403 })
   if (!aiConfigured()) return NextResponse.json({ error: "Claude isn't set up yet: add ANTHROPIC_API_KEY to .env.local and restart." }, { status: 503 })
   const { sprintId } = (await request.json().catch(() => ({}))) as { sprintId?: string }
   if (!sprintId) return NextResponse.json({ error: "Missing sprint." }, { status: 400 })

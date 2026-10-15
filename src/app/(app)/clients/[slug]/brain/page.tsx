@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { canEdit, getProfile, isAdmin } from "@/lib/auth"
+import { canEdit, getProfile } from "@/lib/auth"
 import { aiConfigured } from "@/lib/ai/claude"
 import { followUpsForClient } from "@/lib/calls/load"
 import { createClient } from "@/lib/supabase/server"
@@ -41,7 +41,7 @@ export default async function BrainPage({ params }: PageProps<"/clients/[slug]/b
         slug={slug}
         clientName={client.name}
         hqPageId={client.notion_hq_page_id}
-        canAdmin={isAdmin(me)}
+        canAdmin={canEdit(me)}
         aiReady={aiConfigured()}
         brief={all.find((b) => b.status === "ready") ?? null}
         generating={all.find((b) => b.status === "generating" && startedRecently(b.created_at))?.id ?? null}
@@ -56,7 +56,7 @@ export default async function BrainPage({ params }: PageProps<"/clients/[slug]/b
         suggestions={hq.filter((k) => CALLISH.test(k.title) && norm(k.notion_page_id) !== norm(client.call_notes_notion_id)).slice(0, 6).map((k) => ({ id: k.notion_page_id!, title: k.title, path: k.path }))}
         calls={(calls ?? []) as Call[]}
         followUps={followUps}
-        canAdmin={isAdmin(me)}
+        canAdmin={canEdit(me)}
         canEdit={canEdit(me)}
         aiReady={aiConfigured()}
       />

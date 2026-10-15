@@ -121,7 +121,7 @@ export function InsightFeed(props: {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
-          <h2 className="text-2xl">Optimize now</h2>
+          <h2 className="text-2xl">Recommendations</h2>
           <p className="text-sm text-muted-foreground">
             What to fix or try, from the last 30 days of numbers{props.dataThrough ? ` (data to ${props.dataThrough})` : ""}. Make the change in the platform, then mark it done here.
           </p>
@@ -348,7 +348,7 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
   }
 
   const itemLines = chosen.map((x) => `- ${x.label}${x.note ? ` (${x.note})` : ""}${x.campaigns?.length ? `\n  Seen in: ${x.campaigns.join("; ")}` : ""}`).join("\n")
-  const description = [`${i.why}`, `What to do: ${i.todo}`, i.listed && chosen.length ? `${i.itemsLabel ?? "Items"}:\n${itemLines}` : null, i.campaignName ? `Campaign: ${i.campaignName} (${platformName(i.platform)})` : null, `From "Optimize now" in Lumaux (${rule.label}).`]
+  const description = [`${i.why}`, `What to do: ${i.todo}`, i.listed && chosen.length ? `${i.itemsLabel ?? "Items"}:\n${itemLines}` : null, i.campaignName ? `Campaign: ${i.campaignName} (${platformName(i.platform)})` : null, `From "Recommendations" in Lumaux (${rule.label}).`]
     .filter(Boolean)
     .join("\n\n")
   const shortTitle = `${p.clientName}: ${i.title}${i.campaignName ? ` (${i.campaignName})` : ""}`.slice(0, 200)
@@ -592,7 +592,7 @@ function ClaudeMark({ className }: { className?: string }) {
 
 /**
  * Claude's take (phase 4): the daily review's headline and the 1-3 things to do first, each opening
- * its insight. GTM leads and admins can ask for a fresh review (about a minute).
+ * its insight. Anyone who can edit the client can ask for a fresh review (about a minute).
  */
 function ClaudeTake(p: Parameters<typeof InsightFeed>[0] & { onOpen: (key: string) => void }) {
   const router = useRouter()

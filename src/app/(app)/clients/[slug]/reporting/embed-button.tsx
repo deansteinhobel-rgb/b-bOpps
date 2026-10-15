@@ -16,7 +16,7 @@ export type EmbedLink = { id: string; board: string; opens: string; label: strin
 /**
  * "Embed in Notion" for one report board (Dean, 2026-09-29): a view-only link to paste into a Notion
  * embed block. The viewer can change the period; the link shows this board and nothing else. Admins,
- * GTM leads and the client's AMs make links and turn them off; everyone on the team can copy them.
+ * Anyone who can edit the client makes links and turns them off; everyone on the team can copy them.
  */
 export function EmbedButton({ slug, board, boardLabel, range, links, canShare }: { slug: string; board: BoardKey; boardLabel: string; range: RangeSpec; links: EmbedLink[]; canShare: boolean }) {
   // What the embed opens on: the quick periods, the presets, or the dates on screen now.

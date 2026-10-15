@@ -1,9 +1,11 @@
 import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { currentPeriods } from "@/lib/checks/periods"
 import { isRedNotActioned } from "@/lib/checks/runs"
 import { cachedPacing } from "@/lib/metrics/cached"
 import type { PlatformPacing } from "@/lib/metrics/overview"
+import { mockFunnel, type Funnel } from "@/lib/mock-funnel"
 import { CLOSED_STATUSES, PROP } from "@/lib/notion/config"
 import { sprintOf } from "@/lib/sprints/periods"
 
@@ -12,6 +14,7 @@ export type ClientCard = {
   name: string
   slug: string
   logo_url: string | null
+  currency: string
   sprint: { number: number; tests: number; live: number; called: number }
   pacing: PlatformPacing[]
   worstPacing: PlatformPacing["status"] | null
@@ -20,35 +23,49 @@ export type ClientCard = {
   openActions: number
   redsNotActioned: number
   team: string[]
+  /** The viewer can open this client's pages (RLS). Cards for other clients are summary only. */
+  canOpen: boolean
+  /** MQL, SQL and pipeline against target (sample numbers for now, see src/lib/mock-funnel.ts). */
+  funnel: Funnel
+  /** Share of the month gone, for the "on pace" marks (London days). */
+  monthPace: number
 }
 
 const SEVERITY = { red: 3, amber: 2, green: 1, no_budget: 0 } as const
 
-/** One card per client the user can see (RLS). "Mine" = clients the user is on the team of. */
-export async function clientCards(supabase: SupabaseClient, opts: { profileId: string; onlyMine: boolean }): Promise<ClientCard[]> {
+/**
+ * One card per active client, for everyone with a role (Dean, 2026-10-15: every client's mini dashboard on
+ * the Clients screen, whatever your role). The cards are read with the secret key, so they hold summary
+ * numbers only (pacing, checks done, tests, open actions, team names); `canOpen` says which clients the
+ * person can open (RLS), and the client pages stay scoped by RLS as before.
+ */
+export async function clientCards(supabase: SupabaseClient): Promise<ClientCard[]> {
   const { weekly, today } = currentPeriods()
   const sprintPeriod = sprintOf(today)
-  const [{ data: clients }, { data: mine }] = await Promise.all([
-    supabase
+  const db = createAdminClient()
+  const [y, m, d] = today.split("-").map(Number)
+  const monthPace = d / new Date(Date.UTC(y, m, 0)).getUTCDate()
+  const [{ data: clients }, { data: openable }] = await Promise.all([
+    db
       .from("clients")
-      .select("id, name, slug, logo_url, client_team(profile_id, removed_at, profiles(full_name, email)), client_team_invites(email, removed_at, team_invites(full_name))")
+      .select("id, name, slug, logo_url, currency, client_team(profile_id, removed_at, profiles(full_name, email)), client_team_invites(email, removed_at, team_invites(full_name))")
       .eq("active", true)
       .is("client_team.removed_at", null)
       .is("client_team_invites.removed_at", null)
       .order("name"),
-    supabase.from("client_team").select("client_id").eq("profile_id", opts.profileId).is("removed_at", null),
+    supabase.from("clients").select("id").eq("active", true),
   ])
-  const mineIds = new Set((mine ?? []).map((m) => m.client_id))
-  const list = (clients ?? []).filter((c) => !opts.onlyMine || mineIds.has(c.id))
+  const canOpen = new Set((openable ?? []).map((c) => c.id as string))
+  const list = clients ?? []
 
   return Promise.all(
     list.map(async (c) => {
       const [pacing, { data: run }, { data: actions }, { data: reds }, { data: tests }] = await Promise.all([
-        cachedPacing(c.id), // clients list came through RLS
-        supabase.from("check_runs").select("id, check_results(status)").eq("client_id", c.id).eq("cadence", "weekly").eq("period_start", weekly.start).maybeSingle(),
-        supabase.from("notion_pages_mirror").select("properties").eq("client_id", c.id).eq("page_type", "action").eq("in_trash", false),
-        supabase.from("check_results").select("status, notion_action_page_id, checked_at").eq("client_id", c.id).eq("status", "red").is("notion_action_page_id", null),
-        supabase.from("sprint_tests").select("status, outcome, sprints!inner(start_date)").eq("client_id", c.id).eq("sprints.start_date", sprintPeriod.start),
+        cachedPacing(c.id), // summary for every client (see above)
+        db.from("check_runs").select("id, check_results(status)").eq("client_id", c.id).eq("cadence", "weekly").eq("period_start", weekly.start).maybeSingle(),
+        db.from("notion_pages_mirror").select("properties").eq("client_id", c.id).eq("page_type", "action").eq("in_trash", false),
+        db.from("check_results").select("status, notion_action_page_id, checked_at").eq("client_id", c.id).eq("status", "red").is("notion_action_page_id", null),
+        db.from("sprint_tests").select("status, outcome, sprints!inner(start_date)").eq("client_id", c.id).is("archived_at", null).eq("sprints.start_date", sprintPeriod.start),
       ])
       const results = ((run?.check_results ?? []) as { status: string | null }[])
       const worst = pacing?.pacing.reduce<PlatformPacing["status"] | null>((w, p) => (w === null || SEVERITY[p.status] > SEVERITY[w] ? p.status : w), null) ?? null
@@ -61,6 +78,7 @@ export async function clientCards(supabase: SupabaseClient, opts: { profileId: s
         name: c.name,
         slug: c.slug,
         logo_url: (c.logo_url as string | null) ?? null,
+        currency: (c.currency as string | null) ?? "USD",
         sprint: {
           number: sprintPeriod.number,
           tests: (tests ?? []).length,
@@ -74,6 +92,9 @@ export async function clientCards(supabase: SupabaseClient, opts: { profileId: s
         openActions: (actions ?? []).filter((a) => !CLOSED_STATUSES.includes(String((a.properties as Record<string, unknown>)[PROP.status] ?? ""))).length,
         redsNotActioned: (reds ?? []).filter((r) => isRedNotActioned(r as never, now)).length,
         team: [...new Set([...members, ...invited].filter(Boolean) as string[])],
+        canOpen: canOpen.has(c.id),
+        funnel: mockFunnel(c.slug, monthPace),
+        monthPace,
       }
     }),
   )

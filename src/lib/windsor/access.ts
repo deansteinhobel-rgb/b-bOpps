@@ -1,14 +1,13 @@
 import "server-only"
-import { isAdmin, type Profile } from "@/lib/auth"
+import { canEdit, type Profile } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 
-/** Who may push negative keywords (Dean, 2026-09-30): admins, GTM leads, and the specialist on the client's team. */
+/** Who may push negative keywords (Dean, 2026-10-15): every role that runs features, on a client they can edit. */
 export async function canPushNegatives(me: Profile, clientId: string) {
-  if (isAdmin(me)) return true
-  if (me.role === null || me.role === "viewer") return false
+  if (!canEdit(me)) return false
   const supabase = await createClient()
-  const { data } = await supabase.from("client_team").select("role").eq("client_id", clientId).eq("profile_id", me.id).eq("role", "specialist").is("removed_at", null).limit(1)
-  return (data ?? []).length > 0
+  const { data } = await supabase.rpc("can_edit_client", { cid: clientId })
+  return Boolean(data)
 }
 
 /** Who may create paused search ads and pause ads from a sprint test (Dean, 2026-10-15): the same people as negatives. */
