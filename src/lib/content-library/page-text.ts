@@ -71,3 +71,39 @@ export function pageFromHtml(html: string, hosts: readonly string[] = []): PageT
     .slice(0, MAX_TEXT)
   return { title, description, canonicalUrl, text, words: text ? text.split(/\s+/).length : 0 }
 }
+
+const TOO_LARGE = "The page is too large to read. Paste the page text instead."
+
+/**
+ * The response body as text, stopping as soon as it passes `max` bytes (Aikido, PR #10): a huge page
+ * is refused while it streams in, never buffered whole.
+ */
+export async function readCapped(res: Response, max: number): Promise<string> {
+  const length = Number(res.headers.get("content-length"))
+  if (Number.isFinite(length) && length > max) {
+    // Release the connection: an unread body would hold it open.
+    await res.body?.cancel().catch(() => {})
+    throw new Error(TOO_LARGE)
+  }
+  if (!res.body) throw new Error("The page didn't respond. Try again, or paste the page text.")
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > max) {
+      await reader.cancel().catch(() => {})
+      throw new Error(TOO_LARGE)
+    }
+    chunks.push(value)
+  }
+  const bytes = new Uint8Array(total)
+  let at = 0
+  for (const c of chunks) {
+    bytes.set(c, at)
+    at += c.byteLength
+  }
+  return new TextDecoder().decode(bytes)
+}

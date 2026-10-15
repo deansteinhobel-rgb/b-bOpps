@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { addDays } from "@/lib/metrics/ads"
 import type { Platform } from "@/lib/metrics/types"
 import { rpcAll } from "@/lib/supabase/rpc-all"
-import { computeInsights, effectiveThrough, type CampaignDays, type InsightPlatform, type InsightInputs, type LinkedInKind, type SegmentRow, type Sums } from "./rules"
+import { computeInsights, effectiveThrough, type CampaignDays, type InsightPlatform, type InsightInputs, type LinkedInKind, type SegmentRow, type SettingRow, type Sums } from "./rules"
 import { dataRanges } from "@/lib/metrics/data-range"
 
 /** Loads everything the insight rules read, for one client, and runs them. */
@@ -22,12 +22,13 @@ async function latest(supabase: SupabaseClient, clientId: string, kind: string) 
 }
 
 export async function loadInsightInputs(supabase: SupabaseClient, clientId: string): Promise<InsightInputs | null> {
-  const [{ data: client }, { data: range }, { data: statuses }, { data: review }] = await Promise.all([
+  const [{ data: client }, { data: range }, { data: statuses }, { data: review }, { data: settingRows }] = await Promise.all([
     supabase.from("clients").select("name, currency, monthly_kpi_target, ga4_property_id").eq("id", clientId).single(),
     dataRanges(supabase, clientId),
     supabase.from("campaign_statuses").select("platform, campaign_id, status").eq("client_id", clientId),
     // Claude's latest daily review: ICP verdicts and campaign goals feed the rules.
     supabase.from("insight_reviews").select("companies, terms, goals, audiences").eq("client_id", clientId).eq("status", "ready").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("platform_settings").select("platform, external_account_id, level, entity_id, entity_name, campaign_id, campaign_name, settings, checked_at").eq("client_id", clientId).limit(5000),
   ])
   const statusOf = new Map((statuses ?? []).map((r) => [`${r.platform}|${r.campaign_id}`, r.status as string]))
   if (!client || !range?.length) return null
@@ -83,8 +84,19 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     if (at) linkedin[kind] = { asOf: at, rows: await breakdown(supabase, clientId, kind, at, at) }
   }
 
+  // Only each account's latest check: campaigns that stopped running keep their old row.
+  const lastCheck = new Map<string, string>()
+  for (const r of settingRows ?? []) {
+    const k = `${r.platform}|${r.external_account_id}`
+    if (!lastCheck.has(k) || r.checked_at > lastCheck.get(k)!) lastCheck.set(k, r.checked_at as string)
+  }
+  const settings: SettingRow[] = (settingRows ?? [])
+    .filter((r) => r.checked_at === lastCheck.get(`${r.platform}|${r.external_account_id}`))
+    .map((r) => ({ platform: r.platform as Platform, level: r.level as SettingRow["level"], entityId: String(r.entity_id), entityName: String(r.entity_name ?? r.entity_id), campaignId: String(r.campaign_id), campaignName: String(r.campaign_name ?? r.campaign_id), settings: (r.settings ?? {}) as Record<string, unknown> }))
+
   return {
     clientName: client.name,
+    settings,
     currency: client.currency,
     target,
     dataThrough,

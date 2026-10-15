@@ -25,6 +25,7 @@
     "sync:breakdowns": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-breakdowns.ts",
     "dev:signin": "tsx --env-file=.env.local scripts/dev-signin.ts",
     "sync:changes": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-changes.ts",
+    "sync:settings": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-settings.ts",
     "ideas:content": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/content-ideas.ts",
     "sync:calls": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-calls.ts",
     "label": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/label.ts"

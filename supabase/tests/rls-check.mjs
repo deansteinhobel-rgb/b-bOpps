@@ -392,6 +392,16 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   console.log(reverted.length === 1 && reverted[0].angle === "Go deeper" ? "team member reverts an email to Claude's pick: OK" : "FAIL: revert to Claude's pick")
   const back = await q(`select seq_status, reapproval, notion_page_id from public.content_pieces where id = '${p1}'`)
   console.log(back[0].seq_status === "pending" && back[0].reapproval && back[0].notion_page_id === "n1" ? "editing an approved sequence sends it back for approval: OK" : `FAIL: reapproval (${JSON.stringify(back[0])})`)
+  // Aikido (PR #10): approval state is the server's. A reopened sequence keeps "changed since
+  // approval"; an approved one can't be taken to "not required"; the handoff is email 3 only.
+  await tries("clear 'changed since approval'", andrea, `update public.content_pieces set reapproval = false where id = '${p1}'`)
+  await q(`update public.content_pieces set seq_status = 'approved', reapproval = false, approval_round = 2 where id = '${p1}'`)
+  await tries("take an approved sequence to not required", andrea, `update public.content_pieces set seq_status = 'not_required' where id = '${p1}'`)
+  await tries("reopen an approved sequence without flagging it", andrea, `update public.content_pieces set seq_status = 'pending' where id = '${p1}'`)
+  const reopened = await as(andrea, () => q(`update public.content_pieces set seq_status = 'pending', reapproval = true where id = '${p1}' returning id`))
+  console.log(reopened.length === 1 ? "team member reopens an approved sequence with the flag: OK" : "FAIL: reopen with the flag")
+  await tries("send the sales handoff as email 1", andrea, `insert into public.content_sequences (piece_id, slot, client_id, handoff) values ('${p1}', 2, '${camber}', true)`)
+  try { await q(`insert into public.content_sequences (piece_id, slot, client_id, suggested_handoff) values ('${p1}', 2, '${camber}', true)`); console.log("FAIL: early handoff accepted as Claude's pick") } catch { console.log("Claude's pick can't hand off before email 3 either: OK") }
   const andreaSees = await as(andrea, () => q("select id from public.content_pieces"))
   const veraSees = await as(vera, () => q("select id from public.content_pieces where client_id = '11111111-1111-1111-1111-111111111111'"))
   const dannySees = await as(danny, () => q("select id from public.content_pieces where client_id = '11111111-1111-1111-1111-111111111111'"))

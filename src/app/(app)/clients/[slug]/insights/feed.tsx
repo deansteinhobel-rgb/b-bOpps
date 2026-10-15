@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { money, shortDate } from "@/lib/format"
-import { isOpportunity, RULES, type Category, type FeedInsight, type InsightPlatform, type Severity } from "@/lib/insights/rules"
+import { isOpportunity, isUrgent, RULES, type Category, type FeedInsight, type InsightPlatform, type Severity } from "@/lib/insights/rules"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import type { PreviewMap } from "@/lib/previews"
 import { cn } from "@/lib/utils"
@@ -109,8 +109,10 @@ export function InsightFeed(props: {
   const wasted = byCategory.waste.reduce((s, i) => s + openStake(i), 0)
   const platformsHere = PLATFORMS.filter((p) => inView.some((i) => i.platform === p) || props.checked.some((c) => c.platform === p))
   // Opportunities first, in their own section (Dean); then everything that needs attention.
+  // Urgent platform settings above everything (Dean, 2026-10-15).
+  const urgent = shown.filter(isUrgent)
   const opportunities = shown.filter(isOpportunity)
-  const attention = shown.filter((i) => !isOpportunity(i))
+  const attention = shown.filter((i) => !isOpportunity(i) && !isUrgent(i))
   // Connected platforms with nothing open read as checked and healthy, not missing.
   const clear = view === "open" && !category ? props.checked.filter((c) => (!platform || c.platform === platform) && !open.some((i) => i.platform === c.platform)) : []
   const row = (i: FeedInsight) => <InsightRow key={i.key} insight={i} open={openKey === i.key} onToggle={() => setOpenKey(openKey === i.key ? null : i.key)} {...props} />
@@ -192,6 +194,16 @@ export function InsightFeed(props: {
         </div>
       </div>
 
+      {urgent.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold">
+            <span className="size-2 rounded-full bg-rag-red" aria-hidden />
+            Urgent <span className="text-xs font-normal text-muted-foreground">{urgent.length} · platform settings to fix</span>
+          </h3>
+          <div className="surface divide-y overflow-hidden">{urgent.map(row)}</div>
+        </section>
+      )}
+
       {opportunities.length > 0 && (
         <section className="space-y-2">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
@@ -204,7 +216,7 @@ export function InsightFeed(props: {
 
       {(attention.length > 0 || opportunities.length === 0 || clear.length > 0) && (
         <section className="space-y-2">
-          {opportunities.length > 0 && (
+          {(opportunities.length > 0 || urgent.length > 0) && (
             <h3 className="text-sm font-semibold">
               Needs attention <span className="text-xs font-normal text-muted-foreground">{attention.length}</span>
             </h3>
@@ -220,7 +232,7 @@ export function InsightFeed(props: {
                 </span>
               </div>
             ))}
-            {attention.length === 0 && opportunities.length === 0 && clear.length === 0 && (
+            {attention.length === 0 && opportunities.length === 0 && urgent.length === 0 && clear.length === 0 && (
               <p className="px-5 py-12 text-center text-sm text-muted-foreground">
                 {view === "open" ? (props.insights.some((i) => i.state === "open") ? "Nothing here with these filters." : "Nothing to optimize right now. Nice.") : "Nothing here."}
               </p>
@@ -251,7 +263,7 @@ function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
   const stake = openStake(i)
   const campaignHref = i.campaignId && i.platform !== "ga4" ? `/clients/${p.slug}/reporting/${i.platform}/${encodeURIComponent(i.campaignId)}` : null
   return (
-    <div id={`insight-${i.key}`} className={cn("border-l-2 border-transparent", isOpportunity(i) && "border-l-lime bg-lime/[0.03]", open && "bg-secondary/25")}>
+    <div id={`insight-${i.key}`} className={cn("border-l-2 border-transparent", isOpportunity(i) && "border-l-lime bg-lime/[0.03]", isUrgent(i) && "border-l-rag-red", open && "bg-secondary/25")}>
       {/* The title is the toggle; its click area stretches over the whole row, and the campaign name sits above it as a link. */}
       <div className="relative flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-secondary/40">
         <span className={cn("mt-2 size-2 shrink-0 rounded-full", isOpportunity(i) ? "bg-lime" : SEVERITY[i.severity].dot)} title={isOpportunity(i) ? "Opportunity" : SEVERITY[i.severity].label}>
@@ -264,6 +276,7 @@ function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
               {i.title}
             </button>
             {isOpportunity(i) && <span className="rounded-full border border-lime/40 bg-lime/10 px-1.5 py-px text-[10px] font-medium text-lime">Opportunity</span>}
+            {isUrgent(i) && <span className="rounded-full border border-rag-red/40 bg-rag-red/10 px-1.5 py-px text-[10px] font-medium text-rag-red">Urgent</span>}
           </span>
           {i.claude?.whyNow && i.state === "open" && (
             <span className="flex items-start gap-1.5 text-xs text-foreground/85">
