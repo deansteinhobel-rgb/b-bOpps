@@ -9,6 +9,7 @@ import { money, whole } from "@/lib/format"
 import { change, DRIVERS, fmt, METRIC, tone, type Derived, type MetricKey } from "@/lib/metrics/performance"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { cn } from "@/lib/utils"
+import { targetFor, type Targets } from "@/lib/targets"
 
 /** Platform colors (validated for the dark surface: lightness band, chroma, color-blind separation). Always shown with the platform's logo and name. */
 export const PLATFORM_COLOR: Record<Platform, string> = { linkedin: "#7f6ae0", google_ads: "#869a14", meta: "#cf4f86" }
@@ -261,7 +262,7 @@ const COLS: { k: MetricKey; label: string }[] = [
 ]
 
 /** Every campaign in the period: sortable, searchable, each row opens its drill-down. */
-export function CampaignTable({ rows, currency, slug, query, target }: { rows: CampaignRow[]; currency: string; slug: string; query: string; target: number | null }) {
+export function CampaignTable({ rows, currency, slug, query, targets }: { rows: CampaignRow[]; currency: string; slug: string; query: string; targets: Targets }) {
   const [sort, setSort] = useState<{ k: MetricKey; dir: 1 | -1 }>({ k: "spend", dir: -1 })
   const [q, setQ] = useState("")
   const shown = useMemo(() => {
@@ -296,6 +297,7 @@ export function CampaignTable({ rows, currency, slug, query, target }: { rows: C
           </thead>
           <tbody className="divide-y">
             {shown.map((r) => {
+              const target = targetFor(targets, r.platform)
               const over = target !== null && r.now.cpr !== null && r.now.cpr > target
               return (
                 <tr key={`${r.platform}|${r.campaignId}`} className="group hover:bg-accent/40">

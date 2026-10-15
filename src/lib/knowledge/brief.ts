@@ -6,6 +6,7 @@ import { callRef } from "@/lib/calls/refs"
 import { londonToday } from "@/lib/checks/periods"
 import { money, withSymbols } from "@/lib/format"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { describeTargets, loadTargets } from "@/lib/targets"
 
 export const FILE_BUCKET = "client-files"
 
@@ -119,8 +120,8 @@ export async function buildClientBrief(clientId: string, opts: { force?: boolean
       }
     }
     const blocks: Anthropic.ContentBlockParam[] = []
-    const kpi = client.monthly_kpi_target === null ? "not set" : `${money(Number(client.monthly_kpi_target), client.currency)} per result (conversions + leads)`
-    blocks.push({ type: "text", text: `Client: ${client.name}. Currency ${client.currency}. Main KPI in the app: cost per result, target ${kpi}.` })
+    const targets = await loadTargets(db, clientId, client.monthly_kpi_target)
+    blocks.push({ type: "text", text: `Client: ${client.name}. Currency ${client.currency}. Main KPI in the app: cost per result (conversions + leads), target ${describeTargets(targets, (v) => money(v, client.currency))}.` })
     for (const s of text) {
       const label = s.source === "note" ? `Team note (${s.category ?? "note"})` : `${s.title}${s.path ? ` (HQ › ${s.path})` : ""}`
       blocks.push({ type: "text", text: `### Source: ${label}\n${(s.content ?? "").slice(0, cap.get(s.id))}` })

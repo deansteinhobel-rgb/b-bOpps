@@ -82,6 +82,8 @@ export async function saveClient(_prev: FormState, form: FormData): Promise<Form
   const admin = createAdminClient()
   await admin.from("notion_pages_mirror").update({ client_id: null }).eq("client_id", saved.id).neq("properties->>Client", values.notion_client_option)
   await admin.from("notion_pages_mirror").update({ client_id: saved.id }).eq("properties->>Client", values.notion_client_option)
+  // The client target feeds cached insights, which only refresh on a sync otherwise.
+  revalidateTag(windsorTag(saved.id), { expire: 0 })
   revalidatePath("/admin/clients")
   revalidatePath("/clients")
   if (!id) redirect(`/admin/clients/${values.slug}`)
@@ -148,12 +150,15 @@ export async function updateAccount(_prev: FormState, form: FormData): Promise<F
   const me = await requireAdmin()
   const budget = optionalNumber.safeParse(form.get("monthly_budget"))
   if (!budget.success) return fail("Budget must be a number.")
+  // Blank = use the client's target (src/lib/targets.ts); 0 is treated as blank.
+  const target = optionalNumber.safeParse(form.get("kpi_target"))
+  if (!target.success) return fail("Target cost per result must be a number.")
   const supabase = await createClient()
   const conversion_fields = fields(form.get("conversion_fields"))
   const lead_fields = fields(form.get("lead_fields"))
   const { data: account, error } = await supabase
     .from("client_platform_accounts")
-    .update({ monthly_budget: budget.data, conversion_fields, lead_fields, active: form.get("active") === "on" })
+    .update({ monthly_budget: budget.data, kpi_target: target.data || null, conversion_fields, lead_fields, active: form.get("active") === "on" })
     .eq("id", String(form.get("id")))
     .select("id, client_id")
     .single()

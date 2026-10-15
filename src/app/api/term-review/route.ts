@@ -6,6 +6,7 @@ import { writeTermReview } from "@/lib/insights/term-review"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { loadTargets, targetFor } from "@/lib/targets"
 
 // 300 terms against the brief takes about a minute; the table waits for it.
 export const maxDuration = 300
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
       clientId: client.id,
       clientName: client.name,
       currency: client.currency,
-      target: client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target),
+      target: targetFor(await loadTargets(supabase, client.id, client.monthly_kpi_target), "google_ads"),
       campaign: { id: campaignId, name: String(latest.campaign_name ?? campaignId), goal: goal ? `${goal.goal}${goal.note ? `: ${goal.note}` : ""}` : null },
       from: addDays(to, -29),
       to,
