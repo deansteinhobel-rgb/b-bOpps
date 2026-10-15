@@ -428,6 +428,11 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   console.log((await range(danny)).length === 0 ? "client_data_range shows nothing to someone off the team: OK" : "FAIL: client_data_range leaked another client's range")
   const fatigue = await as(andrea, () => q(`select ad_id, first_seen::text, live from public.ad_fatigue_inputs('${camber}') order by ad_id`))
   console.log(fatigue.length === 2 && fatigue[1].first_seen === "2026-10-13" ? "ad_fatigue_inputs reads recent ads, first seen = first day with impressions: OK" : `FAIL: ad_fatigue_inputs ${JSON.stringify(fatigue)}`)
+  // sprint_ad_events (bounded by the range, 2026-10-15): a2 started in the range; a1 still runs on the last day.
+  const events = (uid) => as(uid, () => q(`select ad_id, first_seen::text, data_through::text from public.sprint_ad_events('${camber}', '2026-10-12', '2026-10-25') order by ad_id`))
+  const ev = await events(andrea)
+  console.log(ev.length === 1 && ev[0].ad_id === "a2" && ev[0].first_seen === "2026-10-13" && ev[0].data_through === "2026-10-13" ? "sprint_ad_events finds ads that started in the sprint: OK" : `FAIL: sprint_ad_events ${JSON.stringify(ev)}`)
+  console.log((await events(danny)).length === 0 ? "sprint_ad_events shows nothing to someone off the team: OK" : "FAIL: sprint_ad_events leaked another client's ads")
 }
 
 // ad_fatigue_snapshots (2026-10-15): server-written once a day, the client's team reads, nobody else.
