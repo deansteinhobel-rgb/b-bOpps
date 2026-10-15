@@ -62,8 +62,14 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
     )
   }
 
-  const [details, numbers, { data: runs }, actions, owners, { data: aiRuns }, { data: aiRecs }, { data: pourRuns }, { data: pourRecs }] = await Promise.all([
-    loadSprintDetails(supabase, sprint),
+  // Everything starts at once; the test board's numbers and the Notion sync time chain straight off the tests
+  // instead of waiting for the whole batch (2026-10-15).
+  const detailsP = loadSprintDetails(supabase, sprint)
+  const targetCpr = client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target)
+  const [details, board, notionSynced, numbers, { data: runs }, actions, owners, { data: aiRuns }, { data: aiRecs }, { data: pourRuns }, { data: pourRecs }] = await Promise.all([
+    detailsP,
+    detailsP.then((d) => testBoardData(supabase, client.id, d.tests, { currency: client.currency, targetCpr })),
+    detailsP.then((d) => (d.tests.some((t) => t.notion_page_id) ? lastNotionSync(supabase).then(minutesAgo) : null)),
     cachedSprintNumbers(client.id, period), // access confirmed: sprint loaded through RLS
     supabase
       .from("check_runs")
@@ -97,7 +103,6 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
     }
   })
   const { changes, history, previous, tests } = details
-  const board = await testBoardData(supabase, client.id, tests, { currency: client.currency, targetCpr: client.monthly_kpi_target === null ? null : Number(client.monthly_kpi_target) })
   const { summary, events, detectionDaily } = numbers
   const closed = Boolean(sprint.closed_at)
   const cur = client.currency
@@ -105,7 +110,6 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
   const shown = closed && sprint.summary ? sprint.summary : summary
   const day = sprintDay(period, today)
   const writesLive = notionWritesLive(slug)
-  const notionSynced = tests.some((t) => t.notion_page_id) ? minutesAgo(await lastNotionSync(supabase)) : null
   const platforms = summary.byPlatform.map((p) => p.platform)
   const ownerOptions = owners.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam }))
 
