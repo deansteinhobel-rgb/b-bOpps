@@ -50,7 +50,7 @@ export function GlanceCard({
         type="button"
         onClick={() => go(true)}
         aria-haspopup="dialog"
-        className={cn("group surface flex min-w-0 flex-col p-4 text-left transition-colors outline-none hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-lime/60", className)}
+        className={cn("group surface flex min-w-0 cursor-pointer flex-col p-4 text-left transition-colors outline-none hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-lime/60", className)}
       >
         <span className="flex w-full items-baseline justify-between gap-2">
           <span className="flex min-w-0 items-baseline gap-2">
