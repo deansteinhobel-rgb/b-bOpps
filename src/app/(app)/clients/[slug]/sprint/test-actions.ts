@@ -190,7 +190,9 @@ export async function briefTest(testId: string, raw: z.input<typeof Brief>): Pro
     coLeadIds: leads.slice(1).map((p) => p!.id),
     priority: b.priority,
     dueDate: b.dueDate,
-    description,
+    // The comment carries the plan (Dean, 2026-10-15), so Description of Request stays empty. Only a brief
+    // sent without a comment puts the plan there, so the page isn't blank.
+    description: b.comment.trim() ? "" : description,
     sprintTestId: test.id,
     appLink: appPath,
     createdBy: { id: me.id, full_name: me.full_name, email: me.email },

@@ -159,6 +159,14 @@ describe("createNotionAction: live write (mocked Notion)", () => {
     expect(sent.properties["QA Document"]).toEqual({ url: "http://localhost:3000/clients/camber/checks?result=result-1" })
   })
 
+  it("leaves Description of Request off when there's no description (test briefs put the plan in the comment)", async () => {
+    const { db } = fakeDb()
+    const notion = fakeNotion()
+    await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, { ...input, description: "  " })
+    const sent = (notion.pages.create.mock.calls[0] as unknown[])[0] as { properties: Record<string, unknown> }
+    expect(sent.properties).not.toHaveProperty("Description of Request")
+  })
+
   it("splits long findings into Notion's 2,000-character text pieces", async () => {
     const { db } = fakeDb()
     const notion = fakeNotion()

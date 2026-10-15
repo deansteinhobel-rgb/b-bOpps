@@ -374,7 +374,7 @@ function Review({ rows, comment, tagged, live }: { rows: [string, string][]; com
             </div>
           ))}
         </dl>
-        <p className="text-xs text-muted-foreground">The full plan and what we need go in Description of Request, with a link back to the test.</p>
+        <p className="text-xs text-muted-foreground">The plan and what we need go in the comment, with a link back to the test in QA Document. Description of Request is left empty, unless there's no comment.</p>
       </div>
       <div className="space-y-1">
         <p className="text-xs text-muted-foreground">The comment{tagged.length ? `, tagging ${tagged.join(", ")}` : ""}</p>

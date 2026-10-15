@@ -169,9 +169,10 @@ export function buildActionPayload(input: ActionInput, env: Pick<WriteDeps["env"
     [PROP.status]: { status: { name: ACTION_DEFAULTS.status } },
     [PROP.productionType]: { select: { name: ACTION_DEFAULTS.productionType } },
     [PROP.createdBy]: { rich_text: richText(APP_CREATED_PREFIX + createdByName) },
-    [PROP.description]: { rich_text: richText(input.description.trim()) },
     [PROP.appLink]: { url: appLinkFor(input, env.appUrl) },
   }
+  // Left off when empty: test briefs write the plan as a comment instead.
+  if (input.description.trim()) properties[PROP.description] = { rich_text: richText(input.description.trim()) }
   if (input.dueDate) properties[PROP.dueDate] = { date: { start: input.dueDate } }
   if (input.priority) properties[PROP.priority] = { select: { name: input.priority } }
   if (input.sprintTestId) properties[PROP.statusContent] = { select: { name: TEST_BRIEF_STATUS_CONTENT } }
