@@ -85,8 +85,8 @@ export async function loadClientReport(db: SupabaseClient, client: { id: string;
   const { from, to } = perf.periods
 
   const ads = (await adsForPeriod(db, client.id, from, to)).filter((a) => (!platform || a.platform === platform) && (!camp || a.campaign_id === camp.id))
-  const picks = pickAds(ads, 3)
-  const shown = [...picks.best, ...picks.worst]
+  const picks = pickAds(ads)
+  const shown = [...picks.byResults, ...picks.byCtr, ...picks.worst]
   // The client never gets the team's "Add the post link" button.
   const previews = Object.fromEntries(Object.entries(await previewsFor(db, client.id, shown)).map(([k, p]) => [k, { ...p, addPost: null }]))
 
@@ -102,8 +102,8 @@ export async function loadClientReport(db: SupabaseClient, client: { id: string;
     prev: perf.prev,
     target,
     campaigns: list.campaigns,
-    best: picks.best[0] ?? null,
-    basis: picks.basis,
+    best: picks.byResults[0] ?? picks.byCtr[0] ?? null,
+    basis: picks.byResults.length ? "cost_per_result" : "ctr",
   })
 
   return {

@@ -10,7 +10,7 @@ import { change, type Derived } from "./performance"
 import { PLATFORM_LABEL, type Platform } from "./types"
 
 export type ReportAd = AdStat & { results: number; costPerResult: number | null; ctr: number | null }
-export type AdPicks = { basis: "cost_per_result" | "ctr"; best: ReportAd[]; worst: ReportAd[] }
+export type AdPicks = { byResults: ReportAd[]; byCtr: ReportAd[]; worst: ReportAd[]; worstBasis: "cost_per_result" | "ctr" }
 
 const enrich = (a: AdStat): ReportAd => {
   const results = a.conversions + a.leads
@@ -18,45 +18,42 @@ const enrich = (a: AdStat): ReportAd => {
 }
 
 /**
- * The best and weakest ads in the report's scope, by the app's usual rule (CLAUDE.md "Best/worst
- * ad"): only ads that spent more than the median ad count, so a $5 ad with one lucky lead never
- * tops the list; ranked by cost per result when at least 2 of them have 3+ results, otherwise by
- * click-through rate. On cost per result, ads that spent with no results are the weakest (biggest
- * spend first). Ads with 1-2 results can fill the top list, after every ad with 3+. At most `n`
- * each, never more than half the eligible ads, and never the same ad twice.
+ * The top and weakest ads in the report's scope (Dean, 2026-10-19: the top as 2 for results and 2
+ * for click-through rate). Only ads that spent more than the median ad count, so a $5 ad with one
+ * lucky lead never tops a list.
+ * - For results: the lowest cost per result, ads with 3+ results first, then ads with 1-2.
+ * - For click-through rate: the highest CTR among the rest (never an ad already shown for results).
+ * - Weakest: by cost per result when at least 2 ads have 3+ results (spent with no results first,
+ *   biggest spend first), otherwise the lowest CTR; never an ad already in the top lists.
  */
-export function pickAds(ads: AdStat[], n = 3): AdPicks {
+export function pickAds(ads: AdStat[], top = 2, weak = 3): AdPicks {
   const spent = ads.filter((a) => a.spend > 0)
   const m = median(spent.map((a) => a.spend))
   let eligible = spent.filter((a) => a.spend > m)
   if (eligible.length < 2) eligible = spent
   const list = eligible.map(enrich)
-  const take = Math.min(n, Math.floor(list.length / 2))
+  const byCost = (a: ReportAd, b: ReportAd) => a.costPerResult! - b.costPerResult! || b.results - a.results
   const withResults = list.filter((a) => a.results >= MIN_RESULTS_FOR_CPR)
+  const fewer = list.filter((a) => a.results > 0 && a.results < MIN_RESULTS_FOR_CPR)
+  const byResults = [...withResults.sort(byCost), ...fewer.sort(byCost)].slice(0, top)
+  const used = new Set(byResults.map((a) => a.ad_id))
+  const byCtr = list.filter((a) => a.ctr !== null && a.clicks > 0 && !used.has(a.ad_id)).sort((a, b) => b.ctr! - a.ctr! || b.clicks - a.clicks).slice(0, top)
+  for (const a of byCtr) used.add(a.ad_id)
+  const rest = list.filter((a) => !used.has(a.ad_id))
+  // Only call ads weak when there are enough to compare: at most half of the eligible ads.
+  const take = Math.min(weak, rest.length, Math.floor(list.length / 2))
   if (withResults.length >= 2) {
-    // Ads with 3+ results first; ads with fewer fill the list after them, so a lucky single lead never comes first.
-    const byCost = (a: ReportAd, b: ReportAd) => a.costPerResult! - b.costPerResult! || b.results - a.results
-    const fewer = list.filter((a) => a.results > 0 && a.results < MIN_RESULTS_FOR_CPR)
-    const best = [...withResults.sort(byCost), ...fewer.sort(byCost)].slice(0, Math.max(take, 1))
-    const used = new Set(best.map((a) => a.ad_id))
-    const worst = list
-      .filter((a) => !used.has(a.ad_id))
+    const worst = rest
       .sort((a, b) => {
         const ca = a.costPerResult ?? Infinity
         const cb = b.costPerResult ?? Infinity
         return ca === cb ? b.spend - a.spend : cb - ca
       })
       .slice(0, take)
-    return { basis: "cost_per_result", best, worst }
+    return { byResults, byCtr, worst, worstBasis: "cost_per_result" }
   }
-  const byCtr = list.filter((a) => a.ctr !== null).sort((a, b) => b.ctr! - a.ctr! || b.clicks - a.clicks)
-  const best = byCtr.slice(0, Math.max(take, byCtr.length ? 1 : 0))
-  const used = new Set(best.map((a) => a.ad_id))
-  const worst = byCtr
-    .filter((a) => !used.has(a.ad_id))
-    .reverse()
-    .slice(0, take)
-  return { basis: "ctr", best, worst }
+  const worst = rest.filter((a) => a.ctr !== null).sort((a, b) => a.ctr! - b.ctr! || b.spend - a.spend).slice(0, take)
+  return { byResults, byCtr, worst, worstBasis: "ctr" }
 }
 
 export type SummaryCampaign = { platform: Platform; name: string; now: Derived; prev: Derived }
@@ -74,7 +71,7 @@ export type SummaryInput = {
   target: number | null
   campaigns: SummaryCampaign[]
   best: ReportAd | null
-  basis: AdPicks["basis"]
+  basis: "cost_per_result" | "ctr"
 }
 
 const pct = (v: number) => `${Math.abs(v) >= 10 ? Math.round(Math.abs(v)) : Math.abs(v).toFixed(1)}%`
@@ -135,7 +132,7 @@ export function reportSummary(s: SummaryInput): string[] {
     const b = s.best
     out.push(
       s.basis === "cost_per_result"
-        ? `The strongest ad was ${quote(b.ad_name ?? b.ad_id)}, with ${whole(b.results)} results at ${m(b.costPerResult)} each.`
+        ? `The strongest ad was ${quote(b.ad_name ?? b.ad_id)}, with ${whole(b.results)} ${b.results === 1 ? "result" : "results"} at ${m(b.costPerResult)} each.`
         : `The ad that drew the most interest was ${quote(b.ad_name ?? b.ad_id)}: ${percent(b.ctr, 2)} of the people who saw it clicked.`,
     )
   }

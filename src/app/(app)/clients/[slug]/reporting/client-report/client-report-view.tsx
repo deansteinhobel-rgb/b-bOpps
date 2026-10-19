@@ -28,7 +28,6 @@ export function ClientReportView({ data: d, client, currency, note }: { data: Cl
     ...(leads ? [{ label: "Leads", caption: "Lead forms filled in on the platform", now: d.now.leads, prev: d.prev.leads, show: whole, better: "up" } as Tile] : []),
     { label: "Cost per result", caption: leads ? "Spend ÷ (conversions + leads)" : "Spend ÷ conversions", now: d.now.cpr, prev: d.prev.cpr, show: (v) => m(v), better: "down", target: d.target },
   ]
-  const ctrBasis = d.picks.basis === "ctr"
 
   return (
     <article className="surface overflow-hidden" aria-label={`${d.title} report`}>
@@ -88,26 +87,26 @@ export function ClientReportView({ data: d, client, currency, note }: { data: Cl
         </section>
       ) : (
         <>
-          <AdList
-            id="cr-best"
-            title="Top performing ads"
-            caption={ctrBasis ? "The ads people clicked most often, among the ads that spent the most." : "The ads that brought results at the lowest cost, among the ads that spent the most."}
-            ads={d.picks.best}
-            empty="Not enough ad activity in these dates to pick the strongest ads."
-            data={d}
-            currency={currency}
-            tone="good"
-          />
-          <AdList
-            id="cr-worst"
-            title="Ads to improve"
-            caption={ctrBasis ? "The ads people clicked least often, among the ads that spent the most." : "The ads with the highest cost per result (or none yet), among the ads that spent the most."}
-            ads={d.picks.worst}
-            empty={d.picks.best.length ? "Too few ads ran in these dates to single out weaker ones." : "Not enough ad activity in these dates to compare ads."}
-            data={d}
-            currency={currency}
-            tone="bad"
-          />
+          {/* Top ads (Dean, 2026-10-19): 2 for results and 2 for click-through rate, side by side. */}
+          <section aria-labelledby="cr-best" className="border-t px-5 py-5 sm:px-6">
+            <h3 id="cr-best" className="text-base font-semibold">
+              Top performing ads
+            </h3>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">Among the ads that spent the most in these dates.</p>
+            <div className="mt-4 grid gap-6 lg:grid-cols-2">
+              <AdCards title="Best for results" caption="Results at the lowest cost per result." ads={d.picks.byResults} empty="No ads brought results in these dates." data={d} currency={currency} tone="good" highlight="results" />
+              <AdCards title="Most clicked" caption="The highest share of people who saw the ad and clicked it." ads={d.picks.byCtr} empty="No other ads drew clicks in these dates." data={d} currency={currency} tone="good" highlight="ctr" />
+            </div>
+          </section>
+          <section aria-labelledby="cr-worst" className="border-t px-5 py-5 sm:px-6">
+            <h3 id="cr-worst" className="text-base font-semibold">
+              Ads to improve
+            </h3>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">{d.picks.worstBasis === "ctr" ? "The ads people clicked least often, among the ads that spent the most." : "The ads with the highest cost per result (or none yet), among the ads that spent the most."}</p>
+            <div className="mt-4">
+              <AdCards ads={d.picks.worst} empty="Too few ads ran in these dates to single out weaker ones." data={d} currency={currency} tone="bad" highlight={d.picks.worstBasis === "ctr" ? "ctr" : "results"} wide />
+            </div>
+          </section>
         </>
       )}
 
@@ -135,19 +134,17 @@ export function ClientReportView({ data: d, client, currency, note }: { data: Cl
   )
 }
 
-function AdList({ id, title, caption, ads, empty, data: d, currency, tone }: { id: string; title: string; caption: string; ads: ReportAd[]; empty: string; data: ClientReportData; currency: string; tone: "good" | "bad" }) {
+function AdCards({ title, caption, ads, empty, data: d, currency, tone, highlight, wide }: { title?: string; caption?: string; ads: ReportAd[]; empty: string; data: ClientReportData; currency: string; tone: "good" | "bad"; highlight: "results" | "ctr"; wide?: boolean }) {
   const m = (v: number | null) => money(v, currency, v !== null && v < 100 ? 2 : 0)
-  const ctrBasis = d.picks.basis === "ctr"
+  const ctrBasis = highlight === "ctr"
   return (
-    <section aria-labelledby={id} className="border-t px-5 py-5 sm:px-6">
-      <h3 id={id} className="text-base font-semibold">
-        {title}
-      </h3>
-      <p className="mt-0.5 text-[13px] text-muted-foreground">{caption}</p>
+    <div>
+      {title && <h4 className="text-sm font-semibold">{title}</h4>}
+      {caption && <p className="mt-0.5 text-xs text-muted-foreground">{caption}</p>}
       {ads.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <ol className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ol className={cn("mt-3 grid gap-4 sm:grid-cols-2", wide && "lg:grid-cols-3")}>
           {ads.map((a, i) => {
             const name = a.ad_name ?? a.ad_id
             const stats = [
@@ -188,6 +185,6 @@ function AdList({ id, title, caption, ads, empty, data: d, currency, tone }: { i
           })}
         </ol>
       )}
-    </section>
+    </div>
   )
 }
