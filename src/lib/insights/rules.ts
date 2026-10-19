@@ -70,7 +70,7 @@ export const RULES: Record<RuleKey, { label: string; rule: string }> = {
   meta_ages: { label: "Age groups", rule: "Age groups that spent the target cost per result with no results while the campaign converts, or cost 2× the campaign's cost per result (last 30 days)." },
   meta_lookalike: { label: "Lookalike", rule: "100+ Meta results in the last 90 days, enough people to seed a lookalike audience." },
   li_not_icp: { label: "Not ICP", rule: "LinkedIn companies that clicked in the last 30 days and don't fit the ICP in the client brief, as judged by Claude's daily review." },
-  pmax_terms: { label: "Performance Max search terms", rule: "Performance Max search terms (brand terms left out) that spent 2× the target cost per result with no conversions, or took 20%+ of the campaign's search term spend at over 1.5× the target cost per result (last 30 days)." },
+  pmax_terms: { label: "Performance Max search terms", rule: "Performance Max search terms (brand terms left out) that spent 2× the target cost per result with no conversions, took 20%+ of the campaign's search term spend at over 1.5× the target cost per result, or took 30%+ of it on their own at any cost: one search carrying the campaign needs a check that its conversions are real buyers (last 30 days)." },
   icp_terms: { label: "Off-ICP search terms", rule: "Search terms with spend and no conversions in the last 30 days that don't fit what the client sells or who it sells to, as judged by Claude's daily review (the client brief)." },
   settings_geo: { label: "Location option", rule: "Enabled Google Ads campaigns whose location option is \"Presence or interest\" (people searching about the locations from anywhere), not just people in them. Urgent." },
   settings_networks: { label: "Search networks", rule: "Enabled Google Ads search campaigns with Search Partners or the Display Network switched on. Urgent." },
@@ -313,7 +313,7 @@ export function computeInsights(raw: InsightInputs): Insight[] {
     const total = terms.reduce((s, t) => s + t.spend, 0)
     const costly = terms
       .filter((t) => !isBrand(t.term) && t.spend >= 2 * target!)
-      .filter((t) => t.results === 0 || (total > 0 && t.spend / total >= 0.2 && t.spend / t.results > 1.5 * target!))
+      .filter((t) => t.results === 0 || (total > 0 && t.spend / total >= 0.3) || (total > 0 && t.spend / total >= 0.2 && t.spend / t.results > 1.5 * target!))
       .sort((a, b) => b.spend - a.spend)
     if (!costly.length) continue
     const spent = costly.reduce((s, t) => s + t.spend, 0)
@@ -327,7 +327,7 @@ export function computeInsights(raw: InsightInputs): Insight[] {
       campaignId,
       campaignName: nameOf.get(`google_ads|${campaignId}`) ?? top.campaignName,
       title: costly.length === 1 ? `Performance Max search “${top.term}” to check` : `${costly.length} Performance Max searches to check`,
-      why: `${money(spent)} of the campaign's ${money(total)} search term spend in 30 days went on ${costly.length === 1 ? "this search" : "these searches"}, with no conversions or at over 1.5× the ${money(target!)} target.`,
+      why: costly.length === 1 && total > 0 && top.spend / total >= 0.3 && top.results > 0 && top.spend / top.results <= 1.5 * target! ? `One search took ${pct(top.spend / total)} of the campaign's ${money(total)} search term spend in 30 days. It converts (${round1(top.results)} at ${money(top.spend / top.results)}), but check those are real buyers before letting it carry the campaign.` : `${money(spent)} of the campaign's ${money(total)} search term spend in 30 days went on ${costly.length === 1 ? "this search" : "these searches"}: no conversions, over 1.5× the ${money(target!)} target, or a large share of the spend on one search.`,
       todo: "Check each search against what the client sells. Block the ones that don't fit with the campaign's negative keywords or an account-level negative list in Google Ads.",
       numbers: [
         { label: "Spent on them", value: money(spent), tone: "bad" },

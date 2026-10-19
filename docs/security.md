@@ -50,6 +50,7 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
   - **GitHub Actions**: pinned to commit SHAs, with no persisted checkout credentials.
   - **Accepted**:
     - CSP `style-src 'unsafe-inline'`: the UI sets widths and colors inline, and styles can't run code.
+    - CSP `img-src` includes `tpc.googlesyndication.com` and `i.ytimg.com` (2026-10-19): Google Ads asset images and YouTube thumbnails for Performance Max and Demand Gen load from Google in the browser, including on shared client report links. Only URLs on those hosts are kept (`mergeAssets`), and nothing is fetched on the server.
     - `scripts/dev-signin.ts` passing a one-time link to the local browser: localhost only, and the link is single-use.
 - **Report embeds for Notion** (`/embed/report/<token>`, Dean 2026-09-29: "anyone with the link,
   view only"): the link's token (192 random bits, `report_links`) is the only key. It shows one

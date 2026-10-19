@@ -276,7 +276,7 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
     if (icp?.verdict === "exclude") return <span className="rounded-full border border-rag-red/40 bg-rag-red/10 px-1.5 py-px text-[10px] text-rag-red" title={`Off-ICP: ${icp.reason}`}>Off-ICP</span>
     if (icp?.verdict === "watch") return <span className="rounded-full border border-rag-amber/40 px-1.5 py-px text-[10px] text-rag-amber" title={`Watch: ${icp.reason}`}>Watch</span>
     if (isNegativeCandidate(t, target)) return <span className="rounded-full border border-rag-red/40 px-1.5 py-px text-[10px] text-rag-red">Negative?</span>
-    if (!t.isKeyword && t.m.results >= 2) return <span className="rounded-full border border-lime/40 px-1.5 py-px text-[10px] text-lime">Add as keyword?</span>
+    if (!pmax && !t.isKeyword && t.m.results >= 2) return <span className="rounded-full border border-lime/40 px-1.5 py-px text-[10px] text-lime">Add as keyword?</span>
     if (t.isKeyword) return <span className="text-[10px] text-subtle-foreground">keyword</span>
     return null
   }
