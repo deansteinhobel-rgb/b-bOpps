@@ -18,7 +18,15 @@ const TASKS: TabGroup = {
     { href: "/checks", label: "QA checks" },
   ],
 }
-const REPORTING: TabGroup = { key: "reporting", label: "Reporting", items: [{ href: "/reporting", label: "Reporting" }] }
+const REPORTING: TabGroup = {
+  key: "reporting",
+  label: "Reporting",
+  items: [
+    { href: "/reporting", label: "Dashboard" },
+    // Dean, 2026-10-19: the step-by-step report the team shares with the client.
+    { href: "/reporting/client-report", label: "Client report" },
+  ],
+}
 const PLANNING: TabGroup = {
   key: "planning",
   label: "Planning",

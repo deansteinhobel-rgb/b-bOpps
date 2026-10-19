@@ -6,6 +6,8 @@ import { previewsFor } from "@/lib/previews"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { adsForPeriod, boardAds, buildBoard, isBoardKey } from "@/app/(app)/clients/[slug]/reporting/boards"
 import { ReportBoard } from "@/app/(app)/clients/[slug]/reporting/report-board"
+import { ClientReportView } from "@/app/(app)/clients/[slug]/reporting/client-report/client-report-view"
+import { loadClientReport } from "@/app/(app)/clients/[slug]/reporting/client-report/data"
 import { PeriodPicker } from "./period-picker"
 
 export const metadata = { title: "Report", robots: { index: false, follow: false } }
@@ -20,13 +22,32 @@ export default async function EmbedReportPage({ params, searchParams }: PageProp
   const sp = await searchParams
   if (!/^[A-Za-z0-9_-]{32,}$/.test(token)) return <Notice text="This report link isn't valid." />
   const admin = createAdminClient()
-  const { data: link } = await admin.from("report_links").select("id, client_id, board, default_days, default_range, revoked_at, last_viewed_at").eq("token", token).maybeSingle()
+  // "*": works before and after migration 20261019000077 adds `kind`, `campaign_id` and `note`.
+  const { data: link } = await admin.from("report_links").select("*").eq("token", token).maybeSingle()
   if (!link || link.revoked_at || !isBoardKey(link.board)) return <Notice text="This report link has been turned off. Ask Bordeaux & Burgundy for a new one." />
-  const { data: client } = await admin.from("clients").select("name, logo_url, currency").eq("id", link.client_id).maybeSingle()
+  const { data: client } = await admin.from("clients").select("name, logo_url, currency, monthly_kpi_target").eq("id", link.client_id).maybeSingle()
   if (!client) return <Notice text="This report isn't available." />
 
   const range = parseRange(sp, decodeRange(link.default_range) ?? link.default_days)
   const platform = link.board === "all" ? null : (link.board as Platform)
+
+  // A client report (Dean, 2026-10-19): one platform or all, one campaign or all, set when the link was made.
+  if (link.kind === "client_report") {
+    const campaign = platform && link.campaign_id ? { platform, id: String(link.campaign_id) } : null
+    const data = await loadClientReport(admin, { id: link.client_id, currency: client.currency, monthly_kpi_target: client.monthly_kpi_target }, { platform, campaign }, range)
+    if (!data) return <Notice text="No data for this report yet." />
+    await markViewed(admin, link)
+    return (
+      <main className="mx-auto w-full max-w-6xl space-y-3 bg-background p-3 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <PeriodPicker range={range} periods={data.periods} dataFrom={data.dataFrom} dataThrough={data.dataThrough} />
+          <p className="text-[11px] text-muted-foreground">Data through {longDate(data.dataThrough)} · updated daily</p>
+        </div>
+        <ClientReportView data={data} client={{ name: client.name, logoUrl: client.logo_url }} currency={client.currency} note={link.note} />
+        <p className="text-center text-[11px] text-subtle-foreground">Report by Bordeaux &amp; Burgundy</p>
+      </main>
+    )
+  }
   const perf = await cachedPerformance(link.client_id, range, null)
   if (!perf) return <Notice text="No data for this report yet." />
   const { from, to, prevFrom, prevTo, compare } = perf.periods

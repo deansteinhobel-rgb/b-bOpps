@@ -110,7 +110,8 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
     const [allAds, pages, { data: links }, { data: canShare }] = await Promise.all([
       adsForPeriod(supabase, client.id, from, to),
       client.ga4_property_id ? landingPages(supabase, client.id, from, to) : null,
-      supabase.from("report_links").select("id, board, default_days, default_range, label, token, created_at, last_viewed_at, created_by_profile_id").eq("client_id", client.id).is("revoked_at", null).order("created_at", { ascending: false }),
+      // "*": works before and after migration 20261019000077 adds `kind` (client reports have their own page).
+      supabase.from("report_links").select("*").eq("client_id", client.id).is("revoked_at", null).order("created_at", { ascending: false }),
       supabase.rpc("can_share_reports", { cid: client.id }),
     ])
     const ads = allAds.filter((a) => (!platform || a.platform === platform) && inSegment(a.campaign_name))
@@ -124,7 +125,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
     const { data: people } = creators.length ? await supabase.from("profiles").select("id, full_name, email").in("id", creators) : { data: [] }
     const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]))
     const appUrl = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")
-    const linkViews: EmbedLink[] = (links ?? []).map((l) => ({
+    const linkViews: EmbedLink[] = (links ?? []).filter((l) => (l.kind ?? "board") === "board").map((l) => ({
       id: l.id,
       board: l.board,
       opens: rangeLabel(decodeRange(l.default_range) ?? { kind: "days", days: l.default_days }),
