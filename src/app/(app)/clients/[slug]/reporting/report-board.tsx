@@ -221,7 +221,7 @@ export function ReportBoard({ board: b, client, currency, from, to, prevFrom, pr
 }
 
 /** Change against the previous period as a small tinted chip: green when better, red when worse. */
-function Chip({ now, prev, better }: { now: number | null; prev: number | null; better: "up" | "down" | "none" }) {
+export function Chip({ now, prev, better }: { now: number | null; prev: number | null; better: "up" | "down" | "none" }) {
   const pct = change(now, prev)
   if (pct === null && prev === 0 && now) return <span className="rounded bg-secondary px-1 py-px text-[11px] text-muted-foreground">New</span>
   if (pct === null) return <span className="text-muted-foreground">–</span>

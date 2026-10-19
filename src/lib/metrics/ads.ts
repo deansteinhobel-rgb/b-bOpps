@@ -6,6 +6,8 @@ export type AdStat = {
   external_account_id: string
   ad_id: string
   ad_name: string | null
+  /** Set where the loader has it (ad_totals): the campaign the ad last ran in. */
+  campaign_id?: string | null
   campaign_name: string | null
   spend: number
   impressions: number

@@ -68,7 +68,8 @@ export function ClientTabs({ slug, groups }: { slug: string; groups: TabGroup[] 
       {sub && (
         <nav className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg bg-white/[0.04] p-0.5 [scrollbar-width:none]" aria-label={`${sub.label} pages`}>
           {sub.items.map((i) => {
-            const on = matches(pathname, i.href)
+            // The most specific page wins: Client report (/reporting/client-report) isn't also Dashboard (/reporting).
+            const on = matches(pathname, i.href) && !sub.items.some((o) => o.href.length > i.href.length && matches(pathname, o.href))
             return (
               <Link
                 key={i.href}
