@@ -1,15 +1,24 @@
 import { notFound } from "next/navigation"
 import { SectionHeader } from "@/components/page-header"
 import { shortDate } from "@/lib/format"
-import { decodeRange, parseRange, rangeLabel } from "@/lib/metrics/range"
+import { decodeRange, parseRange, rangeLabel, rangeParams } from "@/lib/metrics/range"
 import { createClient } from "@/lib/supabase/server"
 import type { EmbedLink } from "../embed-button"
 import { ClientReportView } from "./client-report-view"
-import { campaignValue, loadClientReport, parseCampaignStep, parsePlatformStep } from "./data"
+import { campaignValue, loadClientReport, parseCampaignStep, parsePlatformStep, reportTabTitle } from "./data"
 import { ReportBuilder } from "./report-builder"
 import { ShareReport } from "./share-report"
 
-export const metadata = { title: "Client report" }
+export async function generateMetadata({ params, searchParams }: PageProps<"/clients/[slug]/reporting/client-report">) {
+  const [{ slug }, sp] = await Promise.all([params, searchParams])
+  const step = parsePlatformStep(sp.platform)
+  const campaign = step ? parseCampaignStep(sp.campaign) : null
+  const platform = step && step !== "all" ? step : null
+  if (!campaign || (campaign !== "all" && platform && campaign.platform !== platform)) return { title: "Client report" }
+  const supabase = await createClient()
+  const { data: client } = await supabase.from("clients").select("id").eq("slug", slug).maybeSingle()
+  return { title: (client && (await reportTabTitle(supabase, client.id, platform, campaign))) || "Client report" }
+}
 
 /**
  * Client report (Dean, 2026-10-19): Reporting › Client report. Three questions (platform, campaign,
@@ -81,7 +90,18 @@ export default async function ClientReportPage({ params, searchParams }: PagePro
             <p className="text-[13px] text-muted-foreground">This is what the client sees. Data through {shortDate(data.dataThrough)}, updated daily.</p>
             <ShareReport slug={slug} platform={sharePlatform} campaign={camp?.id ?? null} title={data.title} range={range} links={linkViews} canShare={Boolean(canShare)} />
           </div>
-          <ClientReportView data={data} client={{ name: client.name, logoUrl: client.logo_url }} currency={client.currency} />
+          <ClientReportView
+            data={data}
+            client={{ name: client.name, logoUrl: client.logo_url }}
+            currency={client.currency}
+            hrefFor={(row) => {
+              // A platform row opens its own report; a campaign row opens the campaign's.
+              const q = rangeParams(range, new URLSearchParams())
+              q.set("platform", row.value.includes(":") ? (platformStep ?? "all") : row.value)
+              q.set("campaign", row.value.includes(":") ? row.value : "all")
+              return `?${q}`
+            }}
+          />
         </div>
       )}
     </div>

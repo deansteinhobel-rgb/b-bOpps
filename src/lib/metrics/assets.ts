@@ -6,7 +6,7 @@
  * Pure functions (plain module: the campaign page, the client report and the shared link use it).
  */
 import { money, percent, whole } from "@/lib/format"
-import { pickAds, type AdPicks, type ReportAd } from "./client-report"
+import { pickAds, type ReportAd } from "./client-report"
 import { derive, type Derived } from "./performance"
 
 export type AssetKind = "text" | "image" | "video" | "other"
@@ -122,7 +122,7 @@ export function assetGroups(assets: Asset[]) {
 }
 
 export type AssetPick = ReportAd & { asset: Asset }
-export type AssetSection = { key: "images" | "headlines"; label: string; one: string; basis: AdPicks["basis"]; best: AssetPick[]; worst: AssetPick[] }
+export type AssetSection = { key: "images" | "headlines"; label: string; one: string; basis: "cost_per_result" | "ctr"; best: AssetPick[]; worst: AssetPick[] }
 
 /**
  * The client report's top and weakest assets for one PMax or Demand Gen campaign: images (in the ad,
@@ -140,12 +140,13 @@ export function pickAssets(assets: Asset[], n = 3): AssetSection[] {
     const spent = s.list.filter((a) => a.m.spend > 0)
     if (spent.length < 2) continue
     const byId = new Map(spent.map((a) => [a.key, a]))
-    const picks = pickAds(
-      spent.map((a) => ({ platform: "google_ads", external_account_id: "", ad_id: a.key, ad_name: assetName(a), campaign_name: null, spend: a.m.spend, impressions: a.m.impressions, clicks: a.m.clicks, conversions: a.m.conversions, leads: a.m.leads })),
-      n,
-    )
+    const stats = spent.map((a) => ({ platform: "google_ads" as const, external_account_id: "", ad_id: a.key, ad_name: assetName(a), campaign_name: null, spend: a.m.spend, impressions: a.m.impressions, clicks: a.m.clicks, conversions: a.m.conversions, leads: a.m.leads }))
+    // One basis for both lists: cost per result when 2+ assets have 3+ results (pickAds' weakest rule), else CTR.
+    const byCost = pickAds(stats, { results: n, ctr: 0, weak: n })
+    const picks = byCost.worstBasis === "cost_per_result" ? byCost : pickAds(stats, { results: 0, ctr: n, weak: n })
+    const basis = picks.worstBasis
     const withAsset = (list: ReportAd[]) => list.map((p) => ({ ...p, asset: byId.get(p.ad_id)! }))
-    out.push({ key: s.key, label: s.label, one: s.one, basis: picks.basis, best: withAsset(picks.best), worst: withAsset(picks.worst) })
+    out.push({ key: s.key, label: s.label, one: s.one, basis, best: withAsset(basis === "cost_per_result" ? picks.byResults : picks.byCtr), worst: withAsset(picks.worst) })
   }
   return out
 }
