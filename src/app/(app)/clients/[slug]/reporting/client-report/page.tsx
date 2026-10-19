@@ -5,11 +5,20 @@ import { decodeRange, parseRange, rangeLabel } from "@/lib/metrics/range"
 import { createClient } from "@/lib/supabase/server"
 import type { EmbedLink } from "../embed-button"
 import { ClientReportView } from "./client-report-view"
-import { campaignValue, loadClientReport, parseCampaignStep, parsePlatformStep } from "./data"
+import { campaignValue, loadClientReport, parseCampaignStep, parsePlatformStep, reportTabTitle } from "./data"
 import { ReportBuilder } from "./report-builder"
 import { ShareReport } from "./share-report"
 
-export const metadata = { title: "Client report" }
+export async function generateMetadata({ params, searchParams }: PageProps<"/clients/[slug]/reporting/client-report">) {
+  const [{ slug }, sp] = await Promise.all([params, searchParams])
+  const step = parsePlatformStep(sp.platform)
+  const campaign = step ? parseCampaignStep(sp.campaign) : null
+  const platform = step && step !== "all" ? step : null
+  if (!campaign || (campaign !== "all" && platform && campaign.platform !== platform)) return { title: "Client report" }
+  const supabase = await createClient()
+  const { data: client } = await supabase.from("clients").select("id").eq("slug", slug).maybeSingle()
+  return { title: (client && (await reportTabTitle(supabase, client.id, platform, campaign))) || "Client report" }
+}
 
 /**
  * Client report (Dean, 2026-10-19): Reporting › Client report. Three questions (platform, campaign,

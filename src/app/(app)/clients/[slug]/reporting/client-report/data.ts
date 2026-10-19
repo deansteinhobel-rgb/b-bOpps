@@ -30,6 +30,20 @@ export function parseCampaignStep(v: unknown): CampaignPick | "all" | null {
 }
 export const campaignValue = (c: CampaignPick) => `${c.platform}:${c.id}`
 
+/**
+ * The browser tab's title (Dean, 2026-10-19): "Platform | Campaign", e.g. "Google Ads | DG | Search |
+ * Non-Brand Core" or "LinkedIn | All campaigns". Null until the platform and campaign are picked.
+ */
+export async function reportTabTitle(db: SupabaseClient, clientId: string, platform: Platform | null, campaign: CampaignPick | "all" | null): Promise<string | null> {
+  if (!campaign) return null
+  const p = campaign === "all" ? platform : campaign.platform
+  const left = p ? PLATFORM_LABEL[p] : "All platforms"
+  if (campaign === "all") return `${left} | All campaigns`
+  // The campaign's latest name (one row; RLS applies to the caller's client).
+  const { data } = await db.from("windsor_daily_metrics").select("campaign_name").eq("client_id", clientId).eq("platform", campaign.platform).eq("campaign_id", campaign.id).order("date", { ascending: false }).limit(1).maybeSingle()
+  return `${left} | ${data?.campaign_name ?? "Campaign"}`
+}
+
 export type CampaignOption = { value: string; platform: Platform; name: string; spend: number; results: number }
 export type ClientReportData = {
   scope: ReportScope
