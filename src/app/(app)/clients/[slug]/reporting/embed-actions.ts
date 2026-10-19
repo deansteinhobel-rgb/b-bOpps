@@ -80,7 +80,8 @@ export async function createClientReportLink(slug: string, raw: z.input<typeof C
     token,
     created_by_profile_id: me.id,
   })
-  if (error) return { ok: false, message: "Couldn't create the link." }
+  // PGRST204 / 42703: the new columns aren't there yet (migration 20261019000077 hasn't run).
+  if (error) return { ok: false, message: error.code === "PGRST204" || error.code === "42703" ? "Sharing client reports needs a database update that hasn't run yet. Ask Dean." : "Couldn't create the link." }
   revalidatePath(`/clients/${slug}/reporting/client-report`)
   return { ok: true, url: `${appUrl()}/embed/report/${token}` }
 }
