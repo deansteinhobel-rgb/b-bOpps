@@ -164,7 +164,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
               {ads.length === 0 && (
                 <tr>
                   <td colSpan={AD_COLS.length + 1} className="px-4 py-8 text-center text-muted-foreground">
-                    No ad-level data for this campaign in the period.
+                    {detail.kind === "google" && detail.assets.length > 0 ? "No ad-level numbers for this campaign: see its assets below." : "No ad-level data for this campaign in the period."}
                   </td>
                 </tr>
               )}

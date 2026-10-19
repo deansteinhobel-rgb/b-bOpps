@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { cachedPerformance } from "@/lib/metrics/cached"
 import { pickAds, reportSummary, type AdPicks } from "@/lib/metrics/client-report"
+import { assetSentence, pickAssets, type AssetSection } from "@/lib/metrics/assets"
+import { campaignAssets } from "@/lib/metrics/breakdowns"
 import type { Derived, Periods } from "@/lib/metrics/performance"
 import { isPlatform, PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import type { RangeSpec } from "@/lib/metrics/range"
@@ -46,6 +48,11 @@ export type ClientReportData = {
   picks: AdPicks
   /** Ads that spent in the scope (0 = the campaign reports no ads, e.g. Performance Max). */
   adsWithSpend: number
+  /**
+   * One Performance Max or Demand Gen campaign picked: its top and weakest images and headlines,
+   * shown in place of ads (PMax has no ad rows; Demand Gen ads have no image). Null otherwise.
+   */
+  assets: AssetSection[] | null
   summary: string[]
   previews: PreviewMap
   /** For the builder: the platforms with spend in the period, and the campaigns in the picked platform. */
@@ -70,8 +77,14 @@ export async function loadClientReport(db: SupabaseClient, client: { id: string;
   const campaign = camp ? (list.campaigns.find((c) => c.platform === camp.platform && c.campaignId === camp.id) ?? perf.campaigns[0] ?? null) : null
   const { from, to } = perf.periods
 
-  const ads = (await adsForPeriod(db, client.id, from, to)).filter((a) => (!platform || a.platform === platform) && (!camp || a.campaign_id === camp.id))
-  const picks = pickAds(ads, 3)
+  const [allAds, assetData] = await Promise.all([
+    adsForPeriod(db, client.id, from, to),
+    camp?.platform === "google_ads" ? campaignAssets(db, client.id, camp.id, from, to) : null,
+  ])
+  const ads = allAds.filter((a) => (!platform || a.platform === platform) && (!camp || a.campaign_id === camp.id))
+  const assetSections = assetData?.source ? pickAssets(assetData.assets, 3) : []
+  const assets = assetSections.length ? assetSections : null
+  const picks = pickAds(assets ? [] : ads, 3)
   const shown = [...picks.best, ...picks.worst]
   // The client never gets the team's "Add the post link" button.
   const previews = Object.fromEntries(Object.entries(await previewsFor(db, client.id, shown)).map(([k, p]) => [k, { ...p, addPost: null }]))
@@ -91,6 +104,10 @@ export async function loadClientReport(db: SupabaseClient, client: { id: string;
     best: picks.best[0] ?? null,
     basis: picks.basis,
   })
+  for (const a of assets ?? []) {
+    const line = assetSentence(a, client.currency)
+    if (line) summary.push(line)
+  }
 
   return {
     scope: { platform: scope.platform, campaign: camp },
@@ -104,6 +121,7 @@ export async function loadClientReport(db: SupabaseClient, client: { id: string;
     target,
     picks,
     adsWithSpend: ads.filter((a) => a.spend > 0).length,
+    assets,
     summary,
     previews,
     platforms: all.platforms.filter((p) => p.now.spend > 0).map((p) => ({ platform: p.platform, spend: p.now.spend })).sort((a, b) => b.spend - a.spend),

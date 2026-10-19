@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { rpcAll } from "@/lib/supabase/rpc-all"
+import { mergeAssets, type Asset, type AssetSource } from "./assets"
 import { derive, type Derived } from "./performance"
 import type { Platform } from "./types"
 
@@ -26,6 +27,17 @@ async function totals(supabase: SupabaseClient, clientId: string, kind: string, 
   })) as BreakdownRow[]
 }
 
+/**
+ * A Google campaign's assets over the period: Performance Max asset groups first, else Demand Gen /
+ * Display ad group assets. Empty for search campaigns.
+ */
+export async function campaignAssets(supabase: SupabaseClient, clientId: string, campaignId: string, from: string, to: string): Promise<{ source: AssetSource | null; assets: Asset[] }> {
+  const [pmax, ad] = await Promise.all([totals(supabase, clientId, "pmax_asset", from, to, campaignId), totals(supabase, clientId, "ad_asset", from, to, campaignId)])
+  if (pmax.length) return { source: "pmax", assets: mergeAssets(pmax) }
+  if (ad.length) return { source: "ad", assets: mergeAssets(ad) }
+  return { source: null, assets: [] }
+}
+
 /** LinkedIn demographics are 30-day totals refreshed weekly: use the latest one up to `to`. */
 async function latestSnapshot(supabase: SupabaseClient, clientId: string, kind: string, to: string) {
   const { data } = await supabase.from("windsor_breakdowns").select("date").eq("client_id", clientId).eq("kind", kind).lte("date", to).order("date", { ascending: false }).limit(1).maybeSingle()
@@ -34,17 +46,25 @@ async function latestSnapshot(supabase: SupabaseClient, clientId: string, kind: 
 
 export async function campaignBreakdowns(supabase: SupabaseClient, clientId: string, platform: Platform, campaignId: string, from: string, to: string) {
   if (platform === "google_ads") {
-    const [terms, keywords, { data: share }] = await Promise.all([
+    const [searchTerms, pmaxTerms, keywords, { data: share }, assets] = await Promise.all([
       totals(supabase, clientId, "search_term", from, to, campaignId),
+      totals(supabase, clientId, "pmax_search_term", from, to, campaignId),
       totals(supabase, clientId, "keyword", from, to, campaignId),
       supabase.from("windsor_breakdowns").select("date, extra").eq("client_id", clientId).eq("kind", "impression_share").eq("campaign_id", campaignId).gte("date", from).lte("date", to).order("date"),
+      campaignAssets(supabase, clientId, campaignId, from, to),
     ])
+    // Performance Max reports its search terms for the whole campaign (no ad groups, no match types).
+    const pmax = searchTerms.length === 0 && pmaxTerms.length > 0
+    const terms = pmax ? pmaxTerms : searchTerms
     const keywordTexts = new Set(keywords.map((k) => k.dim1.toLowerCase()))
     return {
       kind: "google" as const,
       // Busy campaigns have thousands of search terms: the top 1,000 by spend go to the page.
       terms: terms.slice(0, 1000).map((t) => ({ ...t, isKeyword: keywordTexts.has(t.dim1.toLowerCase()) })),
       termsTotal: terms.length,
+      termsSource: pmax ? ("pmax" as const) : ("search" as const),
+      assets: assets.assets,
+      assetSource: assets.source,
       keywords,
       share: (share ?? []).map((r) => {
         const e = (r.extra ?? {}) as Record<string, unknown>

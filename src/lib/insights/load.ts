@@ -45,7 +45,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
   const googleTarget = targetFor(targets, "google_ads")
   const d30 = addDays(to, -29)
 
-  const [daily, last7, prev7, terms, share, adsets, learning, ages, placements, landing, costly] = await Promise.all([
+  const [daily, last7, prev7, terms, share, adsets, learning, ages, placements, landing, costly, pmaxTerms] = await Promise.all([
     rpcAll(supabase, "campaign_daily", { p_client: clientId, p_from: addDays(to, -89), p_to: to }),
     rpcAll(supabase, "ad_totals", { p_client: clientId, p_from: addDays(to, -6), p_to: to }),
     rpcAll(supabase, "ad_totals", { p_client: clientId, p_from: addDays(to, -13), p_to: addDays(to, -7) }),
@@ -59,6 +59,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     rpcAll(supabase, "ga4_landing_totals", { p_client: clientId, p_from: d30, p_to: to }),
     // For the ICP check: terms with some spend and no results (same list Claude's review judged).
     review?.terms?.length ? rpcAll(supabase, "search_term_candidates", { p_client: clientId, p_from: d30, p_to: to, p_min_spend: Math.max(25, 0.25 * (googleTarget ?? 200)), p_min_results: 1e9 }) : Promise.resolve([]),
+    breakdown(supabase, clientId, "pmax_search_term", d30, to),
   ])
 
   const campaigns = new Map<string, CampaignDays>()
@@ -118,6 +119,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     metaPlacements: placements,
     linkedin,
     ga4Through: client.ga4_property_id ? await latest(supabase, clientId, "ga4_landing_page") : null,
+    pmaxTerms: pmaxTerms.map((t) => ({ campaignId: t.campaignId, campaignName: t.campaignName, term: t.value, ...t.m, isKeyword: false })),
     review: review ? { companies: review.companies ?? [], terms: review.terms ?? [], goals: review.goals ?? [], audiences: review.audiences ?? [] } : null,
     costlyTerms: costly
       .filter((t) => Number(t.results) === 0)
