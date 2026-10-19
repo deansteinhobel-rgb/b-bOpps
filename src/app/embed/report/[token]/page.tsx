@@ -1,26 +1,27 @@
 import { longDate } from "@/lib/format"
 import { cachedPerformance } from "@/lib/metrics/cached"
-import { decodeRange, parseRange } from "@/lib/metrics/range"
+import { decodeRange, parseRange, rangeParams } from "@/lib/metrics/range"
 import type { Platform } from "@/lib/metrics/types"
 import { previewsFor } from "@/lib/previews"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { adsForPeriod, boardAds, buildBoard, isBoardKey } from "@/app/(app)/clients/[slug]/reporting/boards"
 import { ReportBoard } from "@/app/(app)/clients/[slug]/reporting/report-board"
 import { ClientReportView } from "@/app/(app)/clients/[slug]/reporting/client-report/client-report-view"
-import { loadClientReport, reportTabTitle } from "@/app/(app)/clients/[slug]/reporting/client-report/data"
+import { loadClientReport, reportTabTitle, sharedScope } from "@/app/(app)/clients/[slug]/reporting/client-report/data"
 import { PeriodPicker } from "./period-picker"
 
 const robots = { index: false, follow: false }
 
 /** A client report's tab reads "Platform | Campaign" (Dean, 2026-10-19); boards keep "Report". */
-export async function generateMetadata({ params }: PageProps<"/embed/report/[token]">) {
-  const { token } = await params
+export async function generateMetadata({ params, searchParams }: PageProps<"/embed/report/[token]">) {
+  const [{ token }, sp] = await Promise.all([params, searchParams])
   if (!/^[A-Za-z0-9_-]{32,}$/.test(token)) return { title: "Report", robots }
   const admin = createAdminClient()
   const { data: link } = await admin.from("report_links").select("*").eq("token", token).maybeSingle()
   if (!link || link.revoked_at || link.kind !== "client_report" || !isBoardKey(link.board)) return { title: "Report", robots }
-  const platform = link.board === "all" ? null : (link.board as Platform)
-  const campaign = platform && link.campaign_id ? { platform, id: String(link.campaign_id) } : "all"
+  const scope = sharedScope(link, sp)
+  const platform = scope.campaign?.platform ?? scope.platform
+  const campaign = scope.campaign ?? "all"
   // Absolute: the client sees "Google Ads | …", not the app's internal name after it.
   const title = await reportTabTitle(admin, link.client_id, platform, campaign)
   return { title: title ? { absolute: title } : "Report", robots }
@@ -47,8 +48,8 @@ export default async function EmbedReportPage({ params, searchParams }: PageProp
 
   // A client report (Dean, 2026-10-19): one platform or all, one campaign or all, set when the link was made.
   if (link.kind === "client_report") {
-    const campaign = platform && link.campaign_id ? { platform, id: String(link.campaign_id) } : null
-    const data = await loadClientReport(admin, { id: link.client_id, currency: client.currency, monthly_kpi_target: client.monthly_kpi_target }, { platform, campaign }, range)
+    const scope = sharedScope(link, sp)
+    const data = await loadClientReport(admin, { id: link.client_id, currency: client.currency, monthly_kpi_target: client.monthly_kpi_target }, scope, range)
     if (!data) return <Notice text="No data for this report yet." />
     await markViewed(admin, link)
     return (
@@ -57,7 +58,27 @@ export default async function EmbedReportPage({ params, searchParams }: PageProp
           <PeriodPicker range={range} periods={data.periods} dataFrom={data.dataFrom} dataThrough={data.dataThrough} />
           <p className="text-[11px] text-muted-foreground">Data through {longDate(data.dataThrough)} · updated daily</p>
         </div>
-        <ClientReportView data={data} client={{ name: client.name, logoUrl: client.logo_url }} currency={client.currency} note={link.note} />
+        {scope.drilled && (
+          <a href={`?${rangeParams(range, new URLSearchParams())}`} className="inline-block text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+            ← Back to the full report
+          </a>
+        )}
+        <ClientReportView
+          data={data}
+          client={{ name: client.name, logoUrl: client.logo_url }}
+          currency={client.currency}
+          note={scope.drilled ? null : link.note}
+          // Rows open a platform or campaign inside the link (sharedScope keeps it there).
+          hrefFor={
+            link.campaign_id
+              ? undefined
+              : (row) => {
+                  const q = rangeParams(range, new URLSearchParams())
+                  q.set(row.value.includes(":") ? "campaign" : "platform", row.value)
+                  return `?${q}`
+                }
+          }
+        />
         <p className="text-center text-[11px] text-subtle-foreground">Report by Bordeaux &amp; Burgundy</p>
       </main>
     )
