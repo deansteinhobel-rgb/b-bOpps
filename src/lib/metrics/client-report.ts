@@ -18,15 +18,15 @@ const enrich = (a: AdStat): ReportAd => {
 }
 
 /**
- * The top and weakest ads in the report's scope (Dean, 2026-10-19: the top as 2 for results and 2
- * for click-through rate). Only ads that spent more than the median ad count, so a $5 ad with one
- * lucky lead never tops a list.
+ * The top and weakest ads in the report's scope (Dean, 2026-10-19: one platform as 2 for results
+ * and 2 for click-through rate; the overall report as the top 3 and weakest 3). Only ads that
+ * spent more than the median ad count, so a $5 ad with one lucky lead never tops a list.
  * - For results: the lowest cost per result, ads with 3+ results first, then ads with 1-2.
  * - For click-through rate: the highest CTR among the rest (never an ad already shown for results).
  * - Weakest: by cost per result when at least 2 ads have 3+ results (spent with no results first,
  *   biggest spend first), otherwise the lowest CTR; never an ad already in the top lists.
  */
-export function pickAds(ads: AdStat[], top = 2, weak = 3): AdPicks {
+export function pickAds(ads: AdStat[], opts: { results: number; ctr: number; weak: number } = { results: 2, ctr: 2, weak: 3 }): AdPicks {
   const spent = ads.filter((a) => a.spend > 0)
   const m = median(spent.map((a) => a.spend))
   let eligible = spent.filter((a) => a.spend > m)
@@ -35,13 +35,15 @@ export function pickAds(ads: AdStat[], top = 2, weak = 3): AdPicks {
   const byCost = (a: ReportAd, b: ReportAd) => a.costPerResult! - b.costPerResult! || b.results - a.results
   const withResults = list.filter((a) => a.results >= MIN_RESULTS_FOR_CPR)
   const fewer = list.filter((a) => a.results > 0 && a.results < MIN_RESULTS_FOR_CPR)
-  const byResults = [...withResults.sort(byCost), ...fewer.sort(byCost)].slice(0, top)
+  const byResults = [...withResults.sort(byCost), ...fewer.sort(byCost)].slice(0, opts.results)
   const used = new Set(byResults.map((a) => a.ad_id))
-  const byCtr = list.filter((a) => a.ctr !== null && a.clicks > 0 && !used.has(a.ad_id)).sort((a, b) => b.ctr! - a.ctr! || b.clicks - a.clicks).slice(0, top)
+  // No ad brought results: the top list falls back to click-through rate.
+  const ctrTop = opts.ctr || (byResults.length ? 0 : opts.results)
+  const byCtr = list.filter((a) => a.ctr !== null && a.clicks > 0 && !used.has(a.ad_id)).sort((a, b) => b.ctr! - a.ctr! || b.clicks - a.clicks).slice(0, ctrTop)
   for (const a of byCtr) used.add(a.ad_id)
   const rest = list.filter((a) => !used.has(a.ad_id))
   // Only call ads weak when there are enough to compare: at most half of the eligible ads.
-  const take = Math.min(weak, rest.length, Math.floor(list.length / 2))
+  const take = Math.min(opts.weak, rest.length, Math.floor(list.length / 2))
   if (withResults.length >= 2) {
     const worst = rest
       .sort((a, b) => {

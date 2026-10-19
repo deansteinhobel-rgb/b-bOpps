@@ -1,6 +1,6 @@
 "use client"
 
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"
 import { RangePicker } from "@/components/range-picker"
 import { Segmented } from "@/components/segmented"
@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 export function PeriodPicker({ range, periods, dataFrom, dataThrough }: { range: RangeSpec; periods: Periods; dataFrom: string; dataThrough: string }) {
   const router = useRouter()
   const pathname = usePathname()
+  const params = useSearchParams()
   const [pending, start] = useTransition()
   const [view, setView] = useState(range)
   const [seen, setSeen] = useState(range)
@@ -25,7 +26,7 @@ export function PeriodPicker({ range, periods, dataFrom, dataThrough }: { range:
   const go = (r: RangeSpec) => {
     if (sameRange(r, view)) return
     setView(r)
-    start(() => router.replace(`${pathname}?${rangeParams(r, new URLSearchParams(), 0)}`, { scroll: false }))
+    start(() => router.replace(`${pathname}?${rangeParams(r, new URLSearchParams(params), 0)}`, { scroll: false }))
   }
   return (
     <div className={cn("flex flex-wrap items-center gap-2 transition-opacity", pending && "opacity-60")}>

@@ -33,6 +33,15 @@ describe("pickAds", () => {
     expect(r.worst.map((a) => a.ad_id)).toEqual(["e"])
   })
 
+  it("the overall report: top 3 for results, no CTR list, falling back to CTR when nothing brought results", () => {
+    const tiny = [1, 2, 3, 4, 5, 6].map((n) => ad(`s${n}`, n, 10, 1))
+    const withResults = pickAds([...tiny, ad("a", 300, 1000, 10, 3), ad("b", 400, 1000, 30, 4), ad("c", 500, 1000, 10, 2), ad("d", 600, 1000, 90), ad("e", 700, 1000, 10), ad("f", 800, 1000, 10, 1)], { results: 3, ctr: 0, weak: 3 })
+    expect(withResults.byResults.map((x) => x.ad_id)).toEqual(["b", "a", "c"])
+    expect(withResults.byCtr).toEqual([])
+    const noResults = pickAds([ad("a", 10, 1000, 50), ad("b", 20, 1000, 50), ad("c", 30, 1000, 50), ad("d", 40, 1000, 20), ad("e", 50, 1000, 5), ad("f", 60, 1000, 30)], { results: 3, ctr: 0, weak: 3 })
+    expect(noResults.byCtr.map((x) => x.ad_id)).toEqual(["f", "d", "e"])
+  })
+
   it("shows the one ad there is and no weakest", () => {
     const r = pickAds([ad("a", 10, 1000, 5)])
     expect(r.byCtr.map((a) => a.ad_id)).toEqual(["a"])
