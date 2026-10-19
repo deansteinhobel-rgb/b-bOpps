@@ -30,6 +30,20 @@ export function parseCampaignStep(v: unknown): CampaignPick | "all" | null {
 }
 export const campaignValue = (c: CampaignPick) => `${c.platform}:${c.id}`
 
+/**
+ * The browser tab's title (Dean, 2026-10-19): "Platform | Campaign", e.g. "Google Ads | DG | Search |
+ * Non-Brand Core" or "LinkedIn | All campaigns". Null until the platform and campaign are picked.
+ */
+export async function reportTabTitle(db: SupabaseClient, clientId: string, platform: Platform | null, campaign: CampaignPick | "all" | null): Promise<string | null> {
+  if (!campaign) return null
+  const p = campaign === "all" ? platform : campaign.platform
+  const left = p ? PLATFORM_LABEL[p] : "All platforms"
+  if (campaign === "all") return `${left} | All campaigns`
+  // The campaign's latest name (one row; RLS applies to the caller's client).
+  const { data } = await db.from("windsor_daily_metrics").select("campaign_name").eq("client_id", clientId).eq("platform", campaign.platform).eq("campaign_id", campaign.id).order("date", { ascending: false }).limit(1).maybeSingle()
+  return `${left} | ${data?.campaign_name ?? "Campaign"}`
+}
+
 export type CampaignOption = { value: string; platform: Platform; name: string; spend: number; results: number }
 export type ClientReportData = {
   scope: ReportScope
@@ -71,8 +85,8 @@ export async function loadClientReport(db: SupabaseClient, client: { id: string;
   const { from, to } = perf.periods
 
   const ads = (await adsForPeriod(db, client.id, from, to)).filter((a) => (!platform || a.platform === platform) && (!camp || a.campaign_id === camp.id))
-  const picks = pickAds(ads, 3)
-  const shown = [...picks.best, ...picks.worst]
+  const picks = pickAds(ads)
+  const shown = [...picks.byResults, ...picks.byCtr, ...picks.worst]
   // The client never gets the team's "Add the post link" button.
   const previews = Object.fromEntries(Object.entries(await previewsFor(db, client.id, shown)).map(([k, p]) => [k, { ...p, addPost: null }]))
 
@@ -88,8 +102,8 @@ export async function loadClientReport(db: SupabaseClient, client: { id: string;
     prev: perf.prev,
     target,
     campaigns: list.campaigns,
-    best: picks.best[0] ?? null,
-    basis: picks.basis,
+    best: picks.byResults[0] ?? picks.byCtr[0] ?? null,
+    basis: picks.byResults.length ? "cost_per_result" : "ctr",
   })
 
   return {

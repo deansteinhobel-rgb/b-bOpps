@@ -7,10 +7,24 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { adsForPeriod, boardAds, buildBoard, isBoardKey } from "@/app/(app)/clients/[slug]/reporting/boards"
 import { ReportBoard } from "@/app/(app)/clients/[slug]/reporting/report-board"
 import { ClientReportView } from "@/app/(app)/clients/[slug]/reporting/client-report/client-report-view"
-import { loadClientReport } from "@/app/(app)/clients/[slug]/reporting/client-report/data"
+import { loadClientReport, reportTabTitle } from "@/app/(app)/clients/[slug]/reporting/client-report/data"
 import { PeriodPicker } from "./period-picker"
 
-export const metadata = { title: "Report", robots: { index: false, follow: false } }
+const robots = { index: false, follow: false }
+
+/** A client report's tab reads "Platform | Campaign" (Dean, 2026-10-19); boards keep "Report". */
+export async function generateMetadata({ params }: PageProps<"/embed/report/[token]">) {
+  const { token } = await params
+  if (!/^[A-Za-z0-9_-]{32,}$/.test(token)) return { title: "Report", robots }
+  const admin = createAdminClient()
+  const { data: link } = await admin.from("report_links").select("*").eq("token", token).maybeSingle()
+  if (!link || link.revoked_at || link.kind !== "client_report" || !isBoardKey(link.board)) return { title: "Report", robots }
+  const platform = link.board === "all" ? null : (link.board as Platform)
+  const campaign = platform && link.campaign_id ? { platform, id: String(link.campaign_id) } : "all"
+  // Absolute: the client sees "Google Ads | …", not the app's internal name after it.
+  const title = await reportTabTitle(admin, link.client_id, platform, campaign)
+  return { title: title ? { absolute: title } : "Report", robots }
+}
 
 /**
  * A client report board for a Notion embed (Dean, 2026-09-29). No sign-in: the secret link is the
