@@ -12,6 +12,10 @@ import { DEAL_SIZE_BANDS, INDUSTRIES, isResultTier, REGIONS, SALES_MOTIONS } fro
 import { CONNECTORS, DEFAULT_FIELDS } from "@/lib/windsor/accounts"
 import { syncCreatives } from "@/lib/windsor/creatives"
 import { syncWindsor } from "@/lib/windsor/sync"
+import { isPlatform, type Platform } from "@/lib/metrics/types"
+
+/** The roles someone can have on a client's team. */
+const TeamRole = z.enum(["gtm_lead", "am", "specialist"])
 
 // Every action here: admin check in code, and RLS admin policies in the database. No deletes:
 // removing someone from a team sets removed_at, so the history stays.
@@ -95,7 +99,7 @@ export async function addTeamMember(_prev: FormState, form: FormData): Promise<F
   await requireAdmin()
   const clientId = String(form.get("client_id"))
   const email = String(form.get("email") ?? "").toLowerCase()
-  const role = z.enum(["gtm_lead", "am", "specialist"]).safeParse(form.get("role"))
+  const role = TeamRole.safeParse(form.get("role"))
   if (!email || !role.success) return fail("Pick a person and a role.")
   const supabase = await createClient()
   const { data: invite } = await supabase.from("team_invites").select("email").eq("email", email).maybeSingle()
@@ -111,8 +115,11 @@ export async function addTeamMember(_prev: FormState, form: FormData): Promise<F
   return { ok: true, message: "Added to the team." }
 }
 
-export async function removeTeamMember(clientId: string, email: string, role: string): Promise<FormState> {
+export async function removeTeamMember(clientId: string, email: string, raw: string): Promise<FormState> {
   await requireAdmin()
+  const parsed = TeamRole.safeParse(raw)
+  if (!parsed.success) return fail("Unknown role.")
+  const role = parsed.data
   const supabase = await createClient()
   const now = new Date().toISOString()
   await supabase.from("client_team_invites").update({ removed_at: now }).eq("client_id", clientId).eq("email", email).eq("role", role)
@@ -192,10 +199,11 @@ export async function updateAccount(_prev: FormState, form: FormData): Promise<F
 export async function saveBudgets(_prev: FormState, form: FormData): Promise<FormState> {
   await requireAdmin()
   const clientId = String(form.get("client_id"))
-  const rows: { client_id: string; platform: string; campaign_id: string; month: string; amount: number }[] = []
+  const rows: { client_id: string; platform: Platform; campaign_id: string; month: string; amount: number }[] = []
   for (const [key, value] of form.entries()) {
     if (!key.startsWith("budget|") || value === "") continue
     const [, platform, month] = key.split("|")
+    if (!isPlatform(platform) || !/^\d{4}-\d{2}-01$/.test(month ?? "")) return fail("Unknown budget field.")
     const amount = Number(value)
     if (!Number.isFinite(amount) || amount < 0) return fail(`Budget for ${platform} ${month} must be a number.`)
     rows.push({ client_id: clientId, platform, campaign_id: "", month, amount })
@@ -292,7 +300,8 @@ export async function setProfileRole(_prev: FormState, form: FormData): Promise<
   const me = await requireAdmin()
   const id = String(form.get("id"))
   const raw = String(form.get("role") ?? "")
-  const role = raw === "" ? null : Role.safeParse(raw).success ? raw : undefined
+  const parsed = Role.safeParse(raw)
+  const role = raw === "" ? null : parsed.success ? parsed.data : undefined
   if (role === undefined) return fail("Unknown role.")
   if (id === me.id && role !== "admin" && role !== "gtm_lead") return fail("You can't remove your own admin access.")
   const supabase = await createClient()

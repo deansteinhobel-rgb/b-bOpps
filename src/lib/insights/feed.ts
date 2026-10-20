@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { londonToday } from "@/lib/checks/periods"
 import { cachedInsights } from "@/lib/metrics/cached"
 import { applyActions, type LoggedAction } from "./rules"
@@ -9,14 +9,14 @@ import { applyActions, type LoggedAction } from "./rules"
  * RLS). SECURITY: only call after the client row was loaded with the user's own RLS client, because
  * cachedInsights reads with the admin client.
  */
-export async function loadFeed(supabase: SupabaseClient, clientId: string) {
+export async function loadFeed(supabase: Db, clientId: string) {
   const [computed, { data: log }, { data: reviews }] = await Promise.all([
     cachedInsights(clientId),
     supabase.from("insight_actions").select("insight_key, action, items, snooze_until, created_at, note, notion_page_id, sprint_test_id, profiles(full_name)").eq("client_id", clientId).order("created_at"),
     supabase.from("insight_reviews").select("id, status, headline, start_here, ranking, created_at, finished_at, error").eq("client_id", clientId).order("created_at", { ascending: false }).limit(5),
   ])
   if (!computed) return null
-  const actions: LoggedAction[] = (log ?? []).map((a) => ({ ...(a as unknown as LoggedAction), profile_name: (a.profiles as unknown as { full_name: string | null } | null)?.full_name ?? null }))
+  const actions: LoggedAction[] = (log ?? []).map((a) => ({ ...(a as LoggedAction), profile_name: a.profiles?.full_name ?? null }))
   // Claude's latest finished review ranks the feed; a newer one may be running.
   const review = (reviews ?? []).find((r) => r.status === "ready") ?? null
   const running = (reviews ?? []).find((r) => r.status === "generating" && Date.now() - Date.parse(r.created_at) < 10 * 60_000) ?? null

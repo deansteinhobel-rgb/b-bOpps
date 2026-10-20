@@ -30,7 +30,7 @@ export default async function FeedbackAdminPage({ searchParams }: PageProps<"/ad
       <ul className="surface divide-y">
         {list.length === 0 && <li className="px-5 py-10 text-center text-sm text-muted-foreground">Nothing open. Nice.</li>}
         {list.map((f) => {
-          const who = f.profiles as unknown as { id: string; full_name: string | null; email: string; avatar_url: string | null } | null
+          const who = f.profiles
           return (
             <li key={f.id} className="grid gap-4 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
               <div className="min-w-0 space-y-1.5">

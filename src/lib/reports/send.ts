@@ -1,11 +1,12 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { liveClientSlugs } from "@/lib/notion/config"
 import { postSlackMessage, reportChannel, slackConfigured, type SlackMessage } from "@/lib/slack"
 import { snapshotImages } from "./snapshot-images"
 import { weeklyMessage, type SnapshotImageLinks } from "./weekly-message"
 import type { WeeklySnapshot } from "./weekly"
 import { lastWeek, weeklySnapshot } from "./weekly"
+import { toJson } from "@/lib/supabase/db"
 
 /**
  * Sending the weekly snapshot (Dean, 2026-10-20). Like the Notion write: a slack_posts row is written
@@ -29,7 +30,7 @@ const IMAGE_BUCKET = "report-images"
  * signed links Slack can load). Null when drawing or storing fails: the post then falls back to the text
  * version, so a Monday post never fails on a picture.
  */
-export async function storedSnapshotImages(db: SupabaseClient, snap: WeeklySnapshot): Promise<SnapshotImageLinks | null> {
+export async function storedSnapshotImages(db: Db, snap: WeeklySnapshot): Promise<SnapshotImageLinks | null> {
   try {
     const pics = await snapshotImages(snap, appUrl())
     const stamp = Date.now()
@@ -59,7 +60,7 @@ export function slackReportsLive(slug: string) {
 
 export type SendResult = { status: "sent" | "dry_run" | "failed" | "skipped"; client: string; error?: string; message?: SlackMessage }
 
-export async function sendWeeklySnapshot(db: SupabaseClient, clientId: string, opts: { manual?: boolean; by?: string | null; week?: { from: string; to: string } } = {}): Promise<SendResult> {
+export async function sendWeeklySnapshot(db: Db, clientId: string, opts: { manual?: boolean; by?: string | null; week?: { from: string; to: string } } = {}): Promise<SendResult> {
   const week = opts.week ?? lastWeek()
   const { data: client } = await db.from("clients").select("id, slug, slack_channel").eq("id", clientId).single()
   if (!client) return { status: "failed", client: clientId, error: "No such client." }
@@ -74,7 +75,7 @@ export async function sendWeeklySnapshot(db: SupabaseClient, clientId: string, o
 
   const { data: row, error } = await db
     .from("slack_posts")
-    .insert({ client_id: clientId, period_start: week.from, period_end: week.to, channel, manual: Boolean(opts.manual), status: live ? "sending" : "dry_run", message, sent_by: opts.by ?? null, finished_at: live ? null : new Date().toISOString() })
+    .insert({ client_id: clientId, period_start: week.from, period_end: week.to, channel, manual: Boolean(opts.manual), status: live ? "sending" : "dry_run", message: toJson(message), sent_by: opts.by ?? null, finished_at: live ? null : new Date().toISOString() })
     .select("id")
     .single()
   // The unique index: this week's post is already sending or sent.

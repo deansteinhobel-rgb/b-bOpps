@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import type { TextAd } from "@/lib/previews"
 import { toTextAd } from "./creatives"
 import { windsorRows } from "./rest"
@@ -32,7 +32,7 @@ const windsor = (account: string, fields: string[], from: string, to: string) =>
  * The Google Ads account a campaign is in, from our own synced data (never the browser), and only
  * when that account is mapped to this client. The caller's Supabase client applies RLS.
  */
-export async function campaignAccount(supabase: SupabaseClient, clientId: string, campaignId: string): Promise<string | null> {
+export async function campaignAccount(supabase: Db, clientId: string, campaignId: string): Promise<string | null> {
   const { data: seen } = await supabase
     .from("windsor_daily_metrics")
     .select("external_account_id")

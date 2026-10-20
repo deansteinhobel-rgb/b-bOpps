@@ -263,7 +263,8 @@ async function changedSince(clientId: string, rootId: string, since: string) {
       added++
     } else {
       // Something inside a page we track changed (a sub-page or a database row): re-read that page.
-      await db.from("client_knowledge").update({ last_edited_time: now }).eq("client_id", clientId).eq("notion_page_id", known.get(anchor)!.notion_page_id)
+      const anchorId = known.get(anchor)!.notion_page_id
+      if (anchorId) await db.from("client_knowledge").update({ last_edited_time: now }).eq("client_id", clientId).eq("notion_page_id", anchorId)
       changed++
     }
   }

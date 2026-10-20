@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { cachedPerformance } from "@/lib/metrics/cached"
 import { pickAds, reportSummary, type AdPicks } from "@/lib/metrics/client-report"
 import { assetSentence, pickAssets, type AssetSection } from "@/lib/metrics/assets"
@@ -52,7 +52,7 @@ export function sharedScope(link: { board: string; campaign_id?: string | null }
  * The browser tab's title (Dean, 2026-10-19): "Platform | Campaign", e.g. "Google Ads | DG | Search |
  * Non-Brand Core" or "LinkedIn | All campaigns". Null until the platform and campaign are picked.
  */
-export async function reportTabTitle(db: SupabaseClient, clientId: string, platform: Platform | null, campaign: CampaignPick | "all" | null): Promise<string | null> {
+export async function reportTabTitle(db: Db, clientId: string, platform: Platform | null, campaign: CampaignPick | "all" | null): Promise<string | null> {
   if (!campaign) return null
   const p = campaign === "all" ? platform : campaign.platform
   const left = p ? PLATFORM_LABEL[p] : "All platforms"
@@ -101,7 +101,7 @@ export type ClientReportData = {
   campaigns: CampaignOption[]
 }
 
-export async function loadClientReport(db: SupabaseClient, client: { id: string; currency: string; monthly_kpi_target: unknown }, scope: ReportScope, range: RangeSpec): Promise<ClientReportData | null> {
+export async function loadClientReport(db: Db, client: { id: string; currency: string; monthly_kpi_target: unknown }, scope: ReportScope, range: RangeSpec): Promise<ClientReportData | null> {
   const camp = scope.campaign
   const platform = camp?.platform ?? scope.platform
   const [all, wide, targets] = await Promise.all([

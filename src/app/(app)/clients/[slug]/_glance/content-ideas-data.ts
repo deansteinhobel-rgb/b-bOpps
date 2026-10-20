@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { shortDate } from "@/lib/format"
 import { addDays } from "@/lib/metrics/ads"
 import { peopleForClient } from "@/lib/people"
@@ -11,7 +11,7 @@ import type { IdeaRun, IdeaState } from "./content-ideas"
  * with each idea, and who can own a test. Used by Plan › Content ideas.
  * Call after the client was loaded through RLS.
  */
-export async function loadContentIdeas(supabase: SupabaseClient, client: { id: string; slug: string }, today: string) {
+export async function loadContentIdeas(supabase: Db, client: { id: string; slug: string }, today: string) {
   const tenMinutesAgo = new Date(Date.now() - 10 * 60_000).toISOString()
   const [{ data: ideaRun }, { data: ideaRunning }, { data: canEditClient }, { data: canRunIdeas }, people] = await Promise.all([
     supabase.from("content_idea_runs").select("id, headline, working, ideas, avoid, finished_at, requested_by_profile_id").eq("client_id", client.id).eq("status", "ready").is("archived_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle(),

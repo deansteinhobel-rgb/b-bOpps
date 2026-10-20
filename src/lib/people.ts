@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 
 export type Person = {
   /** Notion user ID, or null if we don't know it. Actions are assigned by this. */
@@ -14,7 +14,7 @@ export type Person = {
  * Everyone who can own an action: signed-in profiles plus invited people who haven't signed in yet.
  * The client's own team comes first. RLS applies.
  */
-export async function peopleForClient(supabase: SupabaseClient, clientId: string): Promise<Person[]> {
+export async function peopleForClient(supabase: Db, clientId: string): Promise<Person[]> {
   const [{ data: profiles }, { data: invites }, { data: team }, { data: teamInvites }] = await Promise.all([
     supabase.from("profiles").select("id, email, full_name, notion_user_id").not("role", "is", null),
     supabase.from("team_invites").select("email, full_name, notion_user_id"),

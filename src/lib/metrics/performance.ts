@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { money, percent, whole } from "@/lib/format"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { addDaysIso, bucketsFor, encodeRange, resolveRange, type Periods, type RangeSpec } from "./range"
@@ -87,7 +87,7 @@ const num = (v: unknown) => Number(v ?? 0)
  * come back by week or month (`periods.bucket`), so `daily` holds one point per bucket. `segment`
  * keeps one segment's campaigns (by each campaign's latest name, so a rename can't split one).
  */
-export async function getPerformance(supabase: SupabaseClient, clientId: string, opts: { range: RangeSpec; platform?: Platform | null; campaignId?: string | null; segment?: { key: string; defs: SegmentDef[] } | null }): Promise<Performance | null> {
+export async function getPerformance(supabase: Db, clientId: string, opts: { range: RangeSpec; platform?: Platform | null; campaignId?: string | null; segment?: { key: string; defs: SegmentDef[] } | null }): Promise<Performance | null> {
   const { data: range } = await dataRanges(supabase, clientId)
   const dataThrough = (range ?? []).map((r) => r.data_through as string).sort().at(-1)
   const dataFrom = (range ?? []).map((r) => r.data_from as string).sort()[0]

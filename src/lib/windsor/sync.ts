@@ -1,6 +1,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { fetchAccountMetrics, reconcileAccount, type Level, type MetricRow, type WindsorAccount } from "./client"
+import { fetchAccountMetrics, reconcileAccount, type Level, type MetricRow } from "./client"
+import type { Json } from "@/lib/supabase/database.types"
 
 const CHUNK = 500
 
@@ -26,7 +27,7 @@ export async function syncWindsor(opts: { clientId?: string; accountId?: string;
   if (error) throw new Error(`Loading accounts: ${error.message}`)
 
   const results: SyncResult[] = []
-  for (const account of (accounts ?? []) as unknown as WindsorAccount[]) {
+  for (const account of accounts ?? []) {
     const { data: run } = await db
       .from("windsor_sync_runs")
       .insert({ client_id: account.client_id, kind: opts.kind, date_from: opts.dateFrom, date_to: opts.dateTo })
@@ -38,7 +39,7 @@ export async function syncWindsor(opts: { clientId?: string; accountId?: string;
         const { error: upErr } = await db
           .from("windsor_daily_metrics")
           .upsert(
-            rows.slice(i, i + CHUNK).map((r) => ({ ...r, synced_at: new Date().toISOString() })),
+            rows.slice(i, i + CHUNK).map((r) => ({ ...r, raw: r.raw as Json, synced_at: new Date().toISOString() })),
             { onConflict: "platform,external_account_id,date,campaign_id,ad_id" },
           )
         if (upErr) throw new Error(`Saving rows: ${upErr.message}`)
@@ -63,7 +64,7 @@ async function saveRows(db: ReturnType<typeof createAdminClient>, rows: MetricRo
     const { error } = await db
       .from("windsor_daily_metrics")
       .upsert(
-        rows.slice(i, i + CHUNK).map((r) => ({ ...r, synced_at: new Date().toISOString() })),
+        rows.slice(i, i + CHUNK).map((r) => ({ ...r, raw: r.raw as Json, synced_at: new Date().toISOString() })),
         { onConflict: "platform,external_account_id,date,campaign_id,ad_id" },
       )
     if (error) throw new Error(`Saving rows: ${error.message}`)
@@ -95,7 +96,7 @@ export async function loadHistory(opts: { clientId?: string; from: string; to: s
   const { data: accounts, error } = await q
   if (error) throw new Error(`Loading accounts: ${error.message}`)
   const failures: string[] = []
-  for (const account of (accounts ?? []) as unknown as WindsorAccount[]) {
+  for (const account of accounts ?? []) {
     const name = `${account.platform} ${account.external_account_id}`
     const metaStart = new Date()
     metaStart.setUTCMonth(metaStart.getUTCMonth() - META_MONTHS, 1)

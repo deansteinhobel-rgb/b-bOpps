@@ -7,6 +7,7 @@ import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { chatHistory, type ChatMessage } from "@/lib/ai/chat-history"
+import type { Json } from "@/lib/supabase/database.types"
 
 export const maxDuration = 120
 
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
           const a = await answer(history, send)
           send({ type: "sources", sources: a.sources })
           if (cacheKey && a.answer.trim()) {
-            await db.from("news_answers").upsert({ question: cacheKey, answer: a.answer, sources: a.sources, model: CHAT_MODEL, usage: a.usage, created_at: a.at })
+            await db.from("news_answers").upsert({ question: cacheKey, answer: a.answer, sources: a.sources, model: CHAT_MODEL, usage: a.usage as Json, created_at: a.at })
           }
           resolve(a)
         } catch (e) {
@@ -108,7 +109,7 @@ async function answer(history: ChatMessage[], send: (o: unknown) => void): Promi
       model: CHAT_MODEL,
       max_tokens: 4000,
       system: system(londonToday()),
-      tools: webTools(5, 2) as unknown as Anthropic.Messages.ToolUnion[],
+      tools: webTools(5, 2),
       messages,
     })
     s.on("text", (t) => {

@@ -1,10 +1,11 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { addDays } from "@/lib/metrics/ads"
 import type { Platform } from "@/lib/metrics/types"
 import { rpcAll } from "@/lib/supabase/rpc-all"
-import { computeInsights, effectiveThrough, type CampaignDays, type InsightPlatform, type InsightInputs, type LinkedInKind, type SegmentRow, type SettingRow, type Sums } from "./rules"
+import { computeInsights, effectiveThrough, type CampaignDays, type InsightPlatform, type InsightInputs, type LinkedInKind, type SegmentRow, type ReviewVerdicts, type SettingRow, type Sums } from "./rules"
 import { dataRanges } from "@/lib/metrics/data-range"
 import { loadTargets, targetFor } from "@/lib/targets"
+import { fromJson } from "@/lib/supabase/db"
 
 /** Loads everything the insight rules read, for one client, and runs them. */
 
@@ -12,17 +13,17 @@ const num = (v: unknown) => Number(v ?? 0)
 const nOrNull = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number(v))
 const sums = (r: Record<string, unknown>): Sums => ({ spend: num(r.spend), impressions: num(r.impressions), clicks: num(r.clicks), results: num(r.conversions) + num(r.leads) })
 
-async function breakdown(supabase: SupabaseClient, clientId: string, kind: string, from: string, to: string): Promise<SegmentRow[]> {
+async function breakdown(supabase: Db, clientId: string, kind: string, from: string, to: string): Promise<SegmentRow[]> {
   const rows = await rpcAll(supabase, "breakdown_totals", { p_client: clientId, p_kind: kind, p_from: from, p_to: to, p_campaign: null })
   return rows.map((r) => ({ campaignId: String(r.campaign_id ?? ""), campaignName: String(r.campaign_name ?? r.campaign_id ?? ""), value: String(r.dim1 ?? ""), value2: String(r.dim2 ?? ""), m: sums(r), extra: (r.extra as Record<string, unknown>) ?? null, group: String(r.group_name ?? "") }))
 }
 
-async function latest(supabase: SupabaseClient, clientId: string, kind: string) {
+async function latest(supabase: Db, clientId: string, kind: string) {
   const { data } = await supabase.from("windsor_breakdowns").select("date").eq("client_id", clientId).eq("kind", kind).order("date", { ascending: false }).limit(1).maybeSingle()
   return (data?.date as string) ?? null
 }
 
-export async function loadInsightInputs(supabase: SupabaseClient, clientId: string): Promise<InsightInputs | null> {
+export async function loadInsightInputs(supabase: Db, clientId: string): Promise<InsightInputs | null> {
   const [{ data: client }, { data: range }, { data: statuses }, { data: review }, { data: settingRows }] = await Promise.all([
     supabase.from("clients").select("name, currency, monthly_kpi_target, ga4_property_id").eq("id", clientId).single(),
     dataRanges(supabase, clientId),
@@ -58,7 +59,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     breakdown(supabase, clientId, "meta_placement", d30, to),
     rpcAll(supabase, "ga4_landing_totals", { p_client: clientId, p_from: d30, p_to: to }),
     // For the ICP check: terms with some spend and no results (same list Claude's review judged).
-    review?.terms?.length ? rpcAll(supabase, "search_term_candidates", { p_client: clientId, p_from: d30, p_to: to, p_min_spend: Math.max(25, 0.25 * (googleTarget ?? 200)), p_min_results: 1e9 }) : Promise.resolve([]),
+    fromJson<unknown[]>(review?.terms, []).length ? rpcAll(supabase, "search_term_candidates", { p_client: clientId, p_from: d30, p_to: to, p_min_spend: Math.max(25, 0.25 * (googleTarget ?? 200)), p_min_results: 1e9 }) : Promise.resolve([]),
     breakdown(supabase, clientId, "pmax_search_term", d30, to),
   ])
 
@@ -120,7 +121,14 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
     linkedin,
     ga4Through: client.ga4_property_id ? await latest(supabase, clientId, "ga4_landing_page") : null,
     pmaxTerms: pmaxTerms.map((t) => ({ campaignId: t.campaignId, campaignName: t.campaignName, term: t.value, ...t.m, isKeyword: false })),
-    review: review ? { companies: review.companies ?? [], terms: review.terms ?? [], goals: review.goals ?? [], audiences: review.audiences ?? [] } : null,
+    review: review
+      ? {
+          companies: fromJson<ReviewVerdicts["companies"]>(review.companies, []),
+          terms: fromJson<ReviewVerdicts["terms"]>(review.terms, []),
+          goals: fromJson<ReviewVerdicts["goals"]>(review.goals, []),
+          audiences: fromJson<NonNullable<ReviewVerdicts["audiences"]>>(review.audiences, []),
+        }
+      : null,
     costlyTerms: costly
       .filter((t) => Number(t.results) === 0)
       .map((t) => ({ campaignId: String(t.campaign_id), campaignName: String(t.campaign_name ?? t.campaign_id), term: String(t.term), spend: num(t.spend), impressions: num(t.impressions), clicks: num(t.clicks), results: 0, isKeyword: Boolean(t.is_keyword) })),
@@ -129,7 +137,7 @@ export async function loadInsightInputs(supabase: SupabaseClient, clientId: stri
   }
 }
 
-export async function getInsights(supabase: SupabaseClient, clientId: string) {
+export async function getInsights(supabase: Db, clientId: string) {
   const input = await loadInsightInputs(supabase, clientId)
   if (!input) return null
   const through = effectiveThrough(input)

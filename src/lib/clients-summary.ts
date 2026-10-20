@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { currentPeriods } from "@/lib/checks/periods"
 import { isRedNotActioned } from "@/lib/checks/runs"
@@ -39,7 +39,7 @@ const SEVERITY = { red: 3, amber: 2, green: 1, no_budget: 0 } as const
  * numbers only (pacing, checks done, tests, open actions, team names); `canOpen` says which clients the
  * person can open (RLS), and the client pages stay scoped by RLS as before.
  */
-export async function clientCards(supabase: SupabaseClient): Promise<ClientCard[]> {
+export async function clientCards(supabase: Db): Promise<ClientCard[]> {
   const { weekly, today } = currentPeriods()
   const sprintPeriod = sprintOf(today)
   const db = createAdminClient()
@@ -71,8 +71,8 @@ export async function clientCards(supabase: SupabaseClient): Promise<ClientCard[
       const worst = pacing?.pacing.reduce<PlatformPacing["status"] | null>((w, p) => (w === null || SEVERITY[p.status] > SEVERITY[w] ? p.status : w), null) ?? null
       const now = Date.now()
       // Team names: signed-in members plus invited people who haven't signed in yet.
-      const members = (c.client_team as unknown as { profiles: { full_name: string | null; email: string } | null }[]).map((t) => t.profiles?.full_name ?? t.profiles?.email)
-      const invited = (c.client_team_invites as unknown as { team_invites: { full_name: string | null } | null }[]).map((t) => t.team_invites?.full_name)
+      const members = c.client_team.map((t) => t.profiles?.full_name ?? t.profiles?.email)
+      const invited = c.client_team_invites.map((t) => t.team_invites?.full_name)
       return {
         id: c.id,
         name: c.name,

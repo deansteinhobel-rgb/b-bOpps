@@ -31,7 +31,7 @@ export default async function BrainPage({ params }: PageProps<"/clients/[slug]/b
     supabase.from("client_calls").select("id, source, notion_page_id, title, call_date, notion_status, summary, extract_status, extract_error, content_chars").eq("client_id", client.id).is("removed_at", null).order("call_date", { ascending: false }).limit(300),
     followUpsForClient(supabase, client.id),
   ])
-  const all = (briefs ?? []) as unknown as (Brief & { status: string; error: string | null })[]
+  const all = (briefs ?? []) as (Brief & { status: string; error: string | null })[]
   const pages = (knowledge ?? []) as Knowledge[]
   const hq = pages.filter((k) => k.source === "notion" && !k.notion_collection)
   const sourceTitle = client.call_notes_notion_id ? (hq.find((k) => norm(k.notion_page_id) === norm(client.call_notes_notion_id))?.title ?? client.call_notes_title) : null

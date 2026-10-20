@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { londonToday } from "@/lib/checks/periods"
 import { notionStage } from "./tests"
 
@@ -12,7 +12,7 @@ type Page = { notion_page_id: string; last_edited_time: string; properties: Reco
  * Live". Only our own sprint_tests change (Notion is only read), only forwards, never in a closed
  * sprint. The live date is the day the brief was last edited; the team picks the campaigns.
  */
-export async function advanceTestsFromNotion(db: SupabaseClient, pages: Page[]) {
+export async function advanceTestsFromNotion(db: Db, pages: Page[]) {
   if (!pages.length) return { ready: 0, live: 0 }
   const byId = new Map(pages.map((p) => [p.notion_page_id, p]))
   let ready = 0
@@ -27,7 +27,7 @@ export async function advanceTestsFromNotion(db: SupabaseClient, pages: Page[]) 
       .in("status", ["briefed", "ready"])
       .is("outcome", null)
     for (const t of tests ?? []) {
-      if ((t.sprints as unknown as { closed_at: string | null } | null)?.closed_at) continue
+      if (t.sprints?.closed_at) continue
       const page = byId.get(t.notion_page_id as string)!
       const props = page.properties
       const stage = notionStage({ master: (props["Master Status"] as string) ?? null, paid: (props["Status Paid"] as string) ?? null })

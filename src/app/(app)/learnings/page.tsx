@@ -50,7 +50,7 @@ export default async function LearningsPage({ searchParams }: PageProps<"/learni
       .order("updated_at", { ascending: false })
       .limit(500),
   ])
-  const all = (rows ?? []) as unknown as Row[]
+  const all = (rows ?? []) as Row[]
   const needle = q.toLowerCase()
   const scoped = all.filter(
     (r) => (!clientSlug || r.clients?.slug === clientSlug) && (!fromPour || r.recommendation_id) && (!needle || [r.title, r.hypothesis, r.findings_worked, r.findings_blockers, r.findings_notes].some((s) => s?.toLowerCase().includes(needle))),

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import type { Platform } from "@/lib/metrics/types"
 
 /**
@@ -39,7 +39,7 @@ const CHANGE_TYPE: Record<string, string> = { budget: "Budget", creative: "Creat
  * `admin` reads only the Notion write log (its RLS shows people their own writes; account managers
  * should see the whole team's). SECURITY: only pass it after the page loaded the client through RLS.
  */
-export async function loadTimeline(supabase: SupabaseClient, admin: SupabaseClient, client: { id: string; slug: string }, sinceIso: string): Promise<TimelineEntry[]> {
+export async function loadTimeline(supabase: Db, admin: Db, client: { id: string; slug: string }, sinceIso: string): Promise<TimelineEntry[]> {
   const since = sinceIso.slice(0, 10)
   const [{ data: changes }, { data: platform }, { data: tests }, { data: insights }, { data: notion }] = await Promise.all([
     supabase
@@ -136,7 +136,7 @@ export async function loadTimeline(supabase: SupabaseClient, admin: SupabaseClie
     })
   }
   for (const t of tests ?? []) {
-    const n = (t.sprints as unknown as { number: number } | null)?.number
+    const n = t.sprints?.number
     // Sprint 0 is history imported when the app started: its dates aren't when things happened.
     if (n === 0) continue
     const href = `/clients/${client.slug}/sprint${n ? `?n=${n}` : ""}#test-${t.id}`

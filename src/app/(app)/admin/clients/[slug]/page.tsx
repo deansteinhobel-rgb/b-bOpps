@@ -74,7 +74,7 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
         <ul className="mt-3 divide-y rounded-lg border bg-card text-sm">
           {(team ?? []).length === 0 && <li className="px-4 py-3 text-muted-foreground">No one yet.</li>}
           {(team ?? []).map((t) => {
-            const name = (t.team_invites as unknown as { full_name: string | null } | null)?.full_name ?? t.email
+            const name = t.team_invites?.full_name ?? t.email
             return (
               <li key={`${t.email}-${t.role}`} className="flex items-center justify-between px-4 py-2">
                 <span>

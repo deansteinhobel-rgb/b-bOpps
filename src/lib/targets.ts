@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 
 /**
@@ -38,7 +38,7 @@ export function describeTargets(t: Targets, money: (v: number) => string, none =
 }
 
 /** Reads a client's targets (the caller has already checked the user can see this client). */
-export async function loadTargets(db: SupabaseClient, clientId: string, clientTarget?: unknown): Promise<Targets> {
+export async function loadTargets(db: Db, clientId: string, clientTarget?: unknown): Promise<Targets> {
   const [{ data: client }, { data: accounts }] = await Promise.all([
     clientTarget === undefined ? db.from("clients").select("monthly_kpi_target").eq("id", clientId).single() : Promise.resolve({ data: { monthly_kpi_target: clientTarget } }),
     db.from("client_platform_accounts").select("platform, kpi_target, active").eq("client_id", clientId),

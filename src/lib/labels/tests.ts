@@ -11,7 +11,7 @@ import { LABEL_MODEL } from "./ads"
  * and picks one lever; the board shows it as "suggested" until someone confirms it. Never
  * overwrites a lever someone set. Writes sprint_tests.lever / lever_source only.
  */
-const SUBMIT = {
+const SUBMIT: Anthropic.Tool = {
   name: "submit_test_levers",
   description: "Submit the lever for each test, by key. Call it once.",
   strict: true,
@@ -60,7 +60,7 @@ export async function labelTests(clientId: string) {
   let picks: { key: string; lever: string }[] | null = null
   for (let turn = 0; turn < 2 && !picks; turn++) {
     const msg = await claude()
-      .messages.stream({ model: LABEL_MODEL, max_tokens: 16000, thinking: { type: "adaptive" }, output_config: { effort: "low" }, system: SYSTEM, tools: [SUBMIT] as unknown as Anthropic.Messages.ToolUnion[], tool_choice: { type: "auto" }, messages })
+      .messages.stream({ model: LABEL_MODEL, max_tokens: 16000, thinking: { type: "adaptive" }, output_config: { effort: "low" }, system: SYSTEM, tools: [SUBMIT], tool_choice: { type: "auto" }, messages })
       .finalMessage()
     usage.input_tokens += msg.usage.input_tokens
     usage.output_tokens += msg.usage.output_tokens

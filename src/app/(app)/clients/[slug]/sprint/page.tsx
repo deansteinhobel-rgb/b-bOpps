@@ -32,6 +32,7 @@ import { PlanTestForm, type PlanPrefill } from "./plan-test-form"
 import { TestBoard } from "./test-board"
 import { TestCard } from "./test-card"
 import { loadTargets } from "@/lib/targets"
+import { fromJson } from "@/lib/supabase/db"
 
 
 export default async function SprintPage({ params, searchParams }: PageProps<"/clients/[slug]/sprint">) {
@@ -106,9 +107,9 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
       id: r.id,
       status: r.status as PourHistoryRow["status"],
       created_at: r.created_at,
-      sprintNumber: (r.sprints as unknown as { number: number } | null)?.number ?? 0,
+      sprintNumber: r.sprints?.number ?? 0,
       thisSprint: r.sprint_id === sprint.id,
-      by: (r.profiles as unknown as { full_name: string | null } | null)?.full_name ?? null,
+      by: r.profiles?.full_name ?? null,
       total: mine.length,
       approved: mine.filter((x) => x.status === "approved").length,
       rejected: mine.filter((x) => x.status === "rejected").length,
@@ -257,7 +258,15 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
         aiReady={aiConfigured()}
         closed={closed}
         run={(aiRuns?.[0] as AiRun | undefined) ?? null}
-        recs={((aiRecs ?? []) as Recommendation[]).map((r) => ({ ...r, success_target: r.success_target === null ? null : Number(r.success_target) }))}
+        recs={(aiRecs ?? []).map(
+          (r) =>
+            ({
+              ...r,
+              evidence: fromJson<Recommendation["evidence"]>(r.evidence, []),
+              sources: fromJson<Recommendation["sources"]>(r.sources, []),
+              success_target: r.success_target === null ? null : Number(r.success_target),
+            }) as Recommendation, // status and the levels are kept to these by check constraints
+        )}
         history={pourHistory}
         owners={ownerOptions}
         defaultDeadline={addDays(period.start, 4)}

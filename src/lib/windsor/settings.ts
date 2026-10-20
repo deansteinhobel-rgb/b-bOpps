@@ -2,6 +2,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { parseMetaTargeting } from "./settings-parse"
 import { windsorRows } from "./rest"
+import type { Json } from "@/lib/supabase/database.types"
 
 /**
  * Platform settings checks (Dean, 2026-10-15): reads niche delivery settings from Windsor into
@@ -37,7 +38,7 @@ type SettingsRow = {
   entity_name: string | null
   campaign_id: string
   campaign_name: string | null
-  settings: Record<string, unknown>
+  settings: { [key: string]: Json | undefined }
   checked_at: string
 }
 
@@ -140,7 +141,7 @@ export async function syncPlatformSettings(opts: { clientId?: string; to: string
   if (error) throw new Error(error.message)
   const from = new Date(Date.parse(opts.to) - (DAYS - 1) * 864e5).toISOString().slice(0, 10)
   const results: { client_id: string; account: string; rows?: number; error?: string }[] = []
-  for (const a of (accounts ?? []) as unknown as Account[]) {
+  for (const a of (accounts ?? []) as Account[]) {
     const at = new Date().toISOString()
     try {
       const rows =

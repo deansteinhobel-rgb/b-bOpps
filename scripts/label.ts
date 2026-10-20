@@ -21,7 +21,7 @@ const slug = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--max")
 
 const db = createAdminClient()
 const { data: accounts } = await db.from("client_platform_accounts").select("client_id, clients(slug, name)").eq("active", true)
-const clients = [...new Map((accounts ?? []).map((a) => [a.client_id, a.clients as unknown as { slug: string; name: string }])).entries()].filter(([, c]) => !slug || c.slug === slug)
+const clients = [...new Map((accounts ?? []).map((a) => [a.client_id, a.clients])).entries()].filter(([, c]) => !slug || c.slug === slug)
 if (!clients.length) throw new Error(slug ? `No client "${slug}" with an ad account.` : "No clients with an ad account.")
 
 const total = { input_tokens: 0, output_tokens: 0 }

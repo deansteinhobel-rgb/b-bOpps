@@ -9,6 +9,7 @@ import { londonToday } from "@/lib/checks/periods"
 import { computeSprintNumbers } from "@/lib/sprints/data"
 import { sprintByNumber, sprintOf } from "@/lib/sprints/periods"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isPlatform } from "@/lib/metrics/types"
 
 type Test = {
   platform: string | null
@@ -47,7 +48,7 @@ async function addTests(sprintId: string, clientId: string, tests: Test[], extra
     .map((t) => ({
       sprint_id: sprintId,
       client_id: clientId,
-      platform: t.platform,
+      platform: isPlatform(t.platform) ? t.platform : null,
       title: t.title,
       hypothesis: t.hypothesis ?? null,
       assets: t.assets ?? [],

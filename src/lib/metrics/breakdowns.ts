@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { mergeAssets, type Asset, type AssetSource } from "./assets"
 import { derive, type Derived } from "./performance"
@@ -13,7 +13,7 @@ export type LinkedInKind = "li_company" | "li_job_title" | "li_seniority" | "li_
 const num = (v: unknown) => Number(v ?? 0)
 const nOrNull = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number(v))
 
-async function totals(supabase: SupabaseClient, clientId: string, kind: string, from: string, to: string, campaignId: string | null) {
+async function totals(supabase: Db, clientId: string, kind: string, from: string, to: string, campaignId: string | null) {
   const rows = await rpcAll(supabase, "breakdown_totals", { p_client: clientId, p_kind: kind, p_from: from, p_to: to, p_campaign: campaignId })
   return rows.map((r) => ({
     campaignId: String(r.campaign_id ?? ""),
@@ -31,7 +31,7 @@ async function totals(supabase: SupabaseClient, clientId: string, kind: string, 
  * A Google campaign's assets over the period: Performance Max asset groups first, else Demand Gen /
  * Display ad group assets. Empty for search campaigns.
  */
-export async function campaignAssets(supabase: SupabaseClient, clientId: string, campaignId: string, from: string, to: string): Promise<{ source: AssetSource | null; assets: Asset[] }> {
+export async function campaignAssets(supabase: Db, clientId: string, campaignId: string, from: string, to: string): Promise<{ source: AssetSource | null; assets: Asset[] }> {
   const [pmax, ad] = await Promise.all([totals(supabase, clientId, "pmax_asset", from, to, campaignId), totals(supabase, clientId, "ad_asset", from, to, campaignId)])
   if (pmax.length) return { source: "pmax", assets: mergeAssets(pmax) }
   if (ad.length) return { source: "ad", assets: mergeAssets(ad) }
@@ -39,12 +39,12 @@ export async function campaignAssets(supabase: SupabaseClient, clientId: string,
 }
 
 /** LinkedIn demographics are 30-day totals refreshed weekly: use the latest one up to `to`. */
-async function latestSnapshot(supabase: SupabaseClient, clientId: string, kind: string, to: string) {
+async function latestSnapshot(supabase: Db, clientId: string, kind: string, to: string) {
   const { data } = await supabase.from("windsor_breakdowns").select("date").eq("client_id", clientId).eq("kind", kind).lte("date", to).order("date", { ascending: false }).limit(1).maybeSingle()
   return (data?.date as string) ?? null
 }
 
-export async function campaignBreakdowns(supabase: SupabaseClient, clientId: string, platform: Platform, campaignId: string, from: string, to: string) {
+export async function campaignBreakdowns(supabase: Db, clientId: string, platform: Platform, campaignId: string, from: string, to: string) {
   if (platform === "google_ads") {
     const [searchTerms, pmaxTerms, keywords, { data: share }, assets] = await Promise.all([
       totals(supabase, clientId, "search_term", from, to, campaignId),
@@ -95,7 +95,7 @@ export type CampaignBreakdowns = Awaited<ReturnType<typeof campaignBreakdowns>>
 export type LandingPage = { page: string; sourceMedium: string; sessions: number; engaged: number; conversions: number; avgDuration: number | null }
 
 /** GA4 landing pages for the period, by page and source / medium (clients with GA4 connected). */
-export async function landingPages(supabase: SupabaseClient, clientId: string, from: string, to: string): Promise<LandingPage[]> {
+export async function landingPages(supabase: Db, clientId: string, from: string, to: string): Promise<LandingPage[]> {
   const rows = await rpcAll(supabase, "ga4_landing_totals", { p_client: clientId, p_from: from, p_to: to })
   return rows.map((r) => ({ page: String(r.page ?? ""), sourceMedium: String(r.source_medium ?? ""), sessions: num(r.sessions), engaged: num(r.engaged), conversions: num(r.conversions), avgDuration: nOrNull(r.avg_duration) }))
 }

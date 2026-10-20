@@ -7,7 +7,7 @@ import { markCallItemPlanned } from "@/lib/calls/refs"
 import { peopleForClient } from "@/lib/people"
 import { createClient } from "@/lib/supabase/server"
 import { isLever } from "@/lib/taxonomy"
-import { PLATFORMS } from "@/lib/metrics/types"
+import { isPlatform, PLATFORMS } from "@/lib/metrics/types"
 
 // Review → approve / reject for Claude's sprint suggestions. Anyone who can edit the client (checked
 // here and by RLS). Approving creates a planned test; nothing goes to Notion until someone clicks
@@ -91,7 +91,7 @@ export async function approveRecommendation(id: string, raw: { owner_notion_user
     .insert({
       sprint_id: r.sprint_id,
       client_id: r.client_id,
-      platform: connected ? r.platform : null,
+      platform: connected && isPlatform(r.platform) ? r.platform : null,
       title: title.slice(0, 200),
       hypothesis: r.hypothesis,
       assets: r.assets,

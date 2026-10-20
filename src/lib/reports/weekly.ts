@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { londonToday } from "@/lib/checks/periods"
 import { loadGoals } from "@/lib/goals"
 import { addDays, adHealth, type FatigueInput } from "@/lib/metrics/ads"
@@ -85,7 +85,7 @@ const weekAd = (a: ReportAd, previews: PreviewMap): WeekAd => {
 }
 
 /** `previewTtl`: how long the ad image links last (seconds). Slack posts keep theirs for 90 days. */
-export async function weeklySnapshot(db: SupabaseClient, clientId: string, week = lastWeek(), previewTtl = 3600): Promise<WeeklySnapshot | null> {
+export async function weeklySnapshot(db: Db, clientId: string, week = lastWeek(), previewTtl = 3600): Promise<WeeklySnapshot | null> {
   const { data: client } = await db.from("clients").select("id, name, slug, currency, logo_url, monthly_kpi_target").eq("id", clientId).single()
   if (!client) return null
   const [perf, pacing, targets, ads, fatigue] = await Promise.all([
@@ -99,7 +99,7 @@ export async function weeklySnapshot(db: SupabaseClient, clientId: string, week 
   const dataThrough = perf.dataThrough
 
   // Ads that have run 30+ days and brought nothing in the last 30 (live = impressions in the last 2 days).
-  const live = adHealth(fatigue as unknown as FatigueInput[]).filter((a) => a.ageDays >= STALE_DAYS)
+  const live = adHealth(fatigue as FatigueInput[]).filter((a) => a.ageDays >= STALE_DAYS)
   const last30 = live.length ? await adsForPeriod(db, clientId, addDays(dataThrough, -(STALE_DAYS - 1)), dataThrough) : []
   const byKey = new Map(last30.map((a) => [`${a.platform}|${a.ad_id}`, a]))
   const stale = live

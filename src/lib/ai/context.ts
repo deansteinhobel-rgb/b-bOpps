@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { money } from "@/lib/format"
 import { briefForPrompt } from "@/lib/knowledge/brief"
 import { addDays, type DailyRow } from "@/lib/metrics/ads"
@@ -13,7 +13,7 @@ import { describeTargets, loadTargets } from "@/lib/targets"
  * findings, this sprint's plan, logged changes, and earlier suggestions we approved or rejected.
  * Aggregates only, no raw rows. Uses the admin client: call only after checking access.
  */
-export async function buildSprintContext(db: SupabaseClient, clientId: string, sprintId: string) {
+export async function buildSprintContext(db: Db, clientId: string, sprintId: string) {
   const [{ data: client }, { data: sprint }, overview] = await Promise.all([
     db.from("clients").select("name, currency, monthly_kpi_target, main_kpi").eq("id", clientId).single(),
     db.from("sprints").select("number, start_date, end_date").eq("id", sprintId).single(),
@@ -105,7 +105,7 @@ export async function buildSprintContext(db: SupabaseClient, clientId: string, s
   const now = (tests ?? []).filter((t) => t.sprint_id === sprintId)
   lines.push(`\n## Past tests (${past.length}), oldest first. Sprint 0 = history from before the app.`)
   for (const t of past) {
-    const s = t.sprints as unknown as { number: number } | null
+    const s = t.sprints
     const bits = [
       `Sprint ${s?.number ?? "?"} · ${plat(t.platform)} · "${t.title}"`,
       t.hypothesis && `hypothesis: ${t.hypothesis}`,

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import type { AccountNumbers } from "@/lib/account"
 import { shortDate } from "@/lib/format"
 import { addDays, tiringAds, topAds, type AdStat, type FatiguedAd } from "@/lib/metrics/ads"
@@ -20,12 +20,12 @@ const num = (v: unknown) => Number(v ?? 0)
 export const monthName = (m: string) => new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(new Date(m))
 type Period = ReturnType<typeof sprintOf>
 
-export async function loadGoals(supabase: SupabaseClient, clientId: string, today: string): Promise<GoalView[]> {
+export async function loadGoals(supabase: Db, clientId: string, today: string): Promise<GoalView[]> {
   const month = `${today.slice(0, 7)}-01`
   const lastMonth = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 2, 1)).toISOString().slice(0, 10)
   const { data: goals } = await supabase.from("client_goals").select("id, name, monthly_target, client_goal_values(month, value, target, updated_at, profiles(full_name, email))").eq("client_id", clientId).eq("active", true).order("position")
   return (goals ?? []).map((g) => {
-    const values = (g.client_goal_values ?? []) as unknown as { month: string; value: number | string; target: number | string | null; updated_at: string; profiles: { full_name: string | null; email: string } | null }[]
+    const values = (g.client_goal_values ?? []) as { month: string; value: number | string; target: number | string | null; updated_at: string; profiles: { full_name: string | null; email: string } | null }[]
     const cur = values.find((x) => x.month === month)
     const prev = values.find((x) => x.month === lastMonth)
     const who = cur?.profiles?.full_name ?? cur?.profiles?.email
@@ -61,7 +61,7 @@ export function spendOf(numbers: AccountNumbers | null, pacing: Awaited<ReturnTy
 }
 
 /** The best ads over the last 30 days, the live ones that look tired (from this morning's snapshot), and their previews. */
-export async function loadAds(supabase: SupabaseClient, clientId: string, through: string, liveAds: FatiguedAd[]) {
+export async function loadAds(supabase: Db, clientId: string, through: string, liveAds: FatiguedAd[]) {
   const rows = await rpcAll(supabase, "ad_totals", { p_client: clientId, p_from: addDays(through, -29), p_to: through })
   const best = topAds(
     rows.map(
@@ -93,7 +93,7 @@ export function recentOf(timeline: TimelineEntry[], today: string) {
 }
 
 /** Sprint tests: this sprint (by stage), the next and the last. */
-export async function loadPlans(supabase: SupabaseClient, clientId: string, period: Period) {
+export async function loadPlans(supabase: Db, clientId: string, period: Period) {
   const { data: sprints } = await supabase
     .from("sprints")
     .select("id, number, start_date, end_date, key_takeaway, closed_at")

@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { withSymbols } from "@/lib/format"
 import { briefForPrompt } from "@/lib/knowledge/brief"
 import { addDays } from "@/lib/metrics/ads"
@@ -18,7 +18,7 @@ import { loadTargets, targetFor } from "@/lib/targets"
  * placements), its open insights, Claude's read of its goal, linked sprint tests and the client brief.
  * `db` is the admin client: only call after the user's access to the client was checked.
  */
-export async function buildCampaignContext(db: SupabaseClient, clientId: string, platform: Platform, campaignId: string) {
+export async function buildCampaignContext(db: Db, clientId: string, platform: Platform, campaignId: string) {
   const { data: client } = await db.from("clients").select("name, currency, monthly_kpi_target").eq("id", clientId).single()
   const { data: range } = await dataRanges(db, clientId)
   const through = (range ?? []).filter((r) => r.platform === platform).map((r) => r.data_through).sort().at(-1)
@@ -94,7 +94,7 @@ export async function buildCampaignContext(db: SupabaseClient, clientId: string,
   }
 
   out.push(`\n## Open "Optimize now" insights for this campaign`, ...(insights.length ? insights.map((i) => `- [${RULES[i.rule].label}] ${withSymbols(i.title)}: ${withSymbols(i.why)}`) : ["(none)"]))
-  if (tests?.length) out.push(`\n## Sprint tests in this campaign`, ...tests.map((t) => `- Sprint ${(t.sprints as unknown as { number: number } | null)?.number ?? "?"}: ${t.title} (${t.outcome ?? t.status})${t.findings_worked ? `. Worked: ${t.findings_worked}` : ""}${t.findings_blockers ? `. Blocker: ${t.findings_blockers}` : ""}`))
+  if (tests?.length) out.push(`\n## Sprint tests in this campaign`, ...tests.map((t) => `- Sprint ${t.sprints?.number ?? "?"}: ${t.title} (${t.outcome ?? t.status})${t.findings_worked ? `. Worked: ${t.findings_worked}` : ""}${t.findings_blockers ? `. Blocker: ${t.findings_blockers}` : ""}`))
   out.push(`\n${await briefForPrompt(clientId)}`)
   return { text: out.join("\n"), name, week: weekOf(through), through }
 }

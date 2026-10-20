@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { money, oneDp } from "@/lib/format"
 import { addDays } from "@/lib/metrics/ads"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
@@ -19,8 +19,10 @@ const dayCount = (from: string, to: string) => Math.round((Date.parse(to) - Date
  * results.ts for the rules). Uses the caller's Supabase client, so RLS applies; the read route
  * passes the admin client after its own access check. Null when there's nothing to measure yet.
  */
-export async function loadTestDetail(supabase: SupabaseClient, clientId: string, test: SprintTest, opts: { today: string; currency: string; targets: Targets }): Promise<TestDetail | null> {
-  if (!test.live_on || !test.campaign_ids.length) return null
+export async function loadTestDetail(supabase: Db, clientId: string, test: SprintTest, opts: { today: string; currency: string; targets: Targets }): Promise<TestDetail | null> {
+  // Campaigns belong to one platform: a test without one has no campaign numbers.
+  const platform = test.platform
+  if (!test.live_on || !platform || !test.campaign_ids.length) return null
   const liveFrom = test.live_on
   const [ranges, campaignDays] = await Promise.all([
     dataRanges(supabase, clientId),
@@ -50,7 +52,7 @@ export async function loadTestDetail(supabase: SupabaseClient, clientId: string,
   const kind = (test.test_kind as TestKind | null) ?? guessedKind
 
   // Ads over the live period, with when each was first seen.
-  const { data: adRows } = await supabase.rpc("test_ads", { p_client: clientId, p_platform: test.platform, p_campaign_ids: test.campaign_ids, p_from: liveFrom, p_to: liveTo })
+  const { data: adRows } = await supabase.rpc("test_ads", { p_client: clientId, p_platform: platform, p_campaign_ids: test.campaign_ids, p_from: liveFrom, p_to: liveTo })
   const ads: TestAd[] = ((adRows ?? []) as Record<string, unknown>[]).map((a) => ({
     platform: a.platform as string,
     external_account_id: a.external_account_id as string,

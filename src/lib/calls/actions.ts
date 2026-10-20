@@ -13,7 +13,7 @@ import { ensureSprint } from "@/lib/sprints/data"
 import { sprintOf } from "@/lib/sprints/periods"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { PLATFORMS } from "@/lib/metrics/types"
+import { isPlatform, PLATFORMS } from "@/lib/metrics/types"
 
 // Client calls on the Brain tab and the follow-up pop-up. What the team does about an item is
 // logged append-only as the signed-in user (RLS: the client's team, not viewers). Linking the
@@ -134,7 +134,7 @@ export async function actOnFollowUp(id: string, raw: z.input<typeof Act>): Promi
   const me = await getProfile()
   const { error } = await supabase.from("call_commitment_actions").insert({ client_id: item.client_id, commitment_id: id, action: p.data.action, reason: p.data.reason || null, snooze_until: snooze, profile_id: me.id })
   if (error) return fail(error.message.includes("row-level security") ? VIEW_ONLY : "Couldn't save.")
-  refresh((item.clients as unknown as { slug: string }).slug)
+  refresh(item.clients.slug)
   return { ok: true }
 }
 
@@ -144,8 +144,8 @@ export async function planFollowUp(id: string): Promise<CallResult> {
   if (!canEdit(me)) return fail(VIEW_ONLY)
   const { supabase, item } = await loadItem(id)
   if (!item) return fail("This isn't available to you.")
-  const slug = (item.clients as unknown as { slug: string }).slug
-  const callTitle = (item.client_calls as unknown as { title: string } | null)?.title ?? "a client call"
+  const slug = item.clients.slug
+  const callTitle = item.client_calls?.title ?? "a client call"
   const sprint = await ensureSprint(supabase, item.client_id, sprintOf(londonToday()))
   if (sprint.closed_at) return fail("This sprint is closed.")
   const notes = [`Said on "${callTitle}" (${item.said_on}).`, item.detail, item.quote ? `From the notes: "${item.quote}"` : null].filter(Boolean).join("\n\n")
@@ -154,7 +154,7 @@ export async function planFollowUp(id: string): Promise<CallResult> {
     .insert({
       sprint_id: sprint.id,
       client_id: item.client_id,
-      platform: item.platform && CONNECTED.includes(item.platform) ? item.platform : null,
+      platform: isPlatform(item.platform) && CONNECTED.includes(item.platform) ? item.platform : null,
       title: item.title.slice(0, 200),
       assets: [],
       brief_notes: notes.slice(0, 3000),

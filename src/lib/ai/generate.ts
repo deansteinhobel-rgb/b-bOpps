@@ -7,6 +7,7 @@ import { londonToday } from "@/lib/checks/periods"
 import { isLever, LEVER_KEYS, LEVERS } from "@/lib/taxonomy"
 import { claude, MODEL, SOURCE_GUIDE, WATCHED_PLATFORMS, WEB_SAFETY, webTools } from "./claude"
 import { buildSprintContext } from "./context"
+import type { TablesUpdate } from "@/lib/supabase/database.types"
 
 export const REC_PLATFORMS = ["linkedin", "google_ads", "meta", "reddit", "bing", "x", "chatgpt", "several"] as const
 
@@ -126,7 +127,7 @@ type Update = { stage?: string; stage_note?: string | null; progress?: number }
  */
 export async function generateSprintPlan(runId: string) {
   const db = createAdminClient()
-  const set = async (u: Update & Record<string, unknown>) => {
+  const set = async (u: Update & TablesUpdate<"sprint_ai_runs">) => {
     await db.from("sprint_ai_runs").update(u).eq("id", runId)
   }
   // Progress from stream events: fire and forget, but the query must be started (Supabase queries
@@ -149,7 +150,7 @@ export async function generateSprintPlan(runId: string) {
         max_tokens: 20000,
         thinking: { type: "adaptive" },
         system: system(londonToday()),
-        tools: [...webTools(8, 4), SUBMIT] as Anthropic.Messages.ToolUnion[],
+        tools: [...webTools(8, 4), SUBMIT],
         messages,
       })
       stream.on("contentBlock", (block) => {
