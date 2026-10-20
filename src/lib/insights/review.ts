@@ -22,8 +22,6 @@ export const REVIEW_MODEL = "claude-opus-5-5"
 
 export const CAMPAIGN_GOALS = ["leads", "trials", "demos", "pipeline", "retargeting", "awareness", "engagement", "event", "brand", "other"] as const
 /** Goals not judged on cost per result (the rules skip the cost rules for these). */
-export const AWARENESS_GOALS = ["awareness", "engagement"]
-
 const SUBMIT = {
   name: "submit_review",
   description: "Submit the review of this client's Optimize now feed. Call it exactly once, at the end.",

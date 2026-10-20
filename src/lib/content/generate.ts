@@ -20,13 +20,6 @@ export const CONTENT_MODEL = "claude-opus-5-5"
 /** The same list the ad labels use (src/lib/taxonomy.ts), so content ideas and ads line up. */
 export const CONTENT_TYPES = AD_CONTENT_TYPES
 export const IDEA_KINDS = ["new_content", "repurpose", "new_angle", "new_audience", "new_format"] as const
-export const IDEA_KIND_LABEL: Record<(typeof IDEA_KINDS)[number], string> = {
-  new_content: "New content piece",
-  repurpose: "Repurpose what works",
-  new_angle: "New angle",
-  new_audience: "New audience",
-  new_format: "New format",
-}
 
 const SUBMIT = {
   name: "submit_content_ideas",

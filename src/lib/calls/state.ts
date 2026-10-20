@@ -21,11 +21,6 @@ export const REMIND_WINDOW_DAYS = 45
 export const KIND_LABEL: Record<CommitmentKind, string> = { try: "Try", stop: "Turn off", change: "Change", idea: "Idea", follow_up: "Follow up" }
 export const STATE_LABEL: Record<CommitmentState, string> = { open: "Waiting", due: "No sign of it", acted: "Seen happening", done: "Done", dropped: "Not doing", snoozed: "Snoozed" }
 
-const addDays = (iso: string, n: number) => {
-  const d = new Date(`${iso}T12:00:00Z`)
-  d.setUTCDate(d.getUTCDate() + n)
-  return d.toISOString().slice(0, 10)
-}
 export const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000)
 
 /** The latest action wins; "reopened" clears the ones before it (and an automatic "acted"). */
@@ -43,4 +38,3 @@ export function commitmentState(c: { said_on: string; acted_at: string | null; a
   return age >= (latest?.action === "snoozed" ? 0 : REMIND_AFTER_DAYS) && recent && c.owner_side !== "client" ? "due" : "open"
 }
 
-export const remindDate = (saidOn: string) => addDays(saidOn, REMIND_AFTER_DAYS)
