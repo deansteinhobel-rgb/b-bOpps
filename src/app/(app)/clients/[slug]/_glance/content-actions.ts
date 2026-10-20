@@ -10,7 +10,7 @@ import { ensureSprint } from "@/lib/sprints/data"
 import { sprintOf } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
 import { leverForIdea } from "@/lib/taxonomy"
-import { isPlatform, PLATFORMS } from "@/lib/metrics/types"
+import { isPlatform } from "@/lib/metrics/types"
 
 // What the team does with a content idea (Dean, 2026-09-29): plan it as a sprint test, or say it's
 // not for us (with a reason Claude reads next time). As the signed-in user (RLS: the client's team),

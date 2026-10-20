@@ -4,7 +4,7 @@ import { aiConfigured, claude, SOURCE_GUIDE, WEB_SAFETY, webTools } from "@/lib/
 import { londonToday } from "@/lib/checks/periods"
 import { buildCampaignContext } from "@/lib/insights/campaign-context"
 import { WEEKLY_READ } from "@/lib/insights/campaign-starters"
-import { type Platform, PLATFORMS } from "@/lib/metrics/types"
+import { PLATFORMS } from "@/lib/metrics/types"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
