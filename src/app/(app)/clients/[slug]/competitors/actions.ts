@@ -4,13 +4,15 @@ import { after } from "next/server"
 import { revalidatePath } from "next/cache"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { apifyConfigured } from "@/lib/competitors/apify"
+import { checkCompetitorRelevance, checkKeywordRelevance } from "@/lib/competitors/relevance"
+import { aiConfigured } from "@/lib/ai/claude"
 import { pump, queueWeek } from "@/lib/competitors/sync"
 import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 
 // Competitor ads. The list goes through the user's own client (RLS: the client's team); removing
-// sets removed_at. "Read again" queues this week's library reads early and starts them; the
-// Sunday job (or the next "Read again") collects whatever is still running.
+// sets removed_at. "Read again" reads anything not read in the last 13 days (a competitor or
+// keyword just added) now rather than on Sunday; the Sunday job collects whatever is still running.
 
 export type CompetitorResult = { ok: boolean; message?: string }
 const fail = (message: string): CompetitorResult => ({ ok: false, message })
@@ -93,6 +95,46 @@ export async function readAgain(slug: string): Promise<CompetitorResult & { queu
       if (!r.open) break
       await new Promise((res) => setTimeout(res, 20_000))
     }
+    // New keyword results get their relevance check now rather than at the next labels run.
+    if (aiConfigured() && Date.now() < stopAt) {
+      await checkCompetitorRelevance(clientId, { stopAt: stopAt + 50_000 })
+      await checkKeywordRelevance(clientId, { stopAt: stopAt + 50_000 })
+    }
   })
   return { ok: true, queued }
+}
+
+/** Adds a keyword to search Meta's and LinkedIn's ad libraries for (read on Sunday, or with Read again). */
+export async function addKeyword(slug: string, keyword: string, sources: string[]): Promise<CompetitorResult> {
+  const me = await getProfile()
+  if (!canEdit(me)) return fail(VIEW_ONLY)
+  const text = keyword.trim().replace(/\s+/g, " ")
+  if (text.length < 2) return fail("Write the keyword first.")
+  if (text.length > 80) return fail("Keep the keyword under 80 characters.")
+  const picked = [...new Set(sources)].filter((s) => s === "meta" || s === "linkedin")
+  if (!picked.length) return fail("Pick Meta, LinkedIn or both.")
+  const { supabase, clientId } = await clientFor(slug)
+  if (!clientId) return fail("This client isn't available to you.")
+  const limited = await rateLimit(supabase, "competitor_edit")
+  if (limited) return fail(limited)
+  const { error } = await supabase.from("competitor_keywords").insert({ client_id: clientId, keyword: text, sources: picked, created_by_profile_id: me.id })
+  if (error) return fail(error.code === "23505" ? "That keyword is already on the list." : "Couldn't add the keyword.")
+  revalidatePath(`/clients/${slug}/keyword-ads`)
+  return { ok: true }
+}
+
+export async function removeKeyword(slug: string, id: string): Promise<CompetitorResult> {
+  const me = await getProfile()
+  if (!canEdit(me)) return fail(VIEW_ONLY)
+  const { supabase, clientId } = await clientFor(slug)
+  if (!clientId) return fail("This client isn't available to you.")
+  const { error } = await supabase
+    .from("competitor_keywords")
+    .update({ removed_at: new Date().toISOString(), removed_by_profile_id: me.id })
+    .eq("id", id)
+    .eq("client_id", clientId)
+    .is("removed_at", null)
+  if (error) return fail("Couldn't remove it.")
+  revalidatePath(`/clients/${slug}/keyword-ads`)
+  return { ok: true }
 }

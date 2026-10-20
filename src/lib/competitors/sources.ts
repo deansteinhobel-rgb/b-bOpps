@@ -8,10 +8,13 @@ export const COMPETITOR_SOURCES = ["meta", "google", "linkedin"] as const
 export type CompetitorSource = (typeof COMPETITOR_SOURCES)[number]
 
 export const SOURCE_LABEL: Record<CompetitorSource, string> = { meta: "Meta", google: "Google Ads", linkedin: "LinkedIn" }
-/** Countries every competitor is read in (Dean, 2026-10-20). */
-export const COUNTRIES = ["US", "GB"] as const
-/** Most ads kept per competitor, source and country in one weekly run. */
-export const MAX_ADS = 60
+/**
+ * The country a client's ads are read in (Dean, 2026-10-20: Apify's free plan, so one country): the
+ * UK for clients in pounds (Proactis), otherwise the US.
+ */
+export const countriesFor = (currency: string | null) => [currency === "GBP" ? "GB" : "US"]
+/** Most ads kept per competitor, source and country in one read (each ad is paid for). */
+export const MAX_ADS = 30
 
 export type Competitor = { id: string; name: string; meta_page_id: string | null; linkedin_advertiser: string | null; google_advertiser_ids: string[] }
 
@@ -40,7 +43,12 @@ type Source = {
   normalize: (item: Item, c: Competitor, today: string) => CompetitorAd | null
 }
 
-const str = (v: unknown, max = 2000) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null)
+/**
+ * Text cut to `max` without splitting an emoji (half a surrogate pair is invalid JSON and the
+ * database refuses the row), and without NUL characters, which Postgres can't store.
+ */
+export const cut = (v: string, max: number) => v.replace(/\u0000/g, "").slice(0, max).replace(/[\uD800-\uDBFF]$/, "")
+const str = (v: unknown, max = 2000) => (typeof v === "string" && v.trim() ? cut(v.trim(), max) : null)
 const obj = (v: unknown): Item => (v && typeof v === "object" && !Array.isArray(v) ? (v as Item) : {})
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
 const https = (v: unknown) => {
@@ -151,11 +159,12 @@ export const SOURCES: Record<CompetitorSource, Source> = {
       if (c.linkedin_advertiser && advertiser !== c.linkedin_advertiser.trim().toLowerCase()) return null
       // The first media URL is often the company logo.
       const media = arr(item.mediaUrls).map(https).find((u) => u && !/company-logo/.test(u)) ?? null
+      const ran = linkedInRunDates(item.activeDatesText)
       return {
         external_id: id,
-        // LinkedIn's library shows no start date; the page falls back to when we first saw the ad.
-        started_on: null,
-        ended_on: null,
+        // LinkedIn's library rarely shows run dates; without them the page falls back to when we first saw the ad.
+        started_on: ran.started_on,
+        ended_on: ran.ended_on,
         active: true,
         format: str(item.creativeType, 60)?.toLowerCase() ?? null,
         headline: str(item.headline, 300),
@@ -168,6 +177,48 @@ export const SOURCES: Record<CompetitorSource, Source> = {
       }
     },
   },
+}
+
+const MONTHS: Record<string, string> = { jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06", jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12" }
+const usDay = (s: string) => {
+  const m = s.match(/([A-Za-z]{3})[a-z]*\.? (\d{1,2}), (\d{4})/)
+  return m && MONTHS[m[1].toLowerCase()] ? `${m[3]}-${MONTHS[m[1].toLowerCase()]}-${m[2].padStart(2, "0")}` : null
+}
+/** "Ran from Oct 12, 2025 to Sep 27, 2026" (LinkedIn's ad detail page, when it shows one). */
+export function linkedInRunDates(v: unknown): { started_on: string | null; ended_on: string | null } {
+  const s = str(v, 300)
+  const m = s?.match(/Ran from (.+?) to (.+?)(?: Ad |$)/)
+  return { started_on: m ? usDay(m[1]) : null, ended_on: m ? usDay(m[2]) : null }
+}
+
+/** The advertiser behind an item: a Meta page, or the LinkedIn company or person (or who paid). */
+export function advertiserOf(source: CompetitorSource, item: Item): { name: string | null; id: string | null } {
+  if (source === "meta") return { name: str(item.page_name, 200), id: str(item.page_id, 40) }
+  if (source === "linkedin") return { name: str(item.advertiserName, 200) ?? str(item.payerName, 200), id: str(item.advertiserUrl, 300)?.match(/company\/(\d+)/)?.[1] ?? null }
+  return { name: str(item.advertiserName, 200), id: str(item.advertiserId, 60) }
+}
+
+/** Keyword searches: Meta and LinkedIn only (Google's library can't be searched by keyword). */
+export const KEYWORD_SOURCES = ["meta", "linkedin"] as const satisfies readonly CompetitorSource[]
+export type KeywordSource = (typeof KEYWORD_SOURCES)[number]
+/** How many ads per keyword, library and country: the top 30 live ones in the library's own order. */
+export const KEYWORD_MAX = 30
+/**
+ * Meta reads ask for live ads only. Asking for stopped ones too (to find an edited ad's earlier
+ * version) doubled the cost and found none for DNSFilter's re-dated ads (2026-10-20); our own weekly
+ * history dates creatives instead (keywords.ts, runningSince).
+ */
+/** A search with no advertiser filter: the normalizers keep every advertiser's ads. */
+export const ANYONE: Competitor = { id: "", name: "", meta_page_id: null, linkedin_advertiser: null, google_advertiser_ids: [] }
+
+export function keywordInput(source: KeywordSource, keyword: string, country: string): Record<string, unknown> {
+  if (source === "meta")
+    return {
+      urls: [{ url: `${META_LIBRARY}?active_status=active&ad_type=all&country=${country}&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered&media_type=all` }],
+      limitPerSource: KEYWORD_MAX,
+      count: KEYWORD_MAX,
+    }
+  return { keyword, countries: [country], maxAds: KEYWORD_MAX }
 }
 
 /** Normalizes a run's items, dropping anything malformed or from another advertiser, and duplicates. */
@@ -186,4 +237,24 @@ export function normalizeItems(source: CompetitorSource, items: unknown[], c: Co
  */
 export function runIsHealthy(items: number, liveBefore: number) {
   return items > 0 || liveBefore === 0
+}
+
+/**
+ * A keyword search's ads with who ran each: the first 30 live ones ranked in the library's order
+ * (rank 1 = first), and stopped ones unranked (kept only as earlier versions of a creative).
+ */
+export function normalizeKeywordItems(source: KeywordSource, items: unknown[], today: string) {
+  const out: (CompetitorAd & { rank: number | null; advertiser: string | null; advertiser_id: string | null })[] = []
+  const seen = new Set<string>()
+  let live = 0
+  for (const raw of items) {
+    const item = obj(raw)
+    const ad = SOURCES[source].normalize(item, ANYONE, today)
+    if (!ad || seen.has(ad.external_id)) continue
+    if (ad.active && live >= KEYWORD_MAX) continue
+    seen.add(ad.external_id)
+    const who = advertiserOf(source, item)
+    out.push({ ...ad, rank: ad.active ? ++live : null, advertiser: who.name, advertiser_id: who.id })
+  }
+  return out
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { normalizeItems, runIsHealthy, SOURCES, youTubeThumb, type Competitor } from "./sources"
+import { cut, normalizeItems, runIsHealthy, SOURCES, youTubeThumb, type Competitor } from "./sources"
 
 // Hand-made items in the shape each actor returns (no real competitor data in the repo).
 const rival: Competitor = { id: "c1", name: "Rival", meta_page_id: "111", linkedin_advertiser: "Rival", google_advertiser_ids: ["AR123456789012"] }
@@ -139,5 +139,13 @@ describe("helpers", () => {
     expect(runIsHealthy(0, 5)).toBe(false)
     expect(runIsHealthy(0, 0)).toBe(true)
     expect(runIsHealthy(3, 5)).toBe(true)
+  })
+})
+
+describe("cut", () => {
+  it("never ends on half an emoji, and drops NUL characters", () => {
+    expect(cut("ab😀cd", 3)).toBe("ab")
+    expect(cut("ab😀cd", 4)).toBe("ab😀")
+    expect(cut("a\u0000b", 10)).toBe("ab")
   })
 })

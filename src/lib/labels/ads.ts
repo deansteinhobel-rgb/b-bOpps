@@ -80,7 +80,8 @@ type Ad = {
 
 const digestOf = (a: Ad) => createHash("sha256").update(JSON.stringify([a.ad_name, a.campaign_name, a.ad_type, a.storage_path, a.text_ad])).digest("hex").slice(0, 32)
 const basisOf = (a: Ad): "image" | "copy" | "name" => (a.storage_path && IMAGE_TYPES.includes(String(a.content_type)) ? "image" : a.text_ad ? "copy" : "name")
-const oneLine = (s: string | null | undefined, n = 200) => (s ?? "").replace(/\s+/g, " ").trim().slice(0, n)
+// Never ends on half an emoji (invalid JSON for the database).
+const oneLine = (s: string | null | undefined, n = 200) => (s ?? "").replace(/\s+/g, " ").trim().slice(0, n).replace(/[\uD800-\uDBFF]$/, "")
 
 function describe(key: string, a: Ad) {
   const copy = a.text_ad

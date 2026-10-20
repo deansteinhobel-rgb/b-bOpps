@@ -2,6 +2,7 @@ import "server-only"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import type { Db } from "@/lib/supabase/db"
 import type { CompetitorSource } from "./sources"
+import { runningSince } from "./keywords"
 import type { AdRow } from "./view"
 
 const BUCKET = "ad-previews"
@@ -23,7 +24,7 @@ export type OurLabels = { format: string | null; content_type: string | null; of
  * own ads that spent in the last 30 days, for "Them vs us".
  */
 export async function loadCompetitorPage(supabase: Db, clientId: string, today: string) {
-  const since = new Date(Date.parse(today) - 30 * 86_400_000).toISOString().slice(0, 10)
+  const monthAgo = new Date(Date.parse(today) - 30 * 86_400_000).toISOString().slice(0, 10)
   const [{ data: competitors }, { data: ads }, { data: lastRun }, ours, { data: labels }] = await Promise.all([
     supabase
       .from("client_competitors")
@@ -34,19 +35,28 @@ export async function loadCompetitorPage(supabase: Db, clientId: string, today: 
     supabase
       .from("competitor_ads")
       .select(
-        "id, competitor_id, source, started_on, first_seen_at, last_seen_at, active, countries, format, headline, body, cta, landing_url, library_url, storage_path, label_format, label_content_type, label_offer, label_hook, label_topic, label_summary",
+        "id, competitor_id, source, external_id, started_on, first_seen_at, last_seen_at, active, relevance, countries, format, headline, body, cta, landing_url, library_url, storage_path, label_format, label_content_type, label_offer, label_hook, label_topic, label_summary",
       )
       .eq("client_id", clientId)
-      .eq("active", true)
       .order("first_seen_at", { ascending: false })
-      .limit(1000),
+      .limit(3000),
     supabase.from("competitor_runs").select("collected_at").eq("client_id", clientId).eq("status", "collected").order("collected_at", { ascending: false }).limit(1).maybeSingle(),
-    rpcAll<{ platform: string; external_account_id: string; ad_id: string; spend: number }>(supabase, "ad_totals", { p_client: clientId, p_from: since, p_to: today }),
+    rpcAll<{ platform: string; external_account_id: string; ad_id: string; spend: number }>(supabase, "ad_totals", { p_client: clientId, p_from: monthAgo, p_to: today }),
     supabase.from("ad_labels").select("platform, external_account_id, ad_id, format, content_type, offer, hook").eq("client_id", clientId),
   ])
   // A removed competitor's ads stay in the table but leave the page.
   const listed = new Set((competitors ?? []).map((c) => c.id))
-  const rows = (ads ?? []).filter((a) => listed.has(a.competitor_id))
+  // Stopped versions only date the creative (Meta re-dates edited ads); the page shows live ads.
+  const since = runningSince((ads ?? []).filter((a) => listed.has(a.competitor_id)))
+  // Off-topic ads (a big company's other products, Claude's check in relevance.ts) leave the page; counted per competitor.
+  const offTopic: Record<string, number> = {}
+  for (const a of ads ?? []) if (a.active && a.relevance === "off_topic" && listed.has(a.competitor_id)) offTopic[a.competitor_id] = (offTopic[a.competitor_id] ?? 0) + 1
+  const rows = (ads ?? [])
+    .filter((a) => listed.has(a.competitor_id) && a.active && a.relevance !== "off_topic")
+    .map((a) => {
+      const first = a.started_on ? since(a).since : null
+      return { ...a, started_on: first, version_started_on: a.started_on && first && a.started_on > first ? a.started_on : null }
+    })
 
   const paths = rows.map((a) => a.storage_path).filter(Boolean) as string[]
   const signed = new Map<string, string>()
@@ -60,6 +70,7 @@ export async function loadCompetitorPage(supabase: Db, clientId: string, today: 
 
   return {
     competitors: (competitors ?? []) as CompetitorRow[],
+    offTopic,
     ads: rows.map(({ storage_path, ...a }) => ({ ...a, source: a.source as CompetitorSource, src: storage_path ? (signed.get(storage_path) ?? null) : null })) satisfies AdRow[],
     lastReadAt: lastRun?.collected_at ?? null,
     ourLabels,

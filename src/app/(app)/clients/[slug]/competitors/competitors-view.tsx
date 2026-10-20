@@ -22,12 +22,12 @@ const when = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric",
 const pct = (v: number) => `${Math.round(v * 100)}%`
 
 /**
- * Knowledge › Competitor ads (Dean, 2026-10-20). Live ads from the public Meta, Google and LinkedIn
- * libraries, read every Sunday: who runs what, what's new this week, what has run longest (a
+ * Reporting › Competitor ads (Dean, 2026-10-20). Live ads from the public Meta, Google and LinkedIn
+ * libraries, read every other Sunday: who runs what, what's new this week, what has run longest (a
  * library shows no results, but an ad that keeps running is usually working), and the offer, hook
  * and format mix next to ours. The list of competitors is kept at the bottom.
  */
-export function CompetitorsView(props: { slug: string; clientName: string; today: string; canEdit: boolean; competitors: CompetitorRow[]; ads: AdRow[]; lastReadAt: string | null; ourLabels: OurLabels[] }) {
+export function CompetitorsView(props: { slug: string; clientName: string; today: string; canEdit: boolean; competitors: CompetitorRow[]; ads: AdRow[]; offTopic: Record<string, number>; lastReadAt: string | null; ourLabels: OurLabels[] }) {
   const { slug, today, ads } = props
   const first = useMemo(() => firstReads(ads), [ads])
   const fresh = (a: AdRow) => isNew(a, today, first)
@@ -48,14 +48,14 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
     start(async () => {
       const r = await readAgain(slug)
       if (!r.ok) toast.error(r.message ?? "Couldn't start the read.")
-      else toast.success(r.queued ? `Reading ${r.queued} library pages. New ads show here in a few minutes; refresh the page.` : "Everything was read in the last 3 days. Nothing new to read yet.")
+      else toast.success(r.queued ? `Reading ${r.queued} library pages. New ads show here in a few minutes; refresh the page.` : "Everything on the list was read in the last 2 weeks. The next read is on a Sunday.")
     })
 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <p className="max-w-3xl text-sm text-muted-foreground">
-          What {props.clientName}&apos;s competitors are running now, from the public Meta Ad Library, Google Ads Transparency Center and LinkedIn Ad Library (US and UK), read every Sunday. The libraries show no results, but an ad that keeps running is usually one that works.
+          What {props.clientName}&apos;s competitors are running now, from the public Meta Ad Library, Google Ads Transparency Center and LinkedIn Ad Library, read every other Sunday. The libraries show no results, but an ad that keeps running is usually one that works.
           {props.lastReadAt && <span className="text-subtle-foreground"> Last read {when(props.lastReadAt)}.</span>}
         </p>
         {props.canEdit && (
@@ -100,6 +100,11 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
                     ) : (
                       <span className="text-xs text-muted-foreground">No live ads found</span>
                     )}
+                    {props.offTopic[c.id] ? (
+                      <span className="w-full text-[11px] text-subtle-foreground" title="Claude's check against what the client sells: ads for this company's other products">
+                        {props.offTopic[c.id]} ad{props.offTopic[c.id] === 1 ? "" : "s"} for other products hidden
+                      </span>
+                    ) : null}
                   </button>
                 </li>
               )
@@ -151,7 +156,7 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
           )}
         </section>
       ) : (
-        competitors.length > 0 && <p className="surface px-4 py-6 text-sm text-muted-foreground">No live ads yet. The libraries are read every Sunday{props.canEdit ? ", or now with Read again" : ""}.</p>
+        competitors.length > 0 && <p className="surface px-4 py-6 text-sm text-muted-foreground">No live ads yet. The libraries are read every other Sunday{props.canEdit ? "; Read again reads anything new on the list now" : ""}.</p>
       )}
 
       {ads.length > 0 && <ThemVsUs ads={ads} ours={props.ourLabels} clientName={props.clientName} />}
@@ -221,7 +226,7 @@ function AdPanel({ ads, names, today }: { ads: AdRow[]; names: Map<string, strin
                   <DialogPrimitive.Title className="font-heading text-2xl leading-tight">{names.get(ad.competitor_id)}</DialogPrimitive.Title>
                   <DialogPrimitive.Description className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
                     <PlatformIcon platform={SOURCE_PLATFORM[ad.source]} /> {SOURCE_LABEL[ad.source]} · live {daysAreEstimate(ad) ? `at least ${daysLive(ad, today)}` : daysLive(ad, today)} days
-                    {ad.started_on ? ` (since ${ad.started_on.split("-").reverse().join("/")})` : ""} · {ad.countries.join(", ")}
+                    {ad.started_on ? ` (since ${ad.started_on.split("-").reverse().join("/")}${ad.version_started_on ? `; this version since ${ad.version_started_on.split("-").reverse().join("/")}` : ""})` : ""} · {ad.countries.join(", ")}
                   </DialogPrimitive.Description>
                 </div>
                 <DialogPrimitive.Close className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Close">
