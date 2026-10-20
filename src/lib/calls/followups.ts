@@ -3,10 +3,9 @@ import type Anthropic from "@anthropic-ai/sdk"
 import { claude } from "@/lib/ai/claude"
 import { londonToday } from "@/lib/checks/periods"
 import { PROP } from "@/lib/notion/config"
-import { postToSlack } from "@/lib/slack"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadTimeline } from "@/lib/timeline"
-import { commitmentState, daysBetween, REMIND_WINDOW_DAYS, type CommitmentAction } from "./state"
+import { commitmentState, REMIND_WINDOW_DAYS, type CommitmentAction } from "./state"
 
 /**
  * The daily follow-up check (Dean, 2026-09-30): for every open item said on a recent call, has
@@ -150,12 +149,8 @@ export async function checkFollowUps(clientId: string) {
     await db.from("call_commitments").update({ checked_at: now }).eq("id", c.id)
     if (commitmentState(c, byItem.get(c.id) ?? [], today) === "due" && !c.reminded_at) due.push(c)
   }
-  // First time each one becomes a reminder: tell Slack (does nothing until SLACK_WEBHOOK_URL is set).
+  // First time each one becomes a reminder: the pop-up in the app (Slack is for weekly reports only, Dean 2026-10-20).
   if (due.length) {
-    const app = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")
-    await postToSlack(
-      [`*${client.name}: said on a call, no sign of it yet*`, ...due.map((c) => `• ${c.title} (${daysBetween(c.said_on, today)} days ago, "${(c.client_calls as unknown as { title: string } | null)?.title ?? "a call"}")`), `${app}/clients/${client.slug}/brain#calls`].join("\n"),
-    ).catch((e) => console.error("[calls] slack", e))
     await db.from("call_commitments").update({ reminded_at: now }).in("id", due.map((c) => c.id))
   }
   await db.from("clients").update({ call_followups_checked_at: now }).eq("id", clientId)

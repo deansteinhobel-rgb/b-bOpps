@@ -1,7 +1,6 @@
 import "server-only"
 import { Client } from "@notionhq/client"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { postToSlack } from "@/lib/slack"
 import { dataSourceId, liveClientSlugs, NOTION_VERSION } from "./config"
 import type { WriteDb, WriteDeps } from "./write"
 
@@ -32,6 +31,5 @@ export function writeDeps(): WriteDeps {
       appUrl: process.env.APP_URL ?? "http://localhost:3000",
       liveClients: liveClientSlugs(),
     },
-    notifySlack: postToSlack,
   }
 }

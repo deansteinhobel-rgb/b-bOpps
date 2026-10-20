@@ -120,11 +120,10 @@ describe("createNotionAction: safety", () => {
 })
 
 describe("createNotionAction: live write (mocked Notion)", () => {
-  it("logs first, creates once, updates the log, upserts the mirror, links the check, then notifies", async () => {
+  it("logs first, creates once, updates the log, upserts the mirror and links the check", async () => {
     const { db, calls } = fakeDb()
     const notion = fakeNotion()
-    const notifySlack = vi.fn(async () => {})
-    const res = await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }), notifySlack }, input)
+    const res = await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, input)
 
     expect(res.status).toBe("created")
     expect(notion.pages.create).toHaveBeenCalledTimes(1)
@@ -138,7 +137,6 @@ describe("createNotionAction: live write (mocked Notion)", () => {
     expect(calls[1].args[0]).toMatchObject({ success: true, response: { id: "page-1" } })
     expect(calls[2].args[0]).toMatchObject({ notion_page_id: "page-1", client_id: "client-camber", page_type: "action", created_by_app: true })
     expect(calls[3].args).toEqual([{ notion_action_page_id: "page-1" }, "id", "result-1"])
-    expect(notifySlack).toHaveBeenCalledWith(expect.stringContaining("https://app.notion.com/p/page-1"))
   })
 
   it("sends exactly the confirmed properties and existing options", async () => {
@@ -206,14 +204,6 @@ describe("createNotionAction: live write (mocked Notion)", () => {
     expect(calls[0].args[0]).toMatchObject({ operation: "create_test_brief", dry_run: true })
   })
 
-  it("still reports success if Slack fails", async () => {
-    const { db } = fakeDb()
-    const res = await createNotionAction(
-      { db, notion: fakeNotion(), env: env({ writesEnabled: true, dryRun: false }), notifySlack: async () => Promise.reject(new Error("slack down")) },
-      input,
-    )
-    expect(res.status).toBe("created")
-  })
 })
 
 describe("createNotionAction: test briefs with a comment (Dean, 2026-09-30)", () => {

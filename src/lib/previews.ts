@@ -15,10 +15,11 @@ const KIND: Record<string, string> = { NATIVE_DOCUMENT: "Document ad", VIDEO: "V
 const BUCKET = "ad-previews"
 
 /**
- * Preview images for a set of ads, as signed URLs valid for an hour. Uses the caller's Supabase
- * client, so RLS (ad_creatives + storage policy) only returns their clients' creatives.
+ * Preview images for a set of ads, as signed URLs valid for an hour (or `ttl` seconds: the weekly Slack
+ * snapshot keeps its images for 90 days). Uses the caller's Supabase client, so RLS (ad_creatives +
+ * storage policy) only returns their clients' creatives.
  */
-export async function previewsFor(supabase: SupabaseClient, clientId: string, ads: AdKey[]): Promise<PreviewMap> {
+export async function previewsFor(supabase: SupabaseClient, clientId: string, ads: AdKey[], ttl = 3600): Promise<PreviewMap> {
   const ids = [...new Set(ads.map((a) => a.ad_id))]
   if (!ids.length) return {}
   const rows: { platform: string; external_account_id: string; ad_id: string; storage_path: string | null; preview_link: string | null; manual_post_link: string | null; ad_type: string | null; text_ad: TextAd | null }[] = []
@@ -33,7 +34,7 @@ export async function previewsFor(supabase: SupabaseClient, clientId: string, ad
   const paths = rows.map((r) => r.storage_path).filter(Boolean) as string[]
   const signed = new Map<string, string>()
   if (paths.length) {
-    const { data } = await supabase.storage.from(BUCKET).createSignedUrls(paths, 3600)
+    const { data } = await supabase.storage.from(BUCKET).createSignedUrls(paths, ttl)
     for (const s of data ?? []) if (s.path && s.signedUrl) signed.set(s.path, s.signedUrl)
   }
   // Only people who can edit the client get "Add the post link" (the server action checks again).
