@@ -41,3 +41,14 @@ describe("isMessageAd", () => {
     expect(isMessageAd(null)).toBe(false)
   })
 })
+
+describe("plain text only", () => {
+  it("drops markup, including markup that was escaped in the page", () => {
+    const html = `<p class="font-semibold x">A</p><p class="sponsored-message__content">
+      <p>Hi &lt;script&gt;alert(1)&lt;/script&gt; there <img src=x onerror=alert(1)</p></p>
+      <button class="x sponsored-message__truncation-button">…see more</button>`
+    const body = parseMessageAd(html)?.body ?? ""
+    expect(body).not.toMatch(/[<>]/)
+    expect(body).toContain("Hi scriptalert(1)/script there")
+  })
+})
