@@ -40,7 +40,7 @@ export type WeekPlatform = {
   stale: { count: number; spend30: number; ads: StaleAd[] }
 }
 export type WeeklySnapshot = {
-  client: { id: string; name: string; slug: string; currency: string }
+  client: { id: string; name: string; slug: string; currency: string; logoUrl: string | null }
   week: { from: string; to: string }
   dataThrough: string
   /** Data reaches the week's Sunday. */
@@ -49,7 +49,19 @@ export type WeeklySnapshot = {
   prev: Derived
   target: number | null
   /** Month to date against budget, all platforms together (pacing's month = the data's month). */
-  month: { month: string; spend: number; budget: number | null; expected: number | null; through: string; daysElapsed: number; daysInMonth: number; tone: Tone | null; variancePct: number | null } | null
+  month: {
+    month: string
+    spend: number
+    budget: number | null
+    expected: number | null
+    through: string
+    daysElapsed: number
+    daysInMonth: number
+    tone: Tone | null
+    variancePct: number | null
+    /** Each platform against its own budget (pacing's status and bands), biggest budget first. */
+    platforms: { platform: Platform; spend: number; budget: number | null; expected: number; tone: Tone | null; variancePct: number | null }[]
+  } | null
   goals: { name: string; month: string; value: number | null; target: number | null; expected: number | null; tone: Tone | null; behindPct: number | null }[]
   platforms: WeekPlatform[]
 }
@@ -74,7 +86,7 @@ const weekAd = (a: ReportAd, previews: PreviewMap): WeekAd => {
 
 /** `previewTtl`: how long the ad image links last (seconds). Slack posts keep theirs for 90 days. */
 export async function weeklySnapshot(db: SupabaseClient, clientId: string, week = lastWeek(), previewTtl = 3600): Promise<WeeklySnapshot | null> {
-  const { data: client } = await db.from("clients").select("id, name, slug, currency, monthly_kpi_target").eq("id", clientId).single()
+  const { data: client } = await db.from("clients").select("id, name, slug, currency, logo_url, monthly_kpi_target").eq("id", clientId).single()
   if (!client) return null
   const [perf, pacing, targets, ads, fatigue] = await Promise.all([
     getPerformance(db, clientId, { range: { kind: "custom", from: week.from, to: week.to } }),
@@ -132,7 +144,11 @@ export async function weeklySnapshot(db: SupabaseClient, clientId: string, week 
     const variancePct = ratio === null ? null : Math.round((ratio - 1) * 100)
     // Pacing's bands: within 10% of pace, more than 20% over, otherwise off pace.
     const tone: Tone | null = ratio === null ? null : ratio > 1.2 ? "red" : Math.abs(ratio - 1) > 0.1 ? "amber" : "green"
-    month = { month: ps[0].month, spend, budget, expected, through: pacing.dataThrough, daysElapsed: ps[0].daysElapsed, daysInMonth: ps[0].daysInMonth, tone, variancePct }
+    const platforms = ps
+      .filter((p) => p.budget || p.spendMtd > 0)
+      .map((p) => ({ platform: p.platform, spend: p.spendMtd, budget: p.budget, expected: p.expected, tone: p.status === "no_budget" ? null : p.status, variancePct: p.variancePct === null ? null : Math.round(p.variancePct) }))
+      .sort((a, b) => (b.budget ?? 0) - (a.budget ?? 0) || b.spend - a.spend)
+    month = { month: ps[0].month, spend, budget, expected, through: pacing.dataThrough, daysElapsed: ps[0].daysElapsed, daysInMonth: ps[0].daysInMonth, tone, variancePct, platforms }
   }
 
   // The main goal(s), for the month the week ends in, against where on-pace would be by its Sunday.
@@ -145,7 +161,7 @@ export async function weeklySnapshot(db: SupabaseClient, clientId: string, week 
   })
 
   return {
-    client: { id: client.id, name: client.name, slug: client.slug, currency: client.currency ?? "USD" },
+    client: { id: client.id, name: client.name, slug: client.slug, currency: client.currency ?? "USD", logoUrl: (client.logo_url as string | null) ?? null },
     week,
     dataThrough,
     complete: dataThrough >= week.to,

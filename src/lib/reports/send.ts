@@ -2,7 +2,9 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { liveClientSlugs } from "@/lib/notion/config"
 import { postSlackMessage, reportChannel, slackConfigured, type SlackMessage } from "@/lib/slack"
+import { snapshotImages } from "./snapshot-images"
 import { weeklyMessage } from "./weekly-message"
+import type { WeeklySnapshot } from "./weekly"
 import { lastWeek, weeklySnapshot } from "./weekly"
 
 /**
@@ -20,6 +22,32 @@ export const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").rep
 /** Platform logos for Slack: only from a public https address (Slack can't load localhost). */
 export const iconBase = () => (appUrl().startsWith("https://") ? appUrl() : null)
 
+const IMAGE_BUCKET = "report-images"
+
+/**
+ * Draws the two pictures and stores them (private bucket, 90-day signed links Slack can load). Null when
+ * drawing or storing fails: the post then falls back to the text version, so a Monday post never fails on a picture.
+ */
+export async function storedSnapshotImages(db: SupabaseClient, snap: WeeklySnapshot): Promise<{ snapshot: string; ads: string } | null> {
+  try {
+    const pics = await snapshotImages(snap, appUrl())
+    const stamp = Date.now()
+    const urls: Record<string, string> = {}
+    for (const [kind, buf] of Object.entries(pics)) {
+      const path = `${snap.client.id}/${snap.week.from}/${kind}-${stamp}.png`
+      const up = await db.storage.from(IMAGE_BUCKET).upload(path, buf, { contentType: "image/png", upsert: false })
+      if (up.error) throw new Error(up.error.message)
+      const { data, error } = await db.storage.from(IMAGE_BUCKET).createSignedUrl(path, SLACK_IMAGE_TTL)
+      if (error || !data) throw new Error(error?.message ?? "no signed link")
+      urls[kind] = data.signedUrl
+    }
+    return { snapshot: urls.snapshot, ads: urls.ads }
+  } catch (e) {
+    console.error("[slack] snapshot pictures", e)
+    return null
+  }
+}
+
 export function slackReportsLive(slug: string) {
   if (process.env.SLACK_REPORTS_ENABLED !== "true" || !slackConfigured()) return false
   const only = liveClientSlugs(process.env.SLACK_LIVE_CLIENTS)
@@ -35,9 +63,11 @@ export async function sendWeeklySnapshot(db: SupabaseClient, clientId: string, o
   // The ad images stay viewable in Slack for 90 days (signed links to our private copies).
   const snap = await weeklySnapshot(db, clientId, week, SLACK_IMAGE_TTL)
   if (!snap) return { status: "skipped", client: client.slug, error: "No ad data." }
-  const message = weeklyMessage(snap, { app: appUrl(), icons: iconBase() })
   const channel = reportChannel(client.slack_channel)
   const live = opts.manual ? slackConfigured() && Boolean(channel) : slackReportsLive(client.slug) && Boolean(channel)
+  // Pictures only for posts that really go to Slack (a dry run doesn't store anything).
+  const images = live ? await storedSnapshotImages(db, snap) : null
+  const message = weeklyMessage(snap, { app: appUrl(), icons: iconBase(), images })
 
   const { data: row, error } = await db
     .from("slack_posts")

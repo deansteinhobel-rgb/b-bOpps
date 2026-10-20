@@ -3,6 +3,7 @@ import { Fragment, type ReactNode } from "react"
 import { ClientLogo } from "@/components/brand"
 import { longDate } from "@/lib/format"
 import { appUrl, slackReportsLive } from "@/lib/reports/send"
+import { snapshotImages } from "@/lib/reports/snapshot-images"
 import { weeklyMessage } from "@/lib/reports/weekly-message"
 import { lastWeek, weeklySnapshot } from "@/lib/reports/weekly"
 import { reportChannel, slackConfigured } from "@/lib/slack"
@@ -41,7 +42,7 @@ function Mrkdwn({ text }: { text: string }) {
   return <span className="whitespace-pre-line">{parts.map((p, i) => <Fragment key={i}>{unescape(p)}</Fragment>)}</span>
 }
 
-type Block = { type: string; text?: { text: string }; fields?: { text: string }[]; elements?: { type?: string; text?: string | { text: string }; url?: string; style?: string; image_url?: string; alt_text?: string }[]; accessory?: { type: string; text?: { text: string }; url?: string; image_url?: string; alt_text?: string } }
+type Block = { type: string; title?: { text: string }; image_url?: string; alt_text?: string; text?: { text: string }; fields?: { text: string }[]; elements?: { type?: string; text?: string | { text: string }; url?: string; style?: string; image_url?: string; alt_text?: string }[]; accessory?: { type: string; text?: { text: string }; url?: string; image_url?: string; alt_text?: string } }
 
 function SlackPreview({ blocks }: { blocks: Block[] }) {
   return (
@@ -49,6 +50,14 @@ function SlackPreview({ blocks }: { blocks: Block[] }) {
       {blocks.map((b, i) => {
         if (b.type === "header") return <p key={i} className="text-lg font-bold text-foreground">{b.text?.text}</p>
         if (b.type === "divider") return <hr key={i} className="border-border" />
+        if (b.type === "image")
+          return (
+            <figure key={i} className="space-y-1">
+              <figcaption className="text-xs text-muted-foreground">{b.title?.text}</figcaption>
+              {/* eslint-disable-next-line @next/next/no-img-element -- the picture exactly as Slack gets it */}
+              <img src={b.image_url} alt={b.alt_text ?? ""} className="w-full max-w-[600px] rounded-lg border border-border" />
+            </figure>
+          )
         if (b.type === "context")
           return (
             <p key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -119,7 +128,10 @@ export default async function SlackAdminPage({ searchParams }: PageProps<"/admin
     picked ? weeklySnapshot(admin, picked.id, week) : null,
     supabase.from("slack_posts").select("id, client_id, period_start, status, manual, channel, error, created_at, profiles(full_name)").order("created_at", { ascending: false }).limit(30),
   ])
-  const message = snap ? weeklyMessage(snap, { app: appUrl(), icons: "" }) : null
+  // The pictures as Slack will show them, drawn here (a few seconds) and shown inline.
+  const pics = snap ? await snapshotImages(snap, appUrl()).catch(() => null) : null
+  const asUri = (b: Buffer) => `data:image/png;base64,${b.toString("base64")}`
+  const message = snap ? weeklyMessage(snap, { app: appUrl(), icons: "", images: pics ? { snapshot: asUri(pics.snapshot), ads: asUri(pics.ads) } : null }) : null
   const channel = picked ? reportChannel(picked.slack_channel) : null
   const live = picked ? slackReportsLive(picked.slug) : false
 
