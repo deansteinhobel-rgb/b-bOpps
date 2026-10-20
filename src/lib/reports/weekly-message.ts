@@ -5,7 +5,7 @@
  * interactivity endpoint), so every button opens Lumaux.
  */
 import { compactMoney, money, percent, whole } from "@/lib/format"
-import { PLATFORM_LABEL } from "@/lib/metrics/types"
+import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import type { SlackMessage } from "@/lib/slack"
 import type { WeekAd, WeeklySnapshot } from "./weekly"
 
@@ -63,9 +63,11 @@ _${extra}_` : ""}` } }
 export type MessageLinks = {
   app: string
   icons?: string | null
-  /** The two pictures (snapshot-images.tsx), as links Slack can load. When set, the post is the pictures plus buttons. */
-  images?: { snapshot: string; ads: string } | null
+  /** The pictures (snapshot-images.tsx), as links Slack can load. When set, the post is the pictures plus buttons. */
+  images?: SnapshotImageLinks | null
 }
+/** The client snapshot and one picture per platform (its ads). */
+export type SnapshotImageLinks = { snapshot: string; platforms: { platform: Platform; url: string }[] }
 
 export function weeklyMessage(s: WeeklySnapshot, links: MessageLinks): SlackMessage {
   const cur = s.client.currency
@@ -76,11 +78,11 @@ export function weeklyMessage(s: WeeklySnapshot, links: MessageLinks): SlackMess
   const refreshUrl = (platform: string) => `${base}/sprint?refresh=${platform}&week=${s.week.from}`
   const dates = `${weekday(s.week.from)} ${day(s.week.from)} – ${weekday(s.week.to)} ${day(s.week.to)}`
 
-  // The picture version (Dean, 2026-10-20): one line, the client snapshot, the ads, and the ways in.
+  // The picture version (Dean, 2026-10-20): one line, the client snapshot, then each platform's ads with
+  // its two buttons right under it.
   if (links.images) {
     const n = s.now
     const line = `${c(n.spend)} spent · ${whole(n.results)} ${resultsWord(n.results)} at ${dot(cprTone(n.cpr, s.target))}${m(n.cpr)} each${s.target ? ` (target ${m(s.target)})` : ""}`
-    const refresh = s.platforms.filter((p) => p.weak.length || p.stale.count)
     const blocks: unknown[] = [
       {
         type: "section",
@@ -88,16 +90,18 @@ export function weeklyMessage(s: WeeklySnapshot, links: MessageLinks): SlackMess
         accessory: { type: "button", style: "primary", text: { type: "plain_text", text: "Open the full report" }, url: reportUrl("all"), action_id: "open_report" },
       },
       { type: "image", title: { type: "plain_text", text: `${s.client.name} · client snapshot` }, image_url: links.images.snapshot, alt_text: `${s.client.name}: last week's spend, results and cost per result, the main goal and spend this month by platform` },
-      { type: "image", title: { type: "plain_text", text: `${s.client.name} · ad performance` }, image_url: links.images.ads, alt_text: `${s.client.name}: the best and weakest ads on each platform last week` },
-      {
-        type: "actions",
-        elements: s.platforms.slice(0, 5).map((p) => ({ type: "button", text: { type: "plain_text", text: `${PLATFORM_LABEL[p.platform]} report` }, url: reportUrl(p.platform), action_id: `open_${p.platform}` })),
-      },
     ]
-    if (refresh.length) {
+    for (const pic of links.images.platforms) {
+      const p = s.platforms.find((x) => x.platform === pic.platform)
+      if (!p) continue
+      const label = PLATFORM_LABEL[p.platform]
+      blocks.push({ type: "image", title: { type: "plain_text", text: `${s.client.name} · ${label} ads` }, image_url: pic.url, alt_text: `${s.client.name}: the best and weakest ${label} ads last week` })
       blocks.push({
         type: "actions",
-        elements: refresh.slice(0, 5).map((p) => ({ type: "button", text: { type: "plain_text", text: `Replace weak ${PLATFORM_LABEL[p.platform]} ads` }, url: refreshUrl(p.platform), action_id: `refresh_${p.platform}` })),
+        elements: [
+          { type: "button", text: { type: "plain_text", text: `${label} report` }, url: reportUrl(p.platform), action_id: `open_${p.platform}` },
+          ...(p.weak.length || p.stale.count ? [{ type: "button", text: { type: "plain_text", text: "Replace weak ads" }, url: refreshUrl(p.platform), action_id: `refresh_${p.platform}` }] : []),
+        ],
       })
     }
     blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Lumaux · data to ${day(s.dataThrough)} · click a picture to enlarge it · "Replace weak … ads" plans a sprint test you can brief to Notion` }] })

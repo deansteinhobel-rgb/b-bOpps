@@ -1,6 +1,6 @@
 /**
- * Draws a client's weekly snapshot pictures (the client snapshot and the ad performance board) into a
- * folder, without sending anything. Reads only.
+ * Draws a client's weekly snapshot pictures (the client snapshot and one per platform) into a folder,
+ * without sending anything. Reads only.
  *   pnpm slack:images dnsfilter [out dir]
  */
 import { mkdir, writeFile } from "node:fs/promises"
@@ -22,10 +22,11 @@ async function main() {
   const started = Date.now()
   const pics = await snapshotImages(snap, appUrl())
   await mkdir(out, { recursive: true })
-  for (const [name, buf] of Object.entries(pics)) {
-    const file = path.join(out, `${slug}-${name}.png`)
-    await writeFile(file, buf)
-    console.log(`${file} (${Math.round(buf.length / 1024)} kB)`)
+  const files = [{ name: "snapshot", buf: pics.snapshot }, ...pics.platforms.map((p) => ({ name: `ads-${p.platform}`, buf: p.png }))]
+  for (const f of files) {
+    const file = path.join(out, `${slug}-${f.name}.png`)
+    await writeFile(file, f.buf)
+    console.log(`${file} (${Math.round(f.buf.length / 1024)} kB)`)
   }
   console.log(`Drawn in ${((Date.now() - started) / 1000).toFixed(1)}s`)
 }

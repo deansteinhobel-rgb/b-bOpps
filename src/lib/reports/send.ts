@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { liveClientSlugs } from "@/lib/notion/config"
 import { postSlackMessage, reportChannel, slackConfigured, type SlackMessage } from "@/lib/slack"
 import { snapshotImages } from "./snapshot-images"
-import { weeklyMessage } from "./weekly-message"
+import { weeklyMessage, type SnapshotImageLinks } from "./weekly-message"
 import type { WeeklySnapshot } from "./weekly"
 import { lastWeek, weeklySnapshot } from "./weekly"
 
@@ -25,23 +25,26 @@ export const iconBase = () => (appUrl().startsWith("https://") ? appUrl() : null
 const IMAGE_BUCKET = "report-images"
 
 /**
- * Draws the two pictures and stores them (private bucket, 90-day signed links Slack can load). Null when
- * drawing or storing fails: the post then falls back to the text version, so a Monday post never fails on a picture.
+ * Draws the pictures (the client snapshot, one per platform) and stores them (private bucket, 90-day
+ * signed links Slack can load). Null when drawing or storing fails: the post then falls back to the text
+ * version, so a Monday post never fails on a picture.
  */
-export async function storedSnapshotImages(db: SupabaseClient, snap: WeeklySnapshot): Promise<{ snapshot: string; ads: string } | null> {
+export async function storedSnapshotImages(db: SupabaseClient, snap: WeeklySnapshot): Promise<SnapshotImageLinks | null> {
   try {
     const pics = await snapshotImages(snap, appUrl())
     const stamp = Date.now()
-    const urls: Record<string, string> = {}
-    for (const [kind, buf] of Object.entries(pics)) {
+    const store = async (kind: string, buf: Buffer) => {
       const path = `${snap.client.id}/${snap.week.from}/${kind}-${stamp}.png`
       const up = await db.storage.from(IMAGE_BUCKET).upload(path, buf, { contentType: "image/png", upsert: false })
       if (up.error) throw new Error(up.error.message)
       const { data, error } = await db.storage.from(IMAGE_BUCKET).createSignedUrl(path, SLACK_IMAGE_TTL)
       if (error || !data) throw new Error(error?.message ?? "no signed link")
-      urls[kind] = data.signedUrl
+      return data.signedUrl
     }
-    return { snapshot: urls.snapshot, ads: urls.ads }
+    return {
+      snapshot: await store("snapshot", pics.snapshot),
+      platforms: await Promise.all(pics.platforms.map(async (p) => ({ platform: p.platform, url: await store(`ads-${p.platform}`, p.png) }))),
+    }
   } catch (e) {
     console.error("[slack] snapshot pictures", e)
     return null

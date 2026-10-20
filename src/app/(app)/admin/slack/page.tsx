@@ -131,7 +131,7 @@ export default async function SlackAdminPage({ searchParams }: PageProps<"/admin
   // The pictures as Slack will show them, drawn here (a few seconds) and shown inline.
   const pics = snap ? await snapshotImages(snap, appUrl()).catch(() => null) : null
   const asUri = (b: Buffer) => `data:image/png;base64,${b.toString("base64")}`
-  const message = snap ? weeklyMessage(snap, { app: appUrl(), icons: "", images: pics ? { snapshot: asUri(pics.snapshot), ads: asUri(pics.ads) } : null }) : null
+  const message = snap ? weeklyMessage(snap, { app: appUrl(), icons: "", images: pics ? { snapshot: asUri(pics.snapshot), platforms: pics.platforms.map((p) => ({ platform: p.platform, url: asUri(p.png) })) } : null }) : null
   const channel = picked ? reportChannel(picked.slack_channel) : null
   const live = picked ? slackReportsLive(picked.slug) : false
 
