@@ -1,6 +1,9 @@
 import "server-only"
 import type Anthropic from "@anthropic-ai/sdk"
 import type { Db } from "@/lib/supabase/db"
+import { londonToday } from "@/lib/checks/periods"
+import { sniffImageType } from "@/lib/image-type"
+import { competitorsForPrompt } from "@/lib/competitors/context"
 import { briefForPrompt } from "@/lib/knowledge/brief"
 import { contentBankForPrompt } from "@/lib/knowledge/content-bank"
 import { addDays } from "@/lib/metrics/ads"
@@ -175,16 +178,27 @@ export async function buildContentContext(db: Db, clientId: string): Promise<Con
     const { data: blob } = await db.storage.from("ad-previews").download(x.c!.storage_path as string)
     if (!blob || blob.size > 4_500_000) continue
     images.push({ type: "text", text: `Ad image [${x.key}]: "${x.a.ad_name ?? x.a.ad_id}" (${x.a.campaign_name ?? "–"}; ${r1(x.t.results)} results, ${cpr(x.t)} each, CTR ${pct(x.t.clicks, x.t.impressions)})` })
-    images.push({ type: "image", source: { type: "base64", media_type: x.c!.content_type as "image/jpeg", data: Buffer.from(await blob.arrayBuffer()).toString("base64") } })
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    images.push({ type: "image", source: { type: "base64", media_type: sniffImageType(bytes) ?? (x.c!.content_type as "image/jpeg"), data: Buffer.from(bytes).toString("base64") } })
   }
 
   // Past tests, content in production (Notion mirror, read only), and what the team said about earlier ideas.
-  const [{ data: tests }, { data: mirror }, { data: actions }, bank] = await Promise.all([
+  const [{ data: tests }, { data: mirror }, { data: actions }, bank, competitors] = await Promise.all([
     db.from("sprint_tests").select("title, platform, outcome, status, findings_worked, findings_blockers, findings_notes, sprints(number)").eq("client_id", clientId).is("archived_at", null).order("created_at", { ascending: false }).limit(60),
     db.from("notion_pages_mirror").select("title, properties, last_edited_time").eq("client_id", clientId).eq("page_type", "brief").eq("in_trash", false).order("last_edited_time", { ascending: false }).limit(200),
     db.from("content_idea_actions").select("idea_id, action, reason, snapshot, created_at").eq("client_id", clientId).order("created_at", { ascending: false }).limit(60),
     contentBankForPrompt(clientId, { limit: 30, summaryChars: 600, notesChars: 1500 }),
+    competitorsForPrompt(db, clientId, londonToday(), { perCompetitor: 4 }),
   ])
+  // Up to 4 of competitors' longest-running ads as images, after ours, clearly marked as theirs.
+  for (const x of competitors.longest.slice(0, 4)) {
+    if (!IMAGE_TYPES.includes(String(x.content_type))) continue
+    const { data: blob } = await db.storage.from("ad-previews").download(x.storage_path)
+    if (!blob || blob.size > 4_500_000) continue
+    images.push({ type: "text", text: `COMPETITOR ad image (${x.competitor}, not the client's): ${x.line}` })
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    images.push({ type: "image", source: { type: "base64", media_type: sniffImageType(bytes) ?? (x.content_type as "image/jpeg"), data: Buffer.from(bytes).toString("base64") } })
+  }
   const text = (v: unknown) => (typeof v === "string" ? v : "")
   const briefs = (mirror ?? [])
     .map((m) => ({ props: mirrorProps(m.properties), title: m.title ?? "" }))
@@ -209,6 +223,7 @@ export async function buildContentContext(db: Db, clientId: string): Promise<Con
     ...(briefs.length ? briefs.map((b) => `- ${b.title} | ${b.status || "–"} | ${b.desc.replace(/\s+/g, " ").slice(0, 240)}`) : ["(none)"]),
     `\n## The client's Content Bank, newest first (content we already have: pieces, webinar and call transcripts, source notes; material to repurpose or build on)`,
     ...(bank.length ? bank : ["(nothing yet)"]),
+    competitors.text,
     `\n## What the team said about earlier content ideas (newest first)`,
     ...((actions ?? []).length
       ? (actions ?? []).map((a) => `- ${a.action === "planned" ? "PLANNED as a sprint test" : a.action === "dismissed" ? "NOT FOR US" : "reopened"}: ${(a.snapshot as { title?: string } | null)?.title ?? a.idea_id}${a.reason ? ` — reason: ${a.reason}` : ""}`)

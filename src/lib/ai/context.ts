@@ -5,6 +5,8 @@ import { briefForPrompt } from "@/lib/knowledge/brief"
 import { addDays, type DailyRow } from "@/lib/metrics/ads"
 import { getOverview } from "@/lib/metrics/overview"
 import { PLATFORM_LABEL, type Platform, PLATFORMS } from "@/lib/metrics/types"
+import { londonToday } from "@/lib/checks/periods"
+import { competitorsForPrompt } from "@/lib/competitors/context"
 import { describeTargets, loadTargets } from "@/lib/targets"
 
 /**
@@ -99,6 +101,9 @@ export async function buildSprintContext(db: Db, clientId: string, sprintId: str
     db.from("sprint_changes").select("changed_on, platform, campaign_name, type, description").eq("client_id", clientId).eq("status", "logged").order("changed_on", { ascending: false }).limit(25),
     db.from("sprint_recommendations").select("title, platform, status, reject_reason, sprint_ai_runs!inner(archived_at)").eq("client_id", clientId).is("sprint_ai_runs.archived_at", null).in("status", ["approved", "rejected"]).order("decided_at", { ascending: false }).limit(20),
   ])
+
+  const competitors = await competitorsForPrompt(db, clientId, londonToday())
+  if (competitors.text) lines.push(competitors.text)
 
   const plat = (p: string | null) => (p ? (PLATFORM_LABEL[p as Platform] ?? p) : "Several platforms")
   const past = (tests ?? []).filter((t) => t.sprint_id !== sprintId)

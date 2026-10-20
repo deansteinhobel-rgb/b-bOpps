@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { aiConfigured } from "@/lib/ai/claude"
-import { labelAds } from "@/lib/labels/ads"
+import { labelAds, labelCompetitorAds } from "@/lib/labels/ads"
 import { labelTests } from "@/lib/labels/tests"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isCron } from "@/lib/cron-auth"
@@ -9,8 +9,9 @@ export const maxDuration = 300
 
 /**
  * Daily labels for comparing clients (after the creatives job): Claude labels new or changed ads
- * (up to 80 per client, most spend first) and picks a lever for tests that have none. Writes
- * ad_labels and sprint_tests.lever only. Clients without an ad account are skipped.
+ * (up to 80 per client, most spend first), then competitors' live ads that are new or changed (up
+ * to 60), and picks a lever for tests that have none. Writes ad_labels, competitor_ads' labels and
+ * sprint_tests.lever only. Clients without an ad account are skipped.
  * Requires `Authorization: Bearer $CRON_SECRET`.
  */
 export async function GET(request: NextRequest) {
@@ -28,7 +29,8 @@ export async function GET(request: NextRequest) {
     try {
       const tests = await labelTests(clientId)
       const ads = await labelAds(clientId, { max: 80, stopAt })
-      results.push({ clientId, tests: tests.labeled, ads: ads.labeled, adsLeft: ads.left })
+      const competitors = Date.now() < stopAt ? await labelCompetitorAds(clientId, { max: 60, stopAt }) : { labeled: 0 }
+      results.push({ clientId, tests: tests.labeled, ads: ads.labeled, adsLeft: ads.left, competitorAds: competitors.labeled })
     } catch (e) {
       results.push({ clientId, error: e instanceof Error ? e.message : String(e) })
     }

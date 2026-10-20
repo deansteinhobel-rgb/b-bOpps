@@ -1,0 +1,253 @@
+import "server-only"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { COMPETITOR_IMAGE_HOSTS, copyImage } from "@/lib/windsor/creatives"
+import { apifyConfigured, datasetItems, FINISHED, isBusy, runStatus, startRun } from "./apify"
+import { COMPETITOR_SOURCES, COUNTRIES, normalizeItems, runIsHealthy, SOURCES, type Competitor, type CompetitorSource } from "./sources"
+
+/**
+ * Competitor ads, once a week (Dean, 2026-10-20). `queueWeek` adds one run per competitor × source ×
+ * country; `pump` starts queued runs while Apify has room (the free plan runs 5 at once), collects
+ * finished ones into `competitor_ads`, closes ads a healthy week no longer shows, and copies images
+ * into our bucket. Both are safe to call again: the cron calls `pump` every half hour on Sunday
+ * morning. Reads the public ad libraries; writes only our database and storage.
+ */
+const MAX_RUNNING = 4
+/** A run older than this that hasn't finished is given up on (Apify stops it at 10 minutes). */
+const STALE_MS = 60 * 60_000
+/** Runs queued within this window belong to the same weekly batch. */
+const BATCH_MS = 3 * 86_400_000
+
+const safe = (s: string) => s.replace(/[^a-zA-Z0-9_-]/g, "_")
+const today = () => new Date().toISOString().slice(0, 10)
+
+/** Clients in COMPETITOR_CLIENTS (slugs), or every client with competitors when it isn't set. */
+async function clientIds(db = createAdminClient(), only?: string) {
+  let q = db.from("clients").select("id, slug")
+  if (only) q = q.eq("id", only)
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+  const allowed = (process.env.COMPETITOR_CLIENTS ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+  return (data ?? []).filter((c) => !allowed.length || allowed.includes(c.slug)).map((c) => c.id)
+}
+
+async function competitors(clientId: string, db = createAdminClient()): Promise<(Competitor & { client_id: string })[]> {
+  const { data, error } = await db
+    .from("client_competitors")
+    .select("id, client_id, name, meta_page_id, linkedin_advertiser, google_advertiser_ids")
+    .eq("client_id", clientId)
+    .is("removed_at", null)
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+/** Queues this week's runs. Skips a competitor × source × country already queued or read in the last 3 days. */
+export async function queueWeek(opts: { clientId?: string } = {}) {
+  if (!apifyConfigured()) return { queued: 0, skipped: "APIFY_TOKEN isn't set" }
+  const db = createAdminClient()
+  const since = new Date(Date.now() - BATCH_MS).toISOString()
+  let queued = 0
+  for (const clientId of await clientIds(db, opts.clientId)) {
+    const list = await competitors(clientId, db)
+    if (!list.length) continue
+    const { data: recent } = await db.from("competitor_runs").select("competitor_id, source, country").eq("client_id", clientId).gte("queued_at", since).neq("status", "failed")
+    const done = new Set((recent ?? []).map((r) => `${r.competitor_id}|${r.source}|${r.country}`))
+    const rows = list.flatMap((c) =>
+      COMPETITOR_SOURCES.flatMap((source) =>
+        COUNTRIES.filter((country) => SOURCES[source].input(c, country) && !done.has(`${c.id}|${source}|${country}`)).map((country) => ({
+          client_id: clientId,
+          competitor_id: c.id,
+          source,
+          country,
+          actor: SOURCES[source].actor,
+        })),
+      ),
+    )
+    if (rows.length) {
+      const { error } = await db.from("competitor_runs").insert(rows)
+      if (error) throw new Error(error.message)
+      queued += rows.length
+    }
+  }
+  return { queued }
+}
+
+type RunRow = { id: string; client_id: string; competitor_id: string; source: string; country: string; actor: string; apify_run_id: string | null; queued_at: string; started_at: string | null }
+
+/** Collects finished runs, starts queued ones, closes stale ads and copies images, within `stopAt`. */
+export async function pump(opts: { stopAt?: number; maxCopies?: number; clientId?: string } = {}) {
+  const stopAt = opts.stopAt ?? Date.now() + 240_000
+  const result = { collected: 0, started: 0, failed: 0, ads: 0, closed: 0, copied: 0, open: 0, errors: [] as string[] }
+  if (!apifyConfigured()) return { ...result, errors: ["APIFY_TOKEN isn't set"] }
+  const db = createAdminClient()
+  const scope = await clientIds(db, opts.clientId)
+  if (!scope.length) return result
+  const cols = "id, client_id, competitor_id, source, country, actor, apify_run_id, queued_at, started_at"
+
+  // 1. Finished runs → ads.
+  const { data: running } = await db.from("competitor_runs").select(cols).eq("status", "started").in("client_id", scope)
+  const touched = new Set<string>()
+  for (const run of (running ?? []) as RunRow[]) {
+    if (Date.now() > stopAt) break
+    try {
+      const status = await runStatus(run.apify_run_id!)
+      if (!FINISHED.includes(status.status)) {
+        if (Date.now() - Date.parse(run.started_at ?? run.queued_at) > STALE_MS) await fail(run.id, `Still ${status.status} after an hour`)
+        continue
+      }
+      if (status.status !== "SUCCEEDED") {
+        await fail(run.id, `Apify run ${status.status.toLowerCase()}`, status.usageTotalUsd)
+        result.failed++
+        continue
+      }
+      result.ads += await collect(run, await datasetItems(status.defaultDatasetId), status.usageTotalUsd)
+      result.collected++
+      touched.add(`${run.competitor_id}|${run.source}`)
+    } catch (e) {
+      result.errors.push(`${run.source} ${run.country}: ${(e as Error).message}`)
+    }
+  }
+
+  // 2. Start queued runs while there's room.
+  const { count: busy } = await db.from("competitor_runs").select("id", { count: "exact", head: true }).eq("status", "started")
+  let room = MAX_RUNNING - (busy ?? 0)
+  if (room > 0) {
+    const { data: queued } = await db.from("competitor_runs").select(cols).eq("status", "queued").in("client_id", scope).order("queued_at").limit(room)
+    for (const run of (queued ?? []) as RunRow[]) {
+      if (Date.now() > stopAt || room <= 0) break
+      const { data: c } = await db.from("client_competitors").select("id, name, meta_page_id, linkedin_advertiser, google_advertiser_ids, removed_at").eq("id", run.competitor_id).single()
+      const source = run.source as CompetitorSource
+      const input = c && !c.removed_at ? SOURCES[source].input(c, run.country) : null
+      if (!input) {
+        await fail(run.id, "No id for this library any more")
+        continue
+      }
+      try {
+        const started = await startRun(SOURCES[source].actor, input)
+        await db.from("competitor_runs").update({ status: "started", apify_run_id: started.id, started_at: new Date().toISOString() }).eq("id", run.id)
+        result.started++
+        room--
+      } catch (e) {
+        if (isBusy(e)) break // Apify is full; the next pass starts it
+        await fail(run.id, (e as Error).message)
+        result.failed++
+      }
+    }
+  }
+
+  // 3. Close ads a finished, healthy week no longer shows.
+  for (const key of touched) result.closed += await closeStale(...(key.split("|") as [string, CompetitorSource]))
+
+  // 4. Images.
+  result.copied = await copyImages(scope, opts.maxCopies ?? 80, stopAt)
+  const { count: open } = await db.from("competitor_runs").select("id", { count: "exact", head: true }).in("client_id", scope).in("status", ["queued", "started"])
+  result.open = open ?? 0
+  return result
+}
+
+async function fail(runId: string, error: string, usage?: number) {
+  await createAdminClient()
+    .from("competitor_runs")
+    .update({ status: "failed", error: error.slice(0, 300), collected_at: new Date().toISOString(), usage_usd: usage ?? null })
+    .eq("id", runId)
+}
+
+async function collect(run: RunRow, items: unknown[], usage?: number) {
+  const db = createAdminClient()
+  const { data: c, error } = await db.from("client_competitors").select("id, name, meta_page_id, linkedin_advertiser, google_advertiser_ids").eq("id", run.competitor_id).single()
+  if (error || !c) throw new Error(error?.message ?? "Competitor not found")
+  const ads = normalizeItems(run.source as CompetitorSource, items, c, today())
+  const { count: liveBefore } = await db
+    .from("competitor_ads")
+    .select("id", { count: "exact", head: true })
+    .eq("competitor_id", run.competitor_id)
+    .eq("source", run.source)
+    .eq("active", true)
+    .contains("countries", [run.country])
+  const healthy = runIsHealthy(ads.length, liveBefore ?? 0)
+
+  if (ads.length) {
+    // Keep the countries an ad was seen in across runs.
+    const { data: existing } = await db
+      .from("competitor_ads")
+      .select("external_id, countries")
+      .eq("competitor_id", run.competitor_id)
+      .eq("source", run.source)
+      .in("external_id", ads.map((a) => a.external_id))
+    const countries = new Map((existing ?? []).map((e) => [e.external_id, e.countries]))
+    const now = new Date().toISOString()
+    const { error: upErr } = await db.from("competitor_ads").upsert(
+      ads.map((a) => ({
+        ...a,
+        client_id: run.client_id,
+        competitor_id: run.competitor_id,
+        source: run.source,
+        countries: [...new Set([...(countries.get(a.external_id) ?? []), run.country])].sort(),
+        last_seen_at: now,
+      })),
+      { onConflict: "competitor_id,source,external_id" },
+    )
+    if (upErr) throw new Error(upErr.message)
+  }
+  await db
+    .from("competitor_runs")
+    .update({
+      status: healthy ? "collected" : "failed",
+      error: healthy ? null : "No ads came back although the competitor had live ads here: kept them live",
+      items: ads.length,
+      usage_usd: usage ?? null,
+      collected_at: new Date().toISOString(),
+    })
+    .eq("id", run.id)
+  return ads.length
+}
+
+/**
+ * Once every run of this week's batch for a competitor × source is done and none failed, ads not
+ * seen since the batch started have stopped.
+ */
+async function closeStale(competitorId: string, source: CompetitorSource) {
+  const db = createAdminClient()
+  const { data: batch } = await db
+    .from("competitor_runs")
+    .select("status, queued_at")
+    .eq("competitor_id", competitorId)
+    .eq("source", source)
+    .gte("queued_at", new Date(Date.now() - BATCH_MS).toISOString())
+  if (!batch?.length || batch.some((r) => r.status !== "collected")) return 0
+  const start = batch.map((r) => r.queued_at).sort()[0]
+  const { data, error } = await db
+    .from("competitor_ads")
+    .update({ active: false, ended_on: today() })
+    .eq("competitor_id", competitorId)
+    .eq("source", source)
+    .eq("active", true)
+    .lt("last_seen_at", start)
+    .select("id")
+  if (error) throw new Error(error.message)
+  return data?.length ?? 0
+}
+
+async function copyImages(scope: string[], budget: number, stopAt: number) {
+  const db = createAdminClient()
+  const { data: todo } = await db
+    .from("competitor_ads")
+    .select("id, client_id, source, external_id, media_url")
+    .in("client_id", scope)
+    .is("storage_path", null)
+    .is("copy_error", null)
+    .not("media_url", "is", null)
+    .order("last_seen_at", { ascending: false })
+    .limit(budget)
+  let copied = 0
+  for (const ad of todo ?? []) {
+    if (Date.now() > stopAt) break
+    try {
+      const stored = await copyImage(ad.media_url!, `${ad.client_id}/competitor/${ad.source}_${safe(ad.external_id)}`, COMPETITOR_IMAGE_HOSTS)
+      await db.from("competitor_ads").update(stored).eq("id", ad.id)
+      copied++
+    } catch (e) {
+      await db.from("competitor_ads").update({ copy_error: (e as Error).message.slice(0, 300) }).eq("id", ad.id)
+    }
+  }
+  return copied
+}

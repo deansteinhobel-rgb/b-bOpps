@@ -499,3 +499,38 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   const set = await budget("aaaaaaaa-0000-0000-0000-000000000002", 5000)
   console.log(set.length === 1 ? "specialist sets the client's budget: OK" : "FAIL: specialist couldn't set a budget")
 }
+
+// Competitor ads (2026-10-20): the team keeps the competitor list; runs and ads are server-written;
+// other teams see nothing; nothing is deleted; a competitor can't be tied to another client's ads.
+{
+  const camber = "11111111-1111-1111-1111-111111111111"
+  const dnsf = "22222222-2222-2222-2222-222222222222"
+  const andrea = "aaaaaaaa-0000-0000-0000-000000000002"
+  const danny = "aaaaaaaa-0000-0000-0000-000000000003"
+  const added = await as(andrea, () => q(`insert into public.client_competitors (client_id, name, website, meta_page_id) values ('${camber}', 'Rival', 'rival.com', '12345') returning id`))
+  console.log(added.length === 1 ? "competitors: the team adds one: OK" : "FAIL: team couldn't add a competitor")
+  const rival = added[0].id
+  try { await as(andrea, () => q(`insert into public.client_competitors (client_id, name) values ('${dnsf}', 'Nope')`)); console.log("FAIL: andrea added a DNSFilter competitor") } catch { console.log("competitors: another team can't add: OK") }
+  try { await as(vera, () => q(`insert into public.client_competitors (client_id, name) values ('${camber}', 'Nope')`)); console.log("FAIL: a viewer added a competitor") } catch { console.log("competitors: viewers can't add: OK") }
+  try { await as(andrea, () => q(`insert into public.client_competitors (client_id, name, removed_at) values ('${camber}', 'Nope', now())`)); console.log("FAIL: inserted as removed") } catch { console.log("competitors: removal is set by the app: OK") }
+  try { await as(andrea, () => q(`update public.client_competitors set client_id = '${dnsf}' where id = '${rival}'`)); console.log("FAIL: competitor moved client") } catch { console.log("competitors: the client can't change: OK") }
+  const removed = await as(andrea, () => q(`update public.client_competitors set removed_at = now(), removed_by_profile_id = '${andrea}' where id = '${rival}' returning id`))
+  console.log(removed.length === 1 ? "competitors: the team soft-removes: OK" : "FAIL: soft remove")
+  try { await as(andrea, () => q(`update public.client_competitors set removed_at = null where id = '${rival}'`)); console.log("FAIL: competitor brought back") } catch { console.log("competitors: removed stays removed: OK") }
+
+  await q(`insert into public.competitor_runs (client_id, competitor_id, source, country, actor) values ('${camber}', '${rival}', 'meta', 'US', 'x')`)
+  await q(`insert into public.competitor_ads (client_id, competitor_id, source, external_id) values ('${camber}', '${rival}', 'meta', 'ad1')`)
+  try { await q(`insert into public.competitor_ads (client_id, competitor_id, source, external_id) values ('${dnsf}', '${rival}', 'meta', 'ad2')`); console.log("FAIL: ad tied to another client") } catch { console.log("competitor ads: client must match the competitor: OK") }
+  const teamAds = await as(andrea, () => q("select id from public.competitor_ads"))
+  const otherAds = await as(danny, () => q("select id from public.competitor_ads"))
+  const otherList = await as(danny, () => q("select id from public.client_competitors"))
+  console.log(teamAds.length === 1 && otherAds.length === 0 && otherList.length === 0 ? "competitor ads: the team reads, other teams don't: OK" : "FAIL: competitor ads visibility")
+  try { await as(andrea, () => q(`insert into public.competitor_ads (client_id, competitor_id, source, external_id) values ('${camber}', '${rival}', 'meta', 'ad3')`)); console.log("FAIL: a signed-in user wrote an ad") } catch { console.log("competitor ads are server-written: OK") }
+  try { await as(andrea, () => q(`insert into public.competitor_runs (client_id, competitor_id, source, country, actor) values ('${camber}', '${rival}', 'meta', 'US', 'x')`)); console.log("FAIL: a signed-in user wrote a run") } catch { console.log("competitor runs are server-written: OK") }
+  const dels = [
+    ...(await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.competitor_ads returning id"))),
+    ...(await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.competitor_runs returning id"))),
+    ...(await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.client_competitors returning id"))),
+  ]
+  console.log(dels.length === 0 ? "competitors, runs and ads can't be deleted: OK" : "FAIL: competitor data deleted")
+}

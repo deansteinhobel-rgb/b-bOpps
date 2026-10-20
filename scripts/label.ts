@@ -8,8 +8,9 @@
  *   pnpm label --tests           tests only
  *   pnpm label --max 50          at most 50 ads per client (a trial run)
  *   pnpm label --force           re-label ads that already have a label
+ *   pnpm label --competitors     competitors' live ads only (new or changed)
  */
-import { labelAds } from "@/lib/labels/ads"
+import { labelAds, labelCompetitorAds } from "@/lib/labels/ads"
 import { labelTests } from "@/lib/labels/tests"
 import { createAdminClient } from "@/lib/supabase/admin"
 
@@ -26,6 +27,13 @@ if (!clients.length) throw new Error(slug ? `No client "${slug}" with an ad acco
 
 const total = { input_tokens: 0, output_tokens: 0 }
 for (const [clientId, c] of clients) {
+  if (flag("--competitors")) {
+    const r = await labelCompetitorAds(clientId, { max: max ?? 500 })
+    total.input_tokens += r.usage.input_tokens
+    total.output_tokens += r.usage.output_tokens
+    console.log(`${c.name}: ${r.labeled} competitor ads labeled${r.left ? `, ${r.left} left` : ""}`)
+    continue
+  }
   const t = await labelTests(clientId)
   total.input_tokens += t.usage.input_tokens
   total.output_tokens += t.usage.output_tokens
