@@ -35,6 +35,9 @@ export const LIMITS = {
   content_page_read: { max: 40, seconds: 86400, what: "page reads a day" },
   content_placement: { max: 30, seconds: 86400, what: "content placements and re-picks a day" },
   content_angle: { max: 150, seconds: 86400, what: "email angles a day" },
+  // Competitor ads (2026-10-20): editing the list, and reading the libraries again before Sunday.
+  competitor_edit: { max: 60, seconds: 86400, what: "competitor changes a day" },
+  competitor_refresh: { max: 2, seconds: 86400, what: "competitor refreshes a day" },
 } as const
 export type LimitKind = keyof typeof LIMITS
 

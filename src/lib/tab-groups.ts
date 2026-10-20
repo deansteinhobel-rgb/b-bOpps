@@ -37,7 +37,15 @@ const PLANNING: TabGroup = {
     { href: "/briefs", label: "Notion briefs" },
   ],
 }
-const KNOWLEDGE: TabGroup = { key: "knowledge", label: "Knowledge", items: [{ href: "/brain", label: "Client brain" }] }
+const KNOWLEDGE: TabGroup = {
+  key: "knowledge",
+  label: "Knowledge",
+  items: [
+    { href: "/brain", label: "Client brain" },
+    // Dean, 2026-10-20: what competitors run, from the public ad libraries, once a week.
+    { href: "/competitors", label: "Competitor ads" },
+  ],
+}
 
 /** Every section, apart from the content library, which only shows for clients that have one (src/lib/content-library/config.ts). */
 export const tabGroups = (opts: { contentLibrary?: boolean } = {}): TabGroup[] => {

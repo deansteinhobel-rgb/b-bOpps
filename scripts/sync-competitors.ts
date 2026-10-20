@@ -16,8 +16,7 @@ async function main() {
   for (let pass = 1; pass <= 40; pass++) {
     const r = await pump({ clientId: client.id, maxCopies: 200 })
     console.log(`  pass ${pass}: started ${r.started}, collected ${r.collected} (${r.ads} ads), failed ${r.failed}, closed ${r.closed}, images ${r.copied}${r.errors.length ? `, errors: ${r.errors.join("; ")}` : ""}`)
-    const { count } = await db.from("competitor_runs").select("id", { count: "exact", head: true }).eq("client_id", client.id).in("status", ["queued", "started"])
-    if (!count) break
+    if (!r.open) break
     await new Promise((res) => setTimeout(res, 20_000))
   }
 }

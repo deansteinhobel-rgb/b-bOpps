@@ -134,6 +134,19 @@ in posts are escaped (`&`, `<`, `>`), so they can't ping a channel or add links.
 Ad images in posts are signed links to our private `ad-previews` copies, valid for 90 days
 (anyone with the link can open that one image for that long; they're ads that ran publicly).
 
+## Apify (competitor ads)
+
+Competitor ads (2026-10-20) are read once a week from the public Meta Ad Library, Google Ads
+Transparency Center and LinkedIn Ad Library through Apify actors. `APIFY_TOKEN` is server-side only.
+The app calls `api.apify.com` only (through `fetchFrom`, response bodies capped), runs only the three
+actors fixed in `src/lib/competitors/sources.ts`, and never logs in to any ad platform: the actors read
+public library pages. Competitor images are copied into the private `ad-previews` bucket under
+`<client_id>/competitor/` (the same storage policy), from the ad image hosts plus Google's display ad
+CDN (`2mdn.net`), so the CSP needs nothing new. Ad copy is untrusted text: Claude's prompts say so.
+LinkedIn's terms forbid scraping its Ad Library; Dean accepted that risk for B&B (2026-10-20).
+
+- [ ] A **usage limit** on the Apify account (Billing → Limits). A week costs about $1.
+
 ## Anthropic
 
 - [ ] A **monthly spend limit** on the workspace (console → Limits), so nothing can run past it.

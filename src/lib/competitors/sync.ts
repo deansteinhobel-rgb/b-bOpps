@@ -76,7 +76,7 @@ type RunRow = { id: string; client_id: string; competitor_id: string; source: st
 /** Collects finished runs, starts queued ones, closes stale ads and copies images, within `stopAt`. */
 export async function pump(opts: { stopAt?: number; maxCopies?: number; clientId?: string } = {}) {
   const stopAt = opts.stopAt ?? Date.now() + 240_000
-  const result = { collected: 0, started: 0, failed: 0, ads: 0, closed: 0, copied: 0, errors: [] as string[] }
+  const result = { collected: 0, started: 0, failed: 0, ads: 0, closed: 0, copied: 0, open: 0, errors: [] as string[] }
   if (!apifyConfigured()) return { ...result, errors: ["APIFY_TOKEN isn't set"] }
   const db = createAdminClient()
   const scope = await clientIds(db, opts.clientId)
@@ -139,6 +139,8 @@ export async function pump(opts: { stopAt?: number; maxCopies?: number; clientId
 
   // 4. Images.
   result.copied = await copyImages(scope, opts.maxCopies ?? 80, stopAt)
+  const { count: open } = await db.from("competitor_runs").select("id", { count: "exact", head: true }).in("client_id", scope).in("status", ["queued", "started"])
+  result.open = open ?? 0
   return result
 }
 

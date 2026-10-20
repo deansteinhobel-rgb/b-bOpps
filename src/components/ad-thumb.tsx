@@ -74,7 +74,11 @@ export function AdThumb({ preview, alt, size = "md", className }: { preview?: Pr
 /** Which platform a preview link opens on. */
 function linkSite(link: string) {
   try {
-    return /(^|\.)linkedin\.com$/i.test(new URL(link).hostname) ? "LinkedIn" : "Meta"
+    const url = new URL(link)
+    // Competitors' ads link to the public ad libraries.
+    if (url.hostname === "adstransparency.google.com") return "Google Ads Transparency Center"
+    if (/(^|\.)linkedin\.com$/i.test(url.hostname)) return url.pathname.startsWith("/ad-library/") ? "LinkedIn Ad Library" : "LinkedIn"
+    return url.pathname.startsWith("/ads/library") ? "Meta Ad Library" : "Meta"
   } catch {
     return "Meta"
   }
