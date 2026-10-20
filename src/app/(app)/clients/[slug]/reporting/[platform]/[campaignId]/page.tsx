@@ -106,7 +106,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
               <ul className="space-y-1.5 text-sm">
                 {(tests ?? []).map((t) => (
                   <li key={t.id}>
-                    <Link href={`/clients/${slug}/sprint?n=${(t.sprints as unknown as { number: number } | null)?.number ?? ""}#test-${t.id}`} className="hover:underline">
+                    <Link href={`/clients/${slug}/sprint?n=${t.sprints?.number ?? ""}#test-${t.id}`} className="hover:underline">
                       {t.title}
                     </Link>
                     <span className="ml-2 text-xs text-muted-foreground">{t.outcome ?? t.status}</span>

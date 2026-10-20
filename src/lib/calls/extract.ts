@@ -22,7 +22,7 @@ const PLATFORMS = ["linkedin", "google_ads", "meta", "reddit", "bing", "x", "web
 /** How far back open items from earlier calls are shown to Claude. */
 const EARLIER_DAYS = 90
 
-const SUBMIT = {
+const SUBMIT: Anthropic.Tool = {
   name: "submit_call",
   description: "Submit the summary and the follow-ups from this call. Call it exactly once.",
   input_schema: {
@@ -80,7 +80,7 @@ export async function readCall(c: { clientName: string; team: string; title: str
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: `${text}\n\nRead these notes, then call submit_call.` }]
   for (let turn = 0; turn < 2; turn++) {
     const msg = await claude()
-      .messages.stream({ model: MODEL, max_tokens: 12000, thinking: { type: "adaptive" }, system: system(c.clientName, c.team), tools: [SUBMIT] as unknown as Anthropic.Messages.ToolUnion[], messages })
+      .messages.stream({ model: MODEL, max_tokens: 12000, thinking: { type: "adaptive" }, system: system(c.clientName, c.team), tools: [SUBMIT], messages })
       .finalMessage()
     usage.input_tokens += msg.usage.input_tokens
     usage.output_tokens += msg.usage.output_tokens
@@ -96,7 +96,7 @@ export async function extractCall(callId: string) {
   const db = createAdminClient()
   const { data: call } = await db.from("client_calls").select("id, client_id, title, call_date, content, clients(name)").eq("id", callId).single()
   if (!call?.content) return
-  const clientName = (call.clients as unknown as { name: string } | null)?.name ?? "the client"
+  const clientName = call.clients?.name ?? "the client"
   const from = new Date(Date.parse(`${call.call_date}T12:00:00Z`) - EARLIER_DAYS * 86_400_000).toISOString().slice(0, 10)
   const [{ data: existing }, { data: earlierRows }, { data: acted }, people] = await Promise.all([
     db.from("call_commitments").select("id, title, kind").eq("call_id", callId).is("superseded_at", null),

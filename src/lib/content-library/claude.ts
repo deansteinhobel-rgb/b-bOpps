@@ -21,9 +21,9 @@ ${sequenceRules(cfg)}
 
 ${SAFETY}`
 
-type Tool = { name: string; description: string; input_schema: Record<string, unknown> }
+type Tool = Anthropic.Tool
 const EMAIL = { type: "object", properties: { id: { type: "string", description: `A library id, or "${HANDOFF}" (email3 only).` }, angle: { type: "string" } }, required: ["id", "angle"] }
-const SEQUENCE = { type: "object", properties: { email1: EMAIL, email2: EMAIL, email3: EMAIL }, required: ["email1", "email2", "email3"] }
+const SEQUENCE: Anthropic.Tool.InputSchema = { type: "object", properties: { email1: EMAIL, email2: EMAIL, email3: EMAIL }, required: ["email1", "email2", "email3"] }
 
 const SUBMIT_PLACEMENT: Tool = {
   name: "submit_placement",
@@ -54,7 +54,7 @@ async function submitted(cfg: LibraryConfig, prompt: string, tool: Tool, signal?
   for (let turn = 0; turn < 3; turn++) {
     const msg = await claude()
       .messages.stream(
-        { model: PLACEMENT_MODEL, max_tokens: 16000, thinking: { type: "adaptive" }, system: system(cfg), tools: [tool] as unknown as Anthropic.Messages.ToolUnion[], tool_choice: { type: "auto" }, messages },
+        { model: PLACEMENT_MODEL, max_tokens: 16000, thinking: { type: "adaptive" }, system: system(cfg), tools: [tool], tool_choice: { type: "auto" }, messages },
         { signal },
       )
       .finalMessage()

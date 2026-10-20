@@ -176,7 +176,7 @@ export default async function SlackAdminPage({ searchParams }: PageProps<"/admin
               <span className="w-40">{list.find((c) => c.id === p.client_id)?.name ?? "Client"}</span>
               <span className="text-muted-foreground">Week of {longDate(p.period_start)}</span>
               <span className={STATUS_CLS[p.status]}>{STATUS_LABEL[p.status] ?? p.status}</span>
-              <span className="text-muted-foreground">{p.manual ? `Test by ${(p.profiles as unknown as { full_name: string | null } | null)?.full_name ?? "an admin"}` : "Scheduled"}</span>
+              <span className="text-muted-foreground">{p.manual ? `Test by ${p.profiles?.full_name ?? "an admin"}` : "Scheduled"}</span>
               <span className="text-muted-foreground">{new Date(p.created_at).toLocaleString("en-GB", { timeZone: "Europe/London", dateStyle: "medium", timeStyle: "short" })}</span>
               {p.error && <span className="w-full text-xs text-rag-red">{p.error}</span>}
             </li>

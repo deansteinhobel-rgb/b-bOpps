@@ -26,7 +26,7 @@ export type TestRead = {
   created_at: string
 }
 
-const SUBMIT = {
+const SUBMIT: Anthropic.Tool = {
   name: "submit_read",
   description: "Submit your read on this test. Call it exactly once, at the end.",
   input_schema: {
@@ -104,7 +104,7 @@ export async function writeTestRead(db: Db, o: { test: SprintTest; clientId: str
   let submitted: Record<string, unknown> | null = null
   for (let turn = 0; turn < 3 && !submitted; turn++) {
     const msg = await claude()
-      .messages.stream({ model: TEST_READ_MODEL, max_tokens: 16000, thinking: { type: "adaptive" }, system: system(o.today), tools: [SUBMIT] as unknown as Anthropic.Messages.ToolUnion[], tool_choice: { type: "auto" }, messages })
+      .messages.stream({ model: TEST_READ_MODEL, max_tokens: 16000, thinking: { type: "adaptive" }, system: system(o.today), tools: [SUBMIT], tool_choice: { type: "auto" }, messages })
       .finalMessage()
     usage.input_tokens += msg.usage.input_tokens
     usage.output_tokens += msg.usage.output_tokens

@@ -92,7 +92,7 @@ async function answer(systemPrompt: string, history: ChatMessage[], send: (o: un
   let text = ""
   const usage = { input_tokens: 0, output_tokens: 0, web_searches: 0 }
   for (let turn = 0; turn < 3; turn++) {
-    const s = claude().messages.stream({ model: CHAT_MODEL, max_tokens: 10000, system: systemPrompt, tools: webTools(3, 1) as unknown as Anthropic.Messages.ToolUnion[], messages })
+    const s = claude().messages.stream({ model: CHAT_MODEL, max_tokens: 10000, system: systemPrompt, tools: webTools(3, 1), messages })
     s.on("text", (t) => {
       text += t
       send({ type: "text", text: t })

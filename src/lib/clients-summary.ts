@@ -71,8 +71,8 @@ export async function clientCards(supabase: Db): Promise<ClientCard[]> {
       const worst = pacing?.pacing.reduce<PlatformPacing["status"] | null>((w, p) => (w === null || SEVERITY[p.status] > SEVERITY[w] ? p.status : w), null) ?? null
       const now = Date.now()
       // Team names: signed-in members plus invited people who haven't signed in yet.
-      const members = (c.client_team as unknown as { profiles: { full_name: string | null; email: string } | null }[]).map((t) => t.profiles?.full_name ?? t.profiles?.email)
-      const invited = (c.client_team_invites as unknown as { team_invites: { full_name: string | null } | null }[]).map((t) => t.team_invites?.full_name)
+      const members = c.client_team.map((t) => t.profiles?.full_name ?? t.profiles?.email)
+      const invited = c.client_team_invites.map((t) => t.team_invites?.full_name)
       return {
         id: c.id,
         name: c.name,

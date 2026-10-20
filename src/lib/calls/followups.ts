@@ -18,7 +18,7 @@ import { mirrorProps } from "@/lib/notion/mirror"
  */
 const CHECK_MODEL = "claude-sonnet-5"
 
-const SUBMIT = {
+const SUBMIT: Anthropic.Tool = {
   name: "submit_followups",
   description: "Submit the items that have clearly happened. Call it exactly once; an empty list is fine.",
   input_schema: {
@@ -95,7 +95,7 @@ export async function checkFollowUps(clientId: string) {
   }
   for (const t of planned ?? []) {
     const id = `test-planned:${t.id}`
-    const n = (t.sprints as unknown as { number: number } | null)?.number
+    const n = t.sprints?.number
     refs.set(id, `/clients/${client.slug}/sprint${n ? `?n=${n}` : ""}#test-${t.id}`)
     lines.push(`- ${id} | ${t.created_at.slice(0, 10)} | Sprint test planned (${t.status}) | ${t.title}${t.hypothesis ? ` | ${t.hypothesis.slice(0, 200)}` : ""}`)
   }
@@ -125,9 +125,9 @@ export async function checkFollowUps(clientId: string) {
         model: CHECK_MODEL,
         max_tokens: 8000,
         system: [{ type: "text", text: system }, { type: "text", text: `# What has happened in ${client.name}'s account since ${since} (id | date | kind | what)\n${activity}`, cache_control: { type: "ephemeral" } }],
-        tools: [SUBMIT] as unknown as Anthropic.Messages.ToolUnion[],
+        tools: [SUBMIT],
         tool_choice: { type: "tool", name: SUBMIT.name },
-        messages: [{ role: "user", content: [`# ${client.name}: items said on client calls`, ...batch.map((c) => `- ${c.id} | said ${c.said_on} on "${(c.client_calls as unknown as { title: string } | null)?.title ?? "a call"}" | ${c.kind} | ${c.title}${c.detail ? ` | ${c.detail}` : ""}${c.platform ? ` | ${c.platform}` : ""}`)].join("\n") }],
+        messages: [{ role: "user", content: [`# ${client.name}: items said on client calls`, ...batch.map((c) => `- ${c.id} | said ${c.said_on} on "${c.client_calls?.title ?? "a call"}" | ${c.kind} | ${c.title}${c.detail ? ` | ${c.detail}` : ""}${c.platform ? ` | ${c.platform}` : ""}`)].join("\n") }],
       })
       .finalMessage()
     usage.input_tokens += msg.usage.input_tokens + (msg.usage.cache_read_input_tokens ?? 0) + (msg.usage.cache_creation_input_tokens ?? 0)

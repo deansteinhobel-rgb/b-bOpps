@@ -134,7 +134,7 @@ export async function actOnFollowUp(id: string, raw: z.input<typeof Act>): Promi
   const me = await getProfile()
   const { error } = await supabase.from("call_commitment_actions").insert({ client_id: item.client_id, commitment_id: id, action: p.data.action, reason: p.data.reason || null, snooze_until: snooze, profile_id: me.id })
   if (error) return fail(error.message.includes("row-level security") ? VIEW_ONLY : "Couldn't save.")
-  refresh((item.clients as unknown as { slug: string }).slug)
+  refresh(item.clients.slug)
   return { ok: true }
 }
 
@@ -144,8 +144,8 @@ export async function planFollowUp(id: string): Promise<CallResult> {
   if (!canEdit(me)) return fail(VIEW_ONLY)
   const { supabase, item } = await loadItem(id)
   if (!item) return fail("This isn't available to you.")
-  const slug = (item.clients as unknown as { slug: string }).slug
-  const callTitle = (item.client_calls as unknown as { title: string } | null)?.title ?? "a client call"
+  const slug = item.clients.slug
+  const callTitle = item.client_calls?.title ?? "a client call"
   const sprint = await ensureSprint(supabase, item.client_id, sprintOf(londonToday()))
   if (sprint.closed_at) return fail("This sprint is closed.")
   const notes = [`Said on "${callTitle}" (${item.said_on}).`, item.detail, item.quote ? `From the notes: "${item.quote}"` : null].filter(Boolean).join("\n\n")

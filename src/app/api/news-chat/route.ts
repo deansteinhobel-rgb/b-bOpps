@@ -109,7 +109,7 @@ async function answer(history: ChatMessage[], send: (o: unknown) => void): Promi
       model: CHAT_MODEL,
       max_tokens: 4000,
       system: system(londonToday()),
-      tools: webTools(5, 2) as unknown as Anthropic.Messages.ToolUnion[],
+      tools: webTools(5, 2),
       messages,
     })
     s.on("text", (t) => {

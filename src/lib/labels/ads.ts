@@ -21,7 +21,7 @@ const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 const IMAGE_BATCH = 8
 const TEXT_BATCH = 30
 
-const SUBMIT = {
+const SUBMIT: Anthropic.Tool = {
   name: "submit_ad_labels",
   description: "Submit one label per ad, by key. Call it once with every ad you were given.",
   strict: true,
@@ -128,7 +128,7 @@ async function labelBatch(db: ReturnType<typeof createAdminClient>, clientId: st
         thinking: { type: "adaptive" },
         output_config: { effort: "low" },
         system: SYSTEM,
-        tools: [SUBMIT] as unknown as Anthropic.Messages.ToolUnion[],
+        tools: [SUBMIT],
         tool_choice: { type: "auto" },
         messages,
       })

@@ -62,8 +62,8 @@ export async function ensureCurrentRuns(supabase: Db, clientId: string, now = ne
   for (const period of periods) {
     const run = (existing ?? []).find((r) => r.cadence === period.cadence && r.period_start === period.start)
     const expected = (defs ?? []).filter((d) => d.cadence === period.cadence).length
-    const have = (run?.check_results as unknown as { count: number }[] | undefined)?.[0]?.count ?? 0
-    if (run && have >= expected) runs[period.cadence] = run as unknown as CheckRun
+    const have = run?.check_results?.[0]?.count ?? 0
+    if (run && have >= expected) runs[period.cadence] = run
     else complete = false
   }
   if (complete) return runs

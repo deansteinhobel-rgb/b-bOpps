@@ -224,7 +224,7 @@ export async function loadSprintDetails(supabase: Db, sprint: Sprint) {
   ])
   return {
     items: (items ?? []) as SprintItem[],
-    changes: (changes ?? []) as unknown as SprintChange[],
+    changes: (changes ?? []) as SprintChange[],
     history: (history ?? []) as Pick<Sprint, "id" | "number" | "start_date" | "end_date" | "key_takeaway" | "closed_at" | "summary">[],
     previous: previous as { id: string; number: number; closed_at: string | null } | null,
     tests: ((tests ?? []) as SprintTest[]).map((t) => ({ ...t, success_target: t.success_target === null ? null : Number(t.success_target) })),

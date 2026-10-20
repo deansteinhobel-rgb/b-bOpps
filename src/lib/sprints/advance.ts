@@ -27,7 +27,7 @@ export async function advanceTestsFromNotion(db: Db, pages: Page[]) {
       .in("status", ["briefed", "ready"])
       .is("outcome", null)
     for (const t of tests ?? []) {
-      if ((t.sprints as unknown as { closed_at: string | null } | null)?.closed_at) continue
+      if (t.sprints?.closed_at) continue
       const page = byId.get(t.notion_page_id as string)!
       const props = page.properties
       const stage = notionStage({ master: (props["Master Status"] as string) ?? null, paid: (props["Status Paid"] as string) ?? null })

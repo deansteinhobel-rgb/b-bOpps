@@ -42,9 +42,9 @@ export async function saveCheckResult(input: z.input<typeof Input>): Promise<Sav
   }
 
   // Snapshot the pre-loaded numbers as they are now, computed on the server.
-  const def = current.check_definitions as unknown as { key: string }
-  const run = current.check_runs as unknown as { period_start: string }
-  const client = current.clients as unknown as { slug: string; currency: string; monthly_kpi_target: number | null }
+  const def = current.check_definitions
+  const run = current.check_runs
+  const client = current.clients
   // Access already confirmed: `current` was loaded through RLS.
   const overview = await cachedOverview(current.client_id)
   const autoData = overview

@@ -16,7 +16,7 @@ export async function loadFeed(supabase: Db, clientId: string) {
     supabase.from("insight_reviews").select("id, status, headline, start_here, ranking, created_at, finished_at, error").eq("client_id", clientId).order("created_at", { ascending: false }).limit(5),
   ])
   if (!computed) return null
-  const actions: LoggedAction[] = (log ?? []).map((a) => ({ ...(a as unknown as LoggedAction), profile_name: (a.profiles as unknown as { full_name: string | null } | null)?.full_name ?? null }))
+  const actions: LoggedAction[] = (log ?? []).map((a) => ({ ...(a as LoggedAction), profile_name: a.profiles?.full_name ?? null }))
   // Claude's latest finished review ranks the feed; a newer one may be running.
   const review = (reviews ?? []).find((r) => r.status === "ready") ?? null
   const running = (reviews ?? []).find((r) => r.status === "generating" && Date.now() - Date.parse(r.created_at) < 10 * 60_000) ?? null

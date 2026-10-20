@@ -158,7 +158,7 @@ export async function getOverview(supabase: Db, clientId: string) {
     leads: n(r.leads),
   }))
   const fatigueRows: FatigueInput[] = (fatigueRaw ?? []).map((r: Record<string, unknown>) => ({
-    ...(r as unknown as FatigueInput),
+    ...(r as FatigueInput),
     recent_impressions: n(r.recent_impressions),
     recent_clicks: n(r.recent_clicks),
     recent_spend: n(r.recent_spend),

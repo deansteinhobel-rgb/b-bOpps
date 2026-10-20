@@ -18,7 +18,7 @@ async function openSprint(sprintId: string) {
   const { data } = await supabase.from("sprints").select("id, client_id, number, closed_at, clients(slug)").eq("id", sprintId).maybeSingle()
   if (!data) return { supabase, sprint: null, error: "This sprint isn't available to you." }
   if (data.closed_at) return { supabase, sprint: null, error: "This sprint is closed. An admin can reopen it." }
-  return { supabase, sprint: data as unknown as { id: string; client_id: string; number: number; clients: { slug: string } }, error: null }
+  return { supabase, sprint: data as { id: string; client_id: string; number: number; clients: { slug: string } }, error: null }
 }
 const refresh = (slug: string) => revalidatePath(`/clients/${slug}/sprint`)
 
@@ -116,6 +116,6 @@ export async function reopenSprint(sprintId: string): Promise<Result> {
   if (!data) return fail("This sprint isn't available to you.")
   const { error: saveError } = await supabase.from("sprints").update({ closed_at: null, closed_by_profile_id: null }).eq("id", sprintId)
   if (saveError) return fail("Couldn't save. Try again.")
-  refresh((data.clients as unknown as { slug: string }).slug)
+  refresh(data.clients.slug)
   return { ok: true }
 }

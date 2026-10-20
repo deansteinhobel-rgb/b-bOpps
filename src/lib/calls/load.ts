@@ -39,8 +39,8 @@ async function withState(supabase: Db, rows: Row[]): Promise<FollowUp[]> {
   const today = londonToday()
   const by = new Map<string, (CommitmentAction & { who: string | null })[]>()
   for (const a of actions ?? []) {
-    const p = a.profiles as unknown as { full_name: string | null; email: string } | null
-    by.set(a.commitment_id, [...(by.get(a.commitment_id) ?? []), { ...(a as unknown as CommitmentAction), who: p ? (p.full_name ?? p.email) : null }])
+    const p = a.profiles
+    by.set(a.commitment_id, [...(by.get(a.commitment_id) ?? []), { ...(a as CommitmentAction), who: p ? (p.full_name ?? p.email) : null }])
   }
   return rows.map((r) => {
     const acts = by.get(r.id) ?? []

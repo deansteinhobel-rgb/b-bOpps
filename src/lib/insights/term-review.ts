@@ -22,7 +22,7 @@ export const TERM_REVIEW_MODEL = "claude-opus-5-5"
 const MAX_TERMS = 300
 const MAX_KEYWORDS = 150
 
-const SUBMIT = {
+const SUBMIT: Anthropic.Tool = {
   name: "submit_term_review",
   description: "Submit your review of this campaign's search terms. Call it exactly once, at the end.",
   input_schema: {
@@ -109,7 +109,7 @@ export async function writeTermReview(db: Db, reader: Db, o: { clientId: string;
   let submitted: Record<string, unknown> | null = null
   for (let turn = 0; turn < 3 && !submitted; turn++) {
     const msg = await claude()
-      .messages.stream({ model: TERM_REVIEW_MODEL, max_tokens: 32000, thinking: { type: "adaptive" }, system: system(o.today), tools: [SUBMIT] as unknown as Anthropic.Messages.ToolUnion[], tool_choice: { type: "auto" }, messages })
+      .messages.stream({ model: TERM_REVIEW_MODEL, max_tokens: 32000, thinking: { type: "adaptive" }, system: system(o.today), tools: [SUBMIT], tool_choice: { type: "auto" }, messages })
       .finalMessage()
     usage.input_tokens += msg.usage.input_tokens
     usage.output_tokens += msg.usage.output_tokens

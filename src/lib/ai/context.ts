@@ -105,7 +105,7 @@ export async function buildSprintContext(db: Db, clientId: string, sprintId: str
   const now = (tests ?? []).filter((t) => t.sprint_id === sprintId)
   lines.push(`\n## Past tests (${past.length}), oldest first. Sprint 0 = history from before the app.`)
   for (const t of past) {
-    const s = t.sprints as unknown as { number: number } | null
+    const s = t.sprints
     const bits = [
       `Sprint ${s?.number ?? "?"} · ${plat(t.platform)} · "${t.title}"`,
       t.hypothesis && `hypothesis: ${t.hypothesis}`,

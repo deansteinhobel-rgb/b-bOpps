@@ -23,7 +23,7 @@ export const REVIEW_MODEL = "claude-opus-5-5"
 
 export const CAMPAIGN_GOALS = ["leads", "trials", "demos", "pipeline", "retargeting", "awareness", "engagement", "event", "brand", "other"] as const
 /** Goals not judged on cost per result (the rules skip the cost rules for these). */
-const SUBMIT = {
+const SUBMIT: Anthropic.Tool = {
   name: "submit_review",
   description: "Submit the review of this client's Optimize now feed. Call it exactly once, at the end.",
   input_schema: {
@@ -188,7 +188,7 @@ export async function runInsightReview(reviewId: string) {
     let submitted: Submitted | null = null
     for (let turn = 0; turn < 3 && !submitted; turn++) {
       const msg = await claude()
-        .messages.stream({ model: REVIEW_MODEL, max_tokens: 24000, thinking: { type: "adaptive" }, system: system(londonToday()), tools: [SUBMIT] as unknown as Anthropic.Messages.ToolUnion[], messages })
+        .messages.stream({ model: REVIEW_MODEL, max_tokens: 24000, thinking: { type: "adaptive" }, system: system(londonToday()), tools: [SUBMIT], messages })
         .finalMessage()
       usage.input_tokens += msg.usage.input_tokens
       usage.output_tokens += msg.usage.output_tokens

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
+    "types:db": "npx supabase gen types typescript --linked --schema public > src/lib/supabase/database.types.ts",
     "inspect:notion": "tsx --env-file=.env.local scripts/notion-inspect.ts",
     "inspect:windsor": "tsx --env-file=.env.local scripts/windsor-inspect.ts",
     "scan:conversions": "tsx --env-file=.env.local scripts/windsor-conversion-scan.ts",

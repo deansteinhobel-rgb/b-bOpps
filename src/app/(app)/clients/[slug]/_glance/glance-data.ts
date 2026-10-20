@@ -25,7 +25,7 @@ export async function loadGoals(supabase: Db, clientId: string, today: string): 
   const lastMonth = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 2, 1)).toISOString().slice(0, 10)
   const { data: goals } = await supabase.from("client_goals").select("id, name, monthly_target, client_goal_values(month, value, target, updated_at, profiles(full_name, email))").eq("client_id", clientId).eq("active", true).order("position")
   return (goals ?? []).map((g) => {
-    const values = (g.client_goal_values ?? []) as unknown as { month: string; value: number | string; target: number | string | null; updated_at: string; profiles: { full_name: string | null; email: string } | null }[]
+    const values = (g.client_goal_values ?? []) as { month: string; value: number | string; target: number | string | null; updated_at: string; profiles: { full_name: string | null; email: string } | null }[]
     const cur = values.find((x) => x.month === month)
     const prev = values.find((x) => x.month === lastMonth)
     const who = cur?.profiles?.full_name ?? cur?.profiles?.email

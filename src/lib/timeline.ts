@@ -136,7 +136,7 @@ export async function loadTimeline(supabase: Db, admin: Db, client: { id: string
     })
   }
   for (const t of tests ?? []) {
-    const n = (t.sprints as unknown as { number: number } | null)?.number
+    const n = t.sprints?.number
     // Sprint 0 is history imported when the app started: its dates aren't when things happened.
     if (n === 0) continue
     const href = `/clients/${client.slug}/sprint${n ? `?n=${n}` : ""}#test-${t.id}`

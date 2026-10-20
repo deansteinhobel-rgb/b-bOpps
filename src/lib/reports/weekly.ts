@@ -99,7 +99,7 @@ export async function weeklySnapshot(db: Db, clientId: string, week = lastWeek()
   const dataThrough = perf.dataThrough
 
   // Ads that have run 30+ days and brought nothing in the last 30 (live = impressions in the last 2 days).
-  const live = adHealth(fatigue as unknown as FatigueInput[]).filter((a) => a.ageDays >= STALE_DAYS)
+  const live = adHealth(fatigue as FatigueInput[]).filter((a) => a.ageDays >= STALE_DAYS)
   const last30 = live.length ? await adsForPeriod(db, clientId, addDays(dataThrough, -(STALE_DAYS - 1)), dataThrough) : []
   const byKey = new Map(last30.map((a) => [`${a.platform}|${a.ad_id}`, a]))
   const stale = live

@@ -82,7 +82,7 @@ export async function planTest(sprintId: string, raw: z.input<typeof Plan>): Pro
     created_by_profile_id: me.id,
   })
   if (error) return fail("Couldn't save the test.")
-  refresh((sprint.clients as unknown as { slug: string }).slug)
+  refresh(sprint.clients.slug)
   return { ok: true }
 }
 

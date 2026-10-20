@@ -26,8 +26,8 @@ async function context(testId: string, campaignId: string) {
   const supabase = await createClient()
   const { data: test } = await supabase.from("sprint_tests").select("id, platform, status, outcome, client_id, sprints(closed_at), clients(id, slug)").eq("id", testId).maybeSingle()
   if (!test) return { error: "This test isn't available to you." } as const
-  const sprint = test.sprints as unknown as { closed_at: string | null } | null
-  const client = test.clients as unknown as { id: string; slug: string }
+  const sprint = test.sprints
+  const client = test.clients
   if (sprint?.closed_at) return { error: "This sprint is closed." } as const
   if (test.platform !== "google_ads") return { error: "This isn't a Google Ads test." } as const
   // The same stages the card offers it in (in production, ready, live), checked here too (Aikido).

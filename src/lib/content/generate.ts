@@ -21,7 +21,7 @@ export const CONTENT_MODEL = "claude-opus-5-5"
 export const CONTENT_TYPES = AD_CONTENT_TYPES
 export const IDEA_KINDS = ["new_content", "repurpose", "new_angle", "new_audience", "new_format"] as const
 
-const SUBMIT = {
+const SUBMIT: Anthropic.Tool = {
   name: "submit_content_ideas",
   description: "Submit what content is working and your content ideas. Call it exactly once, at the end.",
   input_schema: {
@@ -145,7 +145,7 @@ export async function runContentIdeas(runId: string) {
     let submitted: Submitted | null = null
     for (let turn = 0; turn < 3 && !submitted; turn++) {
       const msg = await claude()
-        .messages.stream({ model: CONTENT_MODEL, max_tokens: 32000, thinking: { type: "adaptive" }, system: system(londonToday()), tools: [SUBMIT] as unknown as Anthropic.Messages.ToolUnion[], messages })
+        .messages.stream({ model: CONTENT_MODEL, max_tokens: 32000, thinking: { type: "adaptive" }, system: system(londonToday()), tools: [SUBMIT], messages })
         .finalMessage()
       usage.input_tokens += msg.usage.input_tokens
       usage.output_tokens += msg.usage.output_tokens

@@ -150,7 +150,7 @@ export async function generateSprintPlan(runId: string) {
         max_tokens: 20000,
         thinking: { type: "adaptive" },
         system: system(londonToday()),
-        tools: [...webTools(8, 4), SUBMIT] as Anthropic.Messages.ToolUnion[],
+        tools: [...webTools(8, 4), SUBMIT],
         messages,
       })
       stream.on("contentBlock", (block) => {

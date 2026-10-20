@@ -141,7 +141,7 @@ export async function syncPlatformSettings(opts: { clientId?: string; to: string
   if (error) throw new Error(error.message)
   const from = new Date(Date.parse(opts.to) - (DAYS - 1) * 864e5).toISOString().slice(0, 10)
   const results: { client_id: string; account: string; rows?: number; error?: string }[] = []
-  for (const a of (accounts ?? []) as unknown as Account[]) {
+  for (const a of (accounts ?? []) as Account[]) {
     const at = new Date().toISOString()
     try {
       const rows =
