@@ -31,7 +31,7 @@ function Mrkdwn({ text }: { text: string }) {
   return <span className="whitespace-pre-line">{parts.map((p, i) => <Fragment key={i}>{unescape(p)}</Fragment>)}</span>
 }
 
-type Block = { type: string; text?: { text: string }; fields?: { text: string }[]; elements?: { text: string | { text: string }; url?: string; style?: string }[]; accessory?: { text: { text: string }; url: string } }
+type Block = { type: string; text?: { text: string }; fields?: { text: string }[]; elements?: { type?: string; text?: string | { text: string }; url?: string; style?: string; image_url?: string; alt_text?: string }[]; accessory?: { text: { text: string }; url: string } }
 
 function SlackPreview({ blocks }: { blocks: Block[] }) {
   return (
@@ -39,13 +39,25 @@ function SlackPreview({ blocks }: { blocks: Block[] }) {
       {blocks.map((b, i) => {
         if (b.type === "header") return <p key={i} className="text-lg font-bold text-foreground">{b.text?.text}</p>
         if (b.type === "divider") return <hr key={i} className="border-border" />
-        if (b.type === "context") return <p key={i} className="text-xs text-muted-foreground"><Mrkdwn text={b.elements?.map((e) => (typeof e.text === "string" ? e.text : e.text.text)).join(" ") ?? ""} /></p>
+        if (b.type === "context")
+          return (
+            <p key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+              {b.elements?.map((e, j) =>
+                e.type === "image" ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- the same logo Slack shows
+                  <img key={j} src={e.image_url} alt={e.alt_text ?? ""} className="size-4 rounded-sm" />
+                ) : (
+                  <Mrkdwn key={j} text={typeof e.text === "string" ? e.text : (e.text?.text ?? "")} />
+                ),
+              )}
+            </p>
+          )
         if (b.type === "actions")
           return (
             <div key={i} className="flex flex-wrap gap-2">
               {b.elements?.map((e, j) => (
                 <a key={j} href={e.url} className={cn("rounded-md border px-3 py-1 text-[13px] font-medium", e.style === "primary" ? "border-transparent bg-[#007a5a] text-white" : "border-border-strong text-foreground")}>
-                  {typeof e.text === "string" ? e.text : e.text.text}
+                  {typeof e.text === "string" ? e.text : e.text?.text}
                 </a>
               ))}
             </div>
@@ -94,7 +106,7 @@ export default async function SlackAdminPage({ searchParams }: PageProps<"/admin
     picked ? weeklySnapshot(admin, picked.id, week) : null,
     supabase.from("slack_posts").select("id, client_id, period_start, status, manual, channel, error, created_at, profiles(full_name)").order("created_at", { ascending: false }).limit(30),
   ])
-  const message = snap ? weeklyMessage(snap, { app: appUrl() }) : null
+  const message = snap ? weeklyMessage(snap, { app: appUrl(), icons: "" }) : null
   const channel = picked ? reportChannel(picked.slack_channel) : null
   const live = picked ? slackReportsLive(picked.slug) : false
 

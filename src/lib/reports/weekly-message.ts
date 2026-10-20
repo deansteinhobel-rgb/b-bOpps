@@ -44,7 +44,12 @@ function adLine(a: WeekAd, basis: "cost_per_result" | "ctr", m: (v: number | nul
   return a.results ? `${q(a.name)} · ${whole(a.results)} ${resultsWord(a.results)} at ${m(a.cpr)} · ${m(a.spend)}` : `${q(a.name)} · ${m(a.spend)}, no results`
 }
 
-export type MessageLinks = { app: string }
+/**
+ * `app`: where the buttons go. `icons`: where the platform logos load from (/platforms/*.png, served
+ * without sign-in). Slack needs a public https address; "" = this site (Admin's preview); null leaves
+ * them out (localhost, which Slack can't reach).
+ */
+export type MessageLinks = { app: string; icons?: string | null }
 
 export function weeklyMessage(s: WeeklySnapshot, links: MessageLinks): SlackMessage {
   const cur = s.client.currency
@@ -97,7 +102,8 @@ export function weeklyMessage(s: WeeklySnapshot, links: MessageLinks): SlackMess
   // Per platform: the numbers, the 2 best and 2 weakest ads, and the stale ones.
   for (const p of s.platforms) {
     const label = PLATFORM_LABEL[p.platform]
-    const head = `*${label}* · ${c(p.now.spend)} · ${whole(p.now.results)} ${resultsWord(p.now.results)}${p.now.results ? ` · ${dot(cprTone(p.now.cpr, p.target))}${m(p.now.cpr)} each` : ""}${p.target ? ` (target ${m(p.target)})` : ""}`
+    const icon = links.icons != null ? `${links.icons.replace(/\/$/, "")}/platforms/${p.platform}.png` : null
+    const head = `${icon ? "" : `*${label}* · `}${c(p.now.spend)} · ${whole(p.now.results)} ${resultsWord(p.now.results)}${p.now.results ? ` · ${dot(cprTone(p.now.cpr, p.target))}${m(p.now.cpr)} each` : ""}${p.target ? ` (target ${m(p.target)})` : ""}`
     const body = [head]
     if (p.best.length) body.push(`:arrow_up: *Best${p.bestBasis === "ctr" ? " by CTR" : ""}*\n${p.best.map((a) => `• ${adLine(a, p.bestBasis, m)}`).join("\n")}`)
     if (p.weak.length) body.push(`:arrow_down: *Weakest${p.weakBasis === "ctr" ? " by CTR" : ""}*\n${p.weak.map((a) => `• ${adLine(a, p.weakBasis, m)}`).join("\n")}`)
@@ -108,6 +114,8 @@ export function weeklyMessage(s: WeeklySnapshot, links: MessageLinks): SlackMess
     }
     if (!p.best.length && !p.weak.length && !p.stale.count) body.push("_Not enough ads with spend to compare._")
     blocks.push({ type: "divider" })
+    // The platform's logo and name on their own line (Dean, 2026-10-20), then its numbers and ads.
+    if (icon) blocks.push({ type: "context", elements: [{ type: "image", image_url: icon, alt_text: label }, { type: "mrkdwn", text: `*${label}*` }] })
     const section: Record<string, unknown> = { type: "section", text: { type: "mrkdwn", text: body.join("\n\n").slice(0, 2990) } }
     if (p.weak.length || p.stale.count) {
       section.accessory = { type: "button", text: { type: "plain_text", text: "Replace weak ads" }, url: refreshUrl(p.platform), action_id: `refresh_${p.platform}` }

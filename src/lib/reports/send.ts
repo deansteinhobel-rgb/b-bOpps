@@ -15,6 +15,8 @@ import { lastWeek, weeklySnapshot } from "./weekly"
  * `db` must be the admin client: slack_posts is server-written.
  */
 export const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")
+/** Platform logos for Slack: only from a public https address (Slack can't load localhost). */
+export const iconBase = () => (appUrl().startsWith("https://") ? appUrl() : null)
 
 export function slackReportsLive(slug: string) {
   if (process.env.SLACK_REPORTS_ENABLED !== "true" || !slackConfigured()) return false
@@ -30,7 +32,7 @@ export async function sendWeeklySnapshot(db: SupabaseClient, clientId: string, o
   if (!client) return { status: "failed", client: clientId, error: "No such client." }
   const snap = await weeklySnapshot(db, clientId, week)
   if (!snap) return { status: "skipped", client: client.slug, error: "No ad data." }
-  const message = weeklyMessage(snap, { app: appUrl() })
+  const message = weeklyMessage(snap, { app: appUrl(), icons: iconBase() })
   const channel = reportChannel(client.slack_channel)
   const live = opts.manual ? slackConfigured() && Boolean(channel) : slackReportsLive(client.slug) && Boolean(channel)
 
