@@ -11,10 +11,16 @@ export const isMessageAd = (format: string | null) => !!format && /inmail|messag
 const ENTITIES: Record<string, string> = { "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&apos;": "'", "&nbsp;": " " }
 const decode = (s: string) =>
   s.replace(/&(amp|lt|gt|quot|#39|apos|nbsp);/g, (m) => ENTITIES[m]).replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n))).replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+/** Everything outside tags: after each "<", text resumes after the next ">" (an unclosed tag drops the rest). */
+const outsideTags = (html: string) =>
+  html
+    .split("<")
+    .map((part, i) => (i === 0 ? part : part.includes(">") ? part.slice(part.indexOf(">") + 1) : ""))
+    .join("")
 // Plain text only: tags go, then entities are decoded, and any angle bracket that decoding brings
 // back (an escaped "&lt;script&gt;") is dropped too, so no markup can survive (CodeQL, 2026-10-20).
 const text = (html: string) =>
-  decode(html.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]*>?/g, ""))
+  decode(outsideTags(html.replace(/<br\s*\/?>/gi, "\n")))
     .replace(/[<>]/g, "")
     .replace(/[ \t]+/g, " ")
     .trim()
