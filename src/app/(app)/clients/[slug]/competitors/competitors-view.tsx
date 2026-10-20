@@ -22,7 +22,7 @@ const when = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric",
 const pct = (v: number) => `${Math.round(v * 100)}%`
 
 /**
- * Knowledge › Competitor ads (Dean, 2026-10-20). Live ads from the public Meta, Google and LinkedIn
+ * Reporting › Competitor ads (Dean, 2026-10-20). Live ads from the public Meta, Google and LinkedIn
  * libraries, read every Sunday: who runs what, what's new this week, what has run longest (a
  * library shows no results, but an ad that keeps running is usually working), and the offer, hook
  * and format mix next to ours. The list of competitors is kept at the bottom.

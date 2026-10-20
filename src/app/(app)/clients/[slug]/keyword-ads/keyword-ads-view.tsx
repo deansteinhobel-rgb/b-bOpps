@@ -25,7 +25,7 @@ function ranFor(a: KeywordAdView, today: string) {
 }
 
 /**
- * Knowledge › Keyword ads (Dean, 2026-10-20). For each of the client's keywords, the Meta Ad Library
+ * Reporting › Keyword ads (Dean, 2026-10-20). For each of the client's keywords, the Meta Ad Library
  * and LinkedIn Ad Library are searched every Sunday (US and UK). The overview shows the 3 ads that
  * have run longest among each search's top 30; pick a keyword to see its whole top 30 in the
  * library's own order. The client's own ads are left out of the picks.

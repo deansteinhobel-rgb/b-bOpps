@@ -9,7 +9,7 @@ export const metadata = { title: "Keyword ads" }
 // "Read again" starts the library reads in the background (after()).
 export const maxDuration = 300
 
-/** Knowledge › Keyword ads: the market by keyword on Meta and LinkedIn, the longest-running ads first. */
+/** Reporting › Keyword ads: the market by keyword on Meta and LinkedIn, the longest-running ads first. */
 export default async function KeywordAdsPage({ params, searchParams }: PageProps<"/clients/[slug]/keyword-ads">) {
   const { slug } = await params
   const sp = await searchParams

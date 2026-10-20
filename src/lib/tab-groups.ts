@@ -25,6 +25,11 @@ const REPORTING: TabGroup = {
     { href: "/reporting", label: "Dashboard" },
     // Dean, 2026-10-19: the step-by-step report the team shares with the client.
     { href: "/reporting/client-report", label: "Client report" },
+    // Dean, 2026-10-20: what competitors run, from the public ad libraries, once a week (moved from
+    // Knowledge the same day). URLs stay outside /reporting.
+    { href: "/competitors", label: "Competitor ads" },
+    // Dean, 2026-10-20: the market by keyword (Meta and LinkedIn), the longest-running ads first.
+    { href: "/keyword-ads", label: "Keyword ads" },
   ],
 }
 const PLANNING: TabGroup = {
@@ -42,10 +47,6 @@ const KNOWLEDGE: TabGroup = {
   label: "Knowledge",
   items: [
     { href: "/brain", label: "Client brain" },
-    // Dean, 2026-10-20: what competitors run, from the public ad libraries, once a week.
-    { href: "/competitors", label: "Competitor ads" },
-    // Dean, 2026-10-20: the market by keyword (Meta and LinkedIn), the longest-running ads first.
-    { href: "/keyword-ads", label: "Keyword ads" },
   ],
 }
 
