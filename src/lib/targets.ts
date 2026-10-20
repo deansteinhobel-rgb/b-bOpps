@@ -9,8 +9,6 @@ import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
  */
 export type Targets = { client: number | null; platforms: Partial<Record<Platform, number>> }
 
-export const NO_TARGETS: Targets = { client: null, platforms: {} }
-
 const num = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number(v))
 
 /** Builds the targets from the client's target and its account rows (only active accounts count; if two disagree, the lowest wins). */

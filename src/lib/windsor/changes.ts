@@ -1,6 +1,7 @@
 import "server-only"
 import { createHash } from "node:crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { windsorRows } from "./rest"
 
 /**
  * Platform change history into platform_changes (see the migration). Reads Windsor; writes only our
@@ -34,13 +35,8 @@ const hash = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 
 const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`
 
-async function windsor(connector: string, account: string, fields: string[], from: string, to: string) {
-  const params = new URLSearchParams({ api_key: process.env.WINDSOR_API_KEY ?? "", date_from: from, date_to: to, select_accounts: account, fields: fields.join(",") })
-  const res = await fetch(`https://connectors.windsor.ai/${connector}?${params}`, { cache: "no-store", signal: AbortSignal.timeout(250_000) })
-  const body = (await res.json().catch(() => null)) as { data?: Record<string, unknown>[] } | null
-  if (!res.ok || !Array.isArray(body?.data)) throw new Error(`Windsor ${connector}: HTTP ${res.status}`)
-  return body.data
-}
+const windsor = (connector: string, account: string, fields: string[], from: string, to: string) =>
+  windsorRows(connector, account, fields, from, to, { timeoutMs: 250_000 })
 
 async function campaignNames(clientId: string) {
   const db = createAdminClient()

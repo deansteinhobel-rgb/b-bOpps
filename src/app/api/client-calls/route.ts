@@ -1,5 +1,5 @@
 import { after, NextResponse } from "next/server"
-import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
+import { canEdit, getProfile, isAdmin, VIEW_ONLY } from "@/lib/auth"
 import { aiConfigured } from "@/lib/ai/claude"
 import { extractPending } from "@/lib/calls/extract"
 import { checkFollowUps } from "@/lib/calls/followups"
@@ -36,7 +36,8 @@ export async function POST(request: Request) {
     if (limited) return NextResponse.json({ error: limited }, { status: 429 })
   }
   try {
-    const s = await syncCallNotes(client.id, { full: body.full === true, budgetMs: 60_000 })
+    // Without `full`, a request only carries on with calls still waiting, so uncounted requests run out of work.
+    const s = await syncCallNotes(client.id, { full: body.full === true && isAdmin(me), budgetMs: 60_000 })
     if (s.remaining === 0 && aiConfigured()) {
       if (!first) {
         const limited = await rateLimit(supabase, "call_notes")

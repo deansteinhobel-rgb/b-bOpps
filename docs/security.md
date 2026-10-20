@@ -11,12 +11,13 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
   route needs a session (`src/proxy.ts`), except `/login`, `/auth/*`, the scheduled jobs and report
   embeds (below).
 - **Scheduled jobs** (`/api/cron/*`) skip the login redirect and check `Authorization: Bearer
-  $CRON_SECRET` themselves. Without the secret they answer 401. Supabase Cron (pg_cron + pg_net)
+  $CRON_SECRET` themselves, through `isCron()` (`src/lib/cron-auth.ts`, a constant-time compare). Without the secret they answer 401. Supabase Cron (pg_cron + pg_net)
   calls them too; it reads the same secret from Supabase Vault (`cron_secret`) at run time, so it
   is never stored in a migration or the repo. Rotating `CRON_SECRET` means updating Vercel and the
   Vault secret (`vault.update_secret`) together.
 - **Database**: row-level security on every table, scoped by client team; admin-only writes where
-  it matters; no deletes. Tested offline with `pnpm test:db` (runs in CI).
+  it matters; no deletes (no DELETE policies, and DELETE is revoked from `anon` and `authenticated`
+  on every table, migration 20261020000081). Tested offline with `pnpm test:db` (runs in CI).
 - **Secrets** stay server-side (`.env.local`, git-ignored; Vercel environment variables). Nothing
   secret in a `NEXT_PUBLIC_` variable. Gitleaks scans every commit (below).
 - **Headers** (`next.config.ts`): HSTS, `X-Frame-Options: DENY`, `nosniff`, a strict
@@ -52,6 +53,11 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
     - CSP `style-src 'unsafe-inline'`: the UI sets widths and colors inline, and styles can't run code.
     - CSP `img-src` includes `tpc.googlesyndication.com` and `i.ytimg.com` (2026-10-19): Google Ads asset images and YouTube thumbnails for Performance Max and Demand Gen load from Google in the browser, including on shared client report links. Only URLs on those hosts are kept (`mergeAssets`), and nothing is fetched on the server.
     - `scripts/dev-signin.ts` passing a one-time link to the local browser: localhost only, and the link is single-use.
+- **Code review fixes (2026-10-20)**:
+  - **Isolation fails closed**: `insideOtherClient` ends the walk only when Notion says a parent can't be opened (not found, restricted); a rate limit or outage throws, and a tree deeper than 20 levels counts as another client's. `otherClientsNotion` throws when it can't load the other clients' pages. Linking call notes, and every call sync, walk the source's parents, so a database nested inside another client's HQ is refused; a shared database's Client option that names another client is refused even before that client links it.
+  - **Integrity guards** (migration 20261020000081): Pour a Sprint suggestions keep Claude's reasoning and origin, and are reviewed and decided only as yourself; runs are started only as yourself, generating; goal values must match the goal's client; a new test can't arrive with a Notion brief or another creator (carry-overs within a client excepted); invites can't be deleted.
+  - **Outbound fetches**: Slack snapshot pictures go through `fetchFrom` (our storage and the CSP's logo hosts) with a 5 MB cap; ad images and post pages are read with a byte cap (`readBytes`). Every Windsor read goes through `windsorRows` (`src/lib/windsor/rest.ts`) with a timeout.
+  - **Inputs**: brain uploads take type and size from storage, not the browser; chat routes check the posted messages (`chatHistory`); full call re-reads are admin only; only people who can edit the client redo the shared weekly campaign read; the brain refresh returns no raw Notion or database errors.
 - **Report embeds for Notion** (`/embed/report/<token>`, Dean 2026-09-29: "anyone with the link,
   view only"): the link's token (192 random bits, `report_links`) is the only key. It shows one
   board of one client and nothing else: no session is read or set, no links into the app, and the

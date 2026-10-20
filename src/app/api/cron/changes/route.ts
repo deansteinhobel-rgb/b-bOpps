@@ -2,6 +2,7 @@ import { revalidateTag } from "next/cache"
 import { NextResponse, type NextRequest } from "next/server"
 import { syncPlatformChanges } from "@/lib/windsor/changes"
 import { daysAgo } from "@/lib/windsor/sync"
+import { isCron } from "@/lib/cron-auth"
 
 export const maxDuration = 300
 
@@ -11,8 +12,7 @@ export const maxDuration = 300
  * Requires `Authorization: Bearer $CRON_SECRET`.
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!isCron(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
   const results = await syncPlatformChanges({ from: daysAgo(1), to: daysAgo(0) })

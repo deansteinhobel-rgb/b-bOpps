@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk"
-import { getProfile } from "@/lib/auth"
+import { canEdit, getProfile } from "@/lib/auth"
 import { aiConfigured, claude, SOURCE_GUIDE, WEB_SAFETY, webTools } from "@/lib/ai/claude"
 import { londonToday } from "@/lib/checks/periods"
 import { buildCampaignContext } from "@/lib/insights/campaign-context"
@@ -8,6 +8,7 @@ import { type Platform, PLATFORMS } from "@/lib/metrics/types"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { chatHistory, type ChatMessage } from "@/lib/ai/chat-history"
 
 export const maxDuration = 120
 
@@ -25,8 +26,6 @@ ${WEB_SAFETY}
 
 ${context}`
 
-type ChatMessage = { role: "user" | "assistant"; content: string }
-
 /**
  * "Ask about this campaign": streams newline-delimited JSON like the news chat ({type:"status"|"text"|
  * "sources"|"cached"|"error"}). Anyone on the client's team. The weekly read (WEEKLY_READ as the first
@@ -36,17 +35,14 @@ export async function POST(request: Request) {
   const me = await getProfile()
   if (!me.role) return new Response("No access", { status: 403 })
   if (!aiConfigured()) return new Response("Add ANTHROPIC_API_KEY to .env.local and restart.", { status: 503 })
-  const body = (await request.json().catch(() => ({}))) as { clientSlug?: string; platform?: string; campaignId?: string; messages?: ChatMessage[]; fresh?: boolean }
+  const body = (await request.json().catch(() => ({}))) as { clientSlug?: string; platform?: string; campaignId?: string; messages?: unknown; fresh?: boolean }
   const platform = PLATFORMS.find((p) => p === body.platform)
-  if (!platform || !body.campaignId) return new Response("Missing campaign.", { status: 400 })
+  if (!platform || typeof body.campaignId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(body.campaignId)) return new Response("Missing campaign.", { status: 400 })
   // Access: the client must load through the user's own RLS client.
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id").eq("slug", body.clientSlug ?? "").maybeSingle()
   if (!client) return new Response("This client isn't available to you.", { status: 404 })
-  const history = (body.messages ?? [])
-    .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
-    .slice(-12)
-    .map((m) => ({ role: m.role, content: m.content.slice(0, 6000) }))
+  const history = chatHistory(body.messages)
   if (!history.length || history.at(-1)!.role !== "user") return new Response("Ask something first.", { status: 400 })
   const limited = await rateLimit(supabase, "campaign_chat")
   if (limited) return new Response(limited, { status: 429 })
@@ -64,7 +60,8 @@ export async function POST(request: Request) {
           send({ type: "error", text: "No data for this campaign yet." })
           return controller.close()
         }
-        if (weekly && !body.fresh) {
+        // The weekly read is shared with the whole team, so only people who can edit the client redo it.
+        if (weekly && !(body.fresh && canEdit(me))) {
           const { data: hit } = await db.from("campaign_reads").select("answer, sources, created_at").eq("client_id", client.id).eq("platform", platform).eq("campaign_id", body.campaignId).eq("week", ctx.week).maybeSingle()
           if (hit) {
             send({ type: "text", text: hit.answer })

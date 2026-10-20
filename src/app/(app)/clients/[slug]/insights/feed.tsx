@@ -14,10 +14,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { money, shortDate } from "@/lib/format"
 import { isOpportunity, isUrgent, RULES, type Category, type FeedInsight, type InsightPlatform, type Severity } from "@/lib/insights/rules"
-import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
+import { PLATFORM_COLOR, PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import type { PreviewMap } from "@/lib/previews"
 import { cn } from "@/lib/utils"
-import { PLATFORM_COLOR } from "../reporting/charts"
 import { briefInsight, logInsight, testFromInsight } from "./actions"
 
 type Owner = { id: string | null; name: string; onTeam: boolean }
@@ -600,9 +599,16 @@ function ClaudeTake(p: Parameters<typeof InsightFeed>[0] & { onOpen: (key: strin
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     if (!running) return
+    let cancelled = false
+    // A review takes about a minute; past 10, stop asking.
+    const giveUpAt = Date.now() + 10 * 60_000
     const t = setInterval(async () => {
       const r = await fetch(`/api/insight-review?review=${running}`).then((x) => x.json()).catch(() => null)
-      if (r?.status === "ready") {
+      if (cancelled) return
+      if (Date.now() > giveUpAt) {
+        setRunning(null)
+        setError("The review is taking too long. Reload the page in a few minutes.")
+      } else if (r?.status === "ready") {
         setRunning(null)
         router.refresh()
       } else if (r?.status === "failed") {
@@ -610,7 +616,10 @@ function ClaudeTake(p: Parameters<typeof InsightFeed>[0] & { onOpen: (key: strin
         setError(r.error ?? "The review failed. Try again.")
       }
     }, 3000)
-    return () => clearInterval(t)
+    return () => {
+      cancelled = true
+      clearInterval(t)
+    }
   }, [running, router])
   const start = async () => {
     setError(null)

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { syncNotionMirror } from "@/lib/notion/sync"
+import { isCron } from "@/lib/cron-auth"
 
 export const maxDuration = 60
 
@@ -10,8 +11,7 @@ export const maxDuration = 60
  * Requires `Authorization: Bearer $CRON_SECRET`.
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!isCron(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
   try {

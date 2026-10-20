@@ -9,6 +9,7 @@ import type { TestDetail } from "./results"
 import { loadTestDetail } from "./test-results"
 import type { TestTotals } from "./tests"
 import type { Targets } from "@/lib/targets"
+import { hostOf } from "@/lib/format"
 
 /** Links on the Notion brief that show "what we created" (url and files properties on the board). */
 const LINK_PROPS = ["Figma Board", "Campaign Folder", "Brief Uploads / Links", "Useful Links", "Proposal Deck"]
@@ -61,7 +62,9 @@ export async function testBoardData(supabase: SupabaseClient, clientId: string, 
       const v = props[label]
       for (const item of Array.isArray(v) ? v : v ? [v] : []) {
         const s = String(item)
-        links.push({ label, href: s.startsWith("http") ? s : null, text: s.startsWith("http") ? new URL(s).hostname.replace(/^www\./, "") : s })
+        // Notion URL properties are free text: only a well-formed http(s) link becomes a link.
+        const web = /^https?:\/\/[^\s]+$/i.test(s) && URL.canParse(s)
+        links.push({ label, href: web ? s : null, text: web ? hostOf(s) : s })
       }
     }
     briefs[p.notion_page_id] = { status: (props["Master Status"] as string) ?? null, paid: (props["Status Paid"] as string) ?? null, url: p.url, links }

@@ -2,6 +2,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { TextAd } from "@/lib/previews"
 import type { Platform } from "./client"
+import { windsorRows } from "./rest"
 
 /**
  * Ad previews. Windsor gives image URLs for Meta, LinkedIn and Google image/display ads (Google
@@ -23,19 +24,9 @@ type Account = { id: string; client_id: string; platform: Platform; windsor_conn
 /** Responsive search ad copy, in its own request (Google refuses some field combinations). */
 const TEXT_FIELDS = ["ad_id", "ad_responsive_search_ad_headlines", "ad_responsive_search_ad_descriptions", "ad_responsive_search_ad_path1", "ad_responsive_search_ad_path2", "ad_final_urls"]
 
-async function windsorRows(account: Account, dateFrom: string, dateTo: string, fields: string[]) {
-  const params = new URLSearchParams({
-    api_key: process.env.WINDSOR_API_KEY ?? "",
-    date_from: dateFrom,
-    date_to: dateTo,
-    select_accounts: account.external_account_id,
-    fields: fields.join(","),
-  })
-  const res = await fetch(`https://connectors.windsor.ai/${account.windsor_connector}?${params}`, { cache: "no-store" })
-  const body = (await res.json().catch(() => null)) as { data?: Record<string, unknown>[]; error?: string } | null
-  if (!res.ok || !Array.isArray(body?.data)) throw new Error(`Windsor previews ${account.windsor_connector}: HTTP ${res.status} ${body?.error ?? ""}`)
-  return body.data
-}
+// LinkedIn's preview lookups are slow (~3 minutes for 90 days).
+const previewRows = (account: Account, dateFrom: string, dateTo: string, fields: string[]) =>
+  windsorRows(account.windsor_connector, account.external_account_id, fields, dateFrom, dateTo, { timeoutMs: 250_000, label: `previews ${account.windsor_connector}` })
 
 /** Windsor returns asset lists as JSON strings: [{ text, pinnedField }, ...]; final URLs as a JSON list or a plain string. */
 function parseList(v: unknown): unknown[] {
@@ -67,10 +58,10 @@ async function fetchPreviews(account: Account, dateFrom: string, dateTo: string)
   const cfg = PREVIEW[account.windsor_connector]
   if (!cfg) return []
   const fields = [cfg.id, ...cfg.images, ...(cfg.link ? [cfg.link] : []), ...(cfg.type ? [cfg.type] : [])]
-  const rows = await windsorRows(account, dateFrom, dateTo, fields)
+  const rows = await previewRows(account, dateFrom, dateTo, fields)
   const textAds = new Map<string, TextAd>()
   if (account.windsor_connector === "google_ads") {
-    for (const r of await windsorRows(account, dateFrom, dateTo, TEXT_FIELDS)) {
+    for (const r of await previewRows(account, dateFrom, dateTo, TEXT_FIELDS)) {
       const t = toTextAd(r)
       if (t) textAds.set(String(r.ad_id ?? "").trim(), t)
     }
@@ -128,9 +119,40 @@ export async function fetchFrom(hosts: readonly string[], url: string, init: Req
     const res = await fetch(next, { ...init, redirect: "manual" })
     const location = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null
     if (!location) return res
+    await res.body?.cancel().catch(() => {}) // release the connection before following
     next = new URL(location, next)
   }
   throw new Error("Too many redirects")
+}
+
+/** A response body as bytes, refusing anything over `max` without reading past it. */
+export async function readBytes(res: Response, max: number, tooLarge = "Response is too large"): Promise<Uint8Array> {
+  const length = Number(res.headers.get("content-length"))
+  if (Number.isFinite(length) && length > max) {
+    await res.body?.cancel().catch(() => {})
+    throw new Error(tooLarge)
+  }
+  if (!res.body) return new Uint8Array()
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > max) {
+      await reader.cancel().catch(() => {})
+      throw new Error(tooLarge)
+    }
+    chunks.push(value)
+  }
+  const out = new Uint8Array(total)
+  let at = 0
+  for (const c of chunks) {
+    out.set(c, at)
+    at += c.byteLength
+  }
+  return out
 }
 
 const OG_IMAGE = /<meta\s+(?:property|name)="(?:og:image|twitter:image)"\s+content="([^"]+)"/i
@@ -146,7 +168,7 @@ export async function postImage(postLink: string): Promise<string | null> {
     cache: "no-store",
   })
   if (!res.ok) return null
-  const m = (await res.text()).match(OG_IMAGE)
+  const m = new TextDecoder().decode(await readBytes(res, 3_000_000, "Post page is too large")).match(OG_IMAGE)
   const url = m?.[1].replaceAll("&amp;", "&")
   return url && /^https:\/\/([a-z0-9-]+\.)*licdn\.com\//i.test(url) ? url : null
 }
@@ -159,8 +181,7 @@ export async function copyImage(url: string, path: string) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const type = (res.headers.get("content-type") ?? "").split(";")[0].trim()
   if (!EXT[type]) throw new Error(`Not a supported image (${type || "unknown type"})`)
-  const bytes = new Uint8Array(await res.arrayBuffer())
-  if (bytes.byteLength > MAX_BYTES) throw new Error("Image is over 10 MB")
+  const bytes = await readBytes(res, MAX_BYTES, "Image is over 10 MB")
   const fullPath = `${path}.${EXT[type]}`
   const { error } = await createAdminClient().storage.from(BUCKET).upload(fullPath, bytes, { contentType: type, upsert: true })
   if (error) throw new Error(error.message)

@@ -2,6 +2,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { TextAd } from "@/lib/previews"
 import { toTextAd } from "./creatives"
+import { windsorRows } from "./rest"
 
 /**
  * A Google Ads campaign's ad groups and ads as Google has them now, read from Windsor at the moment
@@ -25,13 +26,7 @@ const DAYS = 14
 const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
 const num = (v: unknown) => Number(v) || 0
 
-async function windsor(account: string, fields: string[], from: string, to: string): Promise<Record<string, unknown>[]> {
-  const params = new URLSearchParams({ api_key: process.env.WINDSOR_API_KEY ?? "", date_from: from, date_to: to, select_accounts: account, fields: fields.join(",") })
-  const res = await fetch(`https://connectors.windsor.ai/google_ads?${params}`, { cache: "no-store", signal: AbortSignal.timeout(90_000) })
-  const body = (await res.json().catch(() => null)) as { data?: Record<string, unknown>[] } | null
-  if (!res.ok || !Array.isArray(body?.data)) throw new Error(`Windsor google_ads: HTTP ${res.status}`)
-  return body.data
-}
+const windsor = (account: string, fields: string[], from: string, to: string) => windsorRows("google_ads", account, fields, from, to, { timeoutMs: 90_000 })
 
 /**
  * The Google Ads account a campaign is in, from our own synced data (never the browser), and only

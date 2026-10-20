@@ -26,8 +26,10 @@ export async function listWindsorAccounts(): Promise<WindsorAccountOption[]> {
   if (!apiKey) throw new Error("WINDSOR_API_KEY is not set")
   const lists = await Promise.all(
     CONNECTORS.map(async ({ connector, platform }) => {
-      const res = await fetch(`https://onboard.windsor.ai/api/common/ds-accounts?datasource=${connector}&api_key=${apiKey}`, { cache: "no-store" })
-      if (!res.ok) return []
+      const params = new URLSearchParams({ datasource: connector, api_key: apiKey })
+      const res = await fetch(`https://onboard.windsor.ai/api/common/ds-accounts?${params}`, { cache: "no-store", signal: AbortSignal.timeout(30_000) })
+      // A bad key or an outage must not look like "no accounts".
+      if (!res.ok) throw new Error(`Windsor accounts (${connector}): HTTP ${res.status}`)
       const body = (await res.json().catch(() => [])) as { account_id: string | number; account_name: string }[] | { data?: unknown[] }
       const rows = (Array.isArray(body) ? body : ((body as { data?: unknown[] }).data ?? [])) as { account_id: string | number; account_name: string }[]
       return rows.map((r) => ({ connector, platform, account_id: String(r.account_id), account_name: r.account_name }))

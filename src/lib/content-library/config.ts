@@ -61,11 +61,6 @@ export function libraryConfig(slug: string): LibraryConfig | null {
   return LIBRARIES[slug.toLowerCase()] ?? null
 }
 
-/** True when a piece is tagged with every one of the client's verticals. */
-export function coversAllVerticals(cfg: LibraryConfig, verticals: readonly string[]) {
-  return cfg.verticals.every((v) => verticals.includes(v))
-}
-
 /** The content type a page URL implies, from the client's path conventions, or null. */
 export function typeFromUrl(cfg: LibraryConfig, url: string): string | null {
   let path = ""

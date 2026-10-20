@@ -1,4 +1,5 @@
 import { after, NextResponse } from "next/server"
+import { isNotionClientError } from "@notionhq/client"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { aiConfigured } from "@/lib/ai/claude"
 import { buildClientBrief } from "@/lib/knowledge/brief"
@@ -43,7 +44,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ read: hq.read + bank.read, remaining: hq.remaining + bank.remaining, errors: [...hq.errors, ...bank.errors] })
     }
   } catch (e) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
+    // Our own messages say what to do; Notion's and the database's stay in the logs.
+    console.error("[brain] refresh failed", e)
+    const ours = e instanceof Error && !isNotionClientError(e) && !("code" in e)
+    return NextResponse.json({ error: ours ? e.message : "Couldn't read Notion just now. Try again in a minute." }, { status: 500 })
   }
   if (body.step !== "brief") return NextResponse.json({ error: "Unknown step." }, { status: 400 })
 

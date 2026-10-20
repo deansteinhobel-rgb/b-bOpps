@@ -5,10 +5,9 @@ import { useMemo, useState } from "react"
 import { PlatformIcon } from "@/components/brand"
 import { FilterChip, Segmented } from "@/components/segmented"
 import { Input } from "@/components/ui/input"
-import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
+import { PLATFORM_COLOR, PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import type { TimelineEntry, TimelineSource } from "@/lib/timeline"
 import { cn } from "@/lib/utils"
-import { PLATFORM_COLOR } from "../reporting/charts"
 
 type SourceFilter = "all" | TimelineSource
 const SOURCES: { value: SourceFilter; label: string }[] = [

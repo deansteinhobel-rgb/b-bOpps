@@ -8,6 +8,7 @@ import { compactMoney, money, percent, whole } from "@/lib/format"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { cprTone, STALE_DAYS, type Tone } from "./weekly-message"
 import type { WeekAd, WeeklySnapshot } from "./weekly"
+import { fetchFrom, readBytes } from "@/lib/windsor/creatives"
 
 /**
  * The weekly snapshot as pictures for Slack (Dean, 2026-10-20: "easy to see", like Databox's looped
@@ -43,7 +44,7 @@ async function fonts() {
     // Inter as TTF (Google serves TTF to clients that don't ask for woff2); MADE Avenue for the titles.
     const css = await (await fetch("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700", { signal: AbortSignal.timeout(10_000) })).text()
     const urls = [...css.matchAll(/font-weight:\s*(\d+);[\s\S]*?src:\s*url\((https:[^)]+\.ttf)\)/g)].map((m) => ({ weight: Number(m[1]) as 400 | 600 | 700, url: m[2] }))
-    const inter = await Promise.all(urls.map(async (u) => ({ name: "Inter", weight: u.weight, style: "normal" as const, data: await (await fetch(u.url)).arrayBuffer() })))
+    const inter = await Promise.all(urls.map(async (u) => ({ name: "Inter", weight: u.weight, style: "normal" as const, data: await (await fetch(u.url, { signal: AbortSignal.timeout(10_000) })).arrayBuffer() })))
     const made = await madeAvenue()
     return made ? [...inter, { name: "MADE Avenue", weight: 400 as const, style: "normal" as const, data: made }] : inter
   })().catch((e) => {
@@ -85,15 +86,25 @@ async function platformIcon(p: Platform, appUrl: string): Promise<string | null>
   return uri
 }
 
+/**
+ * Where pictures may come from: our storage (signed ad images, the brand bucket) and the logo hosts
+ * the app's CSP allows (`img-src` in src/proxy.ts), through the checked-redirect fetch.
+ */
+const PICTURE_HOSTS = [new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://invalid.local").hostname, "google.com", "gstatic.com"]
+const MAX_PICTURE_BYTES = 5_000_000
+
 /** Pictures come in as data URIs (signed links, logos); a failed fetch is just left out. */
 async function asDataUri(url: string | null): Promise<string | null> {
   if (!url || !/^https:\/\//.test(url)) return null
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+    const res = await fetchFrom(PICTURE_HOSTS, url, { signal: AbortSignal.timeout(15_000) })
     const type = res.headers.get("content-type") ?? ""
     // Satori can't draw WebP; those are left out rather than failing the picture.
-    if (!res.ok || !/^image\/(png|jpe?g|gif)/.test(type)) return null
-    return `data:${type};base64,${Buffer.from(await res.arrayBuffer()).toString("base64")}`
+    if (!res.ok || !/^image\/(png|jpe?g|gif)/.test(type)) {
+      await res.body?.cancel().catch(() => {})
+      return null
+    }
+    return `data:${type};base64,${Buffer.from(await readBytes(res, MAX_PICTURE_BYTES)).toString("base64")}`
   } catch {
     return null
   }

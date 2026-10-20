@@ -1,5 +1,6 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { windsorRows } from "./rest"
 
 /**
  * Phase 2 breakdowns from Windsor into windsor_breakdowns (see the migration for what each kind is).
@@ -77,13 +78,8 @@ const SOURCE_OF: Record<string, Account["source"]> = { google_ads: "google_ads",
 const num = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0)
 const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim())
 
-async function windsor(connector: string, account: string, fields: string[], from: string, to: string) {
-  const params = new URLSearchParams({ api_key: process.env.WINDSOR_API_KEY ?? "", date_from: from, date_to: to, select_accounts: account, fields: [...new Set(fields)].join(",") })
-  const res = await fetch(`https://connectors.windsor.ai/${connector}?${params}`, { cache: "no-store", signal: AbortSignal.timeout(280_000) })
-  const body = (await res.json().catch(() => null)) as { data?: Record<string, unknown>[]; error?: string } | null
-  if (!res.ok || !Array.isArray(body?.data)) throw new Error(`Windsor ${connector}: HTTP ${res.status} ${String(body?.error ?? "").slice(0, 200)}`)
-  return body.data
-}
+const windsor = (connector: string, account: string, fields: string[], from: string, to: string) =>
+  windsorRows(connector, account, fields, from, to, { timeoutMs: 280_000 })
 
 /** The accounts a kind applies to: ad accounts from client_platform_accounts, GA4 from clients.ga4_property_id. */
 async function accountsFor(kind: Kind, clientId?: string): Promise<Account[]> {

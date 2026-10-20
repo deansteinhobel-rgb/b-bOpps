@@ -11,3 +11,6 @@ export const PLATFORM_LABEL: Record<Platform, string> = {
   meta: "Meta",
   reddit: "Reddit",
 }
+
+/** Platform colors (validated for the dark surface: lightness band, chroma, color-blind separation). Always shown with the platform's logo and name. */
+export const PLATFORM_COLOR: Record<Platform, string> = { linkedin: "#7f6ae0", google_ads: "#869a14", meta: "#cf4f86", reddit: "#2aa198" }

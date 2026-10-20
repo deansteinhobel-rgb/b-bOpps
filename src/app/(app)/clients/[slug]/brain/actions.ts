@@ -70,16 +70,22 @@ export async function startUpload(slug: string, name: string, type: string, size
   return { ok: true, path, token: data.token }
 }
 
-export async function finishUpload(slug: string, path: string, name: string, type: string, size: number): Promise<BrainResult> {
-  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
+export async function finishUpload(slug: string, path: string, name: string): Promise<BrainResult> {
   const me = await getProfile()
+  if (!canEdit(me)) return fail(VIEW_ONLY)
   const { clientId } = await clientFor(slug)
   // Exactly the shape startUpload makes (<client id>/<time>-<safe name>): no "..", no other folders (Aikido, path traversal).
-  if (!clientId || !isClientFilePath(path, clientId) || !FILE_TYPES[type]) return fail("This upload isn't available to you.")
+  if (!clientId || !isClientFilePath(path, clientId)) return fail("This upload isn't available to you.")
   const db = createAdminClient()
   const folder = path.slice(0, path.lastIndexOf("/"))
-  const { data: found } = await db.storage.from(FILE_BUCKET).list(folder, { search: path.slice(path.lastIndexOf("/") + 1) })
-  if (!found?.length) return fail("The upload didn't arrive. Try again.")
+  const file = path.slice(path.lastIndexOf("/") + 1)
+  const { data: found } = await db.storage.from(FILE_BUCKET).list(folder, { search: file })
+  const stored = found?.find((f) => f.name === file)
+  if (!stored) return fail("The upload didn't arrive. Try again.")
+  // Type and size come from what storage holds, not from the browser (code review, 2026-10-20).
+  const type = String(stored.metadata?.mimetype ?? "")
+  const size = Number(stored.metadata?.size ?? 0)
+  if (!FILE_TYPES[type] || size > 10 * 1024 * 1024) return fail("PDF, TXT, MD or CSV under 10 MB only.")
   const { error } = await db.from("client_knowledge").insert({ client_id: clientId, source: "file", title: name.slice(0, 200), file_path: path, file_type: type, content_chars: size, created_by_profile_id: me.id })
   if (error) return fail("Uploaded, but couldn't record it.")
   refresh(slug)

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { aiConfigured } from "@/lib/ai/claude"
 import { runInsightReview, startInsightReview } from "@/lib/insights/review"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isCron } from "@/lib/cron-auth"
 
 export const maxDuration = 300
 
@@ -12,8 +13,7 @@ export const maxDuration = 300
  * Requires `Authorization: Bearer $CRON_SECRET`.
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!isCron(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
   if (!aiConfigured()) return NextResponse.json({ ok: false, error: "ANTHROPIC_API_KEY isn't set." })

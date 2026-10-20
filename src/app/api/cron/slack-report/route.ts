@@ -4,6 +4,7 @@ import { dataRanges } from "@/lib/metrics/data-range"
 import { sendWeeklySnapshot } from "@/lib/reports/send"
 import { lastWeek } from "@/lib/reports/weekly"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { isCron } from "@/lib/cron-auth"
 
 export const maxDuration = 120
 
@@ -23,8 +24,7 @@ const londonClock = (now = new Date()) => {
  * 10 minutes on Monday mornings (migration 20261020000079). Requires `Authorization: Bearer $CRON_SECRET`.
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!isCron(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
   const { weekday, hour } = londonClock()

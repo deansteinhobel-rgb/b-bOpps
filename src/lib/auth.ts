@@ -49,13 +49,6 @@ export const ROLE_LABEL: Record<AppRole, string> = {
   viewer: "Viewer",
 }
 
-/** For server actions that change anything: admins, GTM leads, account managers and specialists. */
-export async function requireEditor(): Promise<Profile> {
-  const p = await getProfile()
-  if (!canEdit(p)) throw new Error("View only")
-  return p
-}
-
 /** For admin pages and actions: admins and GTM leads only. */
 export async function requireAdmin(): Promise<Profile> {
   const p = await getProfile()

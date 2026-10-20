@@ -6,6 +6,7 @@ import "server-only"
  */
 
 import type { Platform } from "@/lib/metrics/types"
+import { windsorRows } from "./rest"
 export type { Platform }
 
 // Confirmed in Phase 0 (see CLAUDE.md "Windsor field mapping").
@@ -101,23 +102,8 @@ export function toMetricRows(account: WindsorAccount, data: Record<string, unkno
   return [...byKey.values()]
 }
 
-async function windsorGet(account: WindsorAccount, dateFrom: string, dateTo: string, fields: string[]) {
-  const apiKey = process.env.WINDSOR_API_KEY
-  if (!apiKey) throw new Error("WINDSOR_API_KEY is not set")
-  const params = new URLSearchParams({
-    api_key: apiKey,
-    date_from: dateFrom,
-    date_to: dateTo,
-    select_accounts: account.external_account_id,
-    fields: fields.join(","),
-  })
-  const res = await fetch(`https://connectors.windsor.ai/${account.windsor_connector}?${params}`, { cache: "no-store" })
-  const body = (await res.json().catch(() => null)) as { data?: Record<string, unknown>[]; error?: string } | null
-  if (!res.ok || !body || !Array.isArray(body.data)) {
-    throw new Error(`Windsor ${account.windsor_connector} ${account.external_account_id}: HTTP ${res.status} ${body?.error ?? ""}`.trim())
-  }
-  return body.data
-}
+const windsorGet = (account: WindsorAccount, dateFrom: string, dateTo: string, fields: string[]) =>
+  windsorRows(account.windsor_connector, account.external_account_id, fields, dateFrom, dateTo, { timeoutMs: 280_000, label: `${account.windsor_connector} ${account.external_account_id}` })
 
 /** One request per account, filtered to that account by Windsor (never pull all and filter). */
 export async function fetchAccountMetrics(account: WindsorAccount, dateFrom: string, dateTo: string, level: Level = "ad"): Promise<MetricRow[]> {

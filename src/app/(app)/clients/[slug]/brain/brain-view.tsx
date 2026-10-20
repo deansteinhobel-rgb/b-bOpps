@@ -62,7 +62,10 @@ export function BrainView(props: { slug: string; clientName: string; hqPageId: s
     return json
   }
   const pollBrief = async (id: string) => {
+    // The brief is written in the background for at most 5 minutes; past 10, stop waiting.
+    const giveUpAt = Date.now() + 10 * 60_000
     for (;;) {
+      if (Date.now() > giveUpAt) throw new Error("The brief is taking too long. Reload the page in a few minutes.")
       await new Promise((r) => setTimeout(r, 2500))
       const d = (await fetch(`/api/client-brain?brief=${id}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null)) as { status: string; error: string | null } | null
       if (!d || d.status === "generating") continue
@@ -311,7 +314,7 @@ function Files({ slug, files }: { slug: string; files: Knowledge[] }) {
     }
     const sb = createSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!)
     const { error } = await sb.storage.from("client-files").uploadToSignedUrl(s.path, s.token, file, { contentType: type })
-    const f = error ? { ok: false, message: "The upload failed." } : await finishUpload(slug, s.path, file.name, type, file.size)
+    const f = error ? { ok: false, message: "The upload failed." } : await finishUpload(slug, s.path, file.name)
     setBusy(false)
     if (!f.ok) setMsg(f.message ?? "Couldn't upload.")
     else router.refresh()

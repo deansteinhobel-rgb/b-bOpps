@@ -1,7 +1,7 @@
 import "server-only"
 import { createHash } from "node:crypto"
 import type { Client } from "@notionhq/client"
-import { insideOtherClient, normId, otherClientsNotion } from "@/lib/knowledge/boundaries"
+import { insideOtherClient, otherClientsNotion } from "@/lib/knowledge/boundaries"
 import { children, CONTAINERS, notion, pageText, propText, rt, titleOf, type Prop } from "@/lib/knowledge/notion-hq"
 import { throttled } from "@/lib/notion/throttle"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -199,6 +199,14 @@ export async function resolveCallSource(id: string): Promise<CallSource> {
 }
 
 /** This client's Client option: its exact name, else the one option its name starts with ("Star" for "Star Global"). */
+/**
+ * Whether a call notes source is another client's: their HQ or call notes, or anywhere inside them
+ * (a meetings database nested in another client's HQ). Throws when Notion can't answer.
+ */
+export async function belongsToOtherClient(clientId: string, src: { id: string; kind: "database" | "page" }, others?: Set<string>): Promise<boolean> {
+  return insideOtherClient(notion(), src.id, others ?? (await otherClientsNotion(clientId)), undefined, src.kind)
+}
+
 export function optionFor(options: string[], names: (string | null | undefined)[]): string | null {
   const ns = names.filter((s): s is string => Boolean(s)).map((s) => s.trim().toLowerCase())
   const exact = options.find((o) => ns.includes(o.trim().toLowerCase()))
@@ -222,7 +230,10 @@ export async function syncCallNotes(clientId: string, opts: { full?: boolean; bu
   if (!client?.call_notes_notion_id) return { found: 0, read: 0, remaining: 0 }
   // Another client's HQ and call notes are never read into this client's calls (Aikido, cross-tenant).
   const others = await otherClientsNotion(clientId)
-  if (others.has(normId(client.call_notes_notion_id))) throw new Error("These call notes belong to another client. Link this client's own call notes.")
+  const kind = client.call_notes_kind === "page" ? "page" : "database"
+  if (await belongsToOtherClient(clientId, { id: client.call_notes_notion_id, kind }, others)) {
+    throw new Error("These call notes belong to another client. Link this client's own call notes.")
+  }
   const parents = new Map<string, boolean>()
   const n = notion()
   const checkedAt = new Date().toISOString()

@@ -34,10 +34,19 @@ export function PourOverlay({ runId, onDone }: { runId: string; onDone: (ok: boo
   }, [])
   useEffect(() => {
     let stop = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    // A pour runs for at most 5 minutes on the server; past 8, stop waiting.
+    const giveUpAt = Date.now() + 8 * 60_000
     const tick = async () => {
       const res = await fetch(`/api/sprint-ai?run=${runId}`, { cache: "no-store" }).catch(() => null)
       const d = (await res?.json().catch(() => null)) as { status: string; progress: number; stage_note: string | null; error: string | null } | null
-      if (stop || !d) return
+      if (stop) return
+      if (Date.now() > giveUpAt) return finish(false, "The pour is taking too long. Reload the page to see where it got to.")
+      // A failed check (network, a deploy) just waits and asks again.
+      if (!d) {
+        timer = setTimeout(tick, 3000)
+        return
+      }
       if (d.status === "ready") {
         setState({ progress: 1, note: "Your sprint is served.", served: true })
         setTimeout(() => finish(true), 1600)
@@ -45,11 +54,12 @@ export function PourOverlay({ runId, onDone }: { runId: string; onDone: (ok: boo
       }
       if (d.status === "failed") return finish(false, d.error ?? undefined)
       setState((s) => ({ ...s, progress: Math.max(s.progress, d.progress), note: d.stage_note ?? s.note }))
-      setTimeout(tick, 1500)
+      timer = setTimeout(tick, 1500)
     }
     void tick()
     return () => {
       stop = true
+      clearTimeout(timer)
     }
   }, [runId, finish])
 

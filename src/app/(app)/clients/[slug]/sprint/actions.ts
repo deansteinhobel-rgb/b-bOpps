@@ -35,51 +35,6 @@ export async function saveSprintText(sprintId: string, field: (typeof TEXT_FIELD
   return { ok: true }
 }
 
-const Kind = z.enum(["hypothesis", "learning", "mitigation", "action"])
-
-export async function addItem(sprintId: string, kind: z.infer<typeof Kind>, text: string): Promise<Result> {
-  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
-  if (!Kind.safeParse(kind).success) return fail("Unknown item type.")
-  const clean = text.trim().slice(0, 1000)
-  if (!clean) return fail("Write something first.")
-  const me = await getProfile()
-  const { supabase, sprint, error } = await openSprint(sprintId)
-  if (!sprint) return fail(error!)
-  // Learnings and mitigations are carried forward by default: that's the point of the loop.
-  const { error: e } = await supabase.from("sprint_items").insert({
-    sprint_id: sprintId,
-    client_id: sprint.client_id,
-    kind,
-    text: clean,
-    carry_forward: kind === "learning" || kind === "mitigation",
-    created_by_profile_id: me.id,
-  })
-  if (e) return fail("Couldn't add it.")
-  refresh(sprint.clients.slug)
-  return { ok: true }
-}
-
-const ItemPatch = z.object({
-  status: z.enum(["open", "done", "dropped"]).optional(),
-  outcome: z.enum(["proven", "disproven", "inconclusive"]).nullable().optional(),
-  carry_forward: z.boolean().optional(),
-})
-
-export async function updateItem(itemId: string, patch: z.infer<typeof ItemPatch>): Promise<Result> {
-  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
-  const parsed = ItemPatch.safeParse(patch)
-  if (!parsed.success) return fail("Invalid change.")
-  const supabase = await createClient()
-  const { data: item } = await supabase.from("sprint_items").select("sprint_id").eq("id", itemId).maybeSingle()
-  if (!item) return fail("That item isn't available to you.")
-  const { sprint, error } = await openSprint(item.sprint_id)
-  if (!sprint) return fail(error!)
-  const { error: e } = await supabase.from("sprint_items").update(parsed.data).eq("id", itemId)
-  if (e) return fail("Couldn't save.")
-  refresh(sprint.clients.slug)
-  return { ok: true }
-}
-
 const Change = z.object({
   changed_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date."),
   platform: z.enum(["linkedin", "google_ads", "meta", "reddit"]).nullable(),
@@ -124,7 +79,8 @@ export async function setChangeStatus(changeId: string, status: "logged" | "dism
   if (!change) return fail("That change isn't available to you.")
   const { sprint, error } = await openSprint(change.sprint_id)
   if (!sprint) return fail(error!)
-  await supabase.from("sprint_changes").update({ status }).eq("id", changeId)
+  const { error: saveError } = await supabase.from("sprint_changes").update({ status }).eq("id", changeId)
+  if (saveError) return fail("Couldn't save. Try again.")
   refresh(sprint.clients.slug)
   return { ok: true }
 }
@@ -155,12 +111,11 @@ export async function closeSprint(sprintId: string): Promise<Result> {
 
 export async function reopenSprint(sprintId: string): Promise<Result> {
   if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
-  const me = await getProfile()
-  if (!canEdit(me)) return fail(VIEW_ONLY)
   const supabase = await createClient()
   const { data } = await supabase.from("sprints").select("clients(slug)").eq("id", sprintId).maybeSingle()
   if (!data) return fail("This sprint isn't available to you.")
-  await supabase.from("sprints").update({ closed_at: null, closed_by_profile_id: null }).eq("id", sprintId)
+  const { error: saveError } = await supabase.from("sprints").update({ closed_at: null, closed_by_profile_id: null }).eq("id", sprintId)
+  if (saveError) return fail("Couldn't save. Try again.")
   refresh((data.clients as unknown as { slug: string }).slug)
   return { ok: true }
 }
