@@ -135,6 +135,7 @@ const INSIGHT_LEVERS: Record<string, Lever> = {
   keywords: "audience",
   negatives: "audience",
   icp_terms: "audience",
+  pmax_terms: "audience",
   li_companies: "audience",
   li_not_icp: "audience",
   li_own_company: "audience",

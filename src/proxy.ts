@@ -26,7 +26,8 @@ function contentSecurityPolicy(nonce: string, frameAncestors = "'none'") {
     `default-src 'self'`,
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${turnstile}${dev ? " 'unsafe-eval'" : ""}`,
     `style-src 'self' 'unsafe-inline'`,
-    `img-src 'self' data: blob: ${supabase} https://www.google.com https://*.gstatic.com`,
+    // Google Ads asset images (Performance Max, Demand Gen) and YouTube video thumbnails are shown from Google.
+    `img-src 'self' data: blob: ${supabase} https://www.google.com https://*.gstatic.com https://tpc.googlesyndication.com https://i.ytimg.com`,
     `media-src 'self' blob: ${supabase}`,
     `font-src 'self' data: ${supabase}`,
     `connect-src 'self' ${supabase} ${supabase.replace(/^https/, "wss")}${turnstile}${dev ? " ws:" : ""}`,

@@ -11,6 +11,7 @@ export type Kind =
   | "li_company" | "li_job_title" | "li_seniority" | "li_industry" | "li_job_function"
   | "meta_age_gender" | "meta_placement" | "meta_adset" | "meta_adset_7d"
   | "ga4_landing_page"
+  | "pmax_asset" | "ad_asset" | "pmax_search_term"
 
 type Account = { client_id: string; source: "google_ads" | "linkedin" | "meta" | "ga4"; connector: string; external_account_id: string; conversion_fields: string[]; lead_fields: string[] }
 
@@ -24,7 +25,14 @@ type Spec = {
   /** Adds the account's conversion / lead fields. */
   results: boolean
   extra?: string[]
+  /** Google campaign types to keep (`advertising_channel_type`); other campaigns' rows are dropped. */
+  channels?: string[]
+  /** Rows without spend or results are dropped (big reports where most rows are empty). */
+  skipEmpty?: boolean
 }
+
+// What each asset is, kept in `extra` (the latest day's copy wins in breakdown_totals).
+const ASSET_EXTRA = ["asset_type", "asset_text_asset_text", "asset_image_asset_full_size_url", "asset_youtube_video_asset_youtube_video_title", "asset_youtube_video_asset_youtube_video_id"]
 
 const SPECS: Record<Kind, Spec> = {
   search_term: { connector: "google_ads", daily: true, fields: ["spend", "impressions", "clicks"], group: ["ad_group_id", "ad_group_name"], dims: ["search_term", "search_term_match_type"], results: true },
@@ -47,6 +55,12 @@ const SPECS: Record<Kind, Spec> = {
   meta_adset: { connector: "facebook", daily: true, fields: ["spend", "impressions", "clicks"], group: ["adset_id", "adset_name"], dims: ["adset_id"], results: false, extra: ["reach", "frequency", "adset_learning_stage_info"] },
   // Reach doesn't add up across days, so the 7-day frequency needs one report over the whole week.
   meta_adset_7d: { connector: "facebook", daily: false, fields: ["spend", "impressions", "clicks"], group: ["adset_id", "adset_name"], dims: ["adset_id"], results: true, extra: ["reach", "frequency", "adset_learning_stage_info"] },
+  // Performance Max and Demand Gen have no ad rows, so their numbers per asset (Dean, 2026-10-19).
+  // Assets serve together: their numbers overlap and never add up to the campaign.
+  pmax_asset: { connector: "google_ads", daily: true, fields: ["spend", "impressions", "clicks"], group: ["asset_group_id", "asset_group_name"], dims: ["asset_id", "asset_group_asset_field_type"], results: true, extra: [...ASSET_EXTRA, "asset_group_ad_strength"], channels: ["PERFORMANCE_MAX"] },
+  ad_asset: { connector: "google_ads", daily: true, fields: ["spend", "impressions", "clicks"], group: ["ad_group_id", "ad_group_name"], dims: ["asset_id", "ad_group_ad_asset_view_field_type"], results: true, extra: ASSET_EXTRA, channels: ["DEMAND_GEN", "DISPLAY", "VIDEO"] },
+  // Search campaigns' terms are `search_term`; this view also has PMax's (~200 a day on DNSFilter, most with no spend).
+  pmax_search_term: { connector: "google_ads", daily: true, fields: ["spend", "impressions", "clicks"], dims: ["campaign_search_term_view_search_term"], results: true, channels: ["PERFORMANCE_MAX"], skipEmpty: true },
   ga4_landing_page: {
     connector: "googleanalytics4",
     daily: true,
@@ -99,11 +113,13 @@ export async function syncBreakdown(kind: Kind, account: Account, from: string, 
     ...spec.fields,
     ...(spec.results ? [...account.conversion_fields, ...account.lead_fields] : []),
     ...(spec.extra ?? []),
+    ...(spec.channels ? ["advertising_channel_type"] : []),
   ].filter((f) => !(spec.connector === "googleanalytics4" && (f === "campaign_id" || f === "campaign")))
   const data = await windsor(spec.connector, account.external_account_id, spec.connector === "googleanalytics4" ? [...fields, "campaign"] : fields, from, to)
 
   const byKey = new Map<string, Record<string, unknown>>()
   for (const r of data) {
+    if (spec.channels && !spec.channels.includes(str(r.advertising_channel_type))) continue
     const row = {
       client_id: account.client_id,
       source: account.source,
@@ -125,6 +141,7 @@ export async function syncBreakdown(kind: Kind, account: Account, from: string, 
       synced_at: new Date().toISOString(),
     }
     if (!row.date || (!row.dim1 && kind !== "impression_share")) continue
+    if (spec.skipEmpty && !row.spend && !row.conversions && !row.leads) continue
     const key = [row.date, row.campaign_id, row.group_id, row.dim1, row.dim2].join("|")
     const prev = byKey.get(key)
     if (prev) {

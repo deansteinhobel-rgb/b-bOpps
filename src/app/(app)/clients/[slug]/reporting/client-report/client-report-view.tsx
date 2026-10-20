@@ -2,6 +2,7 @@ import { AdThumb } from "@/components/ad-thumb"
 import { ClientLogo, PlatformIcon } from "@/components/brand"
 import { money, percent, whole } from "@/lib/format"
 import type { ReportAd } from "@/lib/metrics/client-report"
+import { assetName, type AssetPick, type AssetSection } from "@/lib/metrics/assets"
 import { rangeText } from "@/lib/metrics/range"
 import { PLATFORM_LABEL } from "@/lib/metrics/types"
 import { adKey } from "@/lib/previews"
@@ -92,7 +93,9 @@ export function ClientReportView({ data: d, client, currency, note, hrefFor }: {
 
       {d.byPlatform.length > 0 && <Breakdown id="cr-platforms" title="By platform" rows={d.byPlatform} currency={currency} compare={compare} hrefFor={hrefFor} linkLabel="platform report" />}
 
-      {d.adsWithSpend === 0 ? (
+      {d.assets ? (
+        d.assets.map((s) => <AssetList key={s.key} section={s} currency={currency} />)
+      ) : d.adsWithSpend === 0 ? (
         <section aria-labelledby="cr-ads" className="border-t px-5 py-5 sm:px-6">
           <h3 id="cr-ads" className="text-base font-semibold">
             Ads
@@ -336,5 +339,70 @@ function Breakdown({ id, title, rows, currency, compare, hrefFor, linkLabel, sho
         )}
       </div>
     </section>
+  )
+}
+
+/**
+ * One asset type for a Performance Max or Demand Gen campaign (images, then headlines): the top 3
+ * and the weakest 3, compared with each other only, because Google mixes assets into every ad.
+ */
+function AssetList({ section: s, currency }: { section: AssetSection; currency: string }) {
+  const ctrBasis = s.basis === "ctr"
+  const id = `cr-assets-${s.key}`
+  return (
+    <section aria-labelledby={id} className="border-t px-5 py-5 sm:px-6">
+      <h3 id={id} className="text-base font-semibold">
+        {s.label}
+      </h3>
+      <p className="mt-0.5 max-w-3xl text-[13px] text-muted-foreground">
+        This campaign builds its ads from {s.label.toLowerCase()}, text and other assets that Google mixes together, so each {s.one}&apos;s numbers include the ads it appeared in.{" "}
+        {ctrBasis ? `Ranked by how often people clicked, among the ${s.label.toLowerCase()} that spent the most.` : `Ranked by cost per result, among the ${s.label.toLowerCase()} that spent the most.`}
+      </p>
+      <div className="mt-4 grid gap-6 lg:grid-cols-2">
+        <AssetColumn title={`Top ${s.label.toLowerCase()}`} list={s.best} section={s} currency={currency} tone="good" empty={`Not enough activity to pick the strongest ${s.label.toLowerCase()}.`} />
+        <AssetColumn title={`${s.label} to improve`} list={s.worst} section={s} currency={currency} tone="bad" empty={`Too few ${s.label.toLowerCase()} ran to single out weaker ones.`} />
+      </div>
+    </section>
+  )
+}
+
+function AssetColumn({ title, list, section: s, currency, tone, empty }: { title: string; list: AssetPick[]; section: AssetSection; currency: string; tone: "good" | "bad"; empty: string }) {
+  const m = (v: number | null) => money(v, currency, v !== null && v < 100 ? 2 : 0)
+  const ctrBasis = s.basis === "ctr"
+  return (
+    <div>
+      <h4 className="text-sm font-medium">{title}</h4>
+      {list.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        <ol className="mt-2 divide-y rounded-xl border bg-background/40">
+          {list.map((p, i) => (
+            <li key={p.asset.key} className="flex items-center gap-3 px-3 py-3">
+              <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums", tone === "good" ? "bg-rag-green text-black" : "bg-rag-red text-black")}>{i + 1}</span>
+              {/* eslint-disable-next-line @next/next/no-img-element -- Google-hosted asset images (in the CSP) */}
+              {p.asset.imageUrl && <img src={p.asset.imageUrl} alt={`${s.one} ${i + 1}`} loading="lazy" referrerPolicy="no-referrer" className="h-14 w-20 shrink-0 rounded-md border bg-elevated object-contain" />}
+              <span className="min-w-0 flex-1">
+                {(p.asset.text || p.asset.videoTitle) && (
+                  <span className="line-clamp-2 text-sm leading-snug font-medium" title={assetName(p.asset)}>
+                    {assetName(p.asset)}
+                  </span>
+                )}
+                <span className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground tabular-nums">
+                  {ctrBasis ? (
+                    <span className={cn(tone === "good" ? "text-rag-green" : "text-rag-red")}>{p.ctr === null ? "–" : percent(p.ctr, 2)} click-through</span>
+                  ) : (
+                    <>
+                      <span className={cn(tone === "good" ? "text-rag-green" : "text-rag-red")}>{p.costPerResult === null ? "No results yet" : `${m(p.costPerResult)} per result`}</span>
+                      <span>{whole(p.results)} {Math.round(p.results) === 1 ? "result" : "results"}</span>
+                    </>
+                  )}
+                  <span>{m(p.spend)} spend</span>
+                </span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
   )
 }

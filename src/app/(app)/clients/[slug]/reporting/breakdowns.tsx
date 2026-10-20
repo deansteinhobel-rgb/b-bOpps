@@ -10,6 +10,7 @@ import { NegativePush } from "./negative-push"
 import { TermIcpPanel } from "./term-icp"
 import { MATCH_SOURCE, matchLabel } from "@/lib/insights/search-matching"
 import type { RootNegative, TermReview } from "@/lib/insights/term-review-rules"
+import { assetGroups, assetName, type Asset, type AssetSource } from "@/lib/metrics/assets"
 
 /** Impression share parts (validated for the dark surface; always labeled in the legend and tooltip). */
 const IS_COLOR = { won: "#4f8fcf", rank: "#c7802f", budget: "#9a6fd0" }
@@ -207,7 +208,16 @@ export type PushedNegative = { text: string; matchType: string; adGroupId: strin
 export type NegativesState = { slug: string; campaignId: string; canPush: boolean; live: boolean; pushed: PushedNegative[]; review: TermReview | null; canCheck: boolean }
 
 export function CampaignDetailData({ data, currency, target, negatives = null }: { data: CampaignBreakdowns; currency: string; target: number | null; negatives?: NegativesState | null }) {
-  if (data.kind === "google") return <GoogleDetail data={data} currency={currency} target={target} negatives={negatives} />
+  if (data.kind === "google") {
+    // Demand Gen and Display have no search terms, keywords or impression share: only their assets.
+    const searchData = data.terms.length > 0 || data.keywords.length > 0 || data.share.some((d) => d.share !== null)
+    return (
+      <>
+        {data.assets.length > 0 && <AssetsPanel assets={data.assets} source={data.assetSource} currency={currency} />}
+        {(searchData || data.assets.length === 0) && <GoogleDetail data={data} currency={currency} target={target} negatives={data.termsSource === "pmax" ? null : negatives} />}
+      </>
+    )
+  }
   if (data.kind === "linkedin") return <LinkedInDetail data={data} currency={currency} />
   return <MetaDetail data={data} currency={currency} />
 }
@@ -218,6 +228,7 @@ const isNegativeCandidate = (t: Term, target: number | null) => target !== null 
 
 function GoogleDetail({ data, currency, target, negatives }: { data: Extract<CampaignBreakdowns, { kind: "google" }>; currency: string; target: number | null; negatives: NegativesState | null }) {
   const [tab, setTab] = useState<"terms" | "keywords" | "share">("terms")
+  const pmax = data.termsSource === "pmax"
   const [picked, setPicked] = useState<Set<string>>(() => new Set())
   const [pushOpen, setPushOpen] = useState(false)
   const [rootPush, setRootPush] = useState<RootNegative[] | null>(null)
@@ -265,7 +276,7 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
     if (icp?.verdict === "exclude") return <span className="rounded-full border border-rag-red/40 bg-rag-red/10 px-1.5 py-px text-[10px] text-rag-red" title={`Off-ICP: ${icp.reason}`}>Off-ICP</span>
     if (icp?.verdict === "watch") return <span className="rounded-full border border-rag-amber/40 px-1.5 py-px text-[10px] text-rag-amber" title={`Watch: ${icp.reason}`}>Watch</span>
     if (isNegativeCandidate(t, target)) return <span className="rounded-full border border-rag-red/40 px-1.5 py-px text-[10px] text-rag-red">Negative?</span>
-    if (!t.isKeyword && t.m.results >= 2) return <span className="rounded-full border border-lime/40 px-1.5 py-px text-[10px] text-lime">Add as keyword?</span>
+    if (!pmax && !t.isKeyword && t.m.results >= 2) return <span className="rounded-full border border-lime/40 px-1.5 py-px text-[10px] text-lime">Add as keyword?</span>
     if (t.isKeyword) return <span className="text-[10px] text-subtle-foreground">keyword</span>
     return null
   }
@@ -282,6 +293,9 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
         ] as Col<Term>[])
       : []),
     { key: "term", label: "Search term", value: (r) => r.dim1, render: (r) => <span className="flex items-center gap-2"><span className="max-w-72 truncate" title={r.dim1}>{r.dim1}</span>{flag(r)}</span> },
+    ...(pmax
+      ? []
+      : ([
     { key: "group", label: "Ad group", value: (r) => r.groupName ?? r.groupId, render: (r) => <span className="block max-w-40 truncate text-xs text-muted-foreground" title={r.groupName ?? r.groupId}>{r.groupName ?? r.groupId}</span> },
     {
       key: "match",
@@ -298,6 +312,7 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
           </span>
         ),
     },
+        ] as Col<Term>[])),
     ...(metricCols(currency) as Col<Term>[]),
   ]
   const kwFlag = (r: BreakdownRow) => {
@@ -322,12 +337,16 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
           value={tab}
           onChange={setTab}
           tabs={[
-            { key: "terms", label: `Search terms over ${fmt("spend", MIN_TERM_SPEND, currency)}`, count: new Set(visible.map(termKey)).size },
-            { key: "keywords", label: "Keywords", count: data.keywords.length },
-            { key: "share", label: "Impression share" },
+            { key: "terms", label: `${pmax ? "Performance Max search terms" : "Search terms"} over ${fmt("spend", MIN_TERM_SPEND, currency)}`, count: new Set(visible.map(termKey)).size },
+            ...(pmax ? [] : [{ key: "keywords" as const, label: "Keywords", count: data.keywords.length }, { key: "share" as const, label: "Impression share" }]),
           ]}
         />
       </div>
+      {tab === "terms" && pmax && (
+        <p className="border-b bg-background/40 px-4 py-2 text-xs text-muted-foreground">
+          Searches that showed this Performance Max campaign&apos;s ads, for the whole campaign: Google doesn&apos;t split them by asset group or match type. To block one, add it to the campaign&apos;s negative keywords or an account-level negative list in Google Ads. The app doesn&apos;t add negatives to Performance Max.
+        </p>
+      )}
       {tab === "terms" && negatives && (
         <TermIcpPanel
           slug={negatives.slug}
@@ -399,6 +418,79 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
       )}
       {tab === "keywords" && <DataTable rows={data.keywords} cols={kwCols} search={(r) => r.dim1} empty="No keywords in this period." initial="spend" rowKey={(r) => `${r.groupId}|${r.dim1}|${r.dim2}`} />}
       {tab === "share" && <ImpressionShare days={data.share} />}
+    </div>
+  )
+}
+
+const STRENGTH_TONE: Record<string, string> = { EXCELLENT: "text-rag-green", GOOD: "text-rag-green", AVERAGE: "text-rag-amber", POOR: "text-rag-red" }
+
+/** A small preview: the image (Google-hosted), the video's thumbnail (opens it on YouTube), or nothing for words. */
+function AssetPreview({ asset: a }: { asset: Asset }) {
+  if (!a.imageUrl) return null
+  return (
+    <a href={a.videoUrl ?? a.imageUrl} target="_blank" rel="noreferrer" aria-label={a.videoUrl ? `Watch "${assetName(a)}" on YouTube` : "Open the full image"} className="shrink-0 transition-opacity hover:opacity-80">
+      {/* eslint-disable-next-line @next/next/no-img-element -- Google-hosted asset images (in the CSP) */}
+      <img src={a.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" className="size-10 rounded-md border bg-elevated object-cover" />
+    </a>
+  )
+}
+
+/**
+ * Performance Max and Demand Gen assets (Dean, 2026-10-19), one tab per asset type. Assets serve
+ * together in one ad, so their numbers overlap: compare assets of the same type only.
+ */
+function AssetsPanel({ assets, source, currency }: { assets: Asset[]; source: AssetSource | null; currency: string }) {
+  const groups = useMemo(() => assetGroups(assets), [assets])
+  const [field, setField] = useState(groups[0]?.field ?? "")
+  const group = groups.find((g) => g.field === field) ?? groups[0]
+  const strengths = [...new Set(assets.map((a) => a.adStrength).filter(Boolean))] as string[]
+  const cols: Col<Asset>[] = [
+    {
+      key: "asset",
+      label: "Asset",
+      value: (r) => assetName(r),
+      render: (r) => (
+        <span className="flex items-center gap-3">
+          <AssetPreview asset={r} />
+          <span className="min-w-0">
+            <span className={cn("line-clamp-2 max-w-96", !r.text && !r.videoTitle && "text-muted-foreground")} title={assetName(r)}>
+              {r.text ?? r.videoTitle ?? (r.kind === "image" ? "Image" : r.id)}
+            </span>
+            {r.groups.length > 0 && (
+              <span className="block max-w-96 truncate text-[11px] text-muted-foreground" title={r.groups.join(", ")}>
+                {r.groups.length > 2 ? `${r.groups.length} ${source === "pmax" ? "asset groups" : "ad groups"}` : r.groups.join(", ")}
+              </span>
+            )}
+          </span>
+        </span>
+      ),
+    },
+    ...(metricCols(currency) as Col<Asset>[]),
+  ]
+  if (!group) return null
+  return (
+    <div className="surface overflow-hidden">
+      <div className="space-y-3 border-b px-4 py-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-sm font-semibold">Assets</h3>
+          {source === "pmax" && strengths.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Ad strength:{" "}
+              {strengths.map((s, i) => (
+                <span key={s} className={STRENGTH_TONE[s]}>
+                  {i > 0 && ", "}
+                  {s.toLowerCase()}
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+        <Tabs value={group.field} onChange={setField} tabs={groups.map((g) => ({ key: g.field, label: g.label, count: g.assets.length }))} />
+      </div>
+      <p className="border-b bg-background/40 px-4 py-2 text-xs text-muted-foreground">
+        Google mixes these assets into each ad, so one impression counts for every asset it showed. The numbers overlap and don&apos;t add up to the campaign: compare {group.label.toLowerCase()} with each other, not with other types.
+      </p>
+      <DataTable key={group.field} rows={group.assets} cols={cols} search={group.assets.some((a) => a.text || a.videoTitle) ? (r) => assetName(r) : undefined} empty="No assets of this type in the period." initial="spend" rowKey={(r) => r.key} />
     </div>
   )
 }

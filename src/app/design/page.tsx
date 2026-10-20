@@ -20,6 +20,7 @@ import type { Stage } from "@/lib/sprints/tests"
 import { WinePour } from "@/components/fx/wine-pour"
 import { CampaignTable, Investigator, PlatformSplit, TrendPanel } from "../(app)/clients/[slug]/reporting/charts"
 import { derive } from "@/lib/metrics/performance"
+import { mergeAssets } from "@/lib/metrics/assets"
 import { CampaignDetailData, LandingPages } from "../(app)/clients/[slug]/reporting/breakdowns"
 import { adHealth, type FatigueInput } from "@/lib/metrics/ads"
 import type { CheckDefinition, CheckResult } from "@/lib/checks/runs"
@@ -217,8 +218,41 @@ const sampleGoogle = {
     { ...bd("best dns filter for msp", "PHRASE", 420, 1900, 95, 3), isKeyword: false },
   ],
   termsTotal: 3,
+  termsSource: "search" as const,
+  assets: [],
+  assetSource: null,
   keywords: [bd("dns filtering", "PHRASE", 2600, 14000, 700, 11, { quality_score: 7 }), bd("cisco umbrella pricing", "BROAD", 165, 119, 3, 0, { quality_score: 3 })],
   share: Array.from({ length: 20 }, (_, i) => ({ date: `2026-09-${String(i + 1).padStart(2, "0")}`, share: 0.25 + (i % 5) * 0.03, lostBudget: 0.05, lostRank: 0.7 - (i % 5) * 0.03, top: 0.16, absTop: 0.1 })),
+}
+// A sample Performance Max campaign: assets (made-up text, flat color tiles for images) and its search terms.
+const tile = (c: string) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80" fill="${c}"/></svg>`)}`
+const asset = (id: string, field: string, type: string, spend: number, impressions: number, clicks: number, conversions: number, more: Record<string, unknown>) => ({
+  groupId: "ag1",
+  groupName: "Sample asset group",
+  dim1: id,
+  dim2: field,
+  extra: { asset_type: type, asset_group_ad_strength: "AVERAGE", ...more },
+  m: derive({ spend, impressions, clicks, conversions, leads: 0 }),
+})
+const samplePmax = {
+  ...sampleGoogle,
+  termsSource: "pmax" as const,
+  assetSource: "pmax" as const,
+  terms: [
+    { ...bd("sample vpn", "", 3400, 6100, 480, 2), groupId: "", groupName: null, isKeyword: false },
+    { ...bd("sample dns security", "", 900, 2100, 140, 4), groupId: "", groupName: null, isKeyword: false },
+  ],
+  termsTotal: 2,
+  keywords: [],
+  share: [],
+  assets: mergeAssets([
+    asset("1", "HEADLINE", "TEXT", 2900, 4100, 360, 11, { asset_text_asset_text: "Sample: Try It Free for 14 Days" }),
+    asset("2", "HEADLINE", "TEXT", 1700, 3300, 190, 2, { asset_text_asset_text: "Sample: Security Made Simple" }),
+    asset("3", "DESCRIPTION", "TEXT", 2400, 3900, 300, 8, { asset_text_asset_text: "Sample description: block threats before they reach your network." }),
+    asset("4", "MARKETING_IMAGE", "IMAGE", 120, 2400, 40, 1, { asset_image_asset_full_size_url: tile("#e4ff1a") }),
+    asset("5", "SQUARE_MARKETING_IMAGE", "IMAGE", 60, 1800, 22, 0, { asset_image_asset_full_size_url: tile("#ff3d8a") }),
+    asset("6", "YOUTUBE_VIDEO", "YOUTUBE_VIDEO", 14, 300, 2, 0, { asset_youtube_video_asset_youtube_video_title: "Sample video" }),
+  ]),
 }
 const samplePages = [
   { page: "/lp/for-clinics-aba", sourceMedium: "google / cpc", sessions: 420, engaged: 260, conversions: 9, avgDuration: 95 },
@@ -510,6 +544,7 @@ export default async function DesignPreview() {
             </div>
             <CampaignTable rows={perfCampaigns} currency="USD" slug="dnsfilter" query="" targets={{ client: 300, platforms: {} }} />
             <CampaignDetailData data={sampleGoogle} currency="USD" target={300} />
+            <CampaignDetailData data={samplePmax} currency="USD" target={300} />
             <LandingPages rows={samplePages} />
           </section>
 
