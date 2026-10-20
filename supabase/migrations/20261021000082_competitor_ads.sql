@@ -4,15 +4,16 @@
 -- competitors are soft-removed, ads that stop showing are marked inactive.
 
 -- The list the team keeps on the Brain page. The ids tell the scrapers where to look; a source
--- with no id is skipped.
+-- with no id is skipped. Google can have several advertiser ids per company (Cloudflare runs two),
+-- and LinkedIn's library is searched by the advertiser name it shows (e.g. "Cloudflare").
 create table public.client_competitors (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.clients (id) on delete cascade,
   name text not null check (length(btrim(name)) between 1 and 120),
   website text check (website is null or length(website) <= 300),
   meta_page_id text check (meta_page_id is null or meta_page_id ~ '^[0-9]{3,30}$'),
-  linkedin_company text check (linkedin_company is null or linkedin_company ~ '^[A-Za-z0-9_-]{1,120}$'),
-  google_advertiser_id text check (google_advertiser_id is null or google_advertiser_id ~ '^AR[0-9]{10,30}$'),
+  linkedin_advertiser text check (linkedin_advertiser is null or length(btrim(linkedin_advertiser)) between 1 and 120),
+  google_advertiser_ids text[] not null default '{}' check (array_position(google_advertiser_ids, null) is null and cardinality(google_advertiser_ids) <= 10),
   notes text check (notes is null or length(notes) <= 1000),
   created_at timestamptz not null default now(),
   created_by_profile_id uuid references public.profiles (id) default auth.uid(),
@@ -24,7 +25,8 @@ create index client_competitors_client_idx on public.client_competitors (client_
 create trigger client_competitors_updated_at before update on public.client_competitors
   for each row execute function public.set_updated_at();
 
--- One row per Apify run (competitor × source × country). Server-written.
+-- One row per Apify run (competitor × source × country). Server-written. Apify limits how many runs
+-- go at once, so runs wait as 'queued' until a slot is free.
 create table public.competitor_runs (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.clients (id) on delete cascade,
@@ -33,15 +35,16 @@ create table public.competitor_runs (
   country text not null check (country ~ '^[A-Z]{2}$'),
   actor text not null,
   apify_run_id text,
-  status text not null default 'started' check (status in ('started', 'collected', 'failed')),
-  started_at timestamptz not null default now(),
+  status text not null default 'queued' check (status in ('queued', 'started', 'collected', 'failed')),
+  queued_at timestamptz not null default now(),
+  started_at timestamptz,
   collected_at timestamptz,
   items integer,
   error text,
   usage_usd numeric
 );
-create index competitor_runs_client_idx on public.competitor_runs (client_id, started_at desc);
-create index competitor_runs_open_idx on public.competitor_runs (status) where status = 'started';
+create index competitor_runs_client_idx on public.competitor_runs (client_id, queued_at desc);
+create index competitor_runs_open_idx on public.competitor_runs (status) where status in ('queued', 'started');
 
 -- Every ad seen in a library. Server-written; labels are filled in by the nightly labels job.
 create table public.competitor_ads (
@@ -140,3 +143,28 @@ create policy "competitor runs: read assigned" on public.competitor_runs for sel
   using ((select public.can_access_client(client_id)));
 create policy "competitor ads: read assigned" on public.competitor_ads for select to authenticated
   using ((select public.can_access_client(client_id)));
+
+-- Weekly, Sunday morning (UTC), before Monday's labels and Slack post: queue the week's runs at
+-- 01:00, then start and collect them every half hour until 04:30 (Apify runs 5 at a time).
+select cron.schedule(
+  'competitor-ads-queue',
+  '0 1 * * 0',
+  $$
+  select net.http_get(
+    url := coalesce((select decrypted_secret from vault.decrypted_secrets where name = 'app_url'), 'https://bbmopsapp.vercel.app') || '/api/cron/competitors?step=queue',
+    headers := jsonb_build_object('Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')),
+    timeout_milliseconds := 300000
+  );
+  $$
+);
+select cron.schedule(
+  'competitor-ads-pump',
+  '15,45 1-4 * * 0',
+  $$
+  select net.http_get(
+    url := coalesce((select decrypted_secret from vault.decrypted_secrets where name = 'app_url'), 'https://bbmopsapp.vercel.app') || '/api/cron/competitors?step=pump',
+    headers := jsonb_build_object('Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'cron_secret')),
+    timeout_milliseconds := 300000
+  );
+  $$
+);

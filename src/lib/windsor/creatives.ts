@@ -109,6 +109,8 @@ export function linkedInPostLink(input: string): string | null {
  * media/static/dms.licdn.com, scontent-*.fbcdn.net, tpc.googlesyndication.com.
  */
 const IMAGE_HOSTS = ["licdn.com", "fbcdn.net", "googlesyndication.com", "googleusercontent.com", "gstatic.com", "ggpht.com", "ytimg.com"]
+/** Competitors' ads from the public ad libraries: the same hosts, plus Google's display ad CDN (s0.2mdn.net). */
+export const COMPETITOR_IMAGE_HOSTS = [...IMAGE_HOSTS, "2mdn.net"]
 const POST_HOSTS = ["linkedin.com"]
 const hostAllowed = (url: URL, hosts: readonly string[]) => url.protocol === "https:" && !url.port && hosts.some((h) => url.hostname === h || url.hostname.endsWith(`.${h}`))
 
@@ -174,10 +176,10 @@ export async function postImage(postLink: string): Promise<string | null> {
 }
 
 /** Copies an image into our bucket. Returns the stored path and type, or throws. */
-export async function copyImage(url: string, path: string) {
+export async function copyImage(url: string, path: string, hosts: readonly string[] = IMAGE_HOSTS) {
   // <client id>/<platform>/<safe ad id>: callers sanitize, this refuses anything else (Aikido, path traversal).
   if (!/^[0-9a-f-]{36}\/[a-z_]+\/[A-Za-z0-9_-]+$/.test(path)) throw new Error("Bad storage path")
-  const res = await fetchFrom(IMAGE_HOSTS, url, { signal: AbortSignal.timeout(20_000) })
+  const res = await fetchFrom(hosts, url, { signal: AbortSignal.timeout(20_000) })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const type = (res.headers.get("content-type") ?? "").split(";")[0].trim()
   if (!EXT[type]) throw new Error(`Not a supported image (${type || "unknown type"})`)
