@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { bestRank, longestRunning, runningSince, topAds, type KeywordAd } from "./keywords"
-import { advertiserOf, keywordInput, linkedInRunDates, normalizeItems, normalizeKeywordItems, ANYONE } from "./sources"
+import { advertiserOf, countriesFor, keywordInput, linkedInRunDates, normalizeItems, normalizeKeywordItems, ANYONE } from "./sources"
 
 const ad = (over: Partial<KeywordAd>): KeywordAd => ({
   id: over.external_id ?? "x",
@@ -70,6 +70,13 @@ describe("longestRunning", () => {
   })
 })
 
+describe("countriesFor", () => {
+  it("reads clients in pounds in the UK, everyone else in the US", () => {
+    expect(countriesFor("GBP")).toEqual(["GB"])
+    expect(countriesFor("USD")).toEqual(["US"])
+  })
+})
+
 describe("keyword sources", () => {
   it("ranks the first 30 live ads and keeps stopped ones unranked", () => {
     const items = [
@@ -95,10 +102,10 @@ describe("keyword sources", () => {
     expect(advertiserOf("linkedin", items[1])).toEqual({ name: "Payer Inc.", id: null })
     expect(advertiserOf("meta", { page_name: "Kaseya", page_id: "123" })).toEqual({ name: "Kaseya", id: "123" })
   })
-  it("searches Meta by keyword in the country asked, stopped ads included (for earlier versions)", () => {
+  it("searches Meta by keyword in the country asked, live ads only, 30", () => {
     const input = keywordInput("meta", "MSP security", "GB") as { urls: { url: string }[]; limitPerSource: number }
-    expect(input.urls[0].url).toContain("active_status=all&ad_type=all&country=GB&q=MSP%20security&search_type=keyword_unordered")
-    expect(input.limitPerSource).toBe(100)
+    expect(input.urls[0].url).toContain("active_status=active&ad_type=all&country=GB&q=MSP%20security&search_type=keyword_unordered")
+    expect(input.limitPerSource).toBe(30)
     expect(keywordInput("linkedin", "DNS filtering", "US")).toEqual({ keyword: "DNS filtering", countries: ["US"], maxAds: 30 })
   })
 })

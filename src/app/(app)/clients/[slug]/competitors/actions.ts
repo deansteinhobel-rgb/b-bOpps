@@ -11,8 +11,8 @@ import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 
 // Competitor ads. The list goes through the user's own client (RLS: the client's team); removing
-// sets removed_at. "Read again" queues this week's library reads early and starts them; the
-// Sunday job (or the next "Read again") collects whatever is still running.
+// sets removed_at. "Read again" reads anything not read in the last 13 days (a competitor or
+// keyword just added) now rather than on Sunday; the Sunday job collects whatever is still running.
 
 export type CompetitorResult = { ok: boolean; message?: string }
 const fail = (message: string): CompetitorResult => ({ ok: false, message })

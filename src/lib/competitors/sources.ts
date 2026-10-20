@@ -8,15 +8,13 @@ export const COMPETITOR_SOURCES = ["meta", "google", "linkedin"] as const
 export type CompetitorSource = (typeof COMPETITOR_SOURCES)[number]
 
 export const SOURCE_LABEL: Record<CompetitorSource, string> = { meta: "Meta", google: "Google Ads", linkedin: "LinkedIn" }
-/** Countries every competitor is read in (Dean, 2026-10-20). */
-export const COUNTRIES = ["US", "GB"] as const
-/** Most ads kept per competitor, source and country in one weekly run. */
-export const MAX_ADS = 60
 /**
- * Meta reads ask for stopped ads too, so earlier versions of an edited ad come back and the
- * creative's real start can be found (keywords.ts, runningSince); more items to leave room for them.
+ * The country a client's ads are read in (Dean, 2026-10-20: Apify's free plan, so one country): the
+ * UK for clients in pounds (Proactis), otherwise the US.
  */
-const META_ALL = 120
+export const countriesFor = (currency: string | null) => [currency === "GBP" ? "GB" : "US"]
+/** Most ads kept per competitor, source and country in one read (each ad is paid for). */
+export const MAX_ADS = 30
 
 export type Competitor = { id: string; name: string; meta_page_id: string | null; linkedin_advertiser: string | null; google_advertiser_ids: string[] }
 
@@ -80,9 +78,9 @@ export const SOURCES: Record<CompetitorSource, Source> = {
     input: (c, country) =>
       c.meta_page_id
         ? {
-            urls: [{ url: `${META_LIBRARY}?active_status=all&ad_type=all&country=${country}&view_all_page_id=${c.meta_page_id}&media_type=all` }],
-            limitPerSource: META_ALL,
-            count: META_ALL,
+            urls: [{ url: `${META_LIBRARY}?active_status=active&ad_type=all&country=${country}&view_all_page_id=${c.meta_page_id}&media_type=all` }],
+            limitPerSource: MAX_ADS,
+            count: MAX_ADS,
           }
         : null,
     normalize: (item, c) => {
@@ -205,17 +203,20 @@ export const KEYWORD_SOURCES = ["meta", "linkedin"] as const satisfies readonly 
 export type KeywordSource = (typeof KEYWORD_SOURCES)[number]
 /** How many ads per keyword, library and country: the top 30 live ones in the library's own order. */
 export const KEYWORD_MAX = 30
-/** Meta keyword reads include stopped ads (for earlier versions), so they fetch more to keep 30 live. */
-const META_KEYWORD_ALL = 100
+/**
+ * Meta reads ask for live ads only. Asking for stopped ones too (to find an edited ad's earlier
+ * version) doubled the cost and found none for DNSFilter's re-dated ads (2026-10-20); our own weekly
+ * history dates creatives instead (keywords.ts, runningSince).
+ */
 /** A search with no advertiser filter: the normalizers keep every advertiser's ads. */
 export const ANYONE: Competitor = { id: "", name: "", meta_page_id: null, linkedin_advertiser: null, google_advertiser_ids: [] }
 
 export function keywordInput(source: KeywordSource, keyword: string, country: string): Record<string, unknown> {
   if (source === "meta")
     return {
-      urls: [{ url: `${META_LIBRARY}?active_status=all&ad_type=all&country=${country}&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered&media_type=all` }],
-      limitPerSource: META_KEYWORD_ALL,
-      count: META_KEYWORD_ALL,
+      urls: [{ url: `${META_LIBRARY}?active_status=active&ad_type=all&country=${country}&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered&media_type=all` }],
+      limitPerSource: KEYWORD_MAX,
+      count: KEYWORD_MAX,
     }
   return { keyword, countries: [country], maxAds: KEYWORD_MAX }
 }

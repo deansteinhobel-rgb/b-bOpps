@@ -2,10 +2,10 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { COMPETITOR_IMAGE_HOSTS, copyImage } from "@/lib/windsor/creatives"
 import { apifyConfigured, datasetItems, FINISHED, isBusy, runStatus, startRun } from "./apify"
-import { COMPETITOR_SOURCES, COUNTRIES, keywordInput, KEYWORD_SOURCES, normalizeItems, normalizeKeywordItems, runIsHealthy, SOURCES, type Competitor, type CompetitorSource, type KeywordSource } from "./sources"
+import { COMPETITOR_SOURCES, countriesFor, keywordInput, KEYWORD_SOURCES, normalizeItems, normalizeKeywordItems, runIsHealthy, SOURCES, type Competitor, type CompetitorSource, type KeywordSource } from "./sources"
 
 /**
- * Competitor ads, once a week (Dean, 2026-10-20). `queueWeek` adds one run per competitor × source ×
+ * Competitor ads, every two weeks (Dean, 2026-10-20). `queueWeek` adds one run per competitor × source ×
  * country, and per keyword × Meta/LinkedIn × country; `pump` starts queued runs while Apify has room
  * (the free plan runs 5 at once), collects finished ones into `competitor_ads` or `keyword_ads`,
  * closes competitor ads a healthy week no longer shows, and copies images into our bucket. Both are safe to call again: the cron calls `pump` every half hour on Sunday
@@ -14,20 +14,28 @@ import { COMPETITOR_SOURCES, COUNTRIES, keywordInput, KEYWORD_SOURCES, normalize
 const MAX_RUNNING = 4
 /** A run older than this that hasn't finished is given up on (Apify stops it at 10 minutes). */
 const STALE_MS = 60 * 60_000
-/** Runs queued within this window belong to the same weekly batch. */
+/** Runs queued within this window belong to the same batch. */
 const BATCH_MS = 3 * 86_400_000
+/**
+ * Every two weeks (Dean, 2026-10-20: Apify's free plan). The cron still runs every Sunday; anything
+ * read in the last 13 days is skipped, so each competitor and keyword is read every other Sunday.
+ */
+const READ_EVERY_MS = 13 * 86_400_000
 
 const safe = (s: string) => s.replace(/[^a-zA-Z0-9_-]/g, "_")
 const today = () => new Date().toISOString().slice(0, 10)
 
 /** Clients in COMPETITOR_CLIENTS (slugs), or every client with competitors when it isn't set. */
 async function clientIds(db = createAdminClient(), only?: string) {
-  let q = db.from("clients").select("id, slug")
+  return (await clientsToRead(db, only)).map((c) => c.id)
+}
+async function clientsToRead(db = createAdminClient(), only?: string) {
+  let q = db.from("clients").select("id, slug, currency")
   if (only) q = q.eq("id", only)
   const { data, error } = await q
   if (error) throw new Error(error.message)
   const allowed = (process.env.COMPETITOR_CLIENTS ?? "").split(",").map((s) => s.trim()).filter(Boolean)
-  return (data ?? []).filter((c) => !allowed.length || allowed.includes(c.slug)).map((c) => c.id)
+  return (data ?? []).filter((c) => !allowed.length || allowed.includes(c.slug))
 }
 
 async function competitors(clientId: string, db = createAdminClient()): Promise<(Competitor & { client_id: string })[]> {
@@ -40,13 +48,14 @@ async function competitors(clientId: string, db = createAdminClient()): Promise<
   return data ?? []
 }
 
-/** Queues this week's runs. Skips a competitor or keyword × source × country already queued or read in the last 3 days. */
+/** Queues the runs due. Skips a competitor or keyword × source × country queued or read in the last 13 days. */
 export async function queueWeek(opts: { clientId?: string; force?: boolean; sources?: CompetitorSource[] } = {}) {
   if (!apifyConfigured()) return { queued: 0, skipped: "APIFY_TOKEN isn't set" }
   const db = createAdminClient()
-  const since = new Date(Date.now() - BATCH_MS).toISOString()
+  const since = new Date(Date.now() - READ_EVERY_MS).toISOString()
   let queued = 0
-  for (const clientId of await clientIds(db, opts.clientId)) {
+  for (const { id: clientId, currency } of await clientsToRead(db, opts.clientId)) {
+    const countries = countriesFor(currency)
     const [list, { data: keywords }] = await Promise.all([
       competitors(clientId, db),
       db.from("competitor_keywords").select("id, keyword, sources").eq("client_id", clientId).is("removed_at", null),
@@ -57,7 +66,7 @@ export async function queueWeek(opts: { clientId?: string; force?: boolean; sour
     const done = new Set(opts.force ? [] : (recent ?? []).map((r) => `${r.competitor_id ?? r.keyword_id}|${r.source}|${r.country}`))
     const keywordRows = (keywords ?? []).flatMap((k) =>
       KEYWORD_SOURCES.filter((source) => k.sources.includes(source)).flatMap((source) =>
-        COUNTRIES.filter((country) => !done.has(`${k.id}|${source}|${country}`)).map((country) => ({
+        countries.filter((country) => !done.has(`${k.id}|${source}|${country}`)).map((country) => ({
           client_id: clientId,
           keyword_id: k.id,
           source,
@@ -68,7 +77,7 @@ export async function queueWeek(opts: { clientId?: string; force?: boolean; sour
     )
     const competitorRows = list.flatMap((c) =>
       COMPETITOR_SOURCES.flatMap((source) =>
-        COUNTRIES.filter((country) => SOURCES[source].input(c, country) && !done.has(`${c.id}|${source}|${country}`)).map((country) => ({
+        countries.filter((country) => SOURCES[source].input(c, country) && !done.has(`${c.id}|${source}|${country}`)).map((country) => ({
           client_id: clientId,
           competitor_id: c.id,
           source,

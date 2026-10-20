@@ -33,7 +33,7 @@ function ranFor(a: KeywordAdView, today: string) {
 
 /**
  * Reporting › Keyword ads (Dean, 2026-10-20). For each of the client's keywords, the Meta Ad Library
- * and LinkedIn Ad Library are searched every Sunday (US and UK). The overview shows the 3 ads that
+ * and LinkedIn Ad Library are searched every other Sunday. The overview shows the 3 ads that
  * have run longest among each search's top 30; pick a keyword to see its whole top 30 in the
  * library's own order. The client's own ads are left out of the picks.
  */
@@ -61,14 +61,14 @@ export function KeywordAdsView(props: {
     start(async () => {
       const r = await readAgain(slug)
       if (!r.ok) toast.error(r.message ?? "Couldn't start the read.")
-      else toast.success(r.queued ? `Reading ${r.queued} library searches. Results show here in a few minutes; refresh the page.` : "Everything was read in the last 3 days. Nothing new to read yet.")
+      else toast.success(r.queued ? `Reading ${r.queued} library searches. Results show here in a few minutes; refresh the page.` : "Everything on the list was read in the last 2 weeks. The next read is on a Sunday.")
     })
 
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <p className="max-w-3xl text-sm text-muted-foreground">
-          What the market runs for {props.clientName}&apos;s keywords: the Meta Ad Library and LinkedIn Ad Library searched every Sunday (US and UK). For each search, the top 30 ads in the library&apos;s own order, and the 3 of those that have run longest, which are usually the ones that work. {props.clientName}&apos;s own ads are left out of the picks. Meta starts an ad&apos;s date again when it&apos;s edited, so its days are a minimum; our weekly reads keep the earliest date we&apos;ve seen.
+          What the market runs for {props.clientName}&apos;s keywords: the Meta Ad Library and LinkedIn Ad Library searched every other Sunday. For each search, the top 30 ads in the library&apos;s own order, and the 3 of those that have run longest, which are usually the ones that work. {props.clientName}&apos;s own ads are left out of the picks. Meta starts an ad&apos;s date again when it&apos;s edited, so its days are a minimum; our reads keep the earliest date we&apos;ve seen.
           {props.lastReadAt && <span className="text-subtle-foreground"> Last read {when(props.lastReadAt)}.</span>}
         </p>
         {props.canEdit && (
@@ -231,7 +231,7 @@ function ManageKeywords({ slug, keywords, canEdit }: { slug: string; keywords: K
   const toggle = (s: KeywordSource) => setSources((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]))
   return (
     <section className="space-y-4">
-      <SectionHeader title="Keywords" description="Searched in each library every Sunday, US and UK. Words a buyer or partner would see ads for." />
+      <SectionHeader title="Keywords" description="Searched in each library every other Sunday. Words a buyer or partner would see ads for. Each keyword costs about $0.04 a read, so keep the list short." />
       <div className="surface overflow-hidden">
         <ul className="flex flex-wrap gap-2 p-4">
           {keywords.map((k) => (

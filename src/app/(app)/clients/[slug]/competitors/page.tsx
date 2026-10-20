@@ -9,7 +9,7 @@ export const metadata = { title: "Competitor ads" }
 // "Read again" starts the library reads in the background (after()).
 export const maxDuration = 300
 
-/** Reporting › Competitor ads: what competitors run, from the public ad libraries, read every Sunday. */
+/** Reporting › Competitor ads: what competitors run, from the public ad libraries, read every other Sunday. */
 export default async function CompetitorsPage({ params }: PageProps<"/clients/[slug]/competitors">) {
   const { slug } = await params
   const supabase = await createClient()
