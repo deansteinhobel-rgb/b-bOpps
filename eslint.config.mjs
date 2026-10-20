@@ -17,6 +17,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local only: Claude Code worktrees and git-ignored script output.
+    ".claude/**",
+    "scripts/output/**",
   ]),
 ]);
 
