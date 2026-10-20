@@ -18,10 +18,17 @@ import { addKeyword, readAgain, removeKeyword } from "../competitors/actions"
 const when = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso))
 const DAY = 86_400_000
 
-/** How long an ad has run: Meta's start date (or LinkedIn's, when it shows one); otherwise LinkedIn's id order is the only clue. */
+const day = (d: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "2-digit" }).format(new Date(d))
+/**
+ * How long the creative has run: since its earliest version (Meta publishes an edited ad as a new
+ * entry with a new start date), saying so when this version is newer. LinkedIn rarely shows dates;
+ * its order then comes from ad ids.
+ */
 function ranFor(a: KeywordAdView, today: string) {
-  if (a.started_on) return `Live ${Math.max(0, Math.round((Date.parse(today) - Date.parse(a.started_on)) / DAY))} days`
-  return a.source === "linkedin" ? "Older ad (by LinkedIn's ad id)" : "Start date unknown"
+  if (!a.started_on && a.source === "linkedin" && a.since === a.first_seen_at.slice(0, 10)) return "Older ad (by LinkedIn's ad id)"
+  const days = Math.max(0, Math.round((Date.parse(today) - Date.parse(a.since)) / DAY))
+  const version = a.started_on && a.started_on > a.since ? ` (this version since ${day(a.started_on)})` : ""
+  return `Running since ${day(a.since)}, ${days} days${version}`
 }
 
 /**
@@ -165,7 +172,7 @@ function MiniAd({ ad, today }: { ad: KeywordAdView; today: string }) {
       <Creative ad={ad} className="size-14 shrink-0" />
       <span className="min-w-0">
         <span className="block truncate text-[13px] font-medium text-foreground">{ad.advertiser ?? "Unknown advertiser"}</span>
-        <span className="block truncate text-xs text-muted-foreground">{ranFor(ad, today)}</span>
+        <span className="block truncate text-xs text-muted-foreground" title={ranFor(ad, today)}>{ranFor(ad, today)}</span>
         <span className="block truncate text-xs text-body">{ad.headline ?? ad.body ?? ""}</span>
       </span>
     </a>

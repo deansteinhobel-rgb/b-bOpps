@@ -1,6 +1,6 @@
 import "server-only"
 import type { Db } from "@/lib/supabase/db"
-import { longestRunning, topAds, type KeywordAd } from "./keywords"
+import { longestRunning, runningSince, topAds, type KeywordAd } from "./keywords"
 import { SOURCE_LABEL, type CompetitorSource, type KeywordSource } from "./sources"
 import { daysLive, firstReads, isNew, labelMix } from "./view"
 
@@ -32,15 +32,17 @@ async function namedCompetitors(db: Db, clientId: string, today: string, per: nu
     db.from("client_competitors").select("id, name, notes").eq("client_id", clientId).is("removed_at", null).order("name"),
     db
       .from("competitor_ads")
-      .select("id, competitor_id, source, started_on, first_seen_at, headline, body, cta, storage_path, content_type, label_format, label_content_type, label_offer, label_hook, label_topic")
+      .select("id, competitor_id, source, external_id, active, started_on, first_seen_at, headline, body, cta, storage_path, content_type, label_format, label_content_type, label_offer, label_hook, label_topic")
       .eq("client_id", clientId)
-      .eq("active", true)
-      .limit(1000),
+      .limit(3000),
   ])
-  const listed = (competitors ?? []).filter((c) => (ads ?? []).some((a) => a.competitor_id === c.id))
+  // Stopped versions only date the creative (Meta re-dates edited ads); live ads are listed.
+  const creativeSince = runningSince(ads ?? [])
+  const all = (ads ?? []).map((a) => ({ ...a, started_on: a.started_on ? creativeSince(a).since : null }))
+  const listed = (competitors ?? []).filter((c) => all.some((a) => a.active && a.competitor_id === c.id))
   const longest: Longest[] = []
   if (!listed.length) return { text: "", longest }
-  const live = (ads ?? []).filter((a) => listed.some((c) => c.id === a.competitor_id))
+  const live = all.filter((a) => a.active && listed.some((c) => c.id === a.competitor_id))
   const first = firstReads(live.map((a) => ({ ...a, source: a.source as CompetitorSource })))
 
   const lines = ["### Named competitors"]
@@ -71,19 +73,21 @@ async function keywordMarket(db: Db, clientId: string, today: string) {
   const [{ data: client }, { data: keywords }, { data: ads }] = await Promise.all([
     db.from("clients").select("name").eq("id", clientId).single(),
     db.from("competitor_keywords").select("id, keyword, sources").eq("client_id", clientId).is("removed_at", null).order("created_at"),
-    db.from("keyword_ads").select("id, keyword_id, source, external_id, advertiser, ranks, started_on, first_seen_at, last_seen_at, headline, body").eq("client_id", clientId).gte("last_seen_at", since).limit(3000),
+    db.from("keyword_ads").select("id, keyword_id, source, external_id, advertiser, ranks, started_on, ended_on, first_seen_at, last_seen_at, headline, body").eq("client_id", clientId).gte("last_seen_at", since).limit(3000),
   ])
   if (!keywords?.length || !ads?.length) return ""
-  const rows = ads.map((a) => ({ ...a, source: a.source as KeywordSource, ranks: (a.ranks ?? {}) as Record<string, number> })) as (KeywordAd & { headline: string | null; body: string | null })[]
+  const rows = ads.map((a) => ({ ...a, source: a.source as KeywordSource, ranks: (a.ranks ?? {}) as Record<string, number> })) as KeywordAd[]
+  const creativeSince = runningSince(rows)
   const lines = ["### The market by keyword (the 3 longest-running ads among each search's top 30)"]
   for (const k of keywords)
     for (const source of ["linkedin", "meta"] as const) {
       if (!k.sources.includes(source)) continue
-      const picks = longestRunning(topAds(rows.filter((r) => r.keyword_id === k.id && r.source === source)), [client?.name ?? ""])
+      const versions = rows.filter((r) => r.keyword_id === k.id && r.source === source)
+      const picks = longestRunning(topAds(versions), [client?.name ?? ""], 3, versions)
       if (!picks.length) continue
       lines.push(`#### "${k.keyword}" on ${SOURCE_LABEL[source]}`)
       for (const a of picks) {
-        const ran = a.started_on ? `live ${Math.max(0, Math.round((Date.parse(today) - Date.parse(a.started_on)) / 86_400_000))} days` : "an older ad (by LinkedIn's ad id)"
+        const ran = a.started_on || a.source === "meta" ? `running since ${creativeSince(a).since} (${Math.max(0, Math.round((Date.parse(today) - Date.parse(creativeSince(a).since)) / 86_400_000))} days)` : "an older ad (by LinkedIn's ad id)"
         lines.push(`- ${a.advertiser ?? "Unknown advertiser"}, ${ran} | "${oneLine(a.headline, 120) || "–"}" ${oneLine(a.body, 200)}`)
       }
     }

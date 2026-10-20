@@ -41,7 +41,7 @@ async function competitors(clientId: string, db = createAdminClient()): Promise<
 }
 
 /** Queues this week's runs. Skips a competitor or keyword × source × country already queued or read in the last 3 days. */
-export async function queueWeek(opts: { clientId?: string } = {}) {
+export async function queueWeek(opts: { clientId?: string; force?: boolean; sources?: CompetitorSource[] } = {}) {
   if (!apifyConfigured()) return { queued: 0, skipped: "APIFY_TOKEN isn't set" }
   const db = createAdminClient()
   const since = new Date(Date.now() - BATCH_MS).toISOString()
@@ -53,7 +53,8 @@ export async function queueWeek(opts: { clientId?: string } = {}) {
     ])
     if (!list.length && !keywords?.length) continue
     const { data: recent } = await db.from("competitor_runs").select("competitor_id, keyword_id, source, country").eq("client_id", clientId).gte("queued_at", since).neq("status", "failed")
-    const done = new Set((recent ?? []).map((r) => `${r.competitor_id ?? r.keyword_id}|${r.source}|${r.country}`))
+    // `force` reads again anyway (e.g. after a change to what a read asks for); `sources` limits it.
+    const done = new Set(opts.force ? [] : (recent ?? []).map((r) => `${r.competitor_id ?? r.keyword_id}|${r.source}|${r.country}`))
     const keywordRows = (keywords ?? []).flatMap((k) =>
       KEYWORD_SOURCES.filter((source) => k.sources.includes(source)).flatMap((source) =>
         COUNTRIES.filter((country) => !done.has(`${k.id}|${source}|${country}`)).map((country) => ({
@@ -76,7 +77,7 @@ export async function queueWeek(opts: { clientId?: string } = {}) {
         })),
       ),
     )
-    const rows = [...competitorRows, ...keywordRows]
+    const rows = [...competitorRows, ...keywordRows].filter((r) => !opts.sources || opts.sources.includes(r.source))
     if (rows.length) {
       const { error } = await db.from("competitor_runs").insert(rows)
       if (error) throw new Error(error.message)
@@ -258,7 +259,8 @@ async function collectKeyword(run: RunRow, items: unknown[], usage?: number) {
           keyword_id: run.keyword_id!,
           source: run.source,
           countries: [...new Set([...(p?.countries ?? []), run.country])].sort(),
-          ranks: { ...((p?.ranks as Record<string, number> | null) ?? {}), [run.country]: a.rank },
+          // Stopped versions keep no place in this read.
+          ranks: a.rank === null ? ((p?.ranks as Record<string, number> | null) ?? {}) : { ...((p?.ranks as Record<string, number> | null) ?? {}), [run.country]: a.rank },
           last_seen_at: now,
         }
       }),

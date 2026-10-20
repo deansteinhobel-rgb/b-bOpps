@@ -221,7 +221,7 @@ function AdPanel({ ads, names, today }: { ads: AdRow[]; names: Map<string, strin
                   <DialogPrimitive.Title className="font-heading text-2xl leading-tight">{names.get(ad.competitor_id)}</DialogPrimitive.Title>
                   <DialogPrimitive.Description className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
                     <PlatformIcon platform={SOURCE_PLATFORM[ad.source]} /> {SOURCE_LABEL[ad.source]} · live {daysAreEstimate(ad) ? `at least ${daysLive(ad, today)}` : daysLive(ad, today)} days
-                    {ad.started_on ? ` (since ${ad.started_on.split("-").reverse().join("/")})` : ""} · {ad.countries.join(", ")}
+                    {ad.started_on ? ` (since ${ad.started_on.split("-").reverse().join("/")}${ad.version_started_on ? `; this version since ${ad.version_started_on.split("-").reverse().join("/")}` : ""})` : ""} · {ad.countries.join(", ")}
                   </DialogPrimitive.Description>
                 </div>
                 <DialogPrimitive.Close className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Close">

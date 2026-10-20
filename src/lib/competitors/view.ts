@@ -13,7 +13,11 @@ export type AdRow = {
   id: string
   competitor_id: string
   source: CompetitorSource
+  external_id: string
+  /** When the creative started: its earliest version in the library (Meta re-dates edited ads). */
   started_on: string | null
+  /** This library entry's own start date, when it's later than the creative's. */
+  version_started_on: string | null
   first_seen_at: string
   last_seen_at: string
   active: boolean

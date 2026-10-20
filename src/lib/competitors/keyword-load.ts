@@ -1,6 +1,6 @@
 import "server-only"
 import type { Db } from "@/lib/supabase/db"
-import { longestRunning, topAds, type KeywordAd } from "./keywords"
+import { longestRunning, runningSince, topAds, type KeywordAd } from "./keywords"
 import type { KeywordSource } from "./sources"
 
 const BUCKET = "ad-previews"
@@ -9,8 +9,8 @@ const RECENT_MS = 14 * 86_400_000
 
 export type KeywordRow = { id: string; keyword: string; sources: string[] }
 export type KeywordAdView = KeywordAd & {
-  headline: string | null
-  body: string | null
+  /** When the creative started: its earliest version, or when we first saw it (keywords.ts). */
+  since: string
   cta: string | null
   landing_url: string | null
   library_url: string | null
@@ -28,12 +28,12 @@ export type KeywordSummary = { keywordId: string; source: KeywordSource; count: 
 export async function loadKeywordPage(supabase: Db, client: { id: string; name: string }, pick: { keywordId?: string; source?: KeywordSource }) {
   const since = new Date(Date.now() - RECENT_MS).toISOString()
   const { data: keywords } = await supabase.from("competitor_keywords").select("id, keyword, sources").eq("client_id", client.id).is("removed_at", null).order("created_at")
-  type Raw = Omit<KeywordAdView, "src"> & { storage_path: string | null }
+  type Raw = Omit<KeywordAdView, "src" | "since"> & { storage_path: string | null }
   const rows: Raw[] = []
   for (let from = 0; ; from += 1000) {
     const { data } = await supabase
       .from("keyword_ads")
-      .select("id, keyword_id, source, external_id, advertiser, ranks, started_on, first_seen_at, last_seen_at, headline, body, cta, landing_url, library_url, format, countries, storage_path")
+      .select("id, keyword_id, source, external_id, advertiser, ranks, started_on, ended_on, first_seen_at, last_seen_at, headline, body, cta, landing_url, library_url, format, countries, storage_path")
       .eq("client_id", client.id)
       .gte("last_seen_at", since)
       .order("id")
@@ -57,8 +57,9 @@ export async function loadKeywordPage(supabase: Db, client: { id: string; name: 
   for (const k of list)
     for (const source of ["linkedin", "meta"] as const) {
       if (!k.sources.includes(source)) continue
-      const top = topAds(rows.filter((r) => r.keyword_id === k.id && r.source === source))
-      summaries.push({ keywordId: k.id, source, count: top.length, top, picks: longestRunning(top, own) })
+      const versions = rows.filter((r) => r.keyword_id === k.id && r.source === source)
+      const top = topAds(versions)
+      summaries.push({ keywordId: k.id, source, count: top.length, top, picks: longestRunning(top, own, 3, versions) })
     }
 
   const selected = list.find((k) => k.id === pick.keywordId) ?? list[0] ?? null
@@ -75,9 +76,10 @@ export async function loadKeywordPage(supabase: Db, client: { id: string; name: 
     const { data } = await supabase.storage.from(BUCKET).createSignedUrls(paths.slice(i, i + 500), 3600)
     for (const s of data ?? []) if (s.path && s.signedUrl) signed.set(s.path, s.signedUrl)
   }
+  const creativeSince = runningSince(rows)
   const view = (a: Raw): KeywordAdView => {
     const { storage_path, ...rest } = a
-    return { ...rest, src: storage_path ? (signed.get(storage_path) ?? null) : null }
+    return { ...rest, since: creativeSince(a).since, src: storage_path ? (signed.get(storage_path) ?? null) : null }
   }
 
   return {

@@ -12,6 +12,11 @@ export const SOURCE_LABEL: Record<CompetitorSource, string> = { meta: "Meta", go
 export const COUNTRIES = ["US", "GB"] as const
 /** Most ads kept per competitor, source and country in one weekly run. */
 export const MAX_ADS = 60
+/**
+ * Meta reads ask for stopped ads too, so earlier versions of an edited ad come back and the
+ * creative's real start can be found (keywords.ts, runningSince); more items to leave room for them.
+ */
+const META_ALL = 120
 
 export type Competitor = { id: string; name: string; meta_page_id: string | null; linkedin_advertiser: string | null; google_advertiser_ids: string[] }
 
@@ -70,9 +75,9 @@ export const SOURCES: Record<CompetitorSource, Source> = {
     input: (c, country) =>
       c.meta_page_id
         ? {
-            urls: [{ url: `${META_LIBRARY}?active_status=active&ad_type=all&country=${country}&view_all_page_id=${c.meta_page_id}&media_type=all` }],
-            limitPerSource: MAX_ADS,
-            count: MAX_ADS,
+            urls: [{ url: `${META_LIBRARY}?active_status=all&ad_type=all&country=${country}&view_all_page_id=${c.meta_page_id}&media_type=all` }],
+            limitPerSource: META_ALL,
+            count: META_ALL,
           }
         : null,
     normalize: (item, c) => {
@@ -193,17 +198,19 @@ export function advertiserOf(source: CompetitorSource, item: Item): { name: stri
 /** Keyword searches: Meta and LinkedIn only (Google's library can't be searched by keyword). */
 export const KEYWORD_SOURCES = ["meta", "linkedin"] as const satisfies readonly CompetitorSource[]
 export type KeywordSource = (typeof KEYWORD_SOURCES)[number]
-/** How many ads per keyword, library and country: the top 30 in the library's own order. */
+/** How many ads per keyword, library and country: the top 30 live ones in the library's own order. */
 export const KEYWORD_MAX = 30
+/** Meta keyword reads include stopped ads (for earlier versions), so they fetch more to keep 30 live. */
+const META_KEYWORD_ALL = 100
 /** A search with no advertiser filter: the normalizers keep every advertiser's ads. */
 export const ANYONE: Competitor = { id: "", name: "", meta_page_id: null, linkedin_advertiser: null, google_advertiser_ids: [] }
 
 export function keywordInput(source: KeywordSource, keyword: string, country: string): Record<string, unknown> {
   if (source === "meta")
     return {
-      urls: [{ url: `${META_LIBRARY}?active_status=active&ad_type=all&country=${country}&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered&media_type=all` }],
-      limitPerSource: KEYWORD_MAX,
-      count: KEYWORD_MAX,
+      urls: [{ url: `${META_LIBRARY}?active_status=all&ad_type=all&country=${country}&q=${encodeURIComponent(keyword)}&search_type=keyword_unordered&media_type=all` }],
+      limitPerSource: META_KEYWORD_ALL,
+      count: META_KEYWORD_ALL,
     }
   return { keyword, countries: [country], maxAds: KEYWORD_MAX }
 }
@@ -226,17 +233,22 @@ export function runIsHealthy(items: number, liveBefore: number) {
   return items > 0 || liveBefore === 0
 }
 
-/** A keyword search's ads in the library's order (rank 1 = first), with who ran each. */
+/**
+ * A keyword search's ads with who ran each: the first 30 live ones ranked in the library's order
+ * (rank 1 = first), and stopped ones unranked (kept only as earlier versions of a creative).
+ */
 export function normalizeKeywordItems(source: KeywordSource, items: unknown[], today: string) {
-  const out: (CompetitorAd & { rank: number; advertiser: string | null; advertiser_id: string | null })[] = []
+  const out: (CompetitorAd & { rank: number | null; advertiser: string | null; advertiser_id: string | null })[] = []
   const seen = new Set<string>()
+  let live = 0
   for (const raw of items) {
     const item = obj(raw)
     const ad = SOURCES[source].normalize(item, ANYONE, today)
     if (!ad || seen.has(ad.external_id)) continue
+    if (ad.active && live >= KEYWORD_MAX) continue
     seen.add(ad.external_id)
     const who = advertiserOf(source, item)
-    out.push({ ...ad, rank: out.length + 1, advertiser: who.name, advertiser_id: who.id })
+    out.push({ ...ad, rank: ad.active ? ++live : null, advertiser: who.name, advertiser_id: who.id })
   }
-  return out.slice(0, KEYWORD_MAX)
+  return out
 }
