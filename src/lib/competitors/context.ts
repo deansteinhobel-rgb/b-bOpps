@@ -4,7 +4,7 @@ import { longestRunning, runningSince, topAds, type KeywordAd } from "./keywords
 import { SOURCE_LABEL, type CompetitorSource, type KeywordSource } from "./sources"
 import { daysLive, firstReads, isNew, labelMix } from "./view"
 
-const oneLine = (s: string | null | undefined, n: number) => (s ?? "").replace(/\s+/g, " ").trim().slice(0, n)
+const oneLine = (s: string | null | undefined, n: number) => (s ?? "").replace(/\s+/g, " ").trim().slice(0, n).replace(/[\uD800-\uDBFF]$/, "")
 type Longest = { id: string; competitor: string; storage_path: string; content_type: string | null; line: string }
 
 /**

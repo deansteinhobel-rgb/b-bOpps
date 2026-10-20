@@ -45,7 +45,12 @@ type Source = {
   normalize: (item: Item, c: Competitor, today: string) => CompetitorAd | null
 }
 
-const str = (v: unknown, max = 2000) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null)
+/**
+ * Text cut to `max` without splitting an emoji (half a surrogate pair is invalid JSON and the
+ * database refuses the row), and without NUL characters, which Postgres can't store.
+ */
+export const cut = (v: string, max: number) => v.replace(/\u0000/g, "").slice(0, max).replace(/[\uD800-\uDBFF]$/, "")
+const str = (v: unknown, max = 2000) => (typeof v === "string" && v.trim() ? cut(v.trim(), max) : null)
 const obj = (v: unknown): Item => (v && typeof v === "object" && !Array.isArray(v) ? (v as Item) : {})
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
 const https = (v: unknown) => {

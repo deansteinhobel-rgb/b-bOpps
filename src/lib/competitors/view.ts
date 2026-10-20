@@ -44,8 +44,12 @@ export function daysLive(ad: Pick<AdRow, "started_on" | "first_seen_at">, today:
   const from = ad.started_on ?? ad.first_seen_at.slice(0, 10)
   return Math.max(0, Math.round((Date.parse(today) - Date.parse(from)) / DAY))
 }
-/** Whether the days count is ours (first seen) rather than the library's, so the page can say "at least". */
-export const daysAreEstimate = (ad: Pick<AdRow, "started_on">) => !ad.started_on
+/**
+ * Whether the days count is a minimum, so the page says "at least": ours (first seen) rather than the
+ * library's, or Meta's, which starts again when an ad is edited and keeps no earlier entry (DNSFilter's
+ * MSP ads, delivering since 18 Sept, showed as started 19 Oct).
+ */
+export const daysAreEstimate = (ad: Pick<AdRow, "started_on" | "source">) => !ad.started_on || ad.source === "meta"
 
 /**
  * When we first read each competitor on each library ("competitor|source" → day). Ads found in that

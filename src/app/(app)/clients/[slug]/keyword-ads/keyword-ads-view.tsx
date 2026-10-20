@@ -20,15 +20,15 @@ const DAY = 86_400_000
 
 const day = (d: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "2-digit" }).format(new Date(d))
 /**
- * How long the creative has run: since its earliest version (Meta publishes an edited ad as a new
- * entry with a new start date), saying so when this version is newer. LinkedIn rarely shows dates;
- * its order then comes from ad ids.
+ * How long the creative has run: since its earliest version we know of, saying so when this version
+ * is newer. Meta starts the date again when an ad is edited and keeps no earlier entry, so its
+ * days are a minimum ("at least"). LinkedIn rarely shows dates; its order then comes from ad ids.
  */
 function ranFor(a: KeywordAdView, today: string) {
   if (!a.started_on && a.source === "linkedin" && a.since === a.first_seen_at.slice(0, 10)) return "Older ad (by LinkedIn's ad id)"
   const days = Math.max(0, Math.round((Date.parse(today) - Date.parse(a.since)) / DAY))
   const version = a.started_on && a.started_on > a.since ? ` (this version since ${day(a.started_on)})` : ""
-  return `Running since ${day(a.since)}, ${days} days${version}`
+  return `Live at least ${days} days, since ${day(a.since)}${version}`
 }
 
 /**
@@ -68,7 +68,7 @@ export function KeywordAdsView(props: {
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <p className="max-w-3xl text-sm text-muted-foreground">
-          What the market runs for {props.clientName}&apos;s keywords: the Meta Ad Library and LinkedIn Ad Library searched every Sunday (US and UK). For each search, the top 30 ads in the library&apos;s own order, and the 3 of those that have run longest, which are usually the ones that work. {props.clientName}&apos;s own ads are left out of the picks.
+          What the market runs for {props.clientName}&apos;s keywords: the Meta Ad Library and LinkedIn Ad Library searched every Sunday (US and UK). For each search, the top 30 ads in the library&apos;s own order, and the 3 of those that have run longest, which are usually the ones that work. {props.clientName}&apos;s own ads are left out of the picks. Meta starts an ad&apos;s date again when it&apos;s edited, so its days are a minimum; our weekly reads keep the earliest date we&apos;ve seen.
           {props.lastReadAt && <span className="text-subtle-foreground"> Last read {when(props.lastReadAt)}.</span>}
         </p>
         {props.canEdit && (
