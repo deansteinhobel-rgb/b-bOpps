@@ -14,7 +14,7 @@ import { sprintOf } from "@/lib/sprints/periods"
 import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 import { leverForInsight } from "@/lib/taxonomy"
-import { PLATFORMS } from "@/lib/metrics/types"
+import { isPlatform, PLATFORMS } from "@/lib/metrics/types"
 
 // What the team does with an insight. All as the signed-in user (RLS: the client's team and
 // admins), logged append-only in insight_actions. Nothing is written to the ad platforms (Dean:
@@ -164,7 +164,7 @@ export async function testFromInsight(slug: string, key: string, raw: z.input<ty
     .insert({
       sprint_id: sprint.id,
       client_id: l.client.id,
-      platform: CONNECTED.includes(i.platform) ? i.platform : null,
+      platform: isPlatform(i.platform) && CONNECTED.includes(i.platform) ? i.platform : null,
       title: p.data.title,
       hypothesis: p.data.hypothesis || null,
       assets: [],

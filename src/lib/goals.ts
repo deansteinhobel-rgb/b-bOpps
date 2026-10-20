@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 
 /**
  * The client's business goal for the months the report's dates touch (Dean, 2026-10-19: DNSFilter's
@@ -10,7 +10,7 @@ export type ReportGoal = { name: string; months: GoalMonth[] }
 
 const monthLabel = (m: string, year: boolean) => new Intl.DateTimeFormat("en-GB", { month: "long", ...(year ? { year: "numeric" } : {}), timeZone: "UTC" }).format(new Date(m))
 
-export async function loadGoals(db: SupabaseClient, clientId: string, from: string, to: string, today: string): Promise<ReportGoal[]> {
+export async function loadGoals(db: Db, clientId: string, from: string, to: string, today: string): Promise<ReportGoal[]> {
   // Every month from the one `from` is in to the one `to` is in, newest first (at most 6).
   const months: string[] = []
   for (let y = Number(to.slice(0, 4)), m = Number(to.slice(5, 7)); months.length < 6; m--) {

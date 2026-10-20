@@ -4,7 +4,7 @@ import { claude } from "@/lib/ai/claude"
 import { longDate, money, oneDp, withSymbols } from "@/lib/format"
 import { briefForPrompt } from "@/lib/knowledge/brief"
 import { PLATFORM_LABEL } from "@/lib/metrics/types"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import type { SprintTest } from "./data"
 import { improvement, metricValue, resultsOf, TEST_KINDS, VERDICTS, type TestDetail, type Totals, type VerdictKind } from "./results"
 import { ASSETS, METRICS, successLine } from "./tests"
@@ -97,7 +97,7 @@ How to judge:
 - Currency is always a symbol ($, £, €). Use the client's brief for context on goals and audience. Never invent numbers that aren't given.`
 
 /** Writes today's read for a test (the caller has checked access). Uses the admin client. */
-export async function writeTestRead(db: SupabaseClient, o: { test: SprintTest; clientId: string; currency: string; detail: TestDetail; today: string; requestedBy: string | null }): Promise<TestRead> {
+export async function writeTestRead(db: Db, o: { test: SprintTest; clientId: string; currency: string; detail: TestDetail; today: string; requestedBy: string | null }): Promise<TestRead> {
   const brief = await briefForPrompt(o.clientId)
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: `${brief ? `${brief}\n\n` : ""}${testReadContext(o.test, o.detail, o.currency)}\n\nRead this test, then call submit_read.` }]
   const usage = { input_tokens: 0, output_tokens: 0 }

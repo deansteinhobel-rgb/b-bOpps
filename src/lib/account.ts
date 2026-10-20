@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { addDays } from "@/lib/metrics/ads"
 import type { Platform } from "@/lib/metrics/types"
 import { rpcAll } from "@/lib/supabase/rpc-all"
@@ -28,7 +28,7 @@ const totals = (rows: { spend: number; results: number; clicks: number; impressi
 }
 
 /** The latest synced day across the client's ad accounts, or null when there's no ad data yet. */
-export async function latestDataDay(supabase: SupabaseClient, clientId: string): Promise<string | null> {
+export async function latestDataDay(supabase: Db, clientId: string): Promise<string | null> {
   const { data: range, error } = await dataRanges(supabase, clientId)
   // A failed read (e.g. a timeout) must not look like "no ad data yet".
   if (error) throw new Error(`Couldn't read the data range: ${error.message}`)
@@ -36,7 +36,7 @@ export async function latestDataDay(supabase: SupabaseClient, clientId: string):
 }
 
 /** Pass `through` (from latestDataDay) when the caller already has it, so it isn't read twice. */
-export async function getAccountNumbers(supabase: SupabaseClient, clientId: string, through?: Promise<string | null>): Promise<AccountNumbers | null> {
+export async function getAccountNumbers(supabase: Db, clientId: string, through?: Promise<string | null>): Promise<AccountNumbers | null> {
   const dataThrough = await (through ?? latestDataDay(supabase, clientId))
   if (!dataThrough) return null
   const month = `${dataThrough.slice(0, 7)}-01`

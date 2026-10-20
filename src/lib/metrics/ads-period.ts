@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import type { AdStat } from "./ads"
 import type { Platform } from "./types"
@@ -6,7 +6,7 @@ import type { Platform } from "./types"
 const num = (v: unknown) => Number(v ?? 0)
 
 /** Every ad's totals over a period. */
-export async function adsForPeriod(supabase: SupabaseClient, clientId: string, from: string, to: string): Promise<AdStat[]> {
+export async function adsForPeriod(supabase: Db, clientId: string, from: string, to: string): Promise<AdStat[]> {
   const rows = await rpcAll(supabase, "ad_totals", { p_client: clientId, p_from: from, p_to: to })
   return rows.map((r) => ({
     platform: r.platform as Platform,

@@ -1,6 +1,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { windsorRows } from "./rest"
+import type { Json, TablesInsert } from "@/lib/supabase/database.types"
 
 /**
  * Phase 2 breakdowns from Windsor into windsor_breakdowns (see the migration for what each kind is).
@@ -113,7 +114,7 @@ export async function syncBreakdown(kind: Kind, account: Account, from: string, 
   ].filter((f) => !(spec.connector === "googleanalytics4" && (f === "campaign_id" || f === "campaign")))
   const data = await windsor(spec.connector, account.external_account_id, spec.connector === "googleanalytics4" ? [...fields, "campaign"] : fields, from, to)
 
-  const byKey = new Map<string, Record<string, unknown>>()
+  const byKey = new Map<string, TablesInsert<"windsor_breakdowns">>()
   for (const r of data) {
     if (spec.channels && !spec.channels.includes(str(r.advertising_channel_type))) continue
     const row = {
@@ -133,7 +134,7 @@ export async function syncBreakdown(kind: Kind, account: Account, from: string, 
       clicks: Math.round(num(r.clicks)),
       conversions: spec.results ? account.conversion_fields.reduce((s, f) => s + num(r[f]), 0) : spec.connector === "googleanalytics4" ? num(r.conversions) : 0,
       leads: spec.results ? account.lead_fields.reduce((s, f) => s + num(r[f]), 0) : 0,
-      extra: spec.extra ? Object.fromEntries(spec.extra.map((f) => [f, r[f] ?? null])) : null,
+      extra: spec.extra ? (Object.fromEntries(spec.extra.map((f) => [f, r[f] ?? null])) as Json) : null,
       synced_at: new Date().toISOString(),
     }
     if (!row.date || (!row.dim1 && kind !== "impression_share")) continue

@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 
 /**
  * Per-person caps on the routes that spend money or take uploads (security review, 2026-09-29).
@@ -39,7 +39,7 @@ export const LIMITS = {
 export type LimitKind = keyof typeof LIMITS
 
 /** Null when allowed (and counted); otherwise the message to show. */
-export async function rateLimit(supabase: SupabaseClient, kind: LimitKind): Promise<string | null> {
+export async function rateLimit(supabase: Db, kind: LimitKind): Promise<string | null> {
   const l = LIMITS[kind]
   const { data, error } = await supabase.rpc("take_rate_limit", { p_kind: kind, p_max: l.max, p_window_seconds: l.seconds })
   if (error) {

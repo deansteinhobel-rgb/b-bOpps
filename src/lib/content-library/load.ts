@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 
 export type SeqStatus = "pending" | "approved" | "not_required"
 
@@ -39,7 +39,7 @@ export type LibraryPiece = {
  * the caller has already loaded through RLS, and the user's own Supabase client: the tables' RLS
  * scopes the reads too. An email may point at an archived piece; the page shows it as removed.
  */
-export async function loadLibrary(supabase: SupabaseClient, clientId: string): Promise<LibraryPiece[]> {
+export async function loadLibrary(supabase: Db, clientId: string): Promise<LibraryPiece[]> {
   const [pieces, emails] = await Promise.all([
     supabase
       .from("content_pieces")
@@ -59,7 +59,7 @@ export async function loadLibrary(supabase: SupabaseClient, clientId: string): P
     const picked = e.suggested_handoff !== null || e.suggested_target_piece_id !== null
     const list = byPiece.get(e.piece_id) ?? []
     list.push({
-      slot: e.slot,
+      slot: e.slot as LibraryEmail["slot"], // a check constraint keeps it 1-3
       targetId: e.target_piece_id,
       handoff: e.handoff,
       angle: e.angle,
@@ -80,7 +80,7 @@ export async function loadLibrary(supabase: SupabaseClient, clientId: string): P
     audiences: p.audiences ?? [],
     verticals: p.verticals ?? [],
     purpose: p.purpose,
-    seqStatus: p.seq_status,
+    seqStatus: p.seq_status as SeqStatus, // a check constraint keeps it to these
     reapproval: p.reapproval,
     approvedAt: p.approved_at,
     notionPageUrl: p.notion_page_url,

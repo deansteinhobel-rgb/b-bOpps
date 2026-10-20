@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { currentPeriods } from "@/lib/checks/periods"
 import { isRedNotActioned } from "@/lib/checks/runs"
@@ -39,7 +39,7 @@ const SEVERITY = { red: 3, amber: 2, green: 1, no_budget: 0 } as const
  * numbers only (pacing, checks done, tests, open actions, team names); `canOpen` says which clients the
  * person can open (RLS), and the client pages stay scoped by RLS as before.
  */
-export async function clientCards(supabase: SupabaseClient): Promise<ClientCard[]> {
+export async function clientCards(supabase: Db): Promise<ClientCard[]> {
   const { weekly, today } = currentPeriods()
   const sprintPeriod = sprintOf(today)
   const db = createAdminClient()

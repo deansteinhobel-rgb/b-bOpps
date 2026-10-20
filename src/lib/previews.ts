@@ -1,5 +1,6 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
+import { fromJson } from "@/lib/supabase/db"
 
 export type AdKey = { platform: string; external_account_id: string; ad_id: string }
 export type TextAd = { headlines: { text: string; pinned: string | null }[]; descriptions: { text: string; pinned: string | null }[]; path1: string | null; path2: string | null; finalUrl: string | null }
@@ -19,7 +20,7 @@ const BUCKET = "ad-previews"
  * snapshot keeps its images for 90 days). Uses the caller's Supabase client, so RLS (ad_creatives +
  * storage policy) only returns their clients' creatives.
  */
-export async function previewsFor(supabase: SupabaseClient, clientId: string, ads: AdKey[], ttl = 3600): Promise<PreviewMap> {
+export async function previewsFor(supabase: Db, clientId: string, ads: AdKey[], ttl = 3600): Promise<PreviewMap> {
   const ids = [...new Set(ads.map((a) => a.ad_id))]
   if (!ids.length) return {}
   const rows: { platform: string; external_account_id: string; ad_id: string; storage_path: string | null; preview_link: string | null; manual_post_link: string | null; ad_type: string | null; text_ad: TextAd | null }[] = []
@@ -29,7 +30,7 @@ export async function previewsFor(supabase: SupabaseClient, clientId: string, ad
       .select("platform, external_account_id, ad_id, storage_path, preview_link, manual_post_link, ad_type, text_ad")
       .eq("client_id", clientId)
       .in("ad_id", ids.slice(i, i + 200))
-    rows.push(...(data ?? []))
+    rows.push(...(data ?? []).map((r) => ({ ...r, text_ad: fromJson<TextAd | null>(r.text_ad, null) })))
   }
   const paths = rows.map((r) => r.storage_path).filter(Boolean) as string[]
   const signed = new Map<string, string>()

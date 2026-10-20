@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { followUpsForClient } from "@/lib/calls/load"
 import { KIND_LABEL, REMIND_WINDOW_DAYS } from "@/lib/calls/state"
 import { currentPeriods } from "@/lib/checks/periods"
@@ -63,7 +63,7 @@ const dueWhen = (due: string, today: string): QueueItem["when"] => {
  * The queue for the given clients. SECURITY: `clients` must have been loaded with the user's own RLS
  * client (loadFeed and cachedPacing read with the admin client once access is confirmed).
  */
-export async function loadQueue(supabase: SupabaseClient, clients: QueueClient[], opts: { profileId: string }): Promise<QueueItem[]> {
+export async function loadQueue(supabase: Db, clients: QueueClient[], opts: { profileId: string }): Promise<QueueItem[]> {
   const { today, weekly, monthly } = currentPeriods()
   const sprint = sprintOf(today)
   const perClient = await Promise.all(clients.map((c) => clientQueue(supabase, c, { ...opts, today, weekly, monthly, sprintStart: sprint.start })))
@@ -71,7 +71,7 @@ export async function loadQueue(supabase: SupabaseClient, clients: QueueClient[]
 }
 
 async function clientQueue(
-  supabase: SupabaseClient,
+  supabase: Db,
   client: QueueClient,
   o: { profileId: string; today: string; weekly: { start: string; end: string }; monthly: { start: string; end: string }; sprintStart: string },
 ): Promise<QueueItem[]> {

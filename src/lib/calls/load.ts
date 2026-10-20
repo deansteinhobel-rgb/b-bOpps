@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { londonToday } from "@/lib/checks/periods"
 import { commitmentState, daysBetween, REMIND_WINDOW_DAYS, type CommitmentAction, type CommitmentKind, type CommitmentState } from "./state"
 
@@ -29,7 +29,7 @@ export type FollowUp = {
 const COLS = "id, client_id, call_id, kind, title, detail, quote, platform, owner_side, owner_name, due_on, said_on, acted_at, acted_evidence, acted_href, created_at, client_calls(title)"
 type Row = { id: string; client_id: string; call_id: string; kind: CommitmentKind; title: string; detail: string | null; quote: string | null; platform: string | null; owner_side: "bb" | "client" | "both"; owner_name: string | null; due_on: string | null; said_on: string; acted_at: string | null; acted_evidence: string | null; acted_href: string | null; created_at: string; client_calls: unknown }
 
-async function withState(supabase: SupabaseClient, rows: Row[]): Promise<FollowUp[]> {
+async function withState(supabase: Db, rows: Row[]): Promise<FollowUp[]> {
   if (!rows.length) return []
   const { data: actions } = await supabase
     .from("call_commitment_actions")
@@ -69,7 +69,7 @@ async function withState(supabase: SupabaseClient, rows: Row[]): Promise<FollowU
 }
 
 /** Every follow-up for a client, newest first (RLS). */
-export async function followUpsForClient(supabase: SupabaseClient, clientId: string) {
+export async function followUpsForClient(supabase: Db, clientId: string) {
   const { data } = await supabase.from("call_commitments").select(COLS).eq("client_id", clientId).is("superseded_at", null).order("said_on", { ascending: false }).order("created_at").limit(500)
   return withState(supabase, (data ?? []) as Row[])
 }
@@ -78,7 +78,7 @@ export async function followUpsForClient(supabase: SupabaseClient, clientId: str
  * The pop-up: follow-ups due on the clients this person is on the team for (not every client an
  * admin can see, or it would be noise). RLS applies as well.
  */
-export async function remindersFor(supabase: SupabaseClient, profileId: string) {
+export async function remindersFor(supabase: Db, profileId: string) {
   const { data: team } = await supabase.from("client_team").select("client_id").eq("profile_id", profileId).is("removed_at", null)
   const ids = [...new Set((team ?? []).map((t) => t.client_id))]
   if (!ids.length) return []

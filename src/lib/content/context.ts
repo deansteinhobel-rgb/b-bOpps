@@ -1,6 +1,6 @@
 import "server-only"
 import type Anthropic from "@anthropic-ai/sdk"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { briefForPrompt } from "@/lib/knowledge/brief"
 import { contentBankForPrompt } from "@/lib/knowledge/content-bank"
 import { addDays } from "@/lib/metrics/ads"
@@ -10,6 +10,7 @@ import { adKey } from "@/lib/previews"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { dataRanges } from "@/lib/metrics/data-range"
 import { describeTargets, loadTargets } from "@/lib/targets"
+import { mirrorProps } from "@/lib/notion/mirror"
 
 /**
  * What Claude reads for content ideas (Dean, 2026-09-29): every campaign of the last 90 days with who
@@ -37,7 +38,7 @@ const zero = (): Totals => ({ spend: 0, impressions: 0, clicks: 0, results: 0 })
 
 export type ContentContext = { blocks: Anthropic.ContentBlockParam[]; campaignNames: string[]; adNames: Record<string, string>; clientName: string; currency: string }
 
-export async function buildContentContext(db: SupabaseClient, clientId: string): Promise<ContentContext> {
+export async function buildContentContext(db: Db, clientId: string): Promise<ContentContext> {
   const { data: client } = await db.from("clients").select("name, currency, monthly_kpi_target").eq("id", clientId).single()
   if (!client) throw new Error("Client not found.")
   const cur = client.currency as string
@@ -186,7 +187,8 @@ export async function buildContentContext(db: SupabaseClient, clientId: string):
   ])
   const text = (v: unknown) => (typeof v === "string" ? v : "")
   const briefs = (mirror ?? [])
-    .map((m) => ({ title: m.title ?? "", type: text(m.properties?.[PROP.productionType]), status: text(m.properties?.[PROP.status]), paid: text(m.properties?.[PROP.statusPaid]), desc: text(m.properties?.[PROP.description]) }))
+    .map((m) => ({ props: mirrorProps(m.properties), title: m.title ?? "" }))
+    .map(({ props, title }) => ({ title, type: text(props[PROP.productionType]), status: text(props[PROP.status]), paid: text(props[PROP.statusPaid]), desc: text(props[PROP.description]) }))
     .filter((b) => PAID_PRODUCTION_TYPES.includes(b.type) || !["", "N/A"].includes(b.paid))
     .slice(0, 50)
 

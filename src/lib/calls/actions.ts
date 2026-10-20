@@ -13,7 +13,7 @@ import { ensureSprint } from "@/lib/sprints/data"
 import { sprintOf } from "@/lib/sprints/periods"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { PLATFORMS } from "@/lib/metrics/types"
+import { isPlatform, PLATFORMS } from "@/lib/metrics/types"
 
 // Client calls on the Brain tab and the follow-up pop-up. What the team does about an item is
 // logged append-only as the signed-in user (RLS: the client's team, not viewers). Linking the
@@ -154,7 +154,7 @@ export async function planFollowUp(id: string): Promise<CallResult> {
     .insert({
       sprint_id: sprint.id,
       client_id: item.client_id,
-      platform: item.platform && CONNECTED.includes(item.platform) ? item.platform : null,
+      platform: isPlatform(item.platform) && CONNECTED.includes(item.platform) ? item.platform : null,
       title: item.title.slice(0, 200),
       assets: [],
       brief_notes: notes.slice(0, 3000),

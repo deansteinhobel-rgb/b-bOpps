@@ -1,6 +1,6 @@
 import "server-only"
 import type Anthropic from "@anthropic-ai/sdk"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { claude } from "@/lib/ai/claude"
 import { money, oneDp, withSymbols } from "@/lib/format"
 import { briefForPrompt } from "@/lib/knowledge/brief"
@@ -8,6 +8,7 @@ import { campaignBreakdowns } from "@/lib/metrics/breakdowns"
 import { cleanTerm, MATCH_TYPES, type MatchType } from "@/lib/windsor/negatives"
 import { MATCHING_PRIMER } from "./search-matching"
 import { checkRoot, type KeywordVerdict, type RootNegative, type SeenTerm, type TermReview, type TermVerdict } from "./term-review-rules"
+import { fromJson } from "@/lib/supabase/db"
 
 /**
  * "Check against the ICP" on a Google campaign's search terms (Dean, 2026-09-30). Claude reads the
@@ -64,7 +65,7 @@ How to judge a search term:
 
 type Campaign = { id: string; name: string; goal?: string | null }
 
-export async function writeTermReview(db: SupabaseClient, reader: SupabaseClient, o: { clientId: string; clientName: string; currency: string; target: number | null; campaign: Campaign; from: string; to: string; today: string; requestedBy: string }): Promise<TermReview> {
+export async function writeTermReview(db: Db, reader: Db, o: { clientId: string; clientName: string; currency: string; target: number | null; campaign: Campaign; from: string; to: string; today: string; requestedBy: string }): Promise<TermReview> {
   const m = (v: number) => money(v, o.currency)
   const data = await campaignBreakdowns(reader, o.clientId, "google_ads", o.campaign.id, o.from, o.to)
   if (data.kind !== "google") throw new Error("Not a Google campaign.")
@@ -159,7 +160,7 @@ export async function writeTermReview(db: SupabaseClient, reader: SupabaseClient
 }
 
 /** The latest review for a campaign, read with the user's own client (RLS). */
-export async function latestTermReview(supabase: SupabaseClient, clientId: string, campaignId: string): Promise<TermReview | null> {
+export async function latestTermReview(supabase: Db, clientId: string, campaignId: string): Promise<TermReview | null> {
   const { data } = await supabase
     .from("term_reviews")
     .select("id, created_at, from_date, to_date, terms_sent, headline, points, terms, roots, keywords")
@@ -170,5 +171,5 @@ export async function latestTermReview(supabase: SupabaseClient, clientId: strin
     .limit(1)
     .maybeSingle()
   if (!data) return null
-  return { id: data.id, createdAt: data.created_at, from: data.from_date, to: data.to_date, termsSent: data.terms_sent, headline: data.headline, points: data.points ?? [], terms: data.terms ?? [], roots: data.roots ?? [], keywords: data.keywords ?? [] }
+  return { id: data.id, createdAt: data.created_at, from: data.from_date, to: data.to_date, termsSent: data.terms_sent, headline: data.headline, points: fromJson<TermReview["points"]>(data.points, []), terms: fromJson<TermReview["terms"]>(data.terms, []), roots: fromJson<TermReview["roots"]>(data.roots, []), keywords: fromJson<TermReview["keywords"]>(data.keywords, []) }
 }

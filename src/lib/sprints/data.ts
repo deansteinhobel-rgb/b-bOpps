@@ -1,6 +1,6 @@
 import "server-only"
 import { rpcAll } from "@/lib/supabase/rpc-all"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { unstable_cache } from "next/cache"
 import { addDays, rankAds, totals, type AdStat, type DailyRow, type Totals } from "@/lib/metrics/ads"
 import { windsorTag } from "@/lib/metrics/cached"
@@ -61,7 +61,7 @@ const SPRINT_COLS = "id, client_id, number, start_date, end_date, goal, key_take
  * The sprint for a period, created on first view (as the signed-in user; RLS allows the client's
  * team). A new sprint pulls in the items the previous sprint chose to carry forward.
  */
-export async function ensureSprint(supabase: SupabaseClient, clientId: string, period: SprintPeriod): Promise<Sprint> {
+export async function ensureSprint(supabase: Db, clientId: string, period: SprintPeriod): Promise<Sprint> {
   const find = async () => {
     const { data, error } = await supabase.from("sprints").select(SPRINT_COLS).eq("client_id", clientId).eq("start_date", period.start).maybeSingle()
     if (error) console.error("sprint lookup failed", error)
@@ -90,7 +90,7 @@ export async function ensureSprint(supabase: SupabaseClient, clientId: string, p
 }
 
 /** Copies the chosen items of one sprint into the next. Safe to repeat: already-carried items are skipped. */
-export async function carryForward(supabase: SupabaseClient, from: { id: string; number: number }, to: Pick<Sprint, "id" | "client_id">) {
+export async function carryForward(supabase: Db, from: { id: string; number: number }, to: Pick<Sprint, "id" | "client_id">) {
   const [{ data: chosen }, { data: already }] = await Promise.all([
     supabase.from("sprint_items").select("id, kind, text, origin_kind, origin_sprint_number").eq("sprint_id", from.id).eq("carry_forward", true).neq("status", "dropped"),
     supabase.from("sprint_items").select("carried_from_item_id").eq("sprint_id", to.id).not("carried_from_item_id", "is", null),
@@ -101,7 +101,7 @@ export async function carryForward(supabase: SupabaseClient, from: { id: string;
     .map((c) => ({
       sprint_id: to.id,
       client_id: to.client_id,
-      kind: "carried",
+      kind: "carried" as const,
       text: c.text,
       carried_from_item_id: c.id,
       // Keep the original kind and sprint through repeated carries.
@@ -119,7 +119,7 @@ export async function carryForward(supabase: SupabaseClient, from: { id: string;
  * Copies tests marked "carried" in one sprint into the next, keeping their progress (Notion brief,
  * live date, campaigns) so the work continues. Safe to repeat: already-carried tests are skipped.
  */
-export async function carryTests(supabase: SupabaseClient, fromSprintId: string, to: Pick<Sprint, "id" | "client_id">) {
+export async function carryTests(supabase: Db, fromSprintId: string, to: Pick<Sprint, "id" | "client_id">) {
   const [{ data: carried }, { data: already }] = await Promise.all([
     supabase.from("sprint_tests").select("*").eq("sprint_id", fromSprintId).eq("outcome", "carried"),
     supabase.from("sprint_tests").select("carried_from_test_id").eq("sprint_id", to.id).not("carried_from_test_id", "is", null),
@@ -209,7 +209,7 @@ export type SprintTest = {
   created_at: string
 }
 
-export async function loadSprintDetails(supabase: SupabaseClient, sprint: Sprint) {
+export async function loadSprintDetails(supabase: Db, sprint: Sprint) {
   const [{ data: items }, { data: changes }, { data: history }, { data: previous }, { data: tests }] = await Promise.all([
     supabase.from("sprint_items").select("*").eq("sprint_id", sprint.id).order("created_at"),
     supabase

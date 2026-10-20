@@ -1,6 +1,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchAccountMetrics, reconcileAccount, type Level, type MetricRow, type WindsorAccount } from "./client"
+import type { Json } from "@/lib/supabase/database.types"
 
 const CHUNK = 500
 
@@ -38,7 +39,7 @@ export async function syncWindsor(opts: { clientId?: string; accountId?: string;
         const { error: upErr } = await db
           .from("windsor_daily_metrics")
           .upsert(
-            rows.slice(i, i + CHUNK).map((r) => ({ ...r, synced_at: new Date().toISOString() })),
+            rows.slice(i, i + CHUNK).map((r) => ({ ...r, raw: r.raw as Json, synced_at: new Date().toISOString() })),
             { onConflict: "platform,external_account_id,date,campaign_id,ad_id" },
           )
         if (upErr) throw new Error(`Saving rows: ${upErr.message}`)
@@ -63,7 +64,7 @@ async function saveRows(db: ReturnType<typeof createAdminClient>, rows: MetricRo
     const { error } = await db
       .from("windsor_daily_metrics")
       .upsert(
-        rows.slice(i, i + CHUNK).map((r) => ({ ...r, synced_at: new Date().toISOString() })),
+        rows.slice(i, i + CHUNK).map((r) => ({ ...r, raw: r.raw as Json, synced_at: new Date().toISOString() })),
         { onConflict: "platform,external_account_id,date,campaign_id,ad_id" },
       )
     if (error) throw new Error(`Saving rows: ${error.message}`)

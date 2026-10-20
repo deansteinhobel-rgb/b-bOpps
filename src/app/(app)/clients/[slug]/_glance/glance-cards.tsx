@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { Suspense } from "react"
 import { SectionLoading } from "@/components/loading"
 import { cachedOverview } from "@/lib/metrics/cached"
@@ -17,7 +17,7 @@ import { ChangesDetail, PlansDetail } from "./glance-details"
  * pieces"): the page shows the month and the tiles straight away, and each card shows a spinner until its data is in.
  * Call only after the client row was read through the user's RLS client.
  */
-type Ctx = { supabase: SupabaseClient; slug: string; client: { id: string; slug: string; name: string; currency: string }; today: string; period: ReturnType<typeof sprintOf>; through: Promise<string | null> }
+type Ctx = { supabase: Db; slug: string; client: { id: string; slug: string; name: string; currency: string }; today: string; period: ReturnType<typeof sprintOf>; through: Promise<string | null> }
 
 export function GlanceCards(ctx: Ctx) {
   return (

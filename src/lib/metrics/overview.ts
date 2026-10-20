@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { addDays, adHealth, fatiguedAds, newCreativesThisMonth, rankAds, totals, type AdStat, type DailyRow, type FatigueInput } from "./ads"
 import { calculatePacing, type PacingResult } from "./pacing"
 import { type Platform, PLATFORMS } from "./types"
@@ -29,7 +29,7 @@ type Range = { platform: string; external_account_id: string; data_from: string;
 type AccountBudget = { platform: string; monthly_budget: number | string | null }
 type MonthBudget = { platform: string; month: string; amount: number | string }
 
-const budgetsQuery = (supabase: SupabaseClient, clientId: string) =>
+const budgetsQuery = (supabase: Db, clientId: string) =>
   supabase.from("client_budgets").select("platform, month, amount").eq("client_id", clientId).eq("campaign_id", "")
 
 function toDaily(raw: unknown): DailyRow[] {
@@ -74,7 +74,7 @@ function pacingFor(ranges: Range[], accounts: AccountBudget[], budgets: MonthBud
 }
 
 /** Pacing only: the lighter query set used by the client list cards. */
-export async function getPacing(supabase: SupabaseClient, clientId: string): Promise<{ dataThrough: string; pacing: PlatformPacing[] } | null> {
+export async function getPacing(supabase: Db, clientId: string): Promise<{ dataThrough: string; pacing: PlatformPacing[] } | null> {
   const [{ data: ranges }, { data: accounts }, { data: budgets }] = await Promise.all([
     dataRanges(supabase, clientId),
     supabase.from("client_platform_accounts").select("platform, monthly_budget").eq("client_id", clientId).eq("active", true),
@@ -91,7 +91,7 @@ export async function getPacing(supabase: SupabaseClient, clientId: string): Pro
  * Everything the Overview tab shows for one client. Uses the caller's Supabase client, so RLS
  * decides what they can see. Reads only our cache, never Windsor.
  */
-export async function getOverview(supabase: SupabaseClient, clientId: string) {
+export async function getOverview(supabase: Db, clientId: string) {
   const [{ data: ranges }, { data: accounts }] = await Promise.all([
     dataRanges(supabase, clientId),
     supabase.from("client_platform_accounts").select("platform, external_account_id, monthly_budget").eq("client_id", clientId).eq("active", true),

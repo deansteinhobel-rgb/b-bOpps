@@ -1,5 +1,6 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
+import type { Database } from "@/lib/supabase/database.types"
 
 /**
  * A person's own activity in the app, all time and in the last 30 days (Options → Your stats).
@@ -23,7 +24,7 @@ export type Stat = { key: string; label: string; total: number; last30: number }
 export async function myStats(profileId: string): Promise<{ stats: Stat[]; proven: number; called: number }> {
   const db = createAdminClient()
   const since = new Date(Date.now() - 30 * 864e5).toISOString()
-  const count = async (table: string, by: string, at?: string, skip?: readonly [string, string]) => {
+  const count = async (table: keyof Database["public"]["Tables"], by: string, at?: string, skip?: readonly [string, string]) => {
     let q = db.from(table).select("*", { count: "exact", head: true }).eq(by, profileId)
     if (skip) q = q.neq(skip[0], skip[1])
     if (at) q = q.gte(at, since)

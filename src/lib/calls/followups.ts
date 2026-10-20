@@ -6,6 +6,7 @@ import { PROP } from "@/lib/notion/config"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadTimeline } from "@/lib/timeline"
 import { commitmentState, REMIND_WINDOW_DAYS, type CommitmentAction } from "./state"
+import { mirrorProps } from "@/lib/notion/mirror"
 
 /**
  * The daily follow-up check (Dean, 2026-09-30): for every open item said on a recent call, has
@@ -100,9 +101,10 @@ export async function checkFollowUps(clientId: string) {
   }
   const text = (v: unknown) => (typeof v === "string" ? v : "")
   for (const m of mirror ?? []) {
+    const props = mirrorProps(m.properties)
     const id = `notion:${m.notion_page_id}`
     refs.set(id, m.url)
-    lines.push(`- ${id} | ${m.last_edited_time.slice(0, 10)} | Notion brief (${text(m.properties?.[PROP.status]) || "no status"}) | ${m.title ?? "Untitled"} | ${text(m.properties?.[PROP.description]).replace(/\s+/g, " ").slice(0, 240)}`)
+    lines.push(`- ${id} | ${m.last_edited_time.slice(0, 10)} | Notion brief (${text(props?.[PROP.status]) || "no status"}) | ${m.title ?? "Untitled"} | ${text(props?.[PROP.description]).replace(/\s+/g, " ").slice(0, 240)}`)
   }
   for (const c of calls ?? []) {
     const id = `call:${c.id}`

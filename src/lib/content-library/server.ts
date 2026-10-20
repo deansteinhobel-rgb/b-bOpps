@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { nextCode } from "./config"
 import { loadLibrary, type LibraryPiece } from "./load"
@@ -55,7 +55,7 @@ export async function saveRepick(clientId: string, piece: LibraryPiece, picks: S
 }
 
 /** The library for one client, through the person's own client (RLS), plus a code → id lookup. */
-export async function libraryFor(supabase: SupabaseClient, clientId: string) {
+export async function libraryFor(supabase: Db, clientId: string) {
   const pieces = await loadLibrary(supabase, clientId)
   const byCode = new Map(pieces.map((p) => [p.code, p]))
   return { pieces, byCode, idOf: (code: string) => byCode.get(code)?.id ?? null }

@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { currentPeriods, type Cadence, type Period } from "./periods"
 
 export type CheckDefinition = {
@@ -42,7 +42,7 @@ export type CheckRun = { id: string; cadence: Cadence; period_start: string; per
  * result per active check. Safe to call on every page view: duplicates are ignored.
  * Runs as the signed-in user, so RLS only lets team members of the client create them.
  */
-export async function ensureCurrentRuns(supabase: SupabaseClient, clientId: string, now = new Date()) {
+export async function ensureCurrentRuns(supabase: Db, clientId: string, now = new Date()) {
   const { weekly, monthly } = currentPeriods(now)
   const periods = [weekly, monthly] as Period[]
 
@@ -92,7 +92,7 @@ export async function ensureCurrentRuns(supabase: SupabaseClient, clientId: stri
   return runs
 }
 
-export async function loadRun(supabase: SupabaseClient, runId: string) {
+export async function loadRun(supabase: Db, runId: string) {
   const [{ data: run }, { data: results }, { data: defs }] = await Promise.all([
     supabase.from("check_runs").select("id, cadence, period_start, period_end, created_at, client_id").eq("id", runId).single(),
     supabase
@@ -115,7 +115,7 @@ export async function loadRun(supabase: SupabaseClient, runId: string) {
 }
 
 /** Earlier runs for the history list, newest first, with completion and red counts. */
-export async function pastRuns(supabase: SupabaseClient, clientId: string, excludeIds: string[]) {
+export async function pastRuns(supabase: Db, clientId: string, excludeIds: string[]) {
   const { data } = await supabase
     .from("check_runs")
     .select("id, cadence, period_start, period_end, check_results(status, notion_action_page_id)")

@@ -65,7 +65,7 @@ export default async function ClientReportPage({ params, searchParams }: PagePro
     opens: rangeLabel(decodeRange(l.default_range) ?? { kind: "days", days: l.default_days }),
     label: l.label,
     url: `${appUrl}/embed/report/${l.token}`,
-    created: `${shortDate(l.created_at.slice(0, 10))}${nameOf.get(l.created_by_profile_id) ? ` by ${nameOf.get(l.created_by_profile_id)}` : ""}`,
+    created: `${shortDate(l.created_at.slice(0, 10))}${l.created_by_profile_id && nameOf.get(l.created_by_profile_id) ? ` by ${nameOf.get(l.created_by_profile_id)}` : ""}`,
     lastViewed: l.last_viewed_at ? shortDate(l.last_viewed_at.slice(0, 10)) : null,
   }))
 

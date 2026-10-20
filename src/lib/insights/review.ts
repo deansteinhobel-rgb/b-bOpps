@@ -12,6 +12,7 @@ import { rpcAll } from "@/lib/supabase/rpc-all"
 import { loadInsightInputs } from "./load"
 import { audienceCandidates, computeInsights, isOpportunity, RULES, targetOf } from "./rules"
 import { describeTargets } from "@/lib/targets"
+import { mirrorProps } from "@/lib/notion/mirror"
 
 /**
  * Performance phase 4: Claude's daily review of a client's "Optimize now" feed (see the
@@ -149,7 +150,8 @@ async function reviewContext(clientId: string) {
   const { data: mirror } = await db.from("notion_pages_mirror").select("title, properties, last_edited_time").eq("client_id", clientId).eq("page_type", "brief").eq("in_trash", false).order("last_edited_time", { ascending: false }).limit(300)
   const text = (v: unknown) => (typeof v === "string" ? v : "")
   const briefs = (mirror ?? [])
-    .map((m) => ({ title: m.title ?? "", type: text(m.properties?.[PROP.productionType]), status: text(m.properties?.[PROP.status]), paid: text(m.properties?.[PROP.statusPaid]), desc: text(m.properties?.[PROP.description]) }))
+    .map((m) => ({ props: mirrorProps(m.properties), title: m.title ?? "" }))
+    .map(({ props, title }) => ({ title, type: text(props[PROP.productionType]), status: text(props[PROP.status]), paid: text(props[PROP.statusPaid]), desc: text(props[PROP.description]) }))
     .filter((b) => PAID_PRODUCTION_TYPES.includes(b.type) || !["", "N/A"].includes(b.paid))
     .slice(0, 60)
 

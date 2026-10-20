@@ -1,7 +1,8 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { CLOSED_STATUSES, PAID_PRODUCTION_TYPES, PROP } from "./config"
 import type { SimpleValue } from "./map"
+import type { Json } from "@/lib/supabase/database.types"
 
 export type MirrorItem = {
   id: string
@@ -22,15 +23,21 @@ export type MirrorItem = {
 
 const str = (v: SimpleValue | undefined) => (typeof v === "string" ? v : null)
 
-function toItem(row: { notion_page_id: string; title: string | null; url: string; parent_page_id: string | null; created_by_app: boolean; last_edited_time: string; properties: Record<string, SimpleValue> }): MirrorItem {
-  const p = row.properties
+/** The mirror's `properties` column: Notion's properties as simple values (map.ts). */
+export const mirrorProps = (v: Json | null | undefined) => (v ?? {}) as Record<string, SimpleValue>
+
+/** A Notion page's link from its id, for mirror rows stored without one. */
+export const notionPageUrl = (id: string) => `https://www.notion.so/${id.replace(/-/g, "")}`
+
+function toItem(row: { notion_page_id: string; title: string | null; url: string | null; parent_page_id: string | null; created_by_app: boolean; last_edited_time: string; properties: Json }): MirrorItem {
+  const p = mirrorProps(row.properties)
   const people = Array.isArray(p[PROP.owner]) ? (p[PROP.owner] as { name: string | null }[]) : []
   const due = p[PROP.dueDate] && typeof p[PROP.dueDate] === "object" && !Array.isArray(p[PROP.dueDate]) ? (p[PROP.dueDate] as { start: string }).start : null
   const status = str(p[PROP.status])
   return {
     id: row.notion_page_id,
     title: row.title ?? "(untitled)",
-    url: row.url,
+    url: row.url ?? notionPageUrl(row.notion_page_id),
     status,
     priority: str(p[PROP.priority]),
     productionType: str(p[PROP.productionType]),
@@ -45,7 +52,7 @@ function toItem(row: { notion_page_id: string; title: string | null; url: string
 }
 
 /** Mirror rows for a client (RLS applies), excluding trashed pages. */
-export async function mirrorItems(supabase: SupabaseClient, clientId: string, pageType: "action" | "brief") {
+export async function mirrorItems(supabase: Db, clientId: string, pageType: "action" | "brief") {
   const { data } = await supabase
     .from("notion_pages_mirror")
     .select("notion_page_id, title, url, parent_page_id, created_by_app, last_edited_time, properties")
@@ -60,7 +67,7 @@ export async function mirrorItems(supabase: SupabaseClient, clientId: string, pa
 export const byDue = (a: MirrorItem, b: MirrorItem) =>
   (a.due ?? "9999") < (b.due ?? "9999") ? -1 : (a.due ?? "9999") > (b.due ?? "9999") ? 1 : b.lastEdited.localeCompare(a.lastEdited)
 
-export async function lastNotionSync(supabase: SupabaseClient): Promise<string | null> {
+export async function lastNotionSync(supabase: Db): Promise<string | null> {
   const { data } = await supabase.from("notion_sync_state").select("last_synced_at").order("last_synced_at", { ascending: false }).limit(1).maybeSingle()
   return data?.last_synced_at ?? null
 }

@@ -10,7 +10,7 @@ import { ensureSprint } from "@/lib/sprints/data"
 import { sprintOf } from "@/lib/sprints/periods"
 import { createClient } from "@/lib/supabase/server"
 import { leverForIdea } from "@/lib/taxonomy"
-import { PLATFORMS } from "@/lib/metrics/types"
+import { isPlatform, PLATFORMS } from "@/lib/metrics/types"
 
 // What the team does with a content idea (Dean, 2026-09-29): plan it as a sprint test, or say it's
 // not for us (with a reason Claude reads next time). As the signed-in user (RLS: the client's team),
@@ -65,7 +65,7 @@ export async function planContentIdea(slug: string, runId: string, ideaId: strin
     .insert({
       sprint_id: sprint.id,
       client_id: l.clientId,
-      platform: (PLATFORMS as readonly string[]).includes(i.platform) ? i.platform : null,
+      platform: isPlatform(i.platform) ? i.platform : null,
       title: p.data.title,
       hypothesis: `${i.content_type} for ${i.audience}: ${i.hook}`.slice(0, 1000),
       assets: [`${i.content_type}: ${i.topic}`.slice(0, 200)],

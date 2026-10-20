@@ -1,5 +1,5 @@
 import "server-only"
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Db } from "@/lib/supabase/db"
 import { londonToday } from "@/lib/checks/periods"
 import { addDays } from "@/lib/metrics/ads"
 import type { Platform } from "@/lib/metrics/types"
@@ -10,6 +10,7 @@ import { loadTestDetail } from "./test-results"
 import type { TestTotals } from "./tests"
 import type { Targets } from "@/lib/targets"
 import { hostOf } from "@/lib/format"
+import { notionPageUrl } from "@/lib/notion/mirror"
 
 /** Links on the Notion brief that show "what we created" (url and files properties on the board). */
 const LINK_PROPS = ["Figma Board", "Campaign Folder", "Brief Uploads / Links", "Useful Links", "Proposal Deck"]
@@ -18,7 +19,7 @@ export type BriefInfo = { status: string | null; paid: string | null; url: strin
 export type Campaign = { platform: Platform; campaign_id: string; campaign_name: string; spend: number; last_date: string }
 
 /** Everything the test cards need beyond the tests themselves. User's client: RLS applies. */
-export async function testBoardData(supabase: SupabaseClient, clientId: string, tests: SprintTest[], opts: { currency: string; targets: Targets }) {
+export async function testBoardData(supabase: Db, clientId: string, tests: SprintTest[], opts: { currency: string; targets: Targets }) {
   const pageIds = tests.map((t) => t.notion_page_id).filter(Boolean) as string[]
   const today = londonToday()
   const [{ data: pages }, { data: campaigns }, results] = await Promise.all([
@@ -28,7 +29,8 @@ export async function testBoardData(supabase: SupabaseClient, clientId: string, 
     supabase.rpc("client_campaigns", { p_client: clientId, p_from: addDays(today, -30) }),
     Promise.all(
       tests
-        .filter((t) => t.live_on && t.campaign_ids.length)
+        // Campaigns belong to one platform, so a test without one has no campaign numbers.
+        .flatMap((t) => (t.live_on && t.platform && t.campaign_ids.length ? [{ ...t, live_on: t.live_on, platform: t.platform }] : []))
         .map(async (t) => {
           const { data } = await supabase.rpc("campaign_totals", { p_client: clientId, p_platform: t.platform, p_campaign_ids: t.campaign_ids, p_from: t.live_on, p_to: today })
           const r = (data?.[0] ?? {}) as Record<string, unknown>
@@ -67,7 +69,7 @@ export async function testBoardData(supabase: SupabaseClient, clientId: string, 
         links.push({ label, href: web ? s : null, text: web ? hostOf(s) : s })
       }
     }
-    briefs[p.notion_page_id] = { status: (props["Master Status"] as string) ?? null, paid: (props["Status Paid"] as string) ?? null, url: p.url, links }
+    briefs[p.notion_page_id] = { status: (props["Master Status"] as string) ?? null, paid: (props["Status Paid"] as string) ?? null, url: p.url ?? notionPageUrl(p.notion_page_id), links }
   }
 
   return {

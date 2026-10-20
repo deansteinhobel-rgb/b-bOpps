@@ -2,6 +2,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { parseMetaTargeting } from "./settings-parse"
 import { windsorRows } from "./rest"
+import type { Json } from "@/lib/supabase/database.types"
 
 /**
  * Platform settings checks (Dean, 2026-10-15): reads niche delivery settings from Windsor into
@@ -37,7 +38,7 @@ type SettingsRow = {
   entity_name: string | null
   campaign_id: string
   campaign_name: string | null
-  settings: Record<string, unknown>
+  settings: { [key: string]: Json | undefined }
   checked_at: string
 }
 

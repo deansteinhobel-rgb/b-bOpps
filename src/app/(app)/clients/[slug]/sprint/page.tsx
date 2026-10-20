@@ -257,7 +257,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
         aiReady={aiConfigured()}
         closed={closed}
         run={(aiRuns?.[0] as AiRun | undefined) ?? null}
-        recs={((aiRecs ?? []) as Recommendation[]).map((r) => ({ ...r, success_target: r.success_target === null ? null : Number(r.success_target) }))}
+        recs={((aiRecs ?? []) as unknown as Recommendation[]).map((r) => ({ ...r, success_target: r.success_target === null ? null : Number(r.success_target) }))}
         history={pourHistory}
         owners={ownerOptions}
         defaultDeadline={addDays(period.start, 4)}

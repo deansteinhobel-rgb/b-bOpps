@@ -37,7 +37,8 @@ export async function POST(request: Request) {
   if (!aiConfigured()) return new Response("Add ANTHROPIC_API_KEY to .env.local and restart.", { status: 503 })
   const body = (await request.json().catch(() => ({}))) as { clientSlug?: string; platform?: string; campaignId?: string; messages?: unknown; fresh?: boolean }
   const platform = PLATFORMS.find((p) => p === body.platform)
-  if (!platform || typeof body.campaignId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(body.campaignId)) return new Response("Missing campaign.", { status: 400 })
+  const campaignId = body.campaignId
+  if (!platform || typeof campaignId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(campaignId)) return new Response("Missing campaign.", { status: 400 })
   // Access: the client must load through the user's own RLS client.
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id").eq("slug", body.clientSlug ?? "").maybeSingle()
@@ -55,14 +56,14 @@ export async function POST(request: Request) {
       const send = (o: unknown) => controller.enqueue(encoder.encode(JSON.stringify(o) + "\n"))
       try {
         send({ type: "status", text: "Reading the campaign's numbers…" })
-        const ctx = await buildCampaignContext(db, client.id, platform as Platform, body.campaignId!)
+        const ctx = await buildCampaignContext(db, client.id, platform, campaignId)
         if (!ctx) {
           send({ type: "error", text: "No data for this campaign yet." })
           return controller.close()
         }
         // The weekly read is shared with the whole team, so only people who can edit the client redo it.
         if (weekly && !(body.fresh && canEdit(me))) {
-          const { data: hit } = await db.from("campaign_reads").select("answer, sources, created_at").eq("client_id", client.id).eq("platform", platform).eq("campaign_id", body.campaignId).eq("week", ctx.week).maybeSingle()
+          const { data: hit } = await db.from("campaign_reads").select("answer, sources, created_at").eq("client_id", client.id).eq("platform", platform).eq("campaign_id", campaignId).eq("week", ctx.week).maybeSingle()
           if (hit) {
             send({ type: "text", text: hit.answer })
             send({ type: "sources", sources: hit.sources })
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
         const a = await answer(system(londonToday(), ctx.text), history, send)
         send({ type: "sources", sources: a.sources })
         if (weekly && a.answer.trim()) {
-          await db.from("campaign_reads").upsert({ client_id: client.id, platform, campaign_id: body.campaignId, week: ctx.week, answer: a.answer, sources: a.sources, model: CHAT_MODEL, usage: a.usage, created_at: new Date().toISOString() }, { onConflict: "client_id,platform,campaign_id,week" })
+          await db.from("campaign_reads").upsert({ client_id: client.id, platform, campaign_id: campaignId, week: ctx.week, answer: a.answer, sources: a.sources, model: CHAT_MODEL, usage: a.usage, created_at: new Date().toISOString() }, { onConflict: "client_id,platform,campaign_id,week" })
         }
       } catch (e) {
         console.error("[campaign-chat]", e)
