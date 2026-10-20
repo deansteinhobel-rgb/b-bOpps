@@ -28,7 +28,8 @@ export type KeywordSummary = { keywordId: string; source: KeywordSource; count: 
 export async function loadKeywordPage(supabase: Db, client: { id: string; name: string }, pick: { keywordId?: string; source?: KeywordSource }) {
   const since = new Date(Date.now() - RECENT_MS).toISOString()
   const { data: keywords } = await supabase.from("competitor_keywords").select("id, keyword, sources").eq("client_id", client.id).is("removed_at", null).order("created_at")
-  const rows: Omit<KeywordAdView, "src">[] = []
+  type Raw = Omit<KeywordAdView, "src"> & { storage_path: string | null }
+  const rows: Raw[] = []
   for (let from = 0; ; from += 1000) {
     const { data } = await supabase
       .from("keyword_ads")
@@ -52,12 +53,12 @@ export async function loadKeywordPage(supabase: Db, client: { id: string; name: 
 
   const list = (keywords ?? []) as KeywordRow[]
   const own = [client.name]
-  const summaries: (KeywordSummary & { top: typeof rows })[] = []
+  const summaries: { keywordId: string; source: KeywordSource; count: number; top: Raw[]; picks: Raw[] }[] = []
   for (const k of list)
     for (const source of ["linkedin", "meta"] as const) {
       if (!k.sources.includes(source)) continue
-      const top = topAds(rows.filter((r) => r.keyword_id === k.id && r.source === source) as (Omit<KeywordAdView, "src"> & { storage_path: string | null })[])
-      summaries.push({ keywordId: k.id, source, count: top.length, top, picks: longestRunning(top, own) as KeywordAdView[] })
+      const top = topAds(rows.filter((r) => r.keyword_id === k.id && r.source === source))
+      summaries.push({ keywordId: k.id, source, count: top.length, top, picks: longestRunning(top, own) })
     }
 
   const selected = list.find((k) => k.id === pick.keywordId) ?? list[0] ?? null
@@ -65,16 +66,16 @@ export async function loadKeywordPage(supabase: Db, client: { id: string; name: 
   const selectedTop = summaries.find((s) => s.keywordId === selected?.id && s.source === source)?.top ?? []
 
   // Sign images for every pick and the selected top 30.
-  const shown = new Map<string, { storage_path?: string | null }>()
-  for (const s of summaries) for (const p of s.picks) shown.set(p.id, p as { storage_path?: string | null })
-  for (const a of selectedTop) shown.set(a.id, a as { storage_path?: string | null })
+  const shown = new Map<string, Raw>()
+  for (const s of summaries) for (const p of s.picks) shown.set(p.id, p)
+  for (const a of selectedTop) shown.set(a.id, a)
   const paths = [...shown.values()].map((a) => a.storage_path).filter(Boolean) as string[]
   const signed = new Map<string, string>()
   for (let i = 0; i < paths.length; i += 500) {
     const { data } = await supabase.storage.from(BUCKET).createSignedUrls(paths.slice(i, i + 500), 3600)
     for (const s of data ?? []) if (s.path && s.signedUrl) signed.set(s.path, s.signedUrl)
   }
-  const view = (a: Omit<KeywordAdView, "src"> & { storage_path?: string | null }): KeywordAdView => {
+  const view = (a: Raw): KeywordAdView => {
     const { storage_path, ...rest } = a
     return { ...rest, src: storage_path ? (signed.get(storage_path) ?? null) : null }
   }
@@ -83,7 +84,7 @@ export async function loadKeywordPage(supabase: Db, client: { id: string; name: 
     keywords: list,
     selected: selected ? { id: selected.id, source } : null,
     top: selectedTop.map(view),
-    summaries: summaries.map((s) => ({ keywordId: s.keywordId, source: s.source, count: s.count, picks: s.picks.map(view) })),
+    summaries: summaries.map((s): KeywordSummary => ({ keywordId: s.keywordId, source: s.source, count: s.count, picks: s.picks.map(view) })),
     lastReadAt: lastRun?.collected_at ?? null,
   }
 }

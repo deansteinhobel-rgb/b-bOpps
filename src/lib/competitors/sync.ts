@@ -201,7 +201,7 @@ async function collect(run: RunRow, items: unknown[], usage?: number) {
       ads.map((a) => ({
         ...a,
         client_id: run.client_id,
-        competitor_id: run.competitor_id,
+        competitor_id: run.competitor_id!,
         source: run.source,
         countries: [...new Set([...(countries.get(a.external_id) ?? []), run.country])].sort(),
         last_seen_at: now,

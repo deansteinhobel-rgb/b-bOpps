@@ -1417,17 +1417,73 @@ export type Database = {
           },
         ]
       }
+      competitor_keywords: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by_profile_id: string | null
+          id: string
+          keyword: string
+          removed_at: string | null
+          removed_by_profile_id: string | null
+          sources: string[]
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by_profile_id?: string | null
+          id?: string
+          keyword: string
+          removed_at?: string | null
+          removed_by_profile_id?: string | null
+          sources?: string[]
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by_profile_id?: string | null
+          id?: string
+          keyword?: string
+          removed_at?: string | null
+          removed_by_profile_id?: string | null
+          sources?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_keywords_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_keywords_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_keywords_removed_by_profile_id_fkey"
+            columns: ["removed_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitor_runs: {
         Row: {
           actor: string
           apify_run_id: string | null
           client_id: string
           collected_at: string | null
-          competitor_id: string
+          competitor_id: string | null
           country: string
           error: string | null
           id: string
           items: number | null
+          keyword_id: string | null
           queued_at: string
           source: string
           started_at: string | null
@@ -1439,11 +1495,12 @@ export type Database = {
           apify_run_id?: string | null
           client_id: string
           collected_at?: string | null
-          competitor_id: string
+          competitor_id?: string | null
           country: string
           error?: string | null
           id?: string
           items?: number | null
+          keyword_id?: string | null
           queued_at?: string
           source: string
           started_at?: string | null
@@ -1455,11 +1512,12 @@ export type Database = {
           apify_run_id?: string | null
           client_id?: string
           collected_at?: string | null
-          competitor_id?: string
+          competitor_id?: string | null
           country?: string
           error?: string | null
           id?: string
           items?: number | null
+          keyword_id?: string | null
           queued_at?: string
           source?: string
           started_at?: string | null
@@ -1479,6 +1537,13 @@ export type Database = {
             columns: ["competitor_id"]
             isOneToOne: false
             referencedRelation: "client_competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_runs_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_keywords"
             referencedColumns: ["id"]
           },
         ]
@@ -2116,6 +2181,99 @@ export type Database = {
             columns: ["requested_by_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      keyword_ads: {
+        Row: {
+          advertiser: string | null
+          advertiser_id: string | null
+          body: string | null
+          client_id: string
+          content_type: string | null
+          copy_error: string | null
+          countries: string[]
+          cta: string | null
+          ended_on: string | null
+          external_id: string
+          first_seen_at: string
+          format: string | null
+          headline: string | null
+          id: string
+          keyword_id: string
+          landing_url: string | null
+          last_seen_at: string
+          library_url: string | null
+          media_url: string | null
+          ranks: Json
+          source: string
+          started_on: string | null
+          storage_path: string | null
+        }
+        Insert: {
+          advertiser?: string | null
+          advertiser_id?: string | null
+          body?: string | null
+          client_id: string
+          content_type?: string | null
+          copy_error?: string | null
+          countries?: string[]
+          cta?: string | null
+          ended_on?: string | null
+          external_id: string
+          first_seen_at?: string
+          format?: string | null
+          headline?: string | null
+          id?: string
+          keyword_id: string
+          landing_url?: string | null
+          last_seen_at?: string
+          library_url?: string | null
+          media_url?: string | null
+          ranks?: Json
+          source: string
+          started_on?: string | null
+          storage_path?: string | null
+        }
+        Update: {
+          advertiser?: string | null
+          advertiser_id?: string | null
+          body?: string | null
+          client_id?: string
+          content_type?: string | null
+          copy_error?: string | null
+          countries?: string[]
+          cta?: string | null
+          ended_on?: string | null
+          external_id?: string
+          first_seen_at?: string
+          format?: string | null
+          headline?: string | null
+          id?: string
+          keyword_id?: string
+          landing_url?: string | null
+          last_seen_at?: string
+          library_url?: string | null
+          media_url?: string | null
+          ranks?: Json
+          source?: string
+          started_on?: string | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "keyword_ads_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "keyword_ads_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "competitor_keywords"
             referencedColumns: ["id"]
           },
         ]
