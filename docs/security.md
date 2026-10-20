@@ -112,11 +112,19 @@ writes off, dry run on); 12 daily scheduled jobs (`vercel.json`), checked end to
 
 
 - [ ] Environment variables marked **Sensitive** (Anthropic, Supabase secret, Notion, Windsor,
-      `CRON_SECRET`).
+      `CRON_SECRET`, `SLACK_BOT_TOKEN`).
 - [ ] **Deployment Protection** on preview deployments (Vercel Authentication).
 - [ ] **Firewall**: rate-limit rules on `/login` and `/api/*`; keep **Attack Challenge Mode**
       handy for an attack in progress. **BotID** on the login and Claude routes (Pro).
 - [ ] **Spend management** alerts.
+
+## Slack
+
+The Lumaux Slack app (2026-10-20) posts the weekly snapshot and nothing else: bot scope `chat:write`
+only, no user scopes, no events, no interactivity endpoint (its buttons are plain links into the app,
+behind sign-in). It only posts to channels it has been invited to. `SLACK_BOT_TOKEN` is server-side
+only; the App-level token (`xapp-…`, Socket Mode) isn't used and isn't stored. Ad names and goal names
+in posts are escaped (`&`, `<`, `>`), so they can't ping a channel or add links.
 
 ## Anthropic
 

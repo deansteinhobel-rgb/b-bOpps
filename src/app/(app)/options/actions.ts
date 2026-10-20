@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { getProfile, isAdmin } from "@/lib/auth"
-import { postToSlack } from "@/lib/slack"
 import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
 
@@ -36,7 +35,7 @@ const Feedback = z.object({
   page_url: z.string().trim().max(500),
 })
 
-/** Suggest a feature or report a bug. Admins see it in Admin → Feedback (and Slack once it's set up). */
+/** Suggest a feature or report a bug. Admins see it in Admin → Feedback . */
 export async function sendFeedback(raw: z.input<typeof Feedback>): Promise<OptionsResult> {
   const p = Feedback.safeParse(raw)
   if (!p.success) return fail(p.error.issues[0].message)
@@ -46,7 +45,6 @@ export async function sendFeedback(raw: z.input<typeof Feedback>): Promise<Optio
   if (limited) return fail(limited)
   const { error } = await supabase.from("feedback").insert({ profile_id: me.id, kind: p.data.kind, title: p.data.title, details: p.data.details || null, page_url: p.data.page_url || null })
   if (error) return fail("Couldn't send it.")
-  await postToSlack(`${p.data.kind === "bug" ? "Bug report" : "Feature idea"} from ${me.full_name ?? me.email}: ${p.data.title}`).catch(() => {})
   revalidatePath("/options")
   revalidatePath("/admin/feedback")
   return { ok: true }

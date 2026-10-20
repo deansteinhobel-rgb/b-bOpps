@@ -1,9 +1,7 @@
-import type { SupabaseClient } from "@supabase/supabase-js"
 import type { AdStat } from "@/lib/metrics/ads"
 import type { Performance } from "@/lib/metrics/performance"
 import { type Platform, PLATFORMS, PLATFORM_LABEL } from "@/lib/metrics/types"
 import { adKey } from "@/lib/previews"
-import { rpcAll } from "@/lib/supabase/rpc-all"
 import type { Board } from "./report-board"
 
 /**
@@ -16,25 +14,7 @@ export const BOARD_KEYS: BoardKey[] = ["all", ...PLATFORMS]
 export const isBoardKey = (v: unknown): v is BoardKey => typeof v === "string" && (BOARD_KEYS as string[]).includes(v)
 export const boardTitle = (p: Platform | null) => (p ? `${PLATFORM_LABEL[p]} overview` : "All platforms")
 
-const num = (v: unknown) => Number(v ?? 0)
-
-/** Every ad's totals over a period. */
-export async function adsForPeriod(supabase: SupabaseClient, clientId: string, from: string, to: string): Promise<AdStat[]> {
-  const rows = await rpcAll(supabase, "ad_totals", { p_client: clientId, p_from: from, p_to: to })
-  return rows.map((r) => ({
-    platform: r.platform as Platform,
-    external_account_id: String(r.external_account_id),
-    ad_id: String(r.ad_id),
-    ad_name: (r.ad_name as string | null) ?? null,
-    campaign_id: r.campaign_id === null || r.campaign_id === undefined ? null : String(r.campaign_id),
-    campaign_name: (r.campaign_name as string | null) ?? null,
-    spend: num(r.spend),
-    impressions: num(r.impressions),
-    clicks: num(r.clicks),
-    conversions: num(r.conversions),
-    leads: num(r.leads),
-  }))
-}
+export { adsForPeriod } from "@/lib/metrics/ads-period"
 
 /** The top 5 ads by results (cheaper first on a tie). */
 export const topAdsByResults = (ads: AdStat[], p: Platform | null) =>

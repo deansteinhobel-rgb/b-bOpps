@@ -10,7 +10,8 @@ import { canEdit, getProfile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { longDate, money, oneDp, signedPct } from "@/lib/format"
 import { addDays, pctChange } from "@/lib/metrics/ads"
-import { PLATFORM_LABEL, PLATFORMS } from "@/lib/metrics/types"
+import { isPlatform, PLATFORM_LABEL, PLATFORMS } from "@/lib/metrics/types"
+import { refreshPlan, weeklySnapshot } from "@/lib/reports/weekly"
 import { byDue, lastNotionSync, minutesAgo, mirrorItems } from "@/lib/notion/mirror"
 import { notionWritesLive } from "@/lib/notion/server"
 import { peopleForClient } from "@/lib/people"
@@ -27,7 +28,7 @@ import { AiPanel, type AiRun, type PourHistoryRow, type Recommendation } from ".
 import { ChangeLog } from "./change-log"
 import { CloseSprint } from "./close-sprint"
 import { EditableText } from "./editable-text"
-import { PlanTestForm } from "./plan-test-form"
+import { PlanTestForm, type PlanPrefill } from "./plan-test-form"
 import { TestBoard } from "./test-board"
 import { TestCard } from "./test-card"
 import { loadTargets } from "@/lib/targets"
@@ -35,7 +36,7 @@ import { loadTargets } from "@/lib/targets"
 
 export default async function SprintPage({ params, searchParams }: PageProps<"/clients/[slug]/sprint">) {
   const { slug } = await params
-  const { n } = await searchParams
+  const { n, refresh, week } = await searchParams
   const supabase = await createClient()
   const [{ data: client }, me] = await Promise.all([supabase.from("clients").select("id, currency, monthly_kpi_target").eq("slug", slug).maybeSingle(), getProfile()])
   if (!client) notFound()
@@ -123,6 +124,16 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
   const platforms = PLATFORMS.filter((p) => (accounts ?? []).some((a) => a.platform === p))
   const ownerOptions = owners.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam }))
   const withoutOutcome = tests.filter((t) => !t.outcome).length
+
+  // "Replace weak ads" from the weekly Slack snapshot (Dean, 2026-10-20): the plan form opens filled in
+  // with that week's weakest and stale ads on the platform. Access confirmed above (client loaded through RLS).
+  let prefill: PlanPrefill | null = null
+  const weekFrom = typeof week === "string" && /^\d{4}-\d{2}-\d{2}$/.test(week) ? week : null
+  if (!closed && isCurrent && canEdit(me) && isPlatform(refresh) && weekFrom) {
+    const snap = await weeklySnapshot(createAdminClient(), client.id, { from: weekFrom, to: addDays(weekFrom, 6) })
+    const plan = snap && refreshPlan(snap, refresh, PLATFORM_LABEL[refresh], (v) => money(v, cur))
+    if (plan) prefill = { ...plan, platform: platforms.includes(refresh) ? refresh : "", source: `the weekly Slack snapshot (week of ${longDate(weekFrom)})` }
+  }
 
   const knownKeys = new Set(changes.map((c) => c.detected_key).filter(Boolean))
   const suggestionsP: Promise<Suggestion[]> =
@@ -267,7 +278,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
             </p>
           </div>
         </div>
-        {!closed && <PlanTestForm sprintId={sprint.id} platforms={platforms} owners={ownerOptions} defaultDeadline={addDays(period.start, 4)} />}
+        {!closed && <PlanTestForm key={prefill ? `refresh-${refresh}-${weekFrom}` : "plan"} sprintId={sprint.id} platforms={platforms} owners={ownerOptions} defaultDeadline={addDays(period.start, 4)} prefill={prefill} />}
         {tests.length === 0 ? (
           <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No tests planned yet. Plan one to get the sprint going.</p>
         ) : (

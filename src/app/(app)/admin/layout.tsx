@@ -18,6 +18,9 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
         <Link href="/admin/feedback" className="underline-offset-4 hover:underline">
           Feedback
         </Link>
+        <Link href="/admin/slack" className="underline-offset-4 hover:underline">
+          Slack
+        </Link>
       </nav>
       <div className="pt-6">{children}</div>
     </>

@@ -65,7 +65,6 @@ export type WriteDeps = {
     /** NOTION_LIVE_CLIENTS: when set, only these client slugs are written for real. */
     liveClients?: string[] | null
   }
-  notifySlack?: (text: string) => Promise<void>
 }
 
 export type CommentResult = { status: "dry_run" | "created" | "failed"; payload: CommentPayload; error?: string }
@@ -307,10 +306,5 @@ export async function createNotionAction(deps: WriteDeps, input: ActionInput): P
   }
   const comment = await addComment(page.id)
 
-  if (deps.notifySlack) {
-    await deps
-      .notifySlack(`New action for ${input.client.notion_client_option}: ${input.title} · owner ${input.owner.full_name ?? "?"} · ${page.url}`)
-      .catch((e) => console.error("Slack notification failed", e))
-  }
   return { status: "created", logId, payload, page: { id: page.id, url: page.url }, comment }
 }

@@ -14,11 +14,14 @@ import { planTest } from "./test-actions"
 
 export type Owner = { id: string | null; name: string; onTeam: boolean }
 
+/** Filled in from elsewhere, e.g. "Replace weak ads" in the weekly Slack snapshot (Dean, 2026-10-20). */
+export type PlanPrefill = { platform: string; title: string; lever: string; hypothesis: string; assets: string[]; brief_notes: string; success_metric: string; success_target: string; source: string }
+
 /** Plan a test in under a minute: platform, what, what to brief in, what success looks like, who, by when. */
-export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline }: { sprintId: string; platforms: Platform[]; owners: Owner[]; defaultDeadline: string }) {
+export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline, prefill }: { sprintId: string; platforms: Platform[]; owners: Owner[]; defaultDeadline: string; prefill?: PlanPrefill | null }) {
   const empty = { platform: (platforms[0] ?? "") as string, title: "", lever: "", hypothesis: "", assets: [] as string[], brief_notes: "", success_metric: "cost_per_result", success_target: "", success_text: "", owner: "", deadline: defaultDeadline }
-  const [f, setF] = useState(empty)
-  const [open, setOpen] = useState(false)
+  const [f, setF] = useState(() => (prefill ? { ...empty, ...prefill } : empty))
+  const [open, setOpen] = useState(Boolean(prefill))
   const [error, setError] = useState<string | null>(null)
   const [pending, start] = useTransition()
 
@@ -55,6 +58,7 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline }: {
   return (
     <div className="space-y-4 rounded-lg border bg-card p-4">
       <p className="font-heading text-xl">Plan a test</p>
+      {prefill && <p className="text-sm text-muted-foreground">Filled in from {prefill.source}. Check it, pick an owner and save; then &ldquo;Brief the team&rdquo; sends it to Notion.</p>}
       <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
         <div className="space-y-1">
           <Label htmlFor="t-platform">Platform</Label>
@@ -99,7 +103,7 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline }: {
       </fieldset>
       <div className="space-y-1">
         <Label htmlFor="t-notes">Brief for the team (optional)</Label>
-        <Textarea id="t-notes" rows={2} value={f.brief_notes} onChange={(e) => setF({ ...f, brief_notes: e.target.value })} placeholder="Audience, message, formats, references…" />
+        <Textarea id="t-notes" rows={prefill ? 8 : 2} value={f.brief_notes} onChange={(e) => setF({ ...f, brief_notes: e.target.value })} placeholder="Audience, message, formats, references…" />
       </div>
 
       <div className="space-y-1">
@@ -137,7 +141,7 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline }: {
           <Input id="t-deadline" type="date" value={f.deadline} onChange={(e) => setF({ ...f, deadline: e.target.value })} />
         </div>
       </div>
-      <details className="text-sm">
+      <details className="text-sm" open={Boolean(prefill)}>
         <summary className="cursor-pointer text-muted-foreground">Add a hypothesis (optional)</summary>
         <Textarea className="mt-2" rows={2} value={f.hypothesis} onChange={(e) => setF({ ...f, hypothesis: e.target.value })} placeholder="If we…, then… because…" />
       </details>
