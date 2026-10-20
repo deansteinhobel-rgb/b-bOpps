@@ -224,7 +224,8 @@ export async function markReadyManually(testId: string): Promise<TestResult> {
   if (!test) return fail(error!)
   if (test.notion_page_id) return fail("This test has a Notion brief: it becomes ready when Status Paid is Ready for Build or Master Status is Client Approved.")
   if (!["planned", "briefed"].includes(test.status)) return fail("This test is past that stage.")
-  await supabase.from("sprint_tests").update({ status: "ready", ready_at: new Date().toISOString() }).eq("id", testId)
+  const { error: saveError } = await supabase.from("sprint_tests").update({ status: "ready", ready_at: new Date().toISOString() }).eq("id", testId)
+  if (saveError) return fail("Couldn't save. Try again.")
   refresh((test.clients as { slug: string }).slug)
   return { ok: true }
 }
@@ -249,7 +250,7 @@ export async function markLive(testId: string, raw: { live_on: string; campaigns
     ready = notionStage({ master: (props["Master Status"] as string) ?? null, paid: (props["Status Paid"] as string) ?? null }) !== null
   }
   if (!ready) return fail("It isn't ready to launch yet.")
-  await supabase
+  const { error: saveError } = await supabase
     .from("sprint_tests")
     .update({
       status: "live",
@@ -259,6 +260,7 @@ export async function markLive(testId: string, raw: { live_on: string; campaigns
       ...(parsed.data.kind ? { test_kind: parsed.data.kind } : {}),
     })
     .eq("id", testId)
+  if (saveError) return fail("Couldn't save. Try again.")
   refresh((test.clients as { slug: string }).slug)
   return { ok: true }
 }
@@ -308,12 +310,17 @@ export async function renameTest(testId: string, raw: string): Promise<TestResul
   return { ok: true }
 }
 
-export async function saveFindings(testId: string, raw: { worked: string; blockers: string; notes: string }): Promise<TestResult> {
+const Findings = z.object({ worked: z.string(), blockers: z.string(), notes: z.string() })
+
+export async function saveFindings(testId: string, input: { worked: string; blockers: string; notes: string }): Promise<TestResult> {
   if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
+  const parsed = Findings.safeParse(input)
+  if (!parsed.success) return fail("Couldn't read the findings. Try again.")
+  const raw = parsed.data
   const { supabase, test, error } = await loadTest(testId)
   if (!test) return fail(error!)
   const clean = (s: string) => s.trim().slice(0, 3000) || null
-  await supabase
+  const { error: saveError } = await supabase
     .from("sprint_tests")
     .update({
       findings_worked: clean(raw.worked),
@@ -322,6 +329,7 @@ export async function saveFindings(testId: string, raw: { worked: string; blocke
       ...(test.status === "live" ? { status: "review" } : {}),
     })
     .eq("id", testId)
+  if (saveError) return fail("Couldn't save. Try again.")
   refresh((test.clients as { slug: string }).slug)
   return { ok: true }
 }
@@ -342,10 +350,11 @@ export async function setOutcome(testId: string, raw: z.input<typeof Outcome>): 
   const { supabase, test, error } = await loadTest(testId)
   if (!test) return fail(error!)
   if (o.outcome !== "carried" && !["live", "review"].includes(test.status)) return fail("Only a test that went live can be proven, disproven or inconclusive. Carry it over instead.")
-  await supabase
+  const { error: saveError } = await supabase
     .from("sprint_tests")
     .update({ outcome: o.outcome, carry_reason: o.outcome === "carried" ? o.carry_reason : null, carry_note: o.outcome === "carried" ? o.carry_note || null : null })
     .eq("id", testId)
+  if (saveError) return fail("Couldn't save. Try again.")
   // If the next sprint already exists, carry it now; otherwise the next sprint picks it up when created.
   if (o.outcome === "carried") {
     const sprint = test.sprints as { id: string; number: number }
@@ -362,7 +371,8 @@ export async function clearOutcome(testId: string): Promise<TestResult> {
   if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
   const { supabase, test, error } = await loadTest(testId)
   if (!test) return fail(error!)
-  await supabase.from("sprint_tests").update({ outcome: null, carry_reason: null, carry_note: null }).eq("id", testId)
+  const { error: saveError } = await supabase.from("sprint_tests").update({ outcome: null, carry_reason: null, carry_note: null }).eq("id", testId)
+  if (saveError) return fail("Couldn't save. Try again.")
   refresh((test.clients as { slug: string }).slug)
   return { ok: true }
 }

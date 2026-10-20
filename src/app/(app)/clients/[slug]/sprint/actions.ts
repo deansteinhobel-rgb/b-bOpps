@@ -124,7 +124,8 @@ export async function setChangeStatus(changeId: string, status: "logged" | "dism
   if (!change) return fail("That change isn't available to you.")
   const { sprint, error } = await openSprint(change.sprint_id)
   if (!sprint) return fail(error!)
-  await supabase.from("sprint_changes").update({ status }).eq("id", changeId)
+  const { error: saveError } = await supabase.from("sprint_changes").update({ status }).eq("id", changeId)
+  if (saveError) return fail("Couldn't save. Try again.")
   refresh(sprint.clients.slug)
   return { ok: true }
 }
@@ -155,12 +156,11 @@ export async function closeSprint(sprintId: string): Promise<Result> {
 
 export async function reopenSprint(sprintId: string): Promise<Result> {
   if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
-  const me = await getProfile()
-  if (!canEdit(me)) return fail(VIEW_ONLY)
   const supabase = await createClient()
   const { data } = await supabase.from("sprints").select("clients(slug)").eq("id", sprintId).maybeSingle()
   if (!data) return fail("This sprint isn't available to you.")
-  await supabase.from("sprints").update({ closed_at: null, closed_by_profile_id: null }).eq("id", sprintId)
+  const { error: saveError } = await supabase.from("sprints").update({ closed_at: null, closed_by_profile_id: null }).eq("id", sprintId)
+  if (saveError) return fail("Couldn't save. Try again.")
   refresh((data.clients as unknown as { slug: string }).slug)
   return { ok: true }
 }

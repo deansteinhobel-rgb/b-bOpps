@@ -1,6 +1,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { parseMetaTargeting } from "./settings-parse"
+import { windsorRows } from "./rest"
 
 /**
  * Platform settings checks (Dean, 2026-10-15): reads niche delivery settings from Windsor into
@@ -44,13 +45,8 @@ const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim
 const bool = (v: unknown) => (v === null || v === undefined || v === "" ? null : /^(true|1)$/i.test(String(v)))
 const num = (v: unknown) => Number(v) || 0
 
-async function windsor(connector: string, account: string, fields: string[], from: string, to: string): Promise<Row[]> {
-  const params = new URLSearchParams({ api_key: process.env.WINDSOR_API_KEY ?? "", date_from: from, date_to: to, select_accounts: account, fields: fields.join(",") })
-  const res = await fetch(`https://connectors.windsor.ai/${connector}?${params}`, { cache: "no-store", signal: AbortSignal.timeout(120_000) })
-  const body = (await res.json().catch(() => null)) as { data?: Row[] } | null
-  if (!res.ok || !Array.isArray(body?.data)) throw new Error(`Windsor ${connector}: HTTP ${res.status}`)
-  return body.data
-}
+const windsor = (connector: string, account: string, fields: string[], from: string, to: string) =>
+  windsorRows(connector, account, fields, from, to, { timeoutMs: 120_000 }) as Promise<Row[]>
 
 async function googleRows(a: Account, from: string, to: string, at: string): Promise<SettingsRow[]> {
   const byId = new Map<string, Row>()

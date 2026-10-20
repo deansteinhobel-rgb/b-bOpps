@@ -1,6 +1,7 @@
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { recordStatusChange } from "./changes"
+import { windsorRows } from "./rest"
 
 /**
  * Current campaign status per platform, from Windsor, into campaign_statuses (upserts only).
@@ -19,12 +20,9 @@ export async function syncCampaignStatuses(opts: { clientId?: string; to: string
     const field = FIELD[a.windsor_connector]
     if (!field) continue
     try {
-      const params = new URLSearchParams({ api_key: process.env.WINDSOR_API_KEY ?? "", date_from: from, date_to: opts.to, select_accounts: a.external_account_id, fields: `campaign_id,campaign,${field}` })
-      const res = await fetch(`https://connectors.windsor.ai/${a.windsor_connector}?${params}`, { cache: "no-store", signal: AbortSignal.timeout(120_000) })
-      const body = (await res.json().catch(() => null)) as { data?: Record<string, unknown>[] } | null
-      if (!res.ok || !Array.isArray(body?.data)) throw new Error(`Windsor ${a.windsor_connector}: HTTP ${res.status}`)
+      const data = await windsorRows(a.windsor_connector, a.external_account_id, ["campaign_id", "campaign", field], from, opts.to)
       const byId = new Map<string, Record<string, unknown>>()
-      for (const r of body.data) if (r.campaign_id && r[field]) byId.set(String(r.campaign_id), r)
+      for (const r of data) if (r.campaign_id && r[field]) byId.set(String(r.campaign_id), r)
       const rows = [...byId.values()].map((r) => ({
         client_id: a.client_id,
         platform: a.platform,
