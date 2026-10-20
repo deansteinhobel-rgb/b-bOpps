@@ -6,6 +6,7 @@
  */
 import { createAdminClient } from "@/lib/supabase/admin"
 import { COMPETITOR_SOURCES, type CompetitorSource } from "@/lib/competitors/sources"
+import { checkKeywordRelevance } from "@/lib/competitors/relevance"
 import { pump, queueWeek } from "@/lib/competitors/sync"
 
 async function main() {
@@ -22,6 +23,10 @@ async function main() {
     console.log(`  pass ${pass}: started ${r.started}, collected ${r.collected} (${r.ads} ads), failed ${r.failed}, closed ${r.closed}, images ${r.copied}${r.errors.length ? `, errors: ${r.errors.join("; ")}` : ""}`)
     if (!r.open) break
     await new Promise((res) => setTimeout(res, 20_000))
+  }
+  if (process.env.ANTHROPIC_API_KEY) {
+    const rel = await checkKeywordRelevance(client.id)
+    console.log(`  relevance: ${rel.checked} keyword ads checked in ${rel.searches} searches, ${rel.offTopic} off-topic (${rel.usage.input_tokens} in, ${rel.usage.output_tokens} out tokens)`)
   }
 }
 main().catch((e) => {

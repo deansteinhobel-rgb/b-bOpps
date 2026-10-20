@@ -120,7 +120,7 @@ export function KeywordAdsView(props: {
                 <PlatformIcon platform={SOURCE_PLATFORM[selected.source]} className="size-5" /> &ldquo;{kw.keyword}&rdquo;: top {props.top.length}
               </span>
             }
-            description={`${SOURCE_LABEL[selected.source]}'s own order. The 3 longest-running are marked.`}
+            description={`${SOURCE_LABEL[selected.source]}'s own order. The 3 longest-running are marked; ads Claude found off-topic are faded and never picked (hover for why).`}
             actions={
               kw.sources.length > 1 && (
                 <div className="flex gap-1">
@@ -180,8 +180,15 @@ function MiniAd({ ad, today }: { ad: KeywordAdView; today: string }) {
 }
 
 function AdCard({ ad, rank, today, pick }: { ad: KeywordAdView; rank: number; today: string; pick: boolean }) {
+  const off = ad.relevance === "off_topic"
   return (
-    <a href={ad.library_url ?? undefined} target="_blank" rel="noreferrer" className="group flex w-full flex-col gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <a
+      href={ad.library_url ?? undefined}
+      target="_blank"
+      rel="noreferrer"
+      title={ad.relevance_reason ? `${off ? "Off-topic" : ad.relevance === "unsure" ? "Unsure" : "Relevant"}: ${ad.relevance_reason}` : undefined}
+      className={cn("group flex w-full flex-col gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring", off && "opacity-45 hover:opacity-100")}
+    >
       <span className="relative block">
         <Creative ad={ad} className={cn("aspect-square w-full transition-colors group-hover:border-foreground/30", pick && "border-lime/60")} />
         <span className="absolute top-1.5 left-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-foreground tabular-nums">#{rank}</span>
@@ -189,6 +196,7 @@ function AdCard({ ad, rank, today, pick }: { ad: KeywordAdView; rank: number; to
       <span className="flex items-center gap-1.5 text-[13px]">
         <span className="truncate font-medium text-foreground">{ad.advertiser ?? "Unknown advertiser"}</span>
         {pick && <span className="pill shrink-0 border-lime/50 text-lime">Running longest</span>}
+        {off && <span className="pill shrink-0">Off-topic</span>}
       </span>
       <span className="text-xs text-muted-foreground">
         {ranFor(ad, today)} · {ad.countries.join(", ")}

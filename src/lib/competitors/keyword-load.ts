@@ -11,6 +11,7 @@ export type KeywordRow = { id: string; keyword: string; sources: string[] }
 export type KeywordAdView = KeywordAd & {
   /** When the creative started: its earliest version, or when we first saw it (keywords.ts). */
   since: string
+  relevance_reason: string | null
   cta: string | null
   landing_url: string | null
   library_url: string | null
@@ -33,7 +34,7 @@ export async function loadKeywordPage(supabase: Db, client: { id: string; name: 
   for (let from = 0; ; from += 1000) {
     const { data } = await supabase
       .from("keyword_ads")
-      .select("id, keyword_id, source, external_id, advertiser, ranks, started_on, ended_on, first_seen_at, last_seen_at, headline, body, cta, landing_url, library_url, format, countries, storage_path")
+      .select("id, keyword_id, source, external_id, advertiser, ranks, started_on, ended_on, first_seen_at, last_seen_at, headline, body, cta, landing_url, library_url, format, countries, storage_path, relevance, relevance_reason")
       .eq("client_id", client.id)
       .gte("last_seen_at", since)
       .order("id")

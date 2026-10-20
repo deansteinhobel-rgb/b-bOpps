@@ -73,7 +73,7 @@ async function keywordMarket(db: Db, clientId: string, today: string) {
   const [{ data: client }, { data: keywords }, { data: ads }] = await Promise.all([
     db.from("clients").select("name").eq("id", clientId).single(),
     db.from("competitor_keywords").select("id, keyword, sources").eq("client_id", clientId).is("removed_at", null).order("created_at"),
-    db.from("keyword_ads").select("id, keyword_id, source, external_id, advertiser, ranks, started_on, ended_on, first_seen_at, last_seen_at, headline, body").eq("client_id", clientId).gte("last_seen_at", since).limit(3000),
+    db.from("keyword_ads").select("id, keyword_id, source, external_id, advertiser, ranks, started_on, ended_on, first_seen_at, last_seen_at, headline, body, relevance").eq("client_id", clientId).gte("last_seen_at", since).limit(3000),
   ])
   if (!keywords?.length || !ads?.length) return ""
   const rows = ads.map((a) => ({ ...a, source: a.source as KeywordSource, ranks: (a.ranks ?? {}) as Record<string, number> })) as KeywordAd[]

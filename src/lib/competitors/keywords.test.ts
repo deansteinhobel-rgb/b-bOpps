@@ -52,6 +52,10 @@ describe("longestRunning", () => {
     expect(longestRunning([live, other], [], 3, [live, stopped, other]).map((a) => a.external_id)).toEqual(["new", "x"])
     expect(runningSince([live, stopped, other])(live).since).toBe("2026-09-18")
   })
+  it("never picks an ad Claude marked off-topic", () => {
+    const top = [ad({ external_id: "a", headline: "A", started_on: "2025-01-01", relevance: "off_topic" }), ad({ external_id: "b", headline: "B", started_on: "2026-01-01", relevance: "unsure" })]
+    expect(longestRunning(top, []).map((x) => x.external_id)).toEqual(["b"])
+  })
   it("never picks two versions of the same creative", () => {
     const a = ad({ external_id: "a", headline: "Same", started_on: "2026-09-18" })
     const b = ad({ external_id: "b", headline: "Same", started_on: "2026-10-18" })

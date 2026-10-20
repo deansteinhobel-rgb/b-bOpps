@@ -24,6 +24,8 @@ export type KeywordAd = {
   ended_on: string | null
   first_seen_at: string
   last_seen_at: string
+  /** Claude's check (relevance.ts): off-topic ads are never picks. Null = not checked yet. */
+  relevance?: string | null
 }
 
 /** Ads seen within this long of a keyword's latest read belong to that read (a read spans a few hours). */
@@ -73,8 +75,8 @@ export function runningSince<T extends Dated>(versions: T[]) {
 }
 
 /**
- * The `n` creatives among the top ads that have run longest, leaving out the client's own and
- * second versions of the same creative. Meta by when the creative started (its earliest version).
+ * The `n` creatives among the top ads that have run longest, leaving out the client's own, ads
+ * Claude marked off-topic, and second versions of the same creative. Meta by when the creative started (its earliest version).
  * LinkedIn rarely shows run dates, but its ad ids rise over time, so the lowest id is the oldest
  * (an estimate, which the page says). `versions` = every version we hold, stopped ones included.
  */
@@ -84,7 +86,7 @@ export function longestRunning<T extends KeywordAd>(top: T[], own: string[], n =
   const key = (a: T) => (a.source === "linkedin" ? since(a).minId : Date.parse(since(a).since))
   const seen = new Set<string>()
   return top
-    .filter((a) => !mine.has(norm(a.advertiser)))
+    .filter((a) => !mine.has(norm(a.advertiser)) && a.relevance !== "off_topic")
     .sort((a, b) => key(a) - key(b))
     .filter((a) => {
       const k = creativeKey(a)

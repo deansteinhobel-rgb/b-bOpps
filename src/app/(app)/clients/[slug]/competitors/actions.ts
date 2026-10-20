@@ -4,6 +4,8 @@ import { after } from "next/server"
 import { revalidatePath } from "next/cache"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { apifyConfigured } from "@/lib/competitors/apify"
+import { checkKeywordRelevance } from "@/lib/competitors/relevance"
+import { aiConfigured } from "@/lib/ai/claude"
 import { pump, queueWeek } from "@/lib/competitors/sync"
 import { rateLimit } from "@/lib/rate-limit"
 import { createClient } from "@/lib/supabase/server"
@@ -93,6 +95,8 @@ export async function readAgain(slug: string): Promise<CompetitorResult & { queu
       if (!r.open) break
       await new Promise((res) => setTimeout(res, 20_000))
     }
+    // New keyword results get their relevance check now rather than at the next labels run.
+    if (aiConfigured() && Date.now() < stopAt) await checkKeywordRelevance(clientId, { stopAt: stopAt + 50_000 })
   })
   return { ok: true, queued }
 }
