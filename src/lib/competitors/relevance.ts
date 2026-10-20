@@ -98,12 +98,14 @@ export async function checkKeywordRelevance(clientId: string, opts: { stopAt?: n
   let checked = 0
   let offTopic = 0
   let searches = 0
-  for (const k of keywords)
-    for (const source of ["linkedin", "meta"] as const) {
-      if (!k.sources.includes(source)) continue
-      if (opts.stopAt && Date.now() > opts.stopAt) return { checked, offTopic, searches, usage }
-      const todo = topAds(rows.filter((r) => r.keyword_id === k.id && r.source === source)).filter((a) => a.relevance_digest !== digestOf(k.keyword, a))
-      if (!todo.length) continue
+  const searchesToDo = keywords.flatMap((k) =>
+    (["linkedin", "meta"] as const)
+      .filter((source) => k.sources.includes(source))
+      .map((source) => ({ k, source, todo: topAds(rows.filter((r) => r.keyword_id === k.id && r.source === source)).filter((a) => a.relevance_digest !== digestOf(k.keyword, a)) }))
+      .filter((s) => s.todo.length),
+  )
+  // Four searches at a time: one at a time took over 10 minutes for DNSFilter's 24.
+  const check = async ({ k, source, todo }: (typeof searchesToDo)[number]) => {
       const keyed = todo.map((a, i) => ({ key: `a${i + 1}`, a }))
       const lines = keyed.map(
         ({ key, a }) =>
@@ -138,6 +140,12 @@ export async function checkKeywordRelevance(clientId: string, opts: { stopAt?: n
         checked++
         if (v.verdict === "off_topic") offTopic++
       }
-    }
+  }
+  let next = 0
+  await Promise.all(
+    Array.from({ length: 4 }, async () => {
+      while (next < searchesToDo.length && !(opts.stopAt && Date.now() > opts.stopAt)) await check(searchesToDo[next++])
+    }),
+  )
   return { checked, offTopic, searches, usage }
 }
