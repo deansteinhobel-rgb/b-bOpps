@@ -142,7 +142,11 @@ export function KeywordAdsView(props: {
               ))}
             </ol>
           ) : (
-            <p className="surface px-4 py-6 text-sm text-muted-foreground">No ads for this search yet. Searches run on Sunday{props.canEdit ? ", or now with Read again" : ""}.</p>
+            <p className="surface px-4 py-6 text-sm text-muted-foreground">
+              {kw.created_at > new Date().toISOString()
+                ? `This keyword is read from ${new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(new Date(kw.created_at))}, after Apify's monthly credit resets.`
+                : `No ads for this search yet. Searches run every other Sunday${props.canEdit ? ", or now with Read again" : ""}.`}
+            </p>
           )}
         </section>
       )}
@@ -240,6 +244,11 @@ function ManageKeywords({ slug, keywords, canEdit }: { slug: string; keywords: K
                 <PlatformIcon key={s} platform={SOURCE_PLATFORM[s]} className="size-3.5" />
               ))}
               {k.keyword}
+              {k.created_at > new Date().toISOString() && (
+                <span className="text-[11px] text-subtle-foreground" title="Read from this date (after Apify's monthly credit resets)">
+                  from {new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(new Date(k.created_at))}
+                </span>
+              )}
               {canEdit && (
                 <button type="button" disabled={pending} onClick={() => remove(k)} className="-mr-1 rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label={`Remove ${k.keyword}`}>
                   <X className="size-3" />
@@ -251,7 +260,7 @@ function ManageKeywords({ slug, keywords, canEdit }: { slug: string; keywords: K
         </ul>
         {canEdit && (
           <div className="flex flex-wrap items-center gap-2 border-t p-3">
-            <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="e.g. DNS filtering for MSPs" className="h-8 min-w-48 flex-1 rounded-md border bg-background px-2.5 text-sm outline-none focus:border-foreground/30" aria-label="New keyword" />
+            <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder="e.g. a product category your buyers search for" className="h-8 min-w-48 flex-1 rounded-md border bg-background px-2.5 text-sm outline-none focus:border-foreground/30" aria-label="New keyword" />
             {(["linkedin", "meta"] as const).map((s) => (
               <label key={s} className="inline-flex items-center gap-1.5 text-[13px] text-body">
                 <input type="checkbox" checked={sources.includes(s)} onChange={() => toggle(s)} className="accent-lime" />

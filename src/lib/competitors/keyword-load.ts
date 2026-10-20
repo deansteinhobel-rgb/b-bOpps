@@ -7,7 +7,7 @@ const BUCKET = "ad-previews"
 /** Ads seen in the last 14 days are enough for the latest weekly read of every keyword. */
 const RECENT_MS = 14 * 86_400_000
 
-export type KeywordRow = { id: string; keyword: string; sources: string[] }
+export type KeywordRow = { id: string; keyword: string; sources: string[]; created_at: string }
 export type KeywordAdView = KeywordAd & {
   /** When the creative started: its earliest version, or when we first saw it (keywords.ts). */
   since: string
@@ -28,7 +28,7 @@ export type KeywordSummary = { keywordId: string; source: KeywordSource; count: 
  */
 export async function loadKeywordPage(supabase: Db, client: { id: string; name: string }, pick: { keywordId?: string; source?: KeywordSource }) {
   const since = new Date(Date.now() - RECENT_MS).toISOString()
-  const { data: keywords } = await supabase.from("competitor_keywords").select("id, keyword, sources").eq("client_id", client.id).is("removed_at", null).order("created_at")
+  const { data: keywords } = await supabase.from("competitor_keywords").select("id, keyword, sources, created_at").eq("client_id", client.id).is("removed_at", null).order("created_at")
   type Raw = Omit<KeywordAdView, "src" | "since"> & { storage_path: string | null }
   const rows: Raw[] = []
   for (let from = 0; ; from += 1000) {

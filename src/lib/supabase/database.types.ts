@@ -1326,6 +1326,10 @@ export type Database = {
           media_url: string | null
           placements: string[]
           raw: Json | null
+          relevance: string | null
+          relevance_checked_at: string | null
+          relevance_digest: string | null
+          relevance_reason: string | null
           source: string
           started_on: string | null
           storage_path: string | null
@@ -1361,6 +1365,10 @@ export type Database = {
           media_url?: string | null
           placements?: string[]
           raw?: Json | null
+          relevance?: string | null
+          relevance_checked_at?: string | null
+          relevance_digest?: string | null
+          relevance_reason?: string | null
           source: string
           started_on?: string | null
           storage_path?: string | null
@@ -1396,6 +1404,10 @@ export type Database = {
           media_url?: string | null
           placements?: string[]
           raw?: Json | null
+          relevance?: string | null
+          relevance_checked_at?: string | null
+          relevance_digest?: string | null
+          relevance_reason?: string | null
           source?: string
           started_on?: string | null
           storage_path?: string | null

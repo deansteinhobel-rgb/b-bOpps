@@ -59,7 +59,8 @@ export async function queueWeek(opts: { clientId?: string; force?: boolean; sour
     const countries = countriesFor(currency)
     const [list, { data: keywords }] = await Promise.all([
       competitors(clientId, db),
-      db.from("competitor_keywords").select("id, keyword, sources").eq("client_id", clientId).is("removed_at", null),
+      // A keyword dated in the future (added by the server to start after Apify's monthly reset) waits until then.
+      db.from("competitor_keywords").select("id, keyword, sources").eq("client_id", clientId).is("removed_at", null).lte("created_at", new Date().toISOString()),
     ])
     if (!list.length && !keywords?.length) continue
     const { data: recent } = await db.from("competitor_runs").select("competitor_id, keyword_id, source, country").eq("client_id", clientId).gte("queued_at", since).neq("status", "failed")
