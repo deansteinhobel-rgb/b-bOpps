@@ -2207,6 +2207,10 @@ export type Database = {
           library_url: string | null
           media_url: string | null
           ranks: Json
+          relevance: string | null
+          relevance_checked_at: string | null
+          relevance_digest: string | null
+          relevance_reason: string | null
           source: string
           started_on: string | null
           storage_path: string | null
@@ -2232,6 +2236,10 @@ export type Database = {
           library_url?: string | null
           media_url?: string | null
           ranks?: Json
+          relevance?: string | null
+          relevance_checked_at?: string | null
+          relevance_digest?: string | null
+          relevance_reason?: string | null
           source: string
           started_on?: string | null
           storage_path?: string | null
@@ -2257,6 +2265,10 @@ export type Database = {
           library_url?: string | null
           media_url?: string | null
           ranks?: Json
+          relevance?: string | null
+          relevance_checked_at?: string | null
+          relevance_digest?: string | null
+          relevance_reason?: string | null
           source?: string
           started_on?: string | null
           storage_path?: string | null
