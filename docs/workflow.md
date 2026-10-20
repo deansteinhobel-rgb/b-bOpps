@@ -43,8 +43,8 @@ the moment it runs, whatever branch it came from, and rolling the code back does
 - **Additive only**: new tables, columns, functions and policies. Never drop or rename anything the
   live app reads. If something must go, stop using it in one release and remove it in a later one,
   with Dean's go-ahead.
-- **Dean runs every migration** (`npx supabase db push`). Nobody else does, and Claude never does on
-  someone else's laptop.
+- **Dean runs every migration** (`npx supabase db push`), or Claude in Dean's own sessions once Dean
+  says so (2026-10-20). Nobody else does, and Claude never does on someone else's laptop.
 - **Name it after the latest one on `main`**: the timestamp prefix must be later than every file in
   `supabase/migrations` on `main` when you open the pull request. If someone else's migration lands
   first, rename yours.
