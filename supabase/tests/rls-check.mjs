@@ -534,3 +534,36 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   ]
   console.log(dels.length === 0 ? "competitors, runs and ads can't be deleted: OK" : "FAIL: competitor data deleted")
 }
+
+// Keyword ads (2026-10-20): the team keeps keywords; keyword ads are server-written and client-scoped;
+// a run targets a competitor or a keyword, never both; nothing is deleted.
+{
+  const camber = "11111111-1111-1111-1111-111111111111"
+  const dnsf = "22222222-2222-2222-2222-222222222222"
+  const andrea = "aaaaaaaa-0000-0000-0000-000000000002"
+  const danny = "aaaaaaaa-0000-0000-0000-000000000003"
+  const kw = await as(andrea, () => q(`insert into public.competitor_keywords (client_id, keyword) values ('${camber}', 'DNS filtering') returning id`))
+  console.log(kw.length === 1 ? "keywords: the team adds one: OK" : "FAIL: team couldn't add a keyword")
+  const k = kw[0].id
+  try { await as(andrea, () => q(`insert into public.competitor_keywords (client_id, keyword) values ('${camber}', ' dns FILTERING ')`)); console.log("FAIL: duplicate keyword") } catch { console.log("keywords: no duplicates: OK") }
+  try { await as(danny, () => q(`insert into public.competitor_keywords (client_id, keyword) values ('${camber}', 'msp')`)); console.log("FAIL: another team added a keyword") } catch { console.log("keywords: another team can't add: OK") }
+  try { await as(vera, () => q(`insert into public.competitor_keywords (client_id, keyword) values ('${camber}', 'msp')`)); console.log("FAIL: a viewer added a keyword") } catch { console.log("keywords: viewers can't add: OK") }
+  try { await as(andrea, () => q(`update public.competitor_keywords set keyword = 'x' where id = '${k}'`)); console.log("FAIL: keyword edited") } catch { console.log("keywords: can't be edited, only removed: OK") }
+  await q(`insert into public.competitor_runs (client_id, keyword_id, source, country, actor) values ('${camber}', '${k}', 'meta', 'US', 'x')`)
+  try { await q(`insert into public.competitor_runs (client_id, keyword_id, source, country, actor) values ('${camber}', '${k}', 'google', 'US', 'x')`); console.log("FAIL: Google keyword run") } catch { console.log("keyword runs: Meta and LinkedIn only: OK") }
+  try { await q(`insert into public.competitor_runs (client_id, source, country, actor) values ('${camber}', 'meta', 'US', 'x')`); console.log("FAIL: run with no target") } catch { console.log("runs: a competitor or a keyword: OK") }
+  try { await q(`insert into public.competitor_runs (client_id, keyword_id, source, country, actor) values ('${dnsf}', '${k}', 'meta', 'US', 'x')`); console.log("FAIL: run for another client's keyword") } catch { console.log("keyword runs: client must match: OK") }
+  await q(`insert into public.keyword_ads (client_id, keyword_id, source, external_id) values ('${camber}', '${k}', 'meta', 'ad1')`)
+  try { await q(`insert into public.keyword_ads (client_id, keyword_id, source, external_id) values ('${dnsf}', '${k}', 'meta', 'ad2')`); console.log("FAIL: keyword ad for another client") } catch { console.log("keyword ads: client must match: OK") }
+  const team = await as(andrea, () => q("select id from public.keyword_ads"))
+  const other = await as(danny, () => q("select id from public.keyword_ads"))
+  console.log(team.length === 1 && other.length === 0 ? "keyword ads: the team reads, other teams don't: OK" : "FAIL: keyword ads visibility")
+  try { await as(andrea, () => q(`insert into public.keyword_ads (client_id, keyword_id, source, external_id) values ('${camber}', '${k}', 'meta', 'ad3')`)); console.log("FAIL: a signed-in user wrote a keyword ad") } catch { console.log("keyword ads are server-written: OK") }
+  const removed = await as(andrea, () => q(`update public.competitor_keywords set removed_at = now(), removed_by_profile_id = '${andrea}' where id = '${k}' returning id`))
+  console.log(removed.length === 1 ? "keywords: the team soft-removes: OK" : "FAIL: keyword soft remove")
+  const dels = [
+    ...(await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.keyword_ads returning id"))),
+    ...(await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.competitor_keywords returning id"))),
+  ]
+  console.log(dels.length === 0 ? "keywords and keyword ads can't be deleted: OK" : "FAIL: keyword data deleted")
+}

@@ -44,6 +44,8 @@ const KNOWLEDGE: TabGroup = {
     { href: "/brain", label: "Client brain" },
     // Dean, 2026-10-20: what competitors run, from the public ad libraries, once a week.
     { href: "/competitors", label: "Competitor ads" },
+    // Dean, 2026-10-20: the market by keyword (Meta and LinkedIn), the longest-running ads first.
+    { href: "/keyword-ads", label: "Keyword ads" },
   ],
 }
 

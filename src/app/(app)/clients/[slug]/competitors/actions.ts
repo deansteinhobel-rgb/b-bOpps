@@ -96,3 +96,38 @@ export async function readAgain(slug: string): Promise<CompetitorResult & { queu
   })
   return { ok: true, queued }
 }
+
+/** Adds a keyword to search Meta's and LinkedIn's ad libraries for (read on Sunday, or with Read again). */
+export async function addKeyword(slug: string, keyword: string, sources: string[]): Promise<CompetitorResult> {
+  const me = await getProfile()
+  if (!canEdit(me)) return fail(VIEW_ONLY)
+  const text = keyword.trim().replace(/\s+/g, " ")
+  if (text.length < 2) return fail("Write the keyword first.")
+  if (text.length > 80) return fail("Keep the keyword under 80 characters.")
+  const picked = [...new Set(sources)].filter((s) => s === "meta" || s === "linkedin")
+  if (!picked.length) return fail("Pick Meta, LinkedIn or both.")
+  const { supabase, clientId } = await clientFor(slug)
+  if (!clientId) return fail("This client isn't available to you.")
+  const limited = await rateLimit(supabase, "competitor_edit")
+  if (limited) return fail(limited)
+  const { error } = await supabase.from("competitor_keywords").insert({ client_id: clientId, keyword: text, sources: picked, created_by_profile_id: me.id })
+  if (error) return fail(error.code === "23505" ? "That keyword is already on the list." : "Couldn't add the keyword.")
+  revalidatePath(`/clients/${slug}/keyword-ads`)
+  return { ok: true }
+}
+
+export async function removeKeyword(slug: string, id: string): Promise<CompetitorResult> {
+  const me = await getProfile()
+  if (!canEdit(me)) return fail(VIEW_ONLY)
+  const { supabase, clientId } = await clientFor(slug)
+  if (!clientId) return fail("This client isn't available to you.")
+  const { error } = await supabase
+    .from("competitor_keywords")
+    .update({ removed_at: new Date().toISOString(), removed_by_profile_id: me.id })
+    .eq("id", id)
+    .eq("client_id", clientId)
+    .is("removed_at", null)
+  if (error) return fail("Couldn't remove it.")
+  revalidatePath(`/clients/${slug}/keyword-ads`)
+  return { ok: true }
+}

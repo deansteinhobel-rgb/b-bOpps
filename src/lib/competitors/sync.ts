@@ -2,13 +2,13 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { COMPETITOR_IMAGE_HOSTS, copyImage } from "@/lib/windsor/creatives"
 import { apifyConfigured, datasetItems, FINISHED, isBusy, runStatus, startRun } from "./apify"
-import { COMPETITOR_SOURCES, COUNTRIES, normalizeItems, runIsHealthy, SOURCES, type Competitor, type CompetitorSource } from "./sources"
+import { COMPETITOR_SOURCES, COUNTRIES, keywordInput, KEYWORD_SOURCES, normalizeItems, normalizeKeywordItems, runIsHealthy, SOURCES, type Competitor, type CompetitorSource, type KeywordSource } from "./sources"
 
 /**
  * Competitor ads, once a week (Dean, 2026-10-20). `queueWeek` adds one run per competitor × source ×
- * country; `pump` starts queued runs while Apify has room (the free plan runs 5 at once), collects
- * finished ones into `competitor_ads`, closes ads a healthy week no longer shows, and copies images
- * into our bucket. Both are safe to call again: the cron calls `pump` every half hour on Sunday
+ * country, and per keyword × Meta/LinkedIn × country; `pump` starts queued runs while Apify has room
+ * (the free plan runs 5 at once), collects finished ones into `competitor_ads` or `keyword_ads`,
+ * closes competitor ads a healthy week no longer shows, and copies images into our bucket. Both are safe to call again: the cron calls `pump` every half hour on Sunday
  * morning. Reads the public ad libraries; writes only our database and storage.
  */
 const MAX_RUNNING = 4
@@ -40,18 +40,32 @@ async function competitors(clientId: string, db = createAdminClient()): Promise<
   return data ?? []
 }
 
-/** Queues this week's runs. Skips a competitor × source × country already queued or read in the last 3 days. */
+/** Queues this week's runs. Skips a competitor or keyword × source × country already queued or read in the last 3 days. */
 export async function queueWeek(opts: { clientId?: string } = {}) {
   if (!apifyConfigured()) return { queued: 0, skipped: "APIFY_TOKEN isn't set" }
   const db = createAdminClient()
   const since = new Date(Date.now() - BATCH_MS).toISOString()
   let queued = 0
   for (const clientId of await clientIds(db, opts.clientId)) {
-    const list = await competitors(clientId, db)
-    if (!list.length) continue
-    const { data: recent } = await db.from("competitor_runs").select("competitor_id, source, country").eq("client_id", clientId).gte("queued_at", since).neq("status", "failed")
-    const done = new Set((recent ?? []).map((r) => `${r.competitor_id}|${r.source}|${r.country}`))
-    const rows = list.flatMap((c) =>
+    const [list, { data: keywords }] = await Promise.all([
+      competitors(clientId, db),
+      db.from("competitor_keywords").select("id, keyword, sources").eq("client_id", clientId).is("removed_at", null),
+    ])
+    if (!list.length && !keywords?.length) continue
+    const { data: recent } = await db.from("competitor_runs").select("competitor_id, keyword_id, source, country").eq("client_id", clientId).gte("queued_at", since).neq("status", "failed")
+    const done = new Set((recent ?? []).map((r) => `${r.competitor_id ?? r.keyword_id}|${r.source}|${r.country}`))
+    const keywordRows = (keywords ?? []).flatMap((k) =>
+      KEYWORD_SOURCES.filter((source) => k.sources.includes(source)).flatMap((source) =>
+        COUNTRIES.filter((country) => !done.has(`${k.id}|${source}|${country}`)).map((country) => ({
+          client_id: clientId,
+          keyword_id: k.id,
+          source,
+          country,
+          actor: SOURCES[source].actor,
+        })),
+      ),
+    )
+    const competitorRows = list.flatMap((c) =>
       COMPETITOR_SOURCES.flatMap((source) =>
         COUNTRIES.filter((country) => SOURCES[source].input(c, country) && !done.has(`${c.id}|${source}|${country}`)).map((country) => ({
           client_id: clientId,
@@ -62,6 +76,7 @@ export async function queueWeek(opts: { clientId?: string } = {}) {
         })),
       ),
     )
+    const rows = [...competitorRows, ...keywordRows]
     if (rows.length) {
       const { error } = await db.from("competitor_runs").insert(rows)
       if (error) throw new Error(error.message)
@@ -71,7 +86,7 @@ export async function queueWeek(opts: { clientId?: string } = {}) {
   return { queued }
 }
 
-type RunRow = { id: string; client_id: string; competitor_id: string; source: string; country: string; actor: string; apify_run_id: string | null; queued_at: string; started_at: string | null }
+type RunRow = { id: string; client_id: string; competitor_id: string | null; keyword_id: string | null; source: string; country: string; actor: string; apify_run_id: string | null; queued_at: string; started_at: string | null }
 
 /** Collects finished runs, starts queued ones, closes stale ads and copies images, within `stopAt`. */
 export async function pump(opts: { stopAt?: number; maxCopies?: number; clientId?: string } = {}) {
@@ -81,7 +96,7 @@ export async function pump(opts: { stopAt?: number; maxCopies?: number; clientId
   const db = createAdminClient()
   const scope = await clientIds(db, opts.clientId)
   if (!scope.length) return result
-  const cols = "id, client_id, competitor_id, source, country, actor, apify_run_id, queued_at, started_at"
+  const cols = "id, client_id, competitor_id, keyword_id, source, country, actor, apify_run_id, queued_at, started_at"
 
   // 1. Finished runs → ads.
   const { data: running } = await db.from("competitor_runs").select(cols).eq("status", "started").in("client_id", scope)
@@ -99,9 +114,10 @@ export async function pump(opts: { stopAt?: number; maxCopies?: number; clientId
         result.failed++
         continue
       }
-      result.ads += await collect(run, await datasetItems(status.defaultDatasetId), status.usageTotalUsd)
+      const items = await datasetItems(status.defaultDatasetId)
+      result.ads += run.keyword_id ? await collectKeyword(run, items, status.usageTotalUsd) : await collect(run, items, status.usageTotalUsd)
       result.collected++
-      touched.add(`${run.competitor_id}|${run.source}`)
+      if (run.competitor_id) touched.add(`${run.competitor_id}|${run.source}`)
     } catch (e) {
       result.errors.push(`${run.source} ${run.country}: ${(e as Error).message}`)
     }
@@ -114,9 +130,15 @@ export async function pump(opts: { stopAt?: number; maxCopies?: number; clientId
     const { data: queued } = await db.from("competitor_runs").select(cols).eq("status", "queued").in("client_id", scope).order("queued_at").limit(room)
     for (const run of (queued ?? []) as RunRow[]) {
       if (Date.now() > stopAt || room <= 0) break
-      const { data: c } = await db.from("client_competitors").select("id, name, meta_page_id, linkedin_advertiser, google_advertiser_ids, removed_at").eq("id", run.competitor_id).single()
       const source = run.source as CompetitorSource
-      const input = c && !c.removed_at ? SOURCES[source].input(c, run.country) : null
+      let input: Record<string, unknown> | null = null
+      if (run.keyword_id) {
+        const { data: k } = await db.from("competitor_keywords").select("keyword, removed_at").eq("id", run.keyword_id).single()
+        input = k && !k.removed_at ? keywordInput(source as KeywordSource, k.keyword, run.country) : null
+      } else {
+        const { data: c } = await db.from("client_competitors").select("id, name, meta_page_id, linkedin_advertiser, google_advertiser_ids, removed_at").eq("id", run.competitor_id!).single()
+        input = c && !c.removed_at ? SOURCES[source].input(c, run.country) : null
+      }
       if (!input) {
         await fail(run.id, "No id for this library any more")
         continue
@@ -138,7 +160,7 @@ export async function pump(opts: { stopAt?: number; maxCopies?: number; clientId
   for (const key of touched) result.closed += await closeStale(...(key.split("|") as [string, CompetitorSource]))
 
   // 4. Images.
-  result.copied = await copyImages(scope, opts.maxCopies ?? 80, stopAt)
+  result.copied = await copyImages(scope, opts.maxCopies ?? 150, stopAt)
   const { count: open } = await db.from("competitor_runs").select("id", { count: "exact", head: true }).in("client_id", scope).in("status", ["queued", "started"])
   result.open = open ?? 0
   return result
@@ -153,13 +175,13 @@ async function fail(runId: string, error: string, usage?: number) {
 
 async function collect(run: RunRow, items: unknown[], usage?: number) {
   const db = createAdminClient()
-  const { data: c, error } = await db.from("client_competitors").select("id, name, meta_page_id, linkedin_advertiser, google_advertiser_ids").eq("id", run.competitor_id).single()
+  const { data: c, error } = await db.from("client_competitors").select("id, name, meta_page_id, linkedin_advertiser, google_advertiser_ids").eq("id", run.competitor_id!).single()
   if (error || !c) throw new Error(error?.message ?? "Competitor not found")
   const ads = normalizeItems(run.source as CompetitorSource, items, c, today())
   const { count: liveBefore } = await db
     .from("competitor_ads")
     .select("id", { count: "exact", head: true })
-    .eq("competitor_id", run.competitor_id)
+    .eq("competitor_id", run.competitor_id!)
     .eq("source", run.source)
     .eq("active", true)
     .contains("countries", [run.country])
@@ -170,7 +192,7 @@ async function collect(run: RunRow, items: unknown[], usage?: number) {
     const { data: existing } = await db
       .from("competitor_ads")
       .select("external_id, countries")
-      .eq("competitor_id", run.competitor_id)
+      .eq("competitor_id", run.competitor_id!)
       .eq("source", run.source)
       .in("external_id", ads.map((a) => a.external_id))
     const countries = new Map((existing ?? []).map((e) => [e.external_id, e.countries]))
@@ -193,6 +215,62 @@ async function collect(run: RunRow, items: unknown[], usage?: number) {
     .update({
       status: healthy ? "collected" : "failed",
       error: healthy ? null : "No ads came back although the competitor had live ads here: kept them live",
+      items: ads.length,
+      usage_usd: usage ?? null,
+      collected_at: new Date().toISOString(),
+    })
+    .eq("id", run.id)
+  return ads.length
+}
+
+/** A keyword search's ads, with their place in this country's results. */
+async function collectKeyword(run: RunRow, items: unknown[], usage?: number) {
+  const db = createAdminClient()
+  const ads = normalizeKeywordItems(run.source as KeywordSource, items, today())
+  const { count: before } = await db.from("keyword_ads").select("id", { count: "exact", head: true }).eq("keyword_id", run.keyword_id!).eq("source", run.source).contains("countries", [run.country])
+  const healthy = runIsHealthy(ads.length, before ?? 0)
+  if (ads.length) {
+    const { data: existing } = await db
+      .from("keyword_ads")
+      .select("external_id, countries, ranks")
+      .eq("keyword_id", run.keyword_id!)
+      .eq("source", run.source)
+      .in("external_id", ads.map((a) => a.external_id))
+    const prev = new Map((existing ?? []).map((e) => [e.external_id, e]))
+    const now = new Date().toISOString()
+    const { error } = await db.from("keyword_ads").upsert(
+      ads.map((a) => {
+        const p = prev.get(a.external_id)
+        return {
+          external_id: a.external_id,
+          advertiser: a.advertiser,
+          advertiser_id: a.advertiser_id,
+          started_on: a.started_on,
+          ended_on: a.ended_on,
+          format: a.format,
+          headline: a.headline,
+          body: a.body,
+          cta: a.cta,
+          landing_url: a.landing_url,
+          library_url: a.library_url,
+          media_url: a.media_url,
+          client_id: run.client_id,
+          keyword_id: run.keyword_id!,
+          source: run.source,
+          countries: [...new Set([...(p?.countries ?? []), run.country])].sort(),
+          ranks: { ...((p?.ranks as Record<string, number> | null) ?? {}), [run.country]: a.rank },
+          last_seen_at: now,
+        }
+      }),
+      { onConflict: "keyword_id,source,external_id" },
+    )
+    if (error) throw new Error(error.message)
+  }
+  await db
+    .from("competitor_runs")
+    .update({
+      status: healthy ? "collected" : "failed",
+      error: healthy ? null : "No ads came back although this search had ads before",
       items: ads.length,
       usage_usd: usage ?? null,
       collected_at: new Date().toISOString(),
@@ -228,9 +306,16 @@ async function closeStale(competitorId: string, source: CompetitorSource) {
 }
 
 async function copyImages(scope: string[], budget: number, stopAt: number) {
+  const copied = await copyFrom("competitor_ads", scope, budget, stopAt)
+  return copied + (Date.now() < stopAt ? await copyFrom("keyword_ads", scope, budget - copied, stopAt) : 0)
+}
+
+/** Copies images for one table's ads we don't hold yet, newest first. Keyword ads go under competitor/keyword_<source>_<id>. */
+async function copyFrom(table: "competitor_ads" | "keyword_ads", scope: string[], budget: number, stopAt: number) {
+  if (budget <= 0) return 0
   const db = createAdminClient()
   const { data: todo } = await db
-    .from("competitor_ads")
+    .from(table)
     .select("id, client_id, source, external_id, media_url")
     .in("client_id", scope)
     .is("storage_path", null)
@@ -242,11 +327,12 @@ async function copyImages(scope: string[], budget: number, stopAt: number) {
   for (const ad of todo ?? []) {
     if (Date.now() > stopAt) break
     try {
-      const stored = await copyImage(ad.media_url!, `${ad.client_id}/competitor/${ad.source}_${safe(ad.external_id)}`, COMPETITOR_IMAGE_HOSTS)
-      await db.from("competitor_ads").update(stored).eq("id", ad.id)
+      const prefix = table === "keyword_ads" ? "keyword_" : ""
+      const stored = await copyImage(ad.media_url!, `${ad.client_id}/competitor/${prefix}${ad.source}_${safe(ad.external_id)}`, COMPETITOR_IMAGE_HOSTS)
+      await db.from(table).update(stored).eq("id", ad.id)
       copied++
     } catch (e) {
-      await db.from("competitor_ads").update({ copy_error: (e as Error).message.slice(0, 300) }).eq("id", ad.id)
+      await db.from(table).update({ copy_error: (e as Error).message.slice(0, 300) }).eq("id", ad.id)
     }
   }
   return copied
