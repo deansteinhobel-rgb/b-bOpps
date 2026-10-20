@@ -5,9 +5,9 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { extractCall } from "@/lib/calls/extract"
-import { notionIdFrom, optionFor, resolveCallSource } from "@/lib/calls/notion"
+import { belongsToOtherClient, notionIdFrom, optionFor, resolveCallSource } from "@/lib/calls/notion"
 import { londonToday } from "@/lib/checks/periods"
-import { normId, otherClientsNotion } from "@/lib/knowledge/boundaries"
+import { normId } from "@/lib/knowledge/boundaries"
 import { rateLimit } from "@/lib/rate-limit"
 import { ensureSprint } from "@/lib/sprints/data"
 import { sprintOf } from "@/lib/sprints/periods"
@@ -48,16 +48,27 @@ export async function linkCallNotes(slug: string, link: string, option?: string)
   } catch {
     return fail("Lumaux can't see that page. Check the link, and that it's shared with the Lumaux connection in Notion.")
   }
-  // Another client's HQ or call notes can't become this client's (Aikido, cross-tenant isolation).
-  if ((await otherClientsNotion(client.id)).has(normId(src.id))) return fail(`"${src.title}" belongs to another client. Link ${client.name}'s own call notes.`)
+  // Another client's HQ or call notes, or anything inside them, can't become this client's (Aikido, cross-tenant isolation).
+  let theirs: boolean
+  try {
+    theirs = await belongsToOtherClient(client.id, src)
+  } catch {
+    return fail("Lumaux couldn't check where that page sits in Notion. Try again in a minute.")
+  }
+  if (theirs) return fail(`"${src.title}" belongs to another client. Link ${client.name}'s own call notes.`)
   let pick: string | null = null
   if (src.clientOptions) {
     pick = option && src.clientOptions.includes(option) ? option : optionFor(src.clientOptions, [client.name, client.notion_client_option])
     if (!pick) return { ok: false, message: `"${src.title}" holds several clients' calls. Which Client option is ${client.name}?`, options: src.clientOptions }
-    // In a shared call database, each Client option is read by one client only.
-    const { data: taken } = await createAdminClient().from("clients").select("name, call_notes_notion_id").neq("id", client.id).eq("call_notes_client_option", pick)
-    const owner = (taken ?? []).find((c) => c.call_notes_notion_id && normId(c.call_notes_notion_id) === normId(src.id))
-    if (owner) return fail(`${owner.name} already reads the "${pick}" calls in "${src.title}". Pick ${client.name}'s own Client option.`)
+    // In a shared call database, each Client option is read by one client only: the one it names,
+    // or the one that linked it (an option can name a client that isn't linked yet).
+    const { data: rest } = await createAdminClient().from("clients").select("name, notion_client_option, call_notes_notion_id, call_notes_client_option").neq("id", client.id)
+    const owner = (rest ?? []).find(
+      (c) =>
+        (c.call_notes_client_option === pick && c.call_notes_notion_id && normId(c.call_notes_notion_id) === normId(src.id)) ||
+        (optionFor([pick!], [c.name, c.notion_client_option]) === pick && optionFor([pick!], [client.name, client.notion_client_option]) !== pick),
+    )
+    if (owner) return fail(`The "${pick}" calls in "${src.title}" are ${owner.name}'s. Pick ${client.name}'s own Client option.`)
   }
   const { error } = await createAdminClient()
     .from("clients")
