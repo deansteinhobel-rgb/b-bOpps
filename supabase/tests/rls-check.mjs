@@ -110,6 +110,8 @@ console.log(delSprint.length === 0 ? "sprints can't be deleted, even by admin: O
 // Sprint tests: team-scoped, client guard, no deletes.
 const t1 = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_tests (sprint_id, client_id, title) values ('${sp[0].id}', '11111111-1111-1111-1111-111111111111', 'Test') returning id`))
 console.log(t1.length === 1 ? "andrea plans a camber test: OK" : "FAIL: test not created")
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_tests (sprint_id, client_id, title, notion_page_id) values ('${sp[0].id}', '11111111-1111-1111-1111-111111111111', 'Forged', 'abc')`)); console.log("FAIL: test created with a Notion brief") } catch { console.log("team member can't create a test with a Notion brief: OK") }
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_tests (sprint_id, client_id, title, created_by_profile_id) values ('${sp[0].id}', '11111111-1111-1111-1111-111111111111', 'Forged', 'aaaaaaaa-0000-0000-0000-000000000001')`)); console.log("FAIL: test created as someone else") } catch { console.log("team member can't create a test as someone else: OK") }
 const danny = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select id from public.sprint_tests"))
 console.log(danny.length === 0 ? "danny (dnsfilter) can't see camber tests: OK" : "FAIL: cross-client test visible")
 const delTest = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.sprint_tests returning id"))
@@ -152,7 +154,9 @@ console.log(delTest.length === 0 ? "tests can't be deleted: OK" : "FAIL: test de
 
 // Claude's sprint suggestions: the client's team reads, starts and decides (2026-10-15: every full role); no deletes.
 try { await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}')`)); console.log("FAIL: another client's AM started a run") } catch { console.log("another client's AM can't start a sprint run: OK") }
-const aiRun = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}') returning id`))
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id, requested_by_profile_id, status) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}', 'aaaaaaaa-0000-0000-0000-000000000002', 'ready')`)); console.log("FAIL: team member created a finished run") } catch { console.log("team member can't create a finished run: OK") }
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id, requested_by_profile_id) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}', 'aaaaaaaa-0000-0000-0000-000000000001')`)); console.log("FAIL: run started as someone else") } catch { console.log("can't start a run as someone else: OK") }
+const aiRun = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.sprint_ai_runs (client_id, sprint_id, requested_by_profile_id) values ('11111111-1111-1111-1111-111111111111', '${sp[0].id}', 'aaaaaaaa-0000-0000-0000-000000000002') returning id`))
 console.log(aiRun.length === 1 ? "specialist starts a sprint run: OK" : "FAIL: specialist run not created")
 await db.exec(`insert into public.sprint_recommendations (run_id, client_id, sprint_id, platform, title) values ('${aiRun[0].id}', '11111111-1111-1111-1111-111111111111', '${sp[0].id}', 'reddit', 'Try Reddit conversation ads')`)
 const seen = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select id from public.sprint_recommendations"))
@@ -161,7 +165,9 @@ const unseen = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select 
 console.log(unseen.length === 0 ? "danny (dnsfilter) can't see camber suggestions: OK" : "FAIL: cross-client suggestion visible")
 const dannyApproves = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("update public.sprint_recommendations set status = 'approved' returning id"))
 console.log(dannyApproves.length === 0 ? "another client's AM can't approve: OK" : "FAIL: another client's AM approved")
-const andreaApproves = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.sprint_recommendations set status = 'approved' returning id"))
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.sprint_recommendations set why_data = 'Rewritten'")); console.log("FAIL: Claude's reasoning edited") } catch { console.log("team member can't edit Claude's reasoning: OK") }
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.sprint_recommendations set status = 'approved', decided_by_profile_id = 'aaaaaaaa-0000-0000-0000-000000000001'")); console.log("FAIL: decided as someone else") } catch { console.log("can't decide a suggestion as someone else: OK") }
+const andreaApproves = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("update public.sprint_recommendations set status = 'approved', decided_by_profile_id = 'aaaaaaaa-0000-0000-0000-000000000002' returning id"))
 console.log(andreaApproves.length === 1 ? "specialist approves: OK" : "FAIL: specialist couldn't approve")
 const delRec = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.sprint_recommendations returning id"))
 console.log(delRec.length === 0 ? "suggestions can't be deleted: OK" : "FAIL: suggestion deleted")
@@ -255,6 +261,13 @@ console.log(goal.length === 1 && gv.length === 1 ? "admin sets a client goal: OK
 const andreaSets = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.client_goal_values (goal_id, client_id, month, value) values ('${goal[0].id}', '11111111-1111-1111-1111-111111111111', '2026-08-01', 9) returning value`))
 console.log(andreaSets.length === 1 ? "specialist sets goal figures: OK" : "FAIL: specialist couldn't set a goal figure")
 try { await as("aaaaaaaa-0000-0000-0000-000000000003", () => q(`insert into public.client_goal_values (goal_id, client_id, month, value) values ('${goal[0].id}', '11111111-1111-1111-1111-111111111111', '2026-07-01', 9)`)); console.log("FAIL: another client's AM set a goal value") } catch { console.log("another client's AM can't set goal figures: OK") }
+const dnsGoal = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q(`insert into public.client_goals (client_id, name, monthly_target) values ('22222222-2222-2222-2222-222222222222', 'Trials', 300) returning id`))
+try { await as("aaaaaaaa-0000-0000-0000-000000000002", () => q(`insert into public.client_goal_values (goal_id, client_id, month, value) values ('${dnsGoal[0].id}', '11111111-1111-1111-1111-111111111111', '2026-09-01', 1)`)); console.log("FAIL: goal value filed under another client") } catch { console.log("goal values must match the goal's client: OK") }
+const byWho = await q(`select updated_by_profile_id from public.client_goal_values where month = '2026-08-01'`)
+console.log(byWho[0]?.updated_by_profile_id === "aaaaaaaa-0000-0000-0000-000000000002" ? "goal values record who set them: OK" : "FAIL: goal value author")
+const inviteDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.team_invites returning email"))
+const teamInviteDel = await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.client_team_invites returning client_id"))
+console.log(inviteDel.length === 0 && teamInviteDel.length === 0 ? "invites can't be deleted, even by admin: OK" : "FAIL: invite deleted")
 const andreaSees = await as("aaaaaaaa-0000-0000-0000-000000000002", () => q("select value from public.client_goal_values"))
 const dannySees = await as("aaaaaaaa-0000-0000-0000-000000000003", () => q("select value from public.client_goal_values"))
 console.log(andreaSees.length === 2 && dannySees.length === 0 ? "goals are read by the client's team only: OK" : "FAIL: goal visibility")
