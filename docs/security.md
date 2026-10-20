@@ -125,6 +125,8 @@ only, no user scopes, no events, no interactivity endpoint (its buttons are plai
 behind sign-in). It only posts to channels it has been invited to. `SLACK_BOT_TOKEN` is server-side
 only; the App-level token (`xapp-…`, Socket Mode) isn't used and isn't stored. Ad names and goal names
 in posts are escaped (`&`, `<`, `>`), so they can't ping a channel or add links.
+Ad images in posts are signed links to our private `ad-previews` copies, valid for 90 days
+(anyone with the link can open that one image for that long; they're ads that ran publicly).
 
 ## Anthropic
 

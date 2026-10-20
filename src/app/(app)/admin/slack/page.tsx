@@ -15,15 +15,25 @@ export const metadata = { title: "Slack reports" }
 
 const EMOJI: Record<string, string> = { large_green_circle: "🟢", large_orange_circle: "🟠", red_circle: "🔴", arrow_up: "⬆️", arrow_down: "⬇️", hourglass: "⌛" }
 
-/** Slack mrkdwn as it will look: *bold*, _italic_, the emoji we use, escaped &, < and >. */
+/** Slack mrkdwn as it will look: *bold*, _italic_, <link|label>, the emoji we use, escaped &, < and >. */
 function Mrkdwn({ text }: { text: string }) {
   const plain = text.replace(/:([a-z_]+):/g, (m, k: string) => EMOJI[k] ?? m)
   const parts: ReactNode[] = []
-  const re = /\*([^*\n]+)\*|_([^_\n]+)_/g
+  const re = /<(https:[^|>]+)\|([^>]+)>|\*([^*\n]+)\*|_([^_\n]+)_/g
   let at = 0
   for (const m of plain.matchAll(re)) {
     parts.push(plain.slice(at, m.index))
-    parts.push(m[1] ? <strong key={m.index} className="font-semibold text-foreground">{m[1]}</strong> : <em key={m.index}>{m[2]}</em>)
+    parts.push(
+      m[1] ? (
+        <a key={m.index} href={m[1]} target="_blank" rel="noreferrer" className="text-foreground underline underline-offset-2">
+          {m[2]}
+        </a>
+      ) : m[3] ? (
+        <strong key={m.index} className="font-semibold text-foreground">{m[3]}</strong>
+      ) : (
+        <em key={m.index}>{m[4]}</em>
+      ),
+    )
     at = m.index + m[0].length
   }
   parts.push(plain.slice(at))
@@ -31,7 +41,7 @@ function Mrkdwn({ text }: { text: string }) {
   return <span className="whitespace-pre-line">{parts.map((p, i) => <Fragment key={i}>{unescape(p)}</Fragment>)}</span>
 }
 
-type Block = { type: string; text?: { text: string }; fields?: { text: string }[]; elements?: { type?: string; text?: string | { text: string }; url?: string; style?: string; image_url?: string; alt_text?: string }[]; accessory?: { text: { text: string }; url: string } }
+type Block = { type: string; text?: { text: string }; fields?: { text: string }[]; elements?: { type?: string; text?: string | { text: string }; url?: string; style?: string; image_url?: string; alt_text?: string }[]; accessory?: { type: string; text?: { text: string }; url?: string; image_url?: string; alt_text?: string } }
 
 function SlackPreview({ blocks }: { blocks: Block[] }) {
   return (
@@ -74,11 +84,14 @@ function SlackPreview({ blocks }: { blocks: Block[] }) {
                 </div>
               )}
             </div>
-            {b.accessory && (
+            {b.accessory?.type === "image" ? (
+              // eslint-disable-next-line @next/next/no-img-element -- the ad image exactly as Slack gets it
+              <img src={b.accessory.image_url} alt={b.accessory.alt_text ?? ""} className="size-20 shrink-0 rounded-md object-cover" />
+            ) : b.accessory ? (
               <a href={b.accessory.url} className="shrink-0 rounded-md border border-border-strong px-3 py-1 text-[13px] font-medium text-foreground">
-                {b.accessory.text.text}
+                {b.accessory.text?.text}
               </a>
-            )}
+            ) : null}
           </div>
         )
       })}

@@ -14,6 +14,8 @@ import { lastWeek, weeklySnapshot } from "./weekly"
  *
  * `db` must be the admin client: slack_posts is server-written.
  */
+export const SLACK_IMAGE_TTL = 90 * 24 * 3600
+
 export const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")
 /** Platform logos for Slack: only from a public https address (Slack can't load localhost). */
 export const iconBase = () => (appUrl().startsWith("https://") ? appUrl() : null)
@@ -30,7 +32,8 @@ export async function sendWeeklySnapshot(db: SupabaseClient, clientId: string, o
   const week = opts.week ?? lastWeek()
   const { data: client } = await db.from("clients").select("id, slug, slack_channel").eq("id", clientId).single()
   if (!client) return { status: "failed", client: clientId, error: "No such client." }
-  const snap = await weeklySnapshot(db, clientId, week)
+  // The ad images stay viewable in Slack for 90 days (signed links to our private copies).
+  const snap = await weeklySnapshot(db, clientId, week, SLACK_IMAGE_TTL)
   if (!snap) return { status: "skipped", client: client.slug, error: "No ad data." }
   const message = weeklyMessage(snap, { app: appUrl(), icons: iconBase() })
   const channel = reportChannel(client.slack_channel)

@@ -39,9 +39,20 @@ const resultsWord = (n: number) => (n === 1 ? "result" : "results")
 /** How long an ad has run: "77 days", then months past 90 days ("33 months"); "90+ days" when it predates our data. */
 const age = (days: number, capped: boolean) => (capped ? "90+ days" : days < 90 ? `${days} days` : `${Math.floor(days / 30.4)} months`)
 
-function adLine(a: WeekAd, basis: "cost_per_result" | "ctr", m: (v: number | null) => string) {
-  if (basis === "ctr") return `${q(a.name)} · ${percent(a.ctr, 2)} CTR · ${m(a.spend)}`
-  return a.results ? `${q(a.name)} · ${whole(a.results)} ${resultsWord(a.results)} at ${m(a.cpr)} · ${m(a.spend)}` : `${q(a.name)} · ${m(a.spend)}, no results`
+/** A link Slack can show safely: https only, nothing that breaks its <url|label> markup. */
+const safeLink = (url: string | null) => (url && /^https:\/\/[^\s|<>]+$/.test(url) ? url : null)
+
+/** One ad: what it did, its name (linked to the live post where there is one), and its image on the right. */
+function adSection(a: WeekAd, label: string, basis: "cost_per_result" | "ctr", m: (v: number | null) => string) {
+  const link = safeLink(a.link)
+  const name = link ? `<${link}|${q(a.name)}>` : q(a.name)
+  const did = basis === "ctr" ? `${percent(a.ctr, 2)} CTR · ${m(a.spend)} spent` : a.results ? `${whole(a.results)} ${resultsWord(a.results)} at ${m(a.cpr)} each · ${m(a.spend)} spent` : `${m(a.spend)} spent, no results`
+  const extra = [a.campaign ? esc(clip(a.campaign, 50)) : null, !a.image && a.kind ? a.kind : null].filter(Boolean).join(" · ")
+  const block: Record<string, unknown> = { type: "section", text: { type: "mrkdwn", text: `${label} · ${name}
+${did}${extra ? `
+_${extra}_` : ""}` } }
+  if (a.image) block.accessory = { type: "image", image_url: a.image, alt_text: clip(a.name, 100) }
+  return block
 }
 
 /**
@@ -99,28 +110,29 @@ export function weeklyMessage(s: WeeklySnapshot, links: MessageLinks): SlackMess
     ],
   })
 
-  // Per platform: the numbers, the 2 best and 2 weakest ads, and the stale ones.
+  // Per platform: the numbers, the 2 best and 2 weakest ads (each with its image), then the stale ones.
   for (const p of s.platforms) {
     const label = PLATFORM_LABEL[p.platform]
     const icon = links.icons != null ? `${links.icons.replace(/\/$/, "")}/platforms/${p.platform}.png` : null
     const head = `${icon ? "" : `*${label}* · `}${c(p.now.spend)} · ${whole(p.now.results)} ${resultsWord(p.now.results)}${p.now.results ? ` · ${dot(cprTone(p.now.cpr, p.target))}${m(p.now.cpr)} each` : ""}${p.target ? ` (target ${m(p.target)})` : ""}`
-    const body = [head]
-    if (p.best.length) body.push(`:arrow_up: *Best${p.bestBasis === "ctr" ? " by CTR" : ""}*\n${p.best.map((a) => `• ${adLine(a, p.bestBasis, m)}`).join("\n")}`)
-    if (p.weak.length) body.push(`:arrow_down: *Weakest${p.weakBasis === "ctr" ? " by CTR" : ""}*\n${p.weak.map((a) => `• ${adLine(a, p.weakBasis, m)}`).join("\n")}`)
-    if (p.stale.count) {
-      const shown = p.stale.ads.map((a) => `• ${q(a.name)} · ${age(a.ageDays, a.ageCapped)} · ${m(a.spend30)}`)
-      const more = p.stale.count - p.stale.ads.length
-      body.push(`:hourglass: *${p.stale.count} ${p.stale.count === 1 ? "ad has" : "ads have"} run ${STALE_DAYS}+ days with no results in ${STALE_DAYS} days* (${c(p.stale.spend30)})\n${shown.join("\n")}${more > 0 ? `\n• and ${more} more` : ""}`)
-    }
-    if (!p.best.length && !p.weak.length && !p.stale.count) body.push("_Not enough ads with spend to compare._")
+    const empty = !p.best.length && !p.weak.length && !p.stale.count
     blocks.push({ type: "divider" })
     // The platform's logo and name on their own line (Dean, 2026-10-20), then its numbers and ads.
     if (icon) blocks.push({ type: "context", elements: [{ type: "image", image_url: icon, alt_text: label }, { type: "mrkdwn", text: `*${label}*` }] })
-    const section: Record<string, unknown> = { type: "section", text: { type: "mrkdwn", text: body.join("\n\n").slice(0, 2990) } }
+    const section: Record<string, unknown> = { type: "section", text: { type: "mrkdwn", text: empty ? `${head}\n\n_Not enough ads with spend to compare._` : head } }
     if (p.weak.length || p.stale.count) {
       section.accessory = { type: "button", text: { type: "plain_text", text: "Replace weak ads" }, url: refreshUrl(p.platform), action_id: `refresh_${p.platform}` }
     }
     blocks.push(section)
+    // One line per best and weakest ad, with its image beside it (Dean, 2026-10-20: show the ads).
+    blocks.push(...p.best.map((a) => adSection(a, `:arrow_up: *Best${p.bestBasis === "ctr" ? " by CTR" : ""}*`, p.bestBasis, m)))
+    blocks.push(...p.weak.map((a) => adSection(a, `:arrow_down: *Weakest${p.weakBasis === "ctr" ? " by CTR" : ""}*`, p.weakBasis, m)))
+    if (p.stale.count) {
+      const shown = p.stale.ads.map((a) => `• ${q(a.name)} · ${age(a.ageDays, a.ageCapped)} · ${m(a.spend30)}`)
+      const more = p.stale.count - p.stale.ads.length
+      const text = `:hourglass: *${p.stale.count} ${p.stale.count === 1 ? "ad has" : "ads have"} run ${STALE_DAYS}+ days with no results in ${STALE_DAYS} days* (${c(p.stale.spend30)})\n${shown.join("\n")}${more > 0 ? `\n• and ${more} more` : ""}`
+      blocks.push({ type: "section", text: { type: "mrkdwn", text: text.slice(0, 2990) } })
+    }
   }
 
   blocks.push({ type: "divider" })
@@ -133,6 +145,12 @@ export function weeklyMessage(s: WeeklySnapshot, links: MessageLinks): SlackMess
   })
   blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: `Lumaux · data to ${day(s.dataThrough)} · "Replace weak ads" plans a sprint test you can brief to Notion` }] })
 
+  // Slack takes at most 50 blocks; drop ad lines from the end if a client ever has more.
+  while (blocks.length > 50) {
+    const i = blocks.findLastIndex((b) => (b as { text?: { text?: string } }).text?.text?.startsWith(":arrow_"))
+    if (i < 0) break
+    blocks.splice(i, 1)
+  }
   const text = `${s.client.name} weekly snapshot, ${dates}: ${c(n.spend)} spent, ${whole(n.results)} ${resultsWord(n.results)} at ${m(n.cpr)} each.`
   return { text, blocks }
 }
