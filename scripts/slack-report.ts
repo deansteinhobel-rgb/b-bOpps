@@ -26,7 +26,7 @@ async function main() {
     else if (b.type === "context") console.log(b.elements.map((e: { text?: string; alt_text?: string }) => e.text ?? `[${e.alt_text} logo]`).join(" "))
     else if (b.type === "section") {
       if (b.text) console.log(b.text.text)
-      if (b.fields) console.log(b.fields.map((f: { text: string }) => f.text.replace("\n", ": ")).join("\n"))
+      if (b.fields) console.log(b.fields.map((f: { text: string }) => f.text.replaceAll("\n", ": ")).join("\n"))
       if (b.accessory) console.log(b.accessory.type === "image" ? `[image] ${String(b.accessory.image_url).slice(0, 70)}…` : `[${b.accessory.text.text}] ${b.accessory.url}`)
     } else if (b.type === "actions") console.log(b.elements.map((e: { text: { text: string }; url: string }) => `[${e.text.text}] ${e.url}`).join("\n"))
     console.log()
