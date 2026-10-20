@@ -13,7 +13,7 @@ import { SectionHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import type { CompetitorRow, OurLabels } from "@/lib/competitors/load"
 import { COMPETITOR_SOURCES, SOURCE_LABEL, type CompetitorSource } from "@/lib/competitors/sources"
-import { compareMix, daysAreEstimate, daysLive, isNew, SOURCE_PLATFORM, type AdRow } from "@/lib/competitors/view"
+import { compareMix, daysAreEstimate, daysLive, firstReads, isNew, SOURCE_PLATFORM, type AdRow } from "@/lib/competitors/view"
 import { cn } from "@/lib/utils"
 import { readAgain, removeCompetitor, saveCompetitor, type CompetitorInput } from "./actions"
 
@@ -28,15 +28,19 @@ const pct = (v: number) => `${Math.round(v * 100)}%`
  * and format mix next to ours. The list of competitors is kept at the bottom.
  */
 export function CompetitorsView(props: { slug: string; clientName: string; today: string; canEdit: boolean; competitors: CompetitorRow[]; ads: AdRow[]; lastReadAt: string | null; ourLabels: OurLabels[] }) {
-  const { slug, today, competitors, ads } = props
-  const [show, setShow] = useState<Show>("new")
+  const { slug, today, ads } = props
+  const first = useMemo(() => firstReads(ads), [ads])
+  const fresh = (a: AdRow) => isNew(a, today, first)
+  // Competitors with live ads first, then the rest by name.
+  const competitors = useMemo(() => [...props.competitors].sort((a, b) => Number(!ads.some((x) => x.competitor_id === a.id)) - Number(!ads.some((x) => x.competitor_id === b.id))), [props.competitors, ads])
+  const [show, setShow] = useState<Show>(() => (ads.some((a) => isNew(a, today, firstReads(ads))) ? "new" : "longest"))
   const [source, setSource] = useState<"all" | CompetitorSource>("all")
   const [who, setWho] = useState<string | null>(null)
   const [pending, start] = useTransition()
   const names = useMemo(() => new Map(competitors.map((c) => [c.id, c.name])), [competitors])
 
   const scoped = ads.filter((a) => (!who || a.competitor_id === who) && (source === "all" || a.source === source))
-  const newOnes = scoped.filter((a) => isNew(a, today))
+  const newOnes = scoped.filter(fresh)
   const shown = (show === "new" ? newOnes : scoped).slice().sort((a, b) => (show === "new" ? b.first_seen_at.localeCompare(a.first_seen_at) : daysLive(b, today) - daysLive(a, today)))
   const visible = show === "longest" ? shown.slice(0, 24) : shown
 
@@ -67,7 +71,7 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
             {competitors.map((c) => {
               const theirs = ads.filter((a) => a.competitor_id === c.id)
               const longest = theirs.reduce((m, a) => Math.max(m, daysLive(a, today)), 0)
-              const fresh = theirs.filter((a) => isNew(a, today)).length
+              const newCount = theirs.filter(fresh).length
               const on = who === c.id
               return (
                 <li key={c.id}>
@@ -90,8 +94,8 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
                             ) : null
                           })}
                         </span>
-                        <span className="w-24 text-xs text-muted-foreground">{fresh ? <span className="text-lime">{fresh} new</span> : "Nothing new"}</span>
-                        <span className="w-28 text-right text-xs text-muted-foreground tabular-nums">Longest {longest} days</span>
+                        <span className="text-xs text-muted-foreground sm:w-24">{newCount ? <span className="text-lime">{newCount} new</span> : "Nothing new"}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums sm:w-28 sm:text-right">Longest {longest} days</span>
                       </>
                     ) : (
                       <span className="text-xs text-muted-foreground">No live ads found</span>
@@ -138,7 +142,7 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
             <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {visible.map((a) => (
                 <li key={a.id}>
-                  <AdCard ad={a} competitor={names.get(a.competitor_id) ?? ""} today={today} />
+                  <AdCard ad={a} competitor={names.get(a.competitor_id) ?? ""} today={today} isNew={fresh(a)} />
                 </li>
               ))}
             </ul>
@@ -159,7 +163,7 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
 }
 
 /** One ad: the creative (our copy), who and where, how long it has run, and its labels. Opens the side panel. */
-function AdCard({ ad, competitor, today }: { ad: AdRow; competitor: string; today: string }) {
+function AdCard({ ad, competitor, today, isNew }: { ad: AdRow; competitor: string; today: string; isNew: boolean }) {
   const pathname = usePathname()
   const params = useSearchParams()
   const open = () => {
@@ -177,13 +181,13 @@ function AdCard({ ad, competitor, today }: { ad: AdRow; competitor: string; toda
         </span>
       ) : (
         <span className="flex aspect-square w-full items-center justify-center rounded-md border bg-elevated p-4 text-center text-[13px] text-body transition-colors group-hover/card:border-foreground/30">
-          <span className="line-clamp-6">{ad.headline ?? ad.body ?? "No preview"}</span>
+          <span className="line-clamp-6">{ad.headline ?? ad.body ?? `${ad.format ? `${ad.format[0].toUpperCase()}${ad.format.slice(1).replace(/_/g, " ")} ad` : "Ad"}, no preview in the library`}</span>
         </span>
       )}
       <span className="flex items-center gap-1.5 text-[13px]">
         <PlatformIcon platform={SOURCE_PLATFORM[ad.source]} />
         <span className="truncate font-medium text-foreground">{competitor}</span>
-        {isNew(ad, today) && <span className="pill shrink-0 border-lime/50 text-lime">New</span>}
+        {isNew && <span className="pill shrink-0 border-lime/50 text-lime">New</span>}
       </span>
       <span className="text-xs text-muted-foreground">
         Live {daysAreEstimate(ad) ? `${days}+` : days} days{ad.label_offer && ad.label_offer !== "Other" ? ` · ${ad.label_offer}` : ""}

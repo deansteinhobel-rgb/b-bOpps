@@ -43,7 +43,30 @@ export function daysLive(ad: Pick<AdRow, "started_on" | "first_seen_at">, today:
 /** Whether the days count is ours (first seen) rather than the library's, so the page can say "at least". */
 export const daysAreEstimate = (ad: Pick<AdRow, "started_on">) => !ad.started_on
 
-export const isNew = (ad: Pick<AdRow, "first_seen_at">, today: string) => Date.parse(today) - Date.parse(ad.first_seen_at.slice(0, 10)) <= NEW_DAYS * DAY
+/**
+ * When we first read each competitor on each library ("competitor|source" → day). Ads found in that
+ * first read were already running, so they aren't new.
+ */
+export function firstReads(ads: Pick<AdRow, "competitor_id" | "source" | "first_seen_at">[]) {
+  const out = new Map<string, string>()
+  for (const a of ads) {
+    const k = `${a.competitor_id}|${a.source}`
+    const day = a.first_seen_at.slice(0, 10)
+    if (!out.has(k) || day < out.get(k)!) out.set(k, day)
+  }
+  return out
+}
+
+/**
+ * New = started in the last 8 days (one weekly read, with a day's slack), by the library's start date
+ * where it gives one; otherwise first seen in that window, but not in our first read of that competitor.
+ */
+export function isNew(ad: Pick<AdRow, "competitor_id" | "source" | "started_on" | "first_seen_at">, today: string, first: Map<string, string>) {
+  const recent = (day: string) => Date.parse(today) - Date.parse(day) <= NEW_DAYS * DAY
+  if (ad.started_on) return recent(ad.started_on)
+  const seen = ad.first_seen_at.slice(0, 10)
+  return recent(seen) && seen !== first.get(`${ad.competitor_id}|${ad.source}`)
+}
 
 /**
  * Share of ads per label value, biggest first, with "Other" and blanks left out of the ranking but

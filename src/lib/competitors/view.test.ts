@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { compareMix, daysLive, isNew, labelMix } from "./view"
+import { compareMix, daysLive, firstReads, isNew, labelMix } from "./view"
 
 describe("daysLive", () => {
   it("counts from the library's start date, else from when we first saw the ad", () => {
@@ -9,9 +9,18 @@ describe("daysLive", () => {
 })
 
 describe("isNew", () => {
-  it("is new for 8 days after we first see it", () => {
-    expect(isNew({ first_seen_at: "2026-10-12T01:00:00Z" }, "2026-10-20")).toBe(true)
-    expect(isNew({ first_seen_at: "2026-10-11T01:00:00Z" }, "2026-10-20")).toBe(false)
+  const ad = (started_on: string | null, first_seen_at: string, competitor_id = "c1") => ({ competitor_id, source: "linkedin" as const, started_on, first_seen_at })
+  it("goes by the library's start date when there is one", () => {
+    const first = firstReads([ad(null, "2026-10-19T01:00:00Z")])
+    expect(isNew(ad("2026-10-14", "2026-10-19T01:00:00Z"), "2026-10-20", first)).toBe(true)
+    expect(isNew(ad("2026-09-01", "2026-10-19T01:00:00Z"), "2026-10-20", first)).toBe(false)
+  })
+  it("without one, ads from our first read of a competitor aren't new; later ones are, for 8 days", () => {
+    const ads = [ad(null, "2026-10-04T01:00:00Z"), ad(null, "2026-10-18T01:00:00Z"), ad(null, "2026-10-18T01:00:00Z", "c2")]
+    const first = firstReads(ads)
+    expect(isNew(ads[1], "2026-10-20", first)).toBe(true)
+    expect(isNew(ads[2], "2026-10-20", first)).toBe(false)
+    expect(isNew(ads[1], "2026-10-27", first)).toBe(false)
   })
 })
 
