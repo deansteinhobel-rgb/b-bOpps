@@ -2,6 +2,7 @@ import "server-only"
 import type Anthropic from "@anthropic-ai/sdk"
 import type { Db } from "@/lib/supabase/db"
 import { londonToday } from "@/lib/checks/periods"
+import { sniffImageType } from "@/lib/image-type"
 import { competitorsForPrompt } from "@/lib/competitors/context"
 import { briefForPrompt } from "@/lib/knowledge/brief"
 import { contentBankForPrompt } from "@/lib/knowledge/content-bank"
@@ -177,7 +178,8 @@ export async function buildContentContext(db: Db, clientId: string): Promise<Con
     const { data: blob } = await db.storage.from("ad-previews").download(x.c!.storage_path as string)
     if (!blob || blob.size > 4_500_000) continue
     images.push({ type: "text", text: `Ad image [${x.key}]: "${x.a.ad_name ?? x.a.ad_id}" (${x.a.campaign_name ?? "–"}; ${r1(x.t.results)} results, ${cpr(x.t)} each, CTR ${pct(x.t.clicks, x.t.impressions)})` })
-    images.push({ type: "image", source: { type: "base64", media_type: x.c!.content_type as "image/jpeg", data: Buffer.from(await blob.arrayBuffer()).toString("base64") } })
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    images.push({ type: "image", source: { type: "base64", media_type: sniffImageType(bytes) ?? (x.c!.content_type as "image/jpeg"), data: Buffer.from(bytes).toString("base64") } })
   }
 
   // Past tests, content in production (Notion mirror, read only), and what the team said about earlier ideas.
@@ -194,7 +196,8 @@ export async function buildContentContext(db: Db, clientId: string): Promise<Con
     const { data: blob } = await db.storage.from("ad-previews").download(x.storage_path)
     if (!blob || blob.size > 4_500_000) continue
     images.push({ type: "text", text: `COMPETITOR ad image (${x.competitor}, not the client's): ${x.line}` })
-    images.push({ type: "image", source: { type: "base64", media_type: x.content_type as "image/jpeg", data: Buffer.from(await blob.arrayBuffer()).toString("base64") } })
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    images.push({ type: "image", source: { type: "base64", media_type: sniffImageType(bytes) ?? (x.content_type as "image/jpeg"), data: Buffer.from(bytes).toString("base64") } })
   }
   const text = (v: unknown) => (typeof v === "string" ? v : "")
   const briefs = (mirror ?? [])

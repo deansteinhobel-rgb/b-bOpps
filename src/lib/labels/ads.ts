@@ -4,6 +4,7 @@ import type Anthropic from "@anthropic-ai/sdk"
 import { claude } from "@/lib/ai/claude"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import type { TextAd } from "@/lib/previews"
+import { sniffImageType } from "@/lib/image-type"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rpcAll } from "@/lib/supabase/rpc-all"
 import { AD_CONTENT_TYPES, AD_FORMATS, AD_HOOKS, AD_OFFERS } from "@/lib/taxonomy"
@@ -158,7 +159,8 @@ async function labelBatch(db: ReturnType<typeof createAdminClient>, clientId: st
     const { data: blob } = await db.storage.from("ad-previews").download(a.storage_path!)
     if (!blob) continue
     blocks.push({ type: "text", text: `Image for [${key}]:` })
-    blocks.push({ type: "image", source: { type: "base64", media_type: a.content_type as "image/jpeg", data: Buffer.from(await blob.arrayBuffer()).toString("base64") } })
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    blocks.push({ type: "image", source: { type: "base64", media_type: sniffImageType(bytes) ?? (a.content_type as "image/jpeg"), data: Buffer.from(bytes).toString("base64") } })
   }
   const labels = await requestLabels(SYSTEM, blocks, usage)
   const byKey = new Map(keyed.map((x) => [x.key, x.a]))
@@ -270,7 +272,8 @@ export async function labelCompetitorAds(clientId: string, opts: { max?: number;
       const { data: blob } = await db.storage.from("ad-previews").download(a.storage_path)
       if (!blob) continue
       blocks.push({ type: "text", text: `Image for [${key}]:` })
-      blocks.push({ type: "image", source: { type: "base64", media_type: a.content_type as "image/jpeg", data: Buffer.from(await blob.arrayBuffer()).toString("base64") } })
+      const bytes = new Uint8Array(await blob.arrayBuffer())
+      blocks.push({ type: "image", source: { type: "base64", media_type: sniffImageType(bytes) ?? (a.content_type as "image/jpeg"), data: Buffer.from(bytes).toString("base64") } })
     }
     const labels = await requestLabels(COMPETITOR_SYSTEM, blocks, usage)
     const byKey = new Map(keyed.map((x) => [x.key, x.a]))

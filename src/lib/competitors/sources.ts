@@ -106,7 +106,11 @@ export const SOURCES: Record<CompetitorSource, Source> = {
   // maximedupre/google-ads-scraper: the Google Ads Transparency Center, by advertiser id.
   google: {
     actor: "maximedupre~google-ads-scraper",
-    input: (c, country) => (c.google_advertiser_ids.length ? { targets: c.google_advertiser_ids, maxResults: MAX_ADS, region: country, detailLevel: "details" } : null),
+    // Only ads shown in the last 30 days: otherwise the library fills the limit with ads that stopped long ago.
+    input: (c, country) =>
+      c.google_advertiser_ids.length
+        ? { targets: c.google_advertiser_ids, maxResults: MAX_ADS, region: country, detailLevel: "details", dateFrom: new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10) }
+        : null,
     normalize: (item, c, today) => {
       const id = str(item.creativeId, 60)
       if (!id || !/^CR\d+$/.test(id)) return null

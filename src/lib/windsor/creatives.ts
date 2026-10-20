@@ -2,6 +2,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { TextAd } from "@/lib/previews"
 import type { Platform } from "./client"
+import { sniffImageType } from "@/lib/image-type"
 import { windsorRows } from "./rest"
 
 /**
@@ -181,9 +182,12 @@ export async function copyImage(url: string, path: string, hosts: readonly strin
   if (!/^[0-9a-f-]{36}\/[a-z_]+\/[A-Za-z0-9_-]+$/.test(path)) throw new Error("Bad storage path")
   const res = await fetchFrom(hosts, url, { signal: AbortSignal.timeout(20_000) })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const type = (res.headers.get("content-type") ?? "").split(";")[0].trim()
-  if (!EXT[type]) throw new Error(`Not a supported image (${type || "unknown type"})`)
+  const declared = (res.headers.get("content-type") ?? "").split(";")[0].trim()
+  if (!EXT[declared] && !declared.startsWith("image/")) throw new Error(`Not a supported image (${declared || "unknown type"})`)
   const bytes = await readBytes(res, MAX_BYTES, "Image is over 10 MB")
+  // The bytes decide: some hosts label PNGs as JPEG.
+  const type = sniffImageType(bytes) ?? declared
+  if (!EXT[type]) throw new Error(`Not a supported image (${type || "unknown type"})`)
   const fullPath = `${path}.${EXT[type]}`
   const { error } = await createAdminClient().storage.from(BUCKET).upload(fullPath, bytes, { contentType: type, upsert: true })
   if (error) throw new Error(error.message)
