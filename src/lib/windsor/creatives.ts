@@ -128,9 +128,40 @@ export async function fetchFrom(hosts: readonly string[], url: string, init: Req
     const res = await fetch(next, { ...init, redirect: "manual" })
     const location = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null
     if (!location) return res
+    await res.body?.cancel().catch(() => {}) // release the connection before following
     next = new URL(location, next)
   }
   throw new Error("Too many redirects")
+}
+
+/** A response body as bytes, refusing anything over `max` without reading past it. */
+export async function readBytes(res: Response, max: number, tooLarge = "Response is too large"): Promise<Uint8Array> {
+  const length = Number(res.headers.get("content-length"))
+  if (Number.isFinite(length) && length > max) {
+    await res.body?.cancel().catch(() => {})
+    throw new Error(tooLarge)
+  }
+  if (!res.body) return new Uint8Array()
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > max) {
+      await reader.cancel().catch(() => {})
+      throw new Error(tooLarge)
+    }
+    chunks.push(value)
+  }
+  const out = new Uint8Array(total)
+  let at = 0
+  for (const c of chunks) {
+    out.set(c, at)
+    at += c.byteLength
+  }
+  return out
 }
 
 const OG_IMAGE = /<meta\s+(?:property|name)="(?:og:image|twitter:image)"\s+content="([^"]+)"/i
@@ -146,7 +177,7 @@ export async function postImage(postLink: string): Promise<string | null> {
     cache: "no-store",
   })
   if (!res.ok) return null
-  const m = (await res.text()).match(OG_IMAGE)
+  const m = new TextDecoder().decode(await readBytes(res, 3_000_000, "Post page is too large")).match(OG_IMAGE)
   const url = m?.[1].replaceAll("&amp;", "&")
   return url && /^https:\/\/([a-z0-9-]+\.)*licdn\.com\//i.test(url) ? url : null
 }
@@ -159,8 +190,7 @@ export async function copyImage(url: string, path: string) {
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const type = (res.headers.get("content-type") ?? "").split(";")[0].trim()
   if (!EXT[type]) throw new Error(`Not a supported image (${type || "unknown type"})`)
-  const bytes = new Uint8Array(await res.arrayBuffer())
-  if (bytes.byteLength > MAX_BYTES) throw new Error("Image is over 10 MB")
+  const bytes = await readBytes(res, MAX_BYTES, "Image is over 10 MB")
   const fullPath = `${path}.${EXT[type]}`
   const { error } = await createAdminClient().storage.from(BUCKET).upload(fullPath, bytes, { contentType: type, upsert: true })
   if (error) throw new Error(error.message)

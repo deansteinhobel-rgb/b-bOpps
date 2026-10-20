@@ -6,6 +6,7 @@ import { londonToday } from "@/lib/checks/periods"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { chatHistory, type ChatMessage } from "@/lib/ai/chat-history"
 
 export const maxDuration = 120
 
@@ -17,7 +18,6 @@ You keep the team up to date on ${WATCHED_PLATFORMS}: new and upcoming campaign 
 Answer in short, scannable markdown (a line of summary, then bullets). Give dates. Say what it means for a B2B advertiser in one line when useful. Say plainly when something is a rumour, beta or limited rollout. Never invent news.
 ${WEB_SAFETY}`
 
-type ChatMessage = { role: "user" | "assistant"; content: string }
 type Answer = { answer: string; sources: { url: string; title: string }[]; at: string }
 
 // Suggested questions being answered right now on this server, so a double click or a second
@@ -35,11 +35,8 @@ export async function POST(request: Request) {
   const me = await getProfile()
   if (!me.role) return new Response("No access", { status: 403 })
   if (!aiConfigured()) return new Response("Add ANTHROPIC_API_KEY to .env.local and restart.", { status: 503 })
-  const body = (await request.json().catch(() => ({}))) as { messages?: ChatMessage[]; fresh?: boolean }
-  const history = (body.messages ?? [])
-    .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
-    .slice(-12)
-    .map((m) => ({ role: m.role, content: m.content.slice(0, 6000) }))
+  const body = (await request.json().catch(() => ({}))) as { messages?: unknown; fresh?: boolean }
+  const history = chatHistory(body.messages)
   if (!history.length || history.at(-1)!.role !== "user") return new Response("Ask something first.", { status: 400 })
   const limited = await rateLimit(await createClient(), "news_chat")
   if (limited) return new Response(limited, { status: 429 })

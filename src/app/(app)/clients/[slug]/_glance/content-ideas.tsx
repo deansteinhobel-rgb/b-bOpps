@@ -63,19 +63,25 @@ export function ContentIdeas({ slug, currency, run, running, states, owners, can
   useEffect(() => {
     if (!runId) return
     let stop = false
+    // A run takes ~2 minutes and at most 5 on the server; past 10, stop asking and show what's there.
+    const giveUpAt = Date.now() + 10 * 60_000
     const tick = async () => {
       const r = await fetch(`/api/content-ideas?run=${runId}`).then((x) => x.json()).catch(() => null)
-      if (stop || !r) return
-      if (r.status === "generating") {
-        setProgress(r.progress)
-        setTimeout(tick, 3000)
+      if (stop) return
+      if (Date.now() > giveUpAt) {
+        setRunId(null)
+        router.refresh()
+      } else if (!r || r.status === "generating") {
+        // A failed check (network, a deploy) just waits and asks again.
+        if (r) setProgress(r.progress)
+        t = setTimeout(tick, 3000)
       } else {
         setRunId(null)
         if (r.status === "failed") toast.error(`Couldn't get ideas: ${r.error ?? "unknown error"}`)
         router.refresh()
       }
     }
-    const t = setTimeout(tick, 2000)
+    let t = setTimeout(tick, 2000)
     return () => {
       stop = true
       clearTimeout(t)

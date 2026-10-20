@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { money, shortDate, withSymbols } from "@/lib/format"
+import { hostOf, money, shortDate, withSymbols } from "@/lib/format"
 import { type Platform, PLATFORMS } from "@/lib/metrics/types"
 import { ASSETS, METRICS, successLine } from "@/lib/sprints/tests"
 import { cn } from "@/lib/utils"
@@ -577,8 +577,8 @@ function Detail({ rec: r, rank, tab, canEdit, owners, defaultDeadline, currency 
                 {r.sources.map((s) => (
                   <a key={s.url} href={s.url} target="_blank" rel="noreferrer" title={s.title} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground hover:border-foreground/30 hover:text-foreground">
                     {/* eslint-disable-next-line @next/next/no-img-element -- tiny favicon from Google's public service */}
-                    <img src={`https://www.google.com/s2/favicons?domain=${host(s.url)}&sz=32`} alt="" className="size-3 rounded-sm" />
-                    {host(s.url)}
+                    <img src={`https://www.google.com/s2/favicons?domain=${hostOf(s.url)}&sz=32`} alt="" className="size-3 rounded-sm" />
+                    {hostOf(s.url)}
                   </a>
                 ))}
               </div>
@@ -798,10 +798,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
-function host(url: string) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "")
-  } catch {
-    return url
-  }
-}

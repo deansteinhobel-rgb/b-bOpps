@@ -9,9 +9,8 @@ import { RangePicker } from "@/components/range-picker"
 import { money } from "@/lib/format"
 import { QUICK_DAYS, rangeParams, sameRange, type Periods, type RangeSpec } from "@/lib/metrics/range"
 import type { SegmentOption } from "@/lib/metrics/segments"
-import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
+import { PLATFORM_COLOR, PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { cn } from "@/lib/utils"
-import { PLATFORM_COLOR } from "./charts"
 
 type PlatformOption = { platform: Platform; spend: number }
 

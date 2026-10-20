@@ -16,7 +16,10 @@ export const normId = (id: string) => id.replace(/-/g, "").toLowerCase()
 export async function otherClientsNotion(clientId: string): Promise<Set<string>> {
   const { data, error } = await createAdminClient().from("clients").select("id, notion_hq_page_id, call_notes_notion_id, call_notes_client_option").neq("id", clientId)
   // Without the other clients' roots nothing could be kept out, so a failed lookup stops the read.
-  if (error) throw new Error(`Couldn't load the other clients' Notion pages: ${error.message}`)
+  if (error) {
+    console.error("[boundaries] other clients' pages", error)
+    throw new Error("Couldn't check which Notion pages belong to other clients. Try again in a minute.")
+  }
   // The Content Bank (every client's content in one database) is never read whole: only row by row, for the client each row names.
   const ids = new Set<string>([normId(CONTENT_BANK.databaseId), normId(CONTENT_BANK.dataSourceId)])
   for (const c of data ?? []) {

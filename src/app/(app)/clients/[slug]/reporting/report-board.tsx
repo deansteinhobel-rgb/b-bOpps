@@ -4,10 +4,9 @@ import { ClientLogo, PlatformIcon } from "@/components/brand"
 import { money, percent, whole } from "@/lib/format"
 import { change, type Derived } from "@/lib/metrics/performance"
 import { rangeText } from "@/lib/metrics/range"
-import type { Platform } from "@/lib/metrics/types"
+import { PLATFORM_COLOR, type Platform } from "@/lib/metrics/types"
 import type { PreviewMap } from "@/lib/previews"
 import { cn } from "@/lib/utils"
-import { PLATFORM_COLOR } from "./charts"
 
 export type BoardCampaign = { platform: Platform; name: string; spend: number; prevSpend: number; results: number }
 export type BoardAd = { key: string; platform: Platform; name: string; campaign: string | null; results: number; spend: number; clicks: number; impressions: number }

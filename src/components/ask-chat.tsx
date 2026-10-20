@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { NEWS_STARTERS } from "@/lib/ai/news-starters"
 import { CAMPAIGN_STARTERS, WEEKLY_READ } from "@/lib/insights/campaign-starters"
 import { cn } from "@/lib/utils"
+import { hostOf } from "@/lib/format"
 
 type Msg = { role: "user" | "assistant"; content: string; sources?: { url: string; title: string }[]; error?: boolean; cachedAt?: string }
 type Mode = "campaign" | "news"
@@ -219,7 +220,7 @@ export function AskChat({ aiReady }: { aiReady: boolean }) {
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {x.sources.map((s) => (
                     <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="max-w-full truncate rounded border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground" title={s.title}>
-                      {hostname(s.url)}
+                      {hostOf(s.url)}
                     </a>
                   ))}
                 </div>
@@ -269,10 +270,3 @@ function ago(iso: string) {
   return `${days} day${days === 1 ? "" : "s"} ago`
 }
 
-function hostname(url: string) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "")
-  } catch {
-    return url
-  }
-}

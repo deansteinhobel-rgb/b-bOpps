@@ -55,3 +55,12 @@ export function lastActive(iso: string | null | undefined, now = Date.now()) {
 
 /** Used the app in the last 10 minutes. */
 export const isOnline = (iso: string | null | undefined) => Boolean(iso) && Date.now() - Date.parse(iso!) < 10 * 60000
+
+/** A link's host without "www." ("example.com"), or the text as it is when it isn't a URL. */
+export function hostOf(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "")
+  } catch {
+    return url
+  }
+}
