@@ -27,7 +27,7 @@ const pct = (v: number) => `${Math.round(v * 100)}%`
  * library shows no results, but an ad that keeps running is usually working), and the offer, hook
  * and format mix next to ours. The list of competitors is kept at the bottom.
  */
-export function CompetitorsView(props: { slug: string; clientName: string; today: string; canEdit: boolean; competitors: CompetitorRow[]; ads: AdRow[]; lastReadAt: string | null; ourLabels: OurLabels[] }) {
+export function CompetitorsView(props: { slug: string; clientName: string; today: string; canEdit: boolean; competitors: CompetitorRow[]; ads: AdRow[]; offTopic: Record<string, number>; lastReadAt: string | null; ourLabels: OurLabels[] }) {
   const { slug, today, ads } = props
   const first = useMemo(() => firstReads(ads), [ads])
   const fresh = (a: AdRow) => isNew(a, today, first)
@@ -100,6 +100,11 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
                     ) : (
                       <span className="text-xs text-muted-foreground">No live ads found</span>
                     )}
+                    {props.offTopic[c.id] ? (
+                      <span className="w-full text-[11px] text-subtle-foreground" title="Claude's check against what the client sells: ads for this company's other products">
+                        {props.offTopic[c.id]} ad{props.offTopic[c.id] === 1 ? "" : "s"} for other products hidden
+                      </span>
+                    ) : null}
                   </button>
                 </li>
               )

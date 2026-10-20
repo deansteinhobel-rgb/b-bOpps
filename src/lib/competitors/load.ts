@@ -35,7 +35,7 @@ export async function loadCompetitorPage(supabase: Db, clientId: string, today: 
     supabase
       .from("competitor_ads")
       .select(
-        "id, competitor_id, source, external_id, started_on, first_seen_at, last_seen_at, active, countries, format, headline, body, cta, landing_url, library_url, storage_path, label_format, label_content_type, label_offer, label_hook, label_topic, label_summary",
+        "id, competitor_id, source, external_id, started_on, first_seen_at, last_seen_at, active, relevance, countries, format, headline, body, cta, landing_url, library_url, storage_path, label_format, label_content_type, label_offer, label_hook, label_topic, label_summary",
       )
       .eq("client_id", clientId)
       .order("first_seen_at", { ascending: false })
@@ -48,8 +48,11 @@ export async function loadCompetitorPage(supabase: Db, clientId: string, today: 
   const listed = new Set((competitors ?? []).map((c) => c.id))
   // Stopped versions only date the creative (Meta re-dates edited ads); the page shows live ads.
   const since = runningSince((ads ?? []).filter((a) => listed.has(a.competitor_id)))
+  // Off-topic ads (a big company's other products, Claude's check in relevance.ts) leave the page; counted per competitor.
+  const offTopic: Record<string, number> = {}
+  for (const a of ads ?? []) if (a.active && a.relevance === "off_topic" && listed.has(a.competitor_id)) offTopic[a.competitor_id] = (offTopic[a.competitor_id] ?? 0) + 1
   const rows = (ads ?? [])
-    .filter((a) => listed.has(a.competitor_id) && a.active)
+    .filter((a) => listed.has(a.competitor_id) && a.active && a.relevance !== "off_topic")
     .map((a) => {
       const first = a.started_on ? since(a).since : null
       return { ...a, started_on: first, version_started_on: a.started_on && first && a.started_on > first ? a.started_on : null }
@@ -67,6 +70,7 @@ export async function loadCompetitorPage(supabase: Db, clientId: string, today: 
 
   return {
     competitors: (competitors ?? []) as CompetitorRow[],
+    offTopic,
     ads: rows.map(({ storage_path, ...a }) => ({ ...a, source: a.source as CompetitorSource, src: storage_path ? (signed.get(storage_path) ?? null) : null })) satisfies AdRow[],
     lastReadAt: lastRun?.collected_at ?? null,
     ourLabels,

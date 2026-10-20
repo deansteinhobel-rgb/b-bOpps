@@ -32,17 +32,18 @@ async function namedCompetitors(db: Db, clientId: string, today: string, per: nu
     db.from("client_competitors").select("id, name, notes").eq("client_id", clientId).is("removed_at", null).order("name"),
     db
       .from("competitor_ads")
-      .select("id, competitor_id, source, external_id, active, started_on, first_seen_at, headline, body, cta, storage_path, content_type, label_format, label_content_type, label_offer, label_hook, label_topic")
+      .select("id, competitor_id, source, external_id, active, relevance, started_on, first_seen_at, headline, body, cta, storage_path, content_type, label_format, label_content_type, label_offer, label_hook, label_topic")
       .eq("client_id", clientId)
       .limit(3000),
   ])
   // Stopped versions only date the creative (Meta re-dates edited ads); live ads are listed.
   const creativeSince = runningSince(ads ?? [])
   const all = (ads ?? []).map((a) => ({ ...a, started_on: a.started_on ? creativeSince(a).since : null }))
-  const listed = (competitors ?? []).filter((c) => all.some((a) => a.active && a.competitor_id === c.id))
+  // Ads Claude found off-topic (a big company's other products) are left out.
+  const listed = (competitors ?? []).filter((c) => all.some((a) => a.active && a.relevance !== "off_topic" && a.competitor_id === c.id))
   const longest: Longest[] = []
   if (!listed.length) return { text: "", longest }
-  const live = all.filter((a) => a.active && listed.some((c) => c.id === a.competitor_id))
+  const live = all.filter((a) => a.active && a.relevance !== "off_topic" && listed.some((c) => c.id === a.competitor_id))
   const first = firstReads(live.map((a) => ({ ...a, source: a.source as CompetitorSource })))
 
   const lines = ["### Named competitors"]

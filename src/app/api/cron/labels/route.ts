@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { aiConfigured } from "@/lib/ai/claude"
-import { checkKeywordRelevance } from "@/lib/competitors/relevance"
+import { checkCompetitorRelevance, checkKeywordRelevance } from "@/lib/competitors/relevance"
 import { labelAds, labelCompetitorAds } from "@/lib/labels/ads"
 import { labelTests } from "@/lib/labels/tests"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
       const ads = await labelAds(clientId, { max: 80, stopAt })
       const competitors = Date.now() < stopAt ? await labelCompetitorAds(clientId, { max: 60, stopAt }) : { labeled: 0 }
       const relevance = Date.now() < stopAt ? await checkKeywordRelevance(clientId, { stopAt }) : { checked: 0 }
-      results.push({ clientId, tests: tests.labeled, ads: ads.labeled, adsLeft: ads.left, competitorAds: competitors.labeled, keywordAdsChecked: relevance.checked })
+      const competitorRelevance = Date.now() < stopAt ? await checkCompetitorRelevance(clientId, { stopAt }) : { checked: 0 }
+      results.push({ clientId, tests: tests.labeled, ads: ads.labeled, adsLeft: ads.left, competitorAds: competitors.labeled, keywordAdsChecked: relevance.checked, competitorAdsChecked: competitorRelevance.checked })
     } catch (e) {
       results.push({ clientId, error: e instanceof Error ? e.message : String(e) })
     }

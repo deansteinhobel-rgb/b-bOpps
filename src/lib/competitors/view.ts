@@ -18,6 +18,8 @@ export type AdRow = {
   started_on: string | null
   /** This library entry's own start date, when it's later than the creative's. */
   version_started_on: string | null
+  /** Claude's check against what the client sells (relevance.ts); off-topic ads never reach the page. */
+  relevance: string | null
   first_seen_at: string
   last_seen_at: string
   active: boolean
