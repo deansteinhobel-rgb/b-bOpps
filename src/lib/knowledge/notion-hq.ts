@@ -83,9 +83,10 @@ export async function discoverHq(rootId: string, skip: Set<string> = new Set()):
 
 /**
  * A page as markdown-ish text, including its sub-pages (one level) and inline databases. Sub-pages and
- * databases in `skip` (another client's HQ or call notes) aren't read.
+ * databases in `skip` (another client's HQ or call notes) aren't read. `onImage` replaces an image
+ * block's line (the campaign builder numbers a proposal's images this way).
  */
-export async function pageText(n: Client, id: string, depth = 0, skip: Set<string> = new Set()): Promise<string> {
+export async function pageText(n: Client, id: string, depth = 0, skip: Set<string> = new Set(), onImage?: (b: Block) => string): Promise<string> {
   const lines: string[] = []
   async function render(blocks: Block[], indent: string) {
     for (const b of blocks) {
@@ -103,12 +104,19 @@ export async function pageText(n: Client, id: string, depth = 0, skip: Set<strin
         case "quote": case "callout": lines.push(`${indent}> ${text}`); break
         case "code": lines.push(`${indent}${text}`); break
         case "table_row": lines.push(`${indent}| ${(v.cells ?? []).map((c) => rt(c)).join(" | ")} |`); break
-        case "bookmark": case "embed": case "link_preview": case "video": case "image": case "file": case "pdf":
+        case "image":
+          if (onImage) {
+            lines.push(indent + onImage(b))
+            break
+          }
+          lines.push(`${indent}[image${v.url ? `: ${v.url}` : ""}${rt(v.caption) ? ` (${rt(v.caption)})` : ""}]`)
+          break
+        case "bookmark": case "embed": case "link_preview": case "video": case "file": case "pdf":
           lines.push(`${indent}[${b.type}${v.url ? `: ${v.url}` : ""}${rt(v.caption) ? ` (${rt(v.caption)})` : ""}]`)
           break
         case "child_page":
           if (skip.has(normId(b.id))) lines.push(`${indent}[Sub-page: ${titleOf(b)} (another client's, not read)]`)
-          else if (depth < 1) lines.push(`\n${indent}## Sub-page: ${titleOf(b)}\n${await pageText(n, b.id, depth + 1, skip)}`)
+          else if (depth < 1) lines.push(`\n${indent}## Sub-page: ${titleOf(b)}\n${await pageText(n, b.id, depth + 1, skip, onImage)}`)
           else lines.push(`${indent}[Sub-page: ${titleOf(b)}]`)
           continue
         case "child_database":

@@ -6,6 +6,7 @@ import { checkGuardrails, rulesFor, type PlaybookRule } from "./guardrails"
 import { knownUrn, plan as planSchema, planToSpec, unresolved, UNRESOLVED, type Plan } from "./plan-schema"
 import { isAbxCampaign } from "./presets"
 import { cleanPlaybook } from "./playbook"
+import { notionPageIdIn } from "./proposal-link"
 
 const ctx: BuildContext = { website: "https://www.camber.health", monthBudget: 20_000, spentThisMonth: 9_000, today: "2026-10-21", clientId: "11111111-1111-1111-1111-111111111111" }
 
@@ -138,5 +139,20 @@ describe("playbook research", () => {
     })
     expect(p.sources.map((s) => s.n)).toEqual([1])
     expect(p.sections).toEqual([{ heading: "Audiences", points: [{ text: "Keep audiences over 50k for cold", sources: [1], strength: "consensus" }] }])
+  })
+})
+
+describe("Notion proposal links", () => {
+  it("finds the page id in the ways Notion shares links", () => {
+    expect(notionPageIdIn("https://www.notion.so/bandb/Camber-LinkedIn-proposal-2716e9bb19588036bc5fe7bc7c46b71e?pvs=4")?.id).toBe("2716e9bb-1958-8036-bc5f-e7bc7c46b71e")
+    expect(notionPageIdIn("see https://notion.so/2716e9bb-1958-8036-bc5f-e7bc7c46b71e for the plan")?.id).toBe("2716e9bb-1958-8036-bc5f-e7bc7c46b71e")
+    // A page opened from a database row: the row is in ?p=, the database in the path.
+    expect(notionPageIdIn("https://www.notion.so/bandb/aab6e9bb195883b0a88801ceaeb42ea9?v=1&p=d5b6e9bb195883d6a543819a03255c90")?.id).toBe("d5b6e9bb-1958-83d6-a543-819a03255c90")
+    expect(notionPageIdIn("https://bandb.notion.site/Proposal-3e96e9bb195880ebb423c63419193981")?.id).toBe("3e96e9bb-1958-80eb-b423-c63419193981")
+  })
+  it("ignores text without a Notion page link", () => {
+    expect(notionPageIdIn("Proposal: 3 single image ads, $60 a day")).toBeNull()
+    expect(notionPageIdIn("https://example.com/2716e9bb19588036bc5fe7bc7c46b71e")).toBeNull()
+    expect(notionPageIdIn(null)).toBeNull()
   })
 })
