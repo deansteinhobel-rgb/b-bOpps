@@ -54,7 +54,7 @@ export function PlansDetail({ slug, period, today, plans }: { slug: string; peri
           <ul className="divide-y">
             {now.map((t) => (
               <li key={t.id}>
-                <Link href={`/clients/${slug}/sprint#test-${t.id}`} className="flex items-start gap-3 px-5 py-3 text-sm hover:bg-secondary/30">
+                <Link href={`/clients/${slug}/sprint#test-${t.id}`} className="flex items-start gap-3 px-5 py-3 text-sm hover:bg-white/[0.03]">
                   <PlatformIcon platform={(t.platform as Platform) ?? null} className="mt-0.5 size-4" />
                   <span className="min-w-0 flex-1">
                     <span className="line-clamp-2 leading-snug">{t.title}</span>

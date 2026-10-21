@@ -156,7 +156,7 @@ function Choice({ on, onClick, children }: { on: boolean; onClick: () => void; c
       onClick={onClick}
       className={cn(
         "inline-flex h-9 items-center gap-2 rounded-full border px-4 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        on ? "border-border-strong bg-white/[0.1] font-medium text-foreground" : "text-body hover:border-border-strong hover:text-foreground",
+        on ? "border-border-strong bg-elevated font-medium text-foreground" : "text-body hover:border-border-strong hover:text-foreground",
       )}
     >
       {children}
@@ -172,7 +172,7 @@ function CampaignRow({ on, onClick, name, platform, detail }: { on: boolean; onC
         role="radio"
         aria-checked={on}
         onClick={onClick}
-        className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors outline-none hover:bg-white/[0.04] focus-visible:bg-white/[0.06]", on && "bg-white/[0.08] font-medium")}
+        className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors outline-none hover:bg-white/[0.03] focus-visible:bg-white/[0.06]", on && "bg-elevated font-medium")}
       >
         <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-full border", on ? "border-white bg-white" : "border-border-strong")} aria-hidden>
           {on && <span className="size-1.5 rounded-full bg-black" />}

@@ -35,8 +35,9 @@ export default async function FeedbackAdminPage({ searchParams }: PageProps<"/ad
             <li key={f.id} className="grid gap-4 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
               <div className="min-w-0 space-y-1.5">
                 <p className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className={cn("rounded-full border px-2 py-0.5 text-[11px]", f.kind === "bug" ? "border-rag-red/40 bg-rag-red/10 text-rag-red" : "border-border-strong text-body")}>{f.kind === "bug" ? "Bug" : "Idea"}</span>
-                  <strong>{f.title}</strong>
+                  {/* One chip per row (the status); the kind is a quiet word before the title. */}
+                  <span className="text-xs text-muted-foreground">{f.kind === "bug" ? "Bug" : "Idea"}</span>
+                  <span className="font-medium text-foreground">{f.title}</span>
                   <span className={cn("rounded-full border px-2 py-0.5 text-[11px]", FEEDBACK_STATUS[f.status]?.cls)}>{FEEDBACK_STATUS[f.status]?.label}</span>
                 </p>
                 {f.details && <p className="text-sm whitespace-pre-line text-muted-foreground">{f.details}</p>}

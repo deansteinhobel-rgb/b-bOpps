@@ -26,7 +26,6 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
   const showAll = !onTeam || (isAdmin(me) && all === "1")
   const list = ((clients ?? []) as QueueClient[]).filter((c) => showAll || mine.has(c.id))
   const items = await loadQueue(supabase, list, { profileId: me.id })
-  const first = (me.full_name ?? "").split(" ")[0]
   const attention = items.filter((i) => i.group === "attention").length
   const clientCount = new Set(items.map((i) => i.client.slug)).size
 
@@ -34,7 +33,7 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
     <div className="space-y-6">
       <PageHeader
         eyebrow={showAll ? "All clients" : "Your clients"}
-        title={first ? `Today, ${first}` : "Today"}
+        title="Today"
         description={
           items.length
             ? `${items.length} thing${items.length === 1 ? "" : "s"} to act on across ${clientCount} client${clientCount === 1 ? "" : "s"}${attention ? `, ${attention} needing attention` : ""}. From recommendations, QA checks, calls, sprint tests and pacing.`

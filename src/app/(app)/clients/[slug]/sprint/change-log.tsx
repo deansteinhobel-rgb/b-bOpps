@@ -74,8 +74,8 @@ export function ChangeLog(props: {
       <div className="space-y-4">
         {!props.readOnly && (
           <div className="space-y-3 rounded-lg border bg-card p-4">
-            <p className="text-sm font-bold">Log a change</p>
-            <div className="grid gap-3 sm:grid-cols-4">
+            <h3 className="text-sm font-semibold text-foreground">Log a change</h3>
+            <div className="grid gap-4 sm:grid-cols-4">
               <div className="space-y-1">
                 <Label htmlFor="c-date">Date</Label>
                 <Input id="c-date" type="date" value={form.changed_on} onChange={(e) => setForm({ ...form, changed_on: e.target.value })} />
@@ -133,7 +133,7 @@ export function ChangeLog(props: {
         )}
 
         {logged.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">No changes logged yet.</p>
+          <p className="text-sm text-muted-foreground">No changes logged yet.</p>
         ) : (
           <ol className="relative space-y-3 border-l pl-5">
             {logged.map((c) => (
@@ -162,14 +162,14 @@ export function ChangeLog(props: {
       </div>
 
       <aside className="space-y-3">
-        <p className="text-sm font-bold">Detected in Windsor</p>
+        <h3 className="text-sm font-semibold text-foreground">Detected in Windsor</h3>
         <p className="text-xs text-muted-foreground">Changes spotted in the ad data this sprint. Log the ones your team made, and dismiss the rest.</p>
         {props.suggestions.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">Nothing new to review.</p>
+          <p className="text-sm text-muted-foreground">Nothing new to review.</p>
         ) : (
           <ul className="space-y-2">
             {props.suggestions.slice(0, 12).map((s) => (
-              <li key={s.key} className={cn("rounded-md border bg-card p-3 text-sm", pending && "opacity-70")}>
+              <li key={s.key} className={cn("rounded-lg border bg-card p-3 text-sm", pending && "opacity-70")}>
                 <p className="text-xs text-muted-foreground">
                   {shortDate(s.changed_on)} · {CHANGE_TYPES[s.type]}
                 </p>

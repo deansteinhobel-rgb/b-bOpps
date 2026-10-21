@@ -70,7 +70,7 @@ export function ShareReport({ slug, platform, campaign, title, range, links, can
         </DialogHeader>
 
         {canShare && (
-          <div className="space-y-3 rounded-lg border bg-background/50 p-3">
+          <div className="space-y-3 rounded-lg border p-3">
             <label className="block space-y-1 text-xs text-muted-foreground">
               Opens on
               <select value={opens} onChange={(e) => setOpens(e.target.value)} className={`${fieldClass} h-8 text-foreground`}>

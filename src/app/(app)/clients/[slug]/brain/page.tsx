@@ -36,7 +36,7 @@ export default async function BrainPage({ params }: PageProps<"/clients/[slug]/b
   const hq = pages.filter((k) => k.source === "notion" && !k.notion_collection)
   const sourceTitle = client.call_notes_notion_id ? (hq.find((k) => norm(k.notion_page_id) === norm(client.call_notes_notion_id))?.title ?? client.call_notes_title) : null
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       <BrainView
         slug={slug}
         clientName={client.name}

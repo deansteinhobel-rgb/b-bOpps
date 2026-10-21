@@ -1,6 +1,7 @@
 "use client"
 
-import { ShieldCheck, Sparkles, TriangleAlert } from "lucide-react"
+import { ClaudeMark } from "@/components/brand"
+import { ShieldCheck, TriangleAlert } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -60,7 +61,7 @@ export function TermIcpPanel({ slug, campaignId, review, onReview, canCheck, can
             <ShieldCheck className="size-4 text-muted-foreground" aria-hidden />
             <span className="text-muted-foreground">Check which searches don&apos;t fit the client&apos;s ICP. Claude reads the client brief and the top 300 terms (about a minute).</span>
             <Button size="sm" variant="outline" onClick={run} disabled={running} className="ml-auto gap-1.5">
-              <Sparkles className="size-3.5" aria-hidden />
+              <ClaudeMark className="size-3.5 text-lime" />
               {running ? "Checking…" : "Check against the ICP"}
             </Button>
           </div>

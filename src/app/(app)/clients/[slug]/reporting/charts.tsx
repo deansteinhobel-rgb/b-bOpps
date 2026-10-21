@@ -45,10 +45,9 @@ export function Investigator({ now, prev, currency }: { now: Derived; prev: Deri
   const [k, setK] = useState<MetricKey>("results")
   const [a, b, op] = DRIVERS[k]!
   const box = (m: MetricKey, big = false) => {
-    const pct = change(now[m], prev[m])
-    const t = tone(m, pct)
+    // Neutral boxes: the colored change inside carries better or worse (no tinted callouts, taste skill).
     return (
-      <div className={cn("rounded-lg border px-4 py-3 text-center", t === "good" ? "border-rag-green/30 bg-rag-green/[0.08]" : t === "bad" ? "border-rag-red/30 bg-rag-red/[0.08]" : "bg-background/40")}>
+      <div className="rounded-lg border px-4 py-3 text-center">
         <Delta k={m} now={now[m]} before={prev[m]} className={cn("justify-center font-semibold", big ? "text-lg" : "text-sm")} />
         <p className={cn("mt-0.5", big ? "text-base font-semibold" : "text-sm")}>{METRIC[m].label}</p>
         <p className="text-[11px] text-muted-foreground tabular-nums">
@@ -137,7 +136,7 @@ function TrendChart({ k, daily, prevDaily, currency }: { k: MetricKey; daily: Po
         )}
       </svg>
       {h && (
-        <div className="pointer-events-none absolute top-0 rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-lg" style={{ left: `${(x(hover!) / W) * 100}%`, transform: `translateX(${hover! > daily.length / 2 ? "-105%" : "5%"})` }}>
+        <div /* taste-skill-ignore: a tooltip over the chart is an overlay */ className="pointer-events-none absolute top-0 rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-lg" style={{ left: `${(x(hover!) / W) * 100}%`, transform: `translateX(${hover! > daily.length / 2 ? "-105%" : "5%"})` }}>
           <p className="text-muted-foreground">{shortDay(h.date)}</p>
           <p className="tabular-nums">
             {fmt(k, h[k], currency)} <span className="text-muted-foreground">this period</span>
@@ -286,7 +285,7 @@ export function CampaignTable({ rows, currency, slug, query, targets }: { rows: 
                 <th key={c.k} className="px-3 py-2 text-right font-normal">
                   <button type="button" onClick={() => setSort((s) => ({ k: c.k, dir: s.k === c.k ? (s.dir === 1 ? -1 : 1) : -1 }))} className={cn("hover:text-foreground", sort.k === c.k && "text-foreground")} aria-label={`Sort by ${c.label}`}>
                     {c.label}
-                    {sort.k === c.k ? (sort.dir === -1 ? " ↓" : " ↑") : ""}
+                    {sort.k === c.k && (sort.dir === -1 ? <ArrowDown className="ml-0.5 inline size-3" aria-hidden /> : <ArrowUp className="ml-0.5 inline size-3" aria-hidden />)}
                   </button>
                 </th>
               ))}
@@ -298,7 +297,7 @@ export function CampaignTable({ rows, currency, slug, query, targets }: { rows: 
               const target = targetFor(targets, r.platform)
               const over = target !== null && r.now.cpr !== null && r.now.cpr > target
               return (
-                <tr key={`${r.platform}|${r.campaignId}`} className="group hover:bg-accent/40">
+                <tr key={`${r.platform}|${r.campaignId}`} className="group hover:bg-white/[0.03]">
                   <td className="max-w-80 px-4 py-2.5">
                     <Link href={`/clients/${slug}/reporting/${r.platform}/${encodeURIComponent(r.campaignId)}${query}`} className="flex items-center gap-2">
                       <PlatformIcon platform={r.platform} className="size-3.5 shrink-0" />

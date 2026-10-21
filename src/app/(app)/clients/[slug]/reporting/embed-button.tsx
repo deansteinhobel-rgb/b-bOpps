@@ -3,6 +3,7 @@
 import { Check, Copy, ExternalLink, Share2 } from "lucide-react"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
+import { CountBadge } from "@/components/filter-tabs"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -61,7 +62,7 @@ export function EmbedButton({ slug, board, boardLabel, range, links, canShare }:
       <DialogTrigger render={<Button size="sm" variant="outline" className="gap-1.5" />}>
         <Share2 className="size-3.5" aria-hidden />
         Embed in Notion
-        {links.length > 0 && <span className="rounded-full bg-secondary px-1.5 text-[11px] tabular-nums text-muted-foreground">{links.length}</span>}
+        {links.length > 0 && <CountBadge>{links.length}</CountBadge>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
@@ -72,7 +73,7 @@ export function EmbedButton({ slug, board, boardLabel, range, links, canShare }:
         </DialogHeader>
 
         {canShare && (
-          <div className="space-y-3 rounded-lg border bg-background/50 p-3">
+          <div className="space-y-3 rounded-lg border p-3">
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
                 <label className="space-y-1 text-xs text-muted-foreground">

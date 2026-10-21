@@ -1,3 +1,4 @@
+import { ChevronRight, CornerDownRight } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { NotionSyncBar } from "@/components/notion-sync-bar"
@@ -17,12 +18,14 @@ const STAGES = [
   { key: "done", label: "Done", tone: "muted", statuses: ["Production Complete", "Cancelled", "Archive"] },
 ] as const
 type Tone = (typeof STAGES)[number]["tone"]
-const PILL: Record<Tone, string> = {
-  lime: "bg-white/[0.08] text-foreground ring-border-strong",
-  violet: "bg-pink/12 text-pink ring-pink/30",
-  green: "bg-rag-green-bg text-rag-green ring-rag-green/30",
-  amber: "bg-rag-amber-bg text-rag-amber ring-rag-amber/30",
-  muted: "bg-secondary text-muted-foreground ring-border",
+// A stage is a small dot beside its name (summary strip, group headings); statuses in rows are
+// outlined neutral chips, since the group heading already says the stage (taste sweep).
+const DOT: Record<Tone, string> = {
+  lime: "bg-foreground",
+  violet: "bg-pink",
+  green: "bg-rag-green",
+  amber: "bg-rag-amber",
+  muted: "bg-rag-na",
 }
 const stageOf = (status: string | null) => STAGES.find((s) => (s.statuses as readonly string[]).includes(status ?? "")) ?? STAGES[3]
 
@@ -76,17 +79,23 @@ export default async function BriefsPage({ params, searchParams }: PageProps<"/c
       />
 
       {/* Summary strip */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
         {STAGES.filter((s) => s.key !== "done").map((s) => {
           const n = top.filter((b) => stageOf(b.status).key === s.key).length
           return (
-            <span key={s.key} className={cn("inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ring-1", n ? PILL[s.tone] : "bg-card text-subtle-foreground ring-border")}>
+            <span key={s.key} className={cn("inline-flex items-center gap-1.5 text-xs", n ? "text-body" : "text-subtle-foreground")}>
+              <span className={cn("size-1.5 rounded-full", n ? DOT[s.tone] : "bg-border")} aria-hidden />
               {s.label}
-              <span className="tabular-nums">{n}</span>
+              <span className={cn("tabular-nums", n && "font-medium text-foreground")}>{n}</span>
             </span>
           )
         })}
-        {overdue > 0 && <span className="inline-flex items-center gap-2 rounded-full bg-rag-red-bg px-3 py-1 text-xs text-rag-red ring-1 ring-rag-red/30">{overdue} overdue</span>}
+        {overdue > 0 && (
+          <span className="inline-flex items-center gap-1.5 text-xs text-rag-red">
+            <span className="size-1.5 rounded-full bg-rag-red" aria-hidden />
+            <span className="tabular-nums">{overdue}</span> overdue
+          </span>
+        )}
         <span className="ml-auto flex gap-3 text-xs">
           <Link href={href({ all: !showAll })} className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
             {showAll ? "Paid media only" : `Show all briefs (+${hiddenOpen})`}
@@ -103,10 +112,10 @@ export default async function BriefsPage({ params, searchParams }: PageProps<"/c
         <div className="space-y-6">
           {groups.map((g) => (
             <section key={g.key} className="space-y-2">
-              <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <span className={cn("size-1.5 rounded-full", g.tone === "lime" ? "bg-foreground" : g.tone === "violet" ? "bg-pink" : g.tone === "green" ? "bg-rag-green" : g.tone === "amber" ? "bg-rag-amber" : "bg-rag-na")} />
+              <h3 className="flex items-center gap-2 text-[13px] font-semibold text-foreground">
+                <span className={cn("size-2 rounded-full", DOT[g.tone])} aria-hidden />
                 {g.label}
-                <span className="text-subtle-foreground">{g.items.length}</span>
+                <span className="font-normal text-subtle-foreground tabular-nums">{g.items.length}</span>
               </h3>
               <ul className="surface divide-y overflow-hidden">
                 {g.items.map((b) => (
@@ -141,8 +150,7 @@ function Avatars({ names }: { names: string[] }) {
 }
 
 function StatusPill({ status }: { status: string | null }) {
-  const s = stageOf(status)
-  return <span className={cn("inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-[11px] ring-1", PILL[s.tone])}>{status ?? "No status"}</span>
+  return <span className="inline-flex max-w-full items-center justify-self-start truncate rounded-full border border-border-strong px-2 py-0.5 text-[11px] text-body">{status ?? "No status"}</span>
 }
 
 function Line({ b, today, nested }: { b: MirrorItem; today: string; nested?: boolean }) {
@@ -151,13 +159,13 @@ function Line({ b, today, nested }: { b: MirrorItem; today: string; nested?: boo
     <div className={cn("grid items-center gap-x-4 gap-y-1 px-4 py-3 md:grid-cols-[minmax(0,1fr)_9.5rem_5.5rem_9rem_4.5rem]", nested && "bg-background/40 pl-10 md:pl-12")}>
       <div className="min-w-0">
         <p className={cn("truncate text-sm", nested ? "text-muted-foreground" : "font-medium")} title={b.title}>
-          {nested && <span className="mr-1.5 text-subtle-foreground">↳</span>}
+          {nested && <CornerDownRight className="mr-1.5 inline size-3.5 align-[-2px] text-subtle-foreground" aria-hidden />}
           {b.title}
         </p>
         {!nested && (b.productionType || b.priority) && (
           <p className="mt-1 flex flex-wrap gap-1.5">
-            {b.productionType && <span className="rounded-md border px-1.5 py-px text-[11px] text-muted-foreground">{b.productionType}</span>}
-            {b.priority === "High" && <span className="rounded-md bg-rag-red-bg px-1.5 py-px text-[11px] text-rag-red">High priority</span>}
+            {b.productionType && <span className="rounded-full border border-border-strong px-2 py-px text-[11px] text-body">{b.productionType}</span>}
+            {b.priority === "High" && <span className="rounded-full border border-border-strong px-2 py-px text-[11px] text-rag-red">High priority</span>}
           </p>
         )}
       </div>
@@ -184,11 +192,12 @@ function BriefRow({ b, kids, today }: { b: MirrorItem; kids: MirrorItem[]; today
     <li>
       <details className="group">
         <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-          <div className="relative hover:bg-accent/30">
+          <div className="relative hover:bg-white/[0.03]">
             <Line b={b} today={today} />
             <span className="absolute bottom-1 left-4 text-[11px] text-subtle-foreground group-open:hidden">
               {kids.length} sub-item{kids.length === 1 ? "" : "s"}
-              {openKids ? ` · ${openKids} open` : ""} ▸
+              {openKids ? ` · ${openKids} open` : ""}
+              <ChevronRight className="ml-0.5 inline size-3 align-[-2px]" aria-hidden />
             </span>
           </div>
         </summary>

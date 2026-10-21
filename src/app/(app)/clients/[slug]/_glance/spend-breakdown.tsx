@@ -38,7 +38,7 @@ export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, 
 
   return (
     <div className="space-y-4">
-      <div className={cn("grid gap-3", platforms.length >= 4 ? "md:grid-cols-2" : platforms.length === 3 ? "md:grid-cols-3" : platforms.length === 2 ? "md:grid-cols-2" : "")}>
+      <div className={cn("grid gap-4", platforms.length >= 4 ? "md:grid-cols-2" : platforms.length === 3 ? "md:grid-cols-3" : platforms.length === 2 ? "md:grid-cols-2" : "")}>
         {platforms.map((p) => {
           const active = platform === p.platform
           const words = paceWords(p.spend, p.expected, p.budget)
@@ -51,8 +51,8 @@ export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, 
                 setAll(false)
               }}
               aria-pressed={active}
-              className={cn("surface space-y-3 p-4 text-left transition-colors hover:border-foreground/25", active && "border-foreground/40")}
-              style={active ? { boxShadow: `inset 0 0 0 1px ${PLATFORM_COLOR[p.platform]}` } : undefined}
+              // Picked = one flat tone step and a stronger edge (no colored ring).
+              className={cn("surface space-y-3 p-4 text-left transition-colors hover:border-border-strong", active && "border-border-strong bg-elevated")}
             >
               <span className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2 text-sm font-medium">
@@ -62,7 +62,7 @@ export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, 
                 <span className="text-xs text-muted-foreground">{total ? `${Math.round((p.spend / total) * 100)}% of spend` : ""}</span>
               </span>
               <span className="block">
-                <span className="font-heading text-2xl tabular-nums">{money(p.spend, currency)}</span>
+                <span className="text-2xl tabular-nums font-medium">{money(p.spend, currency)}</span>
                 <span className="ml-1.5 text-xs text-muted-foreground">{p.budget ? `of ${money(p.budget, currency)}` : "no budget set"}</span>
               </span>
               {p.budget ? (
@@ -110,7 +110,7 @@ export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, 
           <ul className="divide-y">
             {shown.map((c) => (
               <li key={`${c.platform}|${c.campaignId}`}>
-                <Link href={`/clients/${slug}/reporting/${c.platform}/${encodeURIComponent(c.campaignId)}`} className="grid grid-cols-[minmax(0,1fr)_6.5rem_6.5rem] items-center gap-4 px-4 py-2.5 text-sm hover:bg-secondary/30 sm:grid-cols-[minmax(0,1fr)_10rem_6.5rem_6.5rem]">
+                <Link href={`/clients/${slug}/reporting/${c.platform}/${encodeURIComponent(c.campaignId)}`} className="grid grid-cols-[minmax(0,1fr)_6.5rem_6.5rem] items-center gap-4 px-4 py-2.5 text-sm hover:bg-white/[0.03] sm:grid-cols-[minmax(0,1fr)_10rem_6.5rem_6.5rem]">
                   <span className="flex min-w-0 items-center gap-2">
                     <PlatformIcon platform={c.platform} />
                     <span className="min-w-0">
@@ -138,7 +138,7 @@ export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, 
             ))}
           </ul>
           {list.length > SHOW && (
-            <button type="button" onClick={() => setAll(!all)} className="w-full border-t px-4 py-2.5 text-sm text-muted-foreground hover:bg-secondary/40 hover:text-foreground">
+            <button type="button" onClick={() => setAll(!all)} className="w-full border-t px-4 py-2.5 text-sm text-muted-foreground hover:bg-white/[0.03] hover:text-foreground">
               {all ? "Show fewer" : `Show all ${list.length} campaigns`}
             </button>
           )}

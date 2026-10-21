@@ -8,7 +8,7 @@ import { cachedPerformance } from "@/lib/metrics/cached"
 import { derive, fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import { adKey, previewsFor } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
-import { Delta, Investigator, Sparkline, TrendPanel } from "../../charts"
+import { Delta, Investigator, TrendPanel } from "../../charts"
 import { CampaignDetailData } from "../../breakdowns"
 import { Controls } from "../../controls"
 import { parsePlatform, parseRange } from "../../params"
@@ -80,18 +80,20 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
       </div>
       <Controls base={`/clients/${slug}/reporting/${platform}/${encodeURIComponent(campaignId)}`} range={range} defaultDays={defaultDays} platform={null} periods={perf.periods} dataFrom={perf.dataFrom} dataThrough={perf.dataThrough} />
 
-      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-4 xl:grid-cols-7">
-        {CARDS.map((k) => (
-          <div key={k} className="bg-card px-4 py-3.5">
-            <dt className="text-xs text-muted-foreground">{METRIC[k].label}</dt>
-            <dd className="mt-1 font-heading text-2xl leading-none tabular-nums">{fmt(k, perf.now[k], cur)}</dd>
-            <div className="mt-2 flex items-end justify-between gap-2">
-              <Delta k={k} now={perf.now[k]} before={perf.prev[k]} />
-              <Sparkline values={perf.daily.map((d) => d[k])} className="h-6 w-20" />
+      {/* One box split by hairlines (taste skill): an odd last row leaves no grey gap. */}
+      <div className="surface overflow-hidden">
+        <dl /* taste-skill-ignore: inset hairlines between cells, not a shadow */ className="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 [&>*]:shadow-[inset_1px_1px_0_var(--border)]">
+          {CARDS.map((k) => (
+            <div key={k} className="p-4">
+              <dt className="text-[13px] text-muted-foreground">{METRIC[k].label}</dt>
+              <dd className="mt-1 text-2xl leading-none tabular-nums font-medium">{fmt(k, perf.now[k], cur)}</dd>
+              <div className="mt-2">
+                <Delta k={k} now={perf.now[k]} before={perf.prev[k]} />
+              </div>
             </div>
-          </div>
-        ))}
-      </dl>
+          ))}
+        </dl>
+      </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <TrendPanel daily={perf.daily} prevDaily={perf.prevDaily} currency={cur} />

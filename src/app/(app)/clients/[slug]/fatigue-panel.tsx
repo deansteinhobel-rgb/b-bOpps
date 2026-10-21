@@ -4,6 +4,7 @@ import { useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { AdThumb, SearchAdMock, ViewAdLink } from "@/components/ad-thumb"
 import { PlatformIcon } from "@/components/brand"
+import { Segmented } from "@/components/segmented"
 import { longDate, money, percent, signedPct, whole } from "@/lib/format"
 import { AD_OLD_DAYS, type FatiguedAd } from "@/lib/metrics/ads"
 import { PLATFORM_LABEL } from "@/lib/metrics/types"
@@ -34,38 +35,28 @@ export function FatiguePanel({ ads, previews, currency }: { ads: FatiguedAd[]; p
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="radiogroup" aria-label="Compare by" className="inline-flex rounded-lg border bg-card p-0.5 text-xs">
-          {(
-            [
-              ["ctr", "CTR"],
-              ["cpr", "Cost per conversion / lead"],
-            ] as const
-          ).map(([m, label]) => (
-            <button
-              key={m}
-              type="button"
-              role="radio"
-              aria-checked={mode === m}
-              onClick={() => setMode(m)}
-              className={cn("rounded-md px-3 py-1.5 transition-colors", mode === m ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="Compare by"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: "ctr", label: "CTR" },
+            { value: "cpr", label: "Cost per conversion / lead" },
+          ]}
+        />
         <p className="text-xs text-muted-foreground">
           {ads.length} live ads · <span className={flagged ? "text-rag-red" : undefined}>{flagged}</span> over {AD_OLD_DAYS} days old and {mode === "ctr" ? "CTR down" : "cost per result up"}
         </p>
       </div>
 
-      <ul className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {shown.map((a) => {
           const k = keyOf(a)
           return <Tile key={k} ad={a} mode={mode} preview={previews[k]} currency={currency} open={open === k} onToggle={() => setOpen(open === k ? null : k)} />
         })}
       </ul>
       {sorted.length > SHOW && (
-        <button type="button" onClick={() => setShowAll((s) => !s)} className="w-full rounded-lg border px-4 py-2 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground">
+        <button type="button" onClick={() => setShowAll((s) => !s)} className="w-full rounded-lg border px-4 py-2 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
           {showAll ? "Show fewer" : `Show all ${sorted.length} live ads`}
         </button>
       )}
@@ -81,7 +72,7 @@ function Tile({ ad: a, mode, preview, currency, open, onToggle }: { ad: Fatigued
   const firstSeen = `${longDate(a.first_seen)}${a.firstSeenCapped ? " or earlier" : ""}`
 
   return (
-    <li className={cn("surface overflow-hidden transition-colors", open ? "col-span-full border-foreground/20" : "hover:border-foreground/20")}>
+    <li className={cn("surface overflow-hidden transition-colors", open ? "col-span-full border-border-strong" : "hover:border-border-strong")}>
       {/* The preview sits outside the toggle button: it has its own hover card and Meta link. */}
       <div className="flex items-center gap-3 p-3">
         <PlatformIcon platform={a.platform} className="size-4 shrink-0 self-start" />

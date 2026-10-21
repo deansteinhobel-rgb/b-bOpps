@@ -7,8 +7,8 @@ import type { PreviewMap } from "@/lib/previews"
 export function AutoDataView({ data, label, previews }: { data: AutoData; label: string; previews?: PreviewMap }) {
   const withThumbs = Boolean(data.adKeys?.some(Boolean) && previews)
   return (
-    <div className="rounded-md border bg-secondary/50 p-3 text-sm">
-      <p className="eyebrow">
+    <div className="rounded-lg border bg-elevated p-3 text-sm">
+      <p className="text-xs text-muted-foreground">
         {label} · data through {longDate(data.dataThrough)}
       </p>
       {data.note && <p className="mt-1 text-muted-foreground">{data.note}</p>}
@@ -40,7 +40,7 @@ export function AutoDataView({ data, label, previews }: { data: AutoData; label:
             </thead>
             <tbody>
               {data.table.rows.map((row, i) => (
-                <tr key={i} className="border-t border-border/60">
+                <tr key={i} className="border-t border-border">
                   {withThumbs && (
                     <td className="py-1 pr-2">
                       {data.adKeys?.[i] ? <AdThumb preview={previews?.[data.adKeys[i]!]} alt="Ad preview" size="sm" /> : null}

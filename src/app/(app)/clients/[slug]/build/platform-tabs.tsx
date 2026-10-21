@@ -11,7 +11,7 @@ const ICON: Record<BuildPlatform, AnyPlatform> = { linkedin: "linkedin", google_
  */
 export function PlatformTabs({ slug, current, available }: { slug: string; current: BuildPlatform; available: Record<BuildPlatform, string | null> }) {
   return (
-    <nav aria-label="Platform" className="flex flex-wrap gap-2">
+    <nav aria-label="Platform" className="-mx-2 flex flex-wrap">
       {(Object.keys(BUILD_PLATFORM_LABEL) as BuildPlatform[]).map((p) => {
         const why = available[p]
         const body = (
@@ -22,14 +22,15 @@ export function PlatformTabs({ slug, current, available }: { slug: string; curre
         )
         if (why) {
           return (
-            <span key={p} title={why} aria-disabled className="pill gap-1.5 opacity-50">
+            <span key={p} title={why} aria-disabled className="flex h-8 items-center gap-1.5 px-2 text-[13px] text-muted-foreground opacity-50">
               {body}
             </span>
           )
         }
         return (
-          <Link key={p} href={`/clients/${slug}/build${p === "linkedin" ? "" : `?platform=${p}`}`} aria-current={p === current ? "page" : undefined} className={cn("pill gap-1.5 hover:text-foreground", p === current && "pill-active text-foreground")}>
-            {body}
+          <Link key={p} href={`/clients/${slug}/build${p === "linkedin" ? "" : `?platform=${p}`}`} aria-current={p === current ? "page" : undefined} className={cn("flex h-8 items-center rounded-sm px-2 text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", p === current ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>
+            {/* The current platform carries the app's one selection mark. */}
+            <span className={cn("flex h-full items-center gap-1.5", p === current && "select-line")}>{body}</span>
           </Link>
         )
       })}

@@ -127,7 +127,7 @@ function EditCampaign({ slug, campaign, currency, running }: { slug: string; cam
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button size="sm" variant="outline" onClick={openDialog}>
+      <Button size="sm" variant="ghost" onClick={openDialog}>
         {running ? "Pause or edit" : "Edit"}
       </Button>
       {/* Grid items don't shrink below their content by default: a long campaign name would push the dialog wider. */}
@@ -140,13 +140,18 @@ function EditCampaign({ slug, campaign, currency, running }: { slug: string; cam
         {info && !info.ok && <p className="text-[13px] text-rag-red">{info.error}</p>}
         {info?.ok && (
           <div className="space-y-4">
-            {!info.live && <p className="rounded-md bg-rag-amber-bg px-3 py-2 text-xs text-rag-amber">Test mode: the change is logged and nothing reaches LinkedIn.{info.reason && !info.reason.startsWith("ADS_API") ? ` ${info.reason}` : ""}</p>}
+            {!info.live && (
+              <p className="flex items-start gap-2 text-xs text-body">
+                <span className="mt-1 size-2 shrink-0 rounded-full bg-rag-amber" aria-hidden />
+                <span>Test mode: the change is logged and nothing reaches LinkedIn.{info.reason && !info.reason.startsWith("ADS_API") ? ` ${info.reason}` : ""}</span>
+              </p>
+            )}
             {before && (
               <p className="text-xs text-muted-foreground">
                 Now: {before.status.toLowerCase()} · {before.dailyBudget ? `${m(before.dailyBudget)} a day` : "no daily budget"} · {before.end ? `ends ${shortDate(before.end)}` : "no end date"}
               </p>
             )}
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="e-budget">Daily budget</Label>
                 <Input id="e-budget" type="number" min={10} value={budget} onChange={(e) => setBudget(e.target.value)} />

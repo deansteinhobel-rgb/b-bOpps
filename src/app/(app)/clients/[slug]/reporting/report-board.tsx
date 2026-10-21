@@ -75,8 +75,8 @@ export function ReportBoard({ board: b, client, currency, from, to, prevFrom, pr
         {tiles.map((t, i) => (
           // Seven tiles: Spend takes two cells so the grid has no gap.
           <div key={t.label} className={cn("bg-card px-4 py-4", i === 0 && tiles.length % 2 === 1 && "col-span-2")}>
-            <dt className="text-xs font-medium">{t.label}</dt>
-            <dd className="mt-2 font-heading text-3xl leading-none tabular-nums">{show(t.kind, t.now, currency)}</dd>
+            <dt className="text-[13px] text-muted-foreground">{t.label}</dt>
+            <dd className="mt-2 text-2xl leading-none tabular-nums font-medium">{show(t.kind, t.now, currency)}</dd>
             {compare && (
               <dd className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
                 <Chip now={t.now} prev={t.prev} better={t.better} />
@@ -96,7 +96,7 @@ export function ReportBoard({ board: b, client, currency, from, to, prevFrom, pr
             <p className="px-5 pb-5 text-sm text-muted-foreground">No spend in this period.</p>
           ) : (
             <table className="w-full text-sm tabular-nums">
-              <thead className="text-[11px] text-muted-foreground">
+              <thead className="text-xs text-muted-foreground">
                 <tr className="border-b">
                   <th className="px-5 py-1.5 text-left font-normal">Campaign</th>
                   <th className="px-3 py-1.5 text-right font-normal">Spend</th>
@@ -178,7 +178,7 @@ export function ReportBoard({ board: b, client, currency, from, to, prevFrom, pr
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[36rem] text-sm tabular-nums">
-              <thead className="text-[11px] text-muted-foreground">
+              <thead className="text-xs text-muted-foreground">
                 <tr className="border-b">
                   <th className="px-5 py-1.5 text-left font-normal">Ad</th>
                   <th className="px-3 py-1.5 text-right font-normal">Results</th>
@@ -219,16 +219,16 @@ export function ReportBoard({ board: b, client, currency, from, to, prevFrom, pr
   )
 }
 
-/** Change against the previous period as a small tinted chip: green when better, red when worse. */
+/** Change against the previous period: green text when better, red when worse (no tinted fill). */
 export function Chip({ now, prev, better }: { now: number | null; prev: number | null; better: "up" | "down" | "none" }) {
   const pct = change(now, prev)
-  if (pct === null && prev === 0 && now) return <span className="rounded bg-secondary px-1 py-px text-[11px] text-muted-foreground">New</span>
+  if (pct === null && prev === 0 && now) return <span className="rounded-full border border-border-strong px-1.5 py-px text-[11px] text-body">New</span>
   if (pct === null) return <span className="text-muted-foreground">–</span>
   const flat = Math.abs(pct) < 0.5
   const good = better === "none" || flat ? null : (pct > 0) === (better === "up")
   const Icon = flat ? Minus : pct > 0 ? ArrowUp : ArrowDown
   return (
-    <span className={cn("inline-flex items-center gap-0.5 rounded px-1 py-px text-[11px] tabular-nums", good === null ? "bg-secondary text-muted-foreground" : good ? "bg-rag-green/12 text-rag-green" : "bg-rag-red/12 text-rag-red")}>
+    <span className={cn("inline-flex items-center gap-0.5 text-[11px] tabular-nums", good === null ? "text-muted-foreground" : good ? "text-rag-green" : "text-rag-red")}>
       <Icon className="size-3" aria-hidden />
       {Math.abs(pct) >= 100 ? Math.round(Math.abs(pct)) : Math.abs(pct).toFixed(1)}%
     </span>

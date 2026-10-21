@@ -34,10 +34,10 @@ export default async function PersonPage({ params }: PageProps<"/people/[id]">) 
 
   return (
     <div className="space-y-8">
-      <section className="surface relative overflow-hidden">
-        <div aria-hidden className="h-24 bg-elevated" />
-        <div className="flex flex-wrap items-end gap-5 px-6 pb-6">
-          <Avatar name={name} url={p.avatar_url} className="-mt-12 size-24 text-2xl ring-4 ring-card" />
+      {/* No decorative cover band: the avatar sits beside the name (taste sweep). */}
+      <section className="surface">
+        <div className="flex flex-wrap items-center gap-5 p-6">
+          <Avatar name={name} url={p.avatar_url} className="size-20 text-2xl" />
           <div className="min-w-0 flex-1 space-y-1">
             <h1 className="text-3xl leading-tight">{name}</h1>
             <p className="text-sm text-muted-foreground">
@@ -95,7 +95,7 @@ export default async function PersonPage({ params }: PageProps<"/people/[id]">) 
               const c = t.clients
               if (!c) return null
               return (
-                <Link key={i} href={`/clients/${c.slug}`} className="flex items-center gap-3 px-5 py-2.5 hover:bg-accent/40">
+                <Link key={i} href={`/clients/${c.slug}`} className="flex items-center gap-3 px-5 py-2.5 hover:bg-white/[0.03]">
                   <ClientLogo name={c.name} logoUrl={c.logo_url} size="sm" />
                   <span className="flex-1">{c.name}</span>
                   <span className="text-xs text-muted-foreground">{TEAM_ROLE[t.role] ?? t.role}</span>

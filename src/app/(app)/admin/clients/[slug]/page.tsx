@@ -50,9 +50,9 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
   const monthLabel = (m: string) => new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(m))
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <div>
-        <Link href="/admin/clients" className="eyebrow hover:text-foreground">
+        <Link href="/admin/clients" className="text-sm text-muted-foreground hover:text-foreground">
           ← All clients
         </Link>
         <h1 className="mt-2 text-3xl">{client.name}</h1>
@@ -121,11 +121,11 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
           {(accounts ?? []).map((a) => (
             <AdminForm key={a.id} action={updateAccount} className="rounded-lg border bg-card p-4">
               <input type="hidden" name="id" value={a.id} />
-              <p className="font-bold">
+              <p className="font-medium text-foreground">
                 <PlatformLabel platform={a.platform as Platform} /> · {a.account_name ?? a.external_account_id}{" "}
                 <span className="font-normal text-muted-foreground">({a.external_account_id})</span>
               </p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-1">
                   <Label htmlFor={`b-${a.id}`}>Default monthly budget</Label>
                   <Input id={`b-${a.id}`} name="monthly_budget" type="number" min="0" step="1" defaultValue={a.monthly_budget ?? ""} />
@@ -152,7 +152,7 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
                 </div>
               </div>
               {[...(a.conversion_fields as string[]), ...(a.lead_fields as string[])].length > 0 && (
-                <div className="space-y-2 rounded-md border border-dashed p-3">
+                <div className="space-y-2 border-t pt-3">
                   <p className="text-sm font-semibold">
                     What each field counts{" "}
                     <span className="font-normal text-muted-foreground">(a standard tier, so results compare across clients)</span>
@@ -229,7 +229,7 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
             <input type="hidden" name="client_id" value={client.id} />
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-muted-foreground">
+                <tr className="text-left text-xs text-muted-foreground">
                   <th className="py-1 font-normal">Platform</th>
                   {months.map((m) => (
                     <th key={m} className="py-1 font-normal">

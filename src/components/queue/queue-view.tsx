@@ -162,7 +162,8 @@ function QueueRow({ item: i, showClient, canEdit, onGone }: { item: QueueItem; s
       router.refresh()
     })
   return (
-    <li className={cn("group flex flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-secondary/30 sm:flex-nowrap", pending && "opacity-50", i.tone === "lime" && "border-l-2 border-l-lime")}>
+    <li className={cn("group flex flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap", pending && "opacity-50")}>
+      {/* Opportunities: a white dot (lime is kept for selection only). */}
       <span className="mt-1.5">{i.tone === "lime" ? <span className="block size-2 rounded-full bg-lime" role="img" aria-label="Opportunity" title="Opportunity" /> : <StatusDot status={TONE[i.tone]} />}</span>
       <div className="min-w-0 flex-1">
         <Link href={i.href} className="flex items-center gap-2 text-sm font-medium hover:underline">
@@ -178,25 +179,27 @@ function QueueRow({ item: i, showClient, canEdit, onGone }: { item: QueueItem; s
             </span>
           )}
           <span>{i.meta}</span>
-          {i.when && <span className={cn("rounded-md px-1.5 leading-5 ring-1 ring-inset", i.when.tone === "red" ? "bg-rag-red-bg text-rag-red ring-rag-red/30" : i.when.tone === "amber" ? "bg-rag-amber-bg text-rag-amber ring-rag-amber/30" : "ring-border")}>{i.when.text}</span>}
+          {/* Due date as colored text, not a filled chip: the dot is the row's one status mark. */}
+          {i.when && <span className={cn(i.when.tone === "red" ? "text-rag-red" : i.when.tone === "amber" ? "text-rag-amber" : "text-body")}>{i.when.text}</span>}
         </p>
       </div>
-      <div className="flex w-full shrink-0 items-center gap-1 pl-5 sm:w-auto sm:pl-0 sm:opacity-80 sm:group-hover:opacity-100">
-        <Link href={i.href} className={buttonVariants({ size: "sm", variant: "secondary" })}>
+      <div className="flex w-full shrink-0 items-center gap-0.5 pl-5 sm:w-auto sm:pl-0">
+        {/* One look for every row: text actions in a fixed trailing column, Open in ink. */}
+        <Link href={i.href} className={buttonVariants({ size: "sm", variant: "ghost", className: "text-foreground" })}>
           Open
         </Link>
         {canEdit && i.act && (
           <>
-            <Button size="sm" variant="ghost" disabled={pending} onClick={() => act("done")}>
+            <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={pending} onClick={() => act("done")}>
               Done
             </Button>
-            <Button size="sm" variant="ghost" disabled={pending} onClick={() => act("snoozed")} title="Hide it for a week">
+            <Button size="sm" variant="ghost" className="text-muted-foreground" disabled={pending} onClick={() => act("snoozed")} title="Hide it for a week">
               Snooze
             </Button>
           </>
         )}
         {i.hideForToday && (
-          <Button size="sm" variant="ghost" onClick={() => onGone(i.key, true)} title="Hide it until tomorrow, in this browser">
+          <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => onGone(i.key, true)} title="Hide it until tomorrow, in this browser">
             Hide today
           </Button>
         )}

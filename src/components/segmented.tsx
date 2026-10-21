@@ -28,11 +28,9 @@ export function Segmented<T extends string>({
     const el = refs.current[value]
     // Nothing selected (e.g. a date range the quick options don't cover): no line.
     if (!el) return setLine(null)
-    // The line is as wide as the label, measured inside the padded button.
-    const measure = () => {
-      const button = el.parentElement as HTMLElement
-      setLine({ left: button.offsetLeft + el.offsetLeft, width: el.offsetWidth })
-    }
+    // The line is as wide as the label. The label's offsetLeft is already measured from the group (the
+    // nearest positioned ancestor), padding included, so it needs no button offset added.
+    const measure = () => setLine({ left: el.offsetLeft, width: el.offsetWidth })
     measure()
     // Counts and fonts can change the widths after the first paint.
     const ro = new ResizeObserver(measure)

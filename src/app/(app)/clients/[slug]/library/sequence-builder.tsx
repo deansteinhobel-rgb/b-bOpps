@@ -1,6 +1,6 @@
 "use client"
 
-import { Sparkles } from "lucide-react"
+import { ClaudeMark } from "@/components/brand"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -113,19 +113,19 @@ function SequenceRow({ p, all, byId, clientSlug, canEdit, aiEnabled, approval }:
     <li className={cn("grid gap-4 px-4 py-4 lg:grid-cols-[15rem_repeat(3,minmax(0,1fr))]", pending && "opacity-70")} aria-busy={pending}>
       <div className="min-w-0 space-y-2">
         <div>
-          <p className="eyebrow">If they engaged with</p>
-          <p className="font-medium leading-snug">{p.title}</p>
+          <p className="text-xs text-muted-foreground">If they engaged with</p>
+          <p className="font-medium leading-snug text-foreground">{p.title}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">{[p.theme, p.audiences.join(", ")].filter(Boolean).join(" · ")}</p>
         </div>
         <div className="flex items-center gap-1.5" aria-label={`${set} of 3 emails set`}>
           {[1, 2, 3].map((i) => (
-            <span key={i} aria-hidden className={cn("h-1 w-5 rounded-full", i <= set ? "bg-lime" : "bg-border")} />
+            <span key={i} aria-hidden className={cn("h-1 w-5 rounded-full", i <= set ? "bg-foreground/70" : "bg-border")} />
           ))}
           <span className="ml-1 text-xs text-muted-foreground">{set === 3 ? "Complete" : `${set} of 3 set`}</span>
         </div>
         {canEdit && aiEnabled && (
           <button type="button" disabled={asking || pending} onClick={() => void reask()} className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:no-underline disabled:opacity-70">
-            <Sparkles className="size-3" aria-hidden />
+            <ClaudeMark className="size-3 text-lime" />
             {asking ? "Asking Claude…" : "Ask Claude again"}
           </button>
         )}
@@ -209,7 +209,7 @@ function EmailSlot({
 
   return (
     <div className="min-w-0 space-y-1.5">
-      <label className="eyebrow block" htmlFor={`email-${p.id}-${e.slot}`}>
+      <label className="block text-xs text-muted-foreground" htmlFor={`email-${p.id}-${e.slot}`}>
         {e.slot === 1 ? "Send email 1" : `Then email ${e.slot}`}
       </label>
       <select

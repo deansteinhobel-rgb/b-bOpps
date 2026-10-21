@@ -6,8 +6,8 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { fieldClass } from "@/components/field-class"
+import { Segmented } from "@/components/segmented"
 import { cleanTerm, NEGATIVE_DEFAULTS, resultText, type MatchType, type NegativeLevel } from "@/lib/windsor/negatives"
-import { cn } from "@/lib/utils"
 import { pushNegatives } from "./negative-actions"
 
 export type NegativeTerm = { text: string; adGroupId: string; groupName: string | null }
@@ -66,18 +66,16 @@ export function NegativePush({ slug, campaignId, terms, live, open, onOpenChange
           {!campaignOnly && (
           <fieldset className="space-y-1.5">
             <legend className="text-xs text-muted-foreground">Add to</legend>
-            <div className="flex gap-1 rounded-lg border p-1">
-              {(
-                [
-                  ["ad_group", "The ad group it came from"],
-                  ["campaign", "The whole campaign"],
-                ] as const
-              ).map(([v, label]) => (
-                <button key={v} type="button" onClick={() => setLevel(v)} aria-pressed={level === v} className={cn("flex-1 rounded-md px-3 py-1.5 text-sm", level === v ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            {/* The app's one selection control (taste skill), not a hand-made track with a filled option. */}
+            <Segmented
+              label="Add to"
+              value={level}
+              onChange={setLevel}
+              options={[
+                { value: "ad_group", label: "The ad group it came from" },
+                { value: "campaign", label: "The whole campaign" },
+              ]}
+            />
           </fieldset>
           )}
           <label className="block space-y-1.5 text-xs text-muted-foreground">
@@ -107,7 +105,11 @@ export function NegativePush({ slug, campaignId, terms, live, open, onOpenChange
             ))}
           </div>
 
-          {!live && <p className="rounded-lg border border-rag-amber/30 bg-rag-amber/10 px-3 py-2 text-xs text-rag-amber">Test mode: this is logged and nothing is sent to Google Ads. Live pushes are switched on by Dean.</p>}
+          {!live && (
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-rag-amber">Test mode:</span> this is logged and nothing is sent to Google Ads. Live pushes are switched on by Dean.
+            </p>
+          )}
         </div>
 
         <DialogFooter>

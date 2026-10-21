@@ -1,11 +1,12 @@
 "use client"
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import { RefreshCw, Sparkles, XIcon } from "lucide-react"
+import { ChevronRight, RefreshCw, XIcon } from "lucide-react"
 import { useCallback, useEffect, useState, useTransition } from "react"
 import { AdThumb } from "@/components/ad-thumb"
-import { PlatformLabel } from "@/components/brand"
+import { PlatformLabel, ClaudeMark } from "@/components/brand"
 import { Hint } from "@/components/hint"
+import { Spinner } from "@/components/loading"
 import { Segmented } from "@/components/segmented"
 import { Button } from "@/components/ui/button"
 import { longDate, money, oneDp } from "@/lib/format"
@@ -18,11 +19,12 @@ import { setTestSetup } from "./test-actions"
 
 type Read = { verdict: VerdictKind; confidence: string | null; headline: string; points: string[]; next_step: string | null; next_step_kind: string | null; created_at: string }
 
+// Status is a dot and colored text, never a tinted box (taste sweep, 2026-10-21).
 const TONE = {
-  na: { box: "bg-rag-na-bg ring-rag-na/30", text: "text-rag-na", dot: "bg-rag-na" },
-  green: { box: "bg-rag-green-bg ring-rag-green/30", text: "text-rag-green", dot: "bg-rag-green" },
-  amber: { box: "bg-rag-amber-bg ring-rag-amber/30", text: "text-rag-amber", dot: "bg-rag-amber" },
-  red: { box: "bg-rag-red-bg ring-rag-red/30", text: "text-rag-red", dot: "bg-rag-red" },
+  na: { text: "text-rag-na", dot: "bg-rag-na" },
+  green: { text: "text-rag-green", dot: "bg-rag-green" },
+  amber: { text: "text-rag-amber", dot: "bg-rag-amber" },
+  red: { text: "text-rag-red", dot: "bg-rag-red" },
 } as const
 const NEXT: Record<string, string> = { keep_running: "Keep running", scale: "Scale it", fix: "Fix something", call_it: "Call it" }
 
@@ -33,7 +35,7 @@ export function VerdictChip({ kind, className }: { kind: VerdictKind; className?
   const v = VERDICTS[kind]
   const t = TONE[v.tone]
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ring-1", t.box, t.text, className)}>
+    <span className={cn("inline-flex items-center gap-1.5 text-[11px] font-medium whitespace-nowrap", t.text, className)}>
       <span aria-hidden className={cn("size-1.5 rounded-full", t.dot)} />
       {v.label}
     </span>
@@ -66,8 +68,8 @@ export function TestPanel(props: {
   return (
     <DialogPrimitive.Root open={props.open} onOpenChange={props.onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/40 duration-150 supports-backdrop-filter:backdrop-blur-xs data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0" />
-        <DialogPrimitive.Popup className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l bg-background text-sm shadow-2xl outline-none duration-200 data-closed:animate-out data-closed:slide-out-to-right data-open:animate-in data-open:slide-in-from-right">
+        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/50 duration-150 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0" />
+        <DialogPrimitive.Popup className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l bg-background text-sm shadow-2xl outline-none duration-200 data-closed:animate-out data-closed:slide-out-to-right data-open:animate-in data-open:slide-in-from-right">{/* taste-skill-ignore: a real overlay keeps its shadow */}
           {/* Header */}
           <header className="flex items-start gap-3 border-b px-5 py-4">
             <div className="min-w-0 flex-1 space-y-1.5">
@@ -77,7 +79,7 @@ export function TestPanel(props: {
                 <span>{TEST_KINDS[d.kind].label}</span>
                 <span aria-hidden>·</span>
                 <span className="inline-flex items-center gap-1.5 text-rag-green">
-                  <span className="size-1.5 animate-pulse rounded-full bg-rag-green motion-reduce:animate-none" aria-hidden />
+                  <span className="size-1.5 rounded-full bg-rag-green" aria-hidden />
                   Live · day {dayN}
                 </span>
               </div>
@@ -93,18 +95,18 @@ export function TestPanel(props: {
 
           <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
             {/* Verdict */}
-            <section className={cn("rounded-lg p-4 ring-1", verdictTone.box)} aria-label="Verdict">
+            <section className="surface p-4" aria-label="Verdict">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <p className={cn("flex items-center gap-2 text-base font-semibold", verdictTone.text)}>
+                  <p className="flex items-center gap-2 text-base font-semibold text-foreground">
                     <span aria-hidden className={cn("size-2 rounded-full", verdictTone.dot)} />
                     {VERDICTS[d.verdict.kind].label}
                   </p>
-                  <p className="text-xs text-foreground/80">{d.verdict.reason}</p>
+                  <p className="text-xs text-body">{d.verdict.reason}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[11px] text-muted-foreground">{def.label}</p>
-                  <p className={cn("text-2xl leading-tight font-semibold tabular-nums", verdictTone.text)}>{fmt(metricValue(d.metric, d.comparisons[0].now))}</p>
+                  <p className={cn("text-2xl leading-tight font-medium tabular-nums", verdictTone.text)}>{fmt(metricValue(d.metric, d.comparisons[0].now))}</p>
                   {d.target !== null && <p className="text-[11px] text-muted-foreground">target {fmt(d.target)}</p>}
                 </div>
               </div>
@@ -114,7 +116,7 @@ export function TestPanel(props: {
 
             {/* Comparisons */}
             <section className="space-y-2" aria-label="Comparisons">
-              <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                 Is it doing the work?
                 <Hint label="How is this compared?">
                   {d.kind === "change"
@@ -132,11 +134,11 @@ export function TestPanel(props: {
                   return (
                     <div key={c.label} className={cn("grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-3", i >= d.comparisons.length - 2 && d.comparisons.length > 2 && "bg-elevated/30")}>
                       <div className="min-w-0">
-                        <p className="font-medium">{c.label}</p>
+                        <p className="font-medium text-foreground">{c.label}</p>
                         <p className="text-[11px] text-muted-foreground">vs {c.against}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold tabular-nums">
+                        <p className="font-medium text-foreground tabular-nums">
                           {fmt(now)} <span className="text-xs font-normal text-muted-foreground">vs {fmt(then)}</span>
                         </p>
                         <p className={cn("text-[11px] font-medium", tone)}>{imp === null ? "No comparison" : `${Math.abs(Math.round(imp * 100))}% ${imp >= 0 ? "better" : "worse"}`}</p>
@@ -160,14 +162,14 @@ export function TestPanel(props: {
 
             {/* A day */}
             <section className="space-y-3" aria-label="The campaign a day">
-              <h3 className="text-sm font-semibold">The test campaigns a day</h3>
+              <h3 className="text-sm font-semibold text-foreground">The test campaigns a day</h3>
               <DayBars label="Spend" data={d.daily.map((x) => ({ date: x.date, v: x.spend }))} liveFrom={d.live.from} format={m} />
               <DayBars label="Results" data={d.daily.map((x) => ({ date: x.date, v: x.results }))} liveFrom={d.live.from} format={oneDp} />
             </section>
 
             {/* Ads */}
             <section className="space-y-2" aria-label="Ads">
-              <h3 className="text-sm font-semibold">
+              <h3 className="text-sm font-semibold text-foreground">
                 {d.kind === "change" ? "The test ads" : "Ads in the campaign"} <span className="font-normal text-muted-foreground">({d.testAds.length})</span>
               </h3>
               {d.testAds.length ? (
@@ -180,8 +182,8 @@ export function TestPanel(props: {
               {d.otherAds.length > 0 && (
                 <details className="group rounded-lg border">
                   <summary className="cursor-pointer list-none px-4 py-2.5 text-xs text-muted-foreground hover:text-foreground">
-                    The campaign&apos;s other ads, same days ({d.otherAds.length}) <span className="group-open:hidden">▸</span>
-                    <span className="hidden group-open:inline">▾</span>
+                    The campaign&apos;s other ads, same days ({d.otherAds.length}){" "}
+                    <ChevronRight aria-hidden className="inline size-3 align-[-2px] transition-transform group-open:rotate-90" />
                   </summary>
                   <div className="border-t p-2">
                     <AdList ads={d.otherAds} previews={props.previews} metric={d.metric} fmt={fmt} money={m} />
@@ -194,7 +196,7 @@ export function TestPanel(props: {
 
             {/* What we're testing */}
             <section className="space-y-2 text-xs" aria-label="What we're testing">
-              <h3 className="text-sm font-semibold">What we&apos;re testing</h3>
+              <h3 className="text-sm font-semibold text-foreground">What we&apos;re testing</h3>
               <dl className="space-y-2 rounded-lg border bg-card p-4">
                 {t.hypothesis && <Row k="Hypothesis" v={t.hypothesis} />}
                 <Row k="Success" v={successLine(t.success_metric, t.success_target, t.success_text, m)} />
@@ -262,10 +264,10 @@ function ClaudeRead({ testId, editable }: { testId: string; editable: boolean })
   }
 
   return (
-    <section className="space-y-3 rounded-lg border border-violet/30 bg-violet/5 p-4" aria-label="Claude's read" aria-busy={state === "loading"}>
+    <section className="surface space-y-3 p-4" aria-label="Claude's read" aria-busy={state === "loading"}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-          <Sparkles className="size-4 text-violet" aria-hidden />
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <ClaudeMark className="size-3.5 text-lime" />
           Claude&apos;s read
         </h3>
         <div className="flex items-center gap-2">
@@ -278,26 +280,24 @@ function ClaudeRead({ testId, editable }: { testId: string; editable: boolean })
         </div>
       </div>
       {state === "loading" && !read ? (
-        <div className="space-y-2" role="status">
-          <p className="text-xs text-muted-foreground">Reading the test, the ads and the account… about 30 seconds.</p>
-          <div className="h-2 w-3/4 animate-pulse rounded bg-secondary" />
-          <div className="h-2 w-2/3 animate-pulse rounded bg-secondary" />
-          <div className="h-2 w-1/2 animate-pulse rounded bg-secondary" />
-        </div>
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Spinner label="Reading the test" className="size-3.5" />
+          Reading the test, the ads and the account… about 30 seconds.
+        </p>
       ) : read ? (
         <div className={cn("space-y-3", state === "loading" && "opacity-60")}>
-          <p className="leading-relaxed font-medium">{read.headline}</p>
-          <ul className="space-y-1.5 text-xs leading-relaxed text-foreground/85">
+          <p className="leading-relaxed font-medium text-foreground">{read.headline}</p>
+          <ul className="space-y-1.5 text-xs leading-relaxed text-body">
             {read.points.map((p, i) => (
               <li key={i} className="flex gap-2">
-                <span aria-hidden className="mt-1.5 size-1 shrink-0 rounded-full bg-violet" />
+                <span aria-hidden className="mt-1.5 size-1 shrink-0 rounded-full bg-muted-foreground" />
                 <span>{p}</span>
               </li>
             ))}
           </ul>
           {read.next_step && (
-            <p className="rounded-lg bg-background/60 px-3 py-2 text-xs ring-1 ring-border">
-              <span className="font-semibold">{NEXT[read.next_step_kind ?? ""] ?? "Next"}:</span> {read.next_step}
+            <p className="text-xs text-body">
+              <span className="font-semibold text-foreground">{NEXT[read.next_step_kind ?? ""] ?? "Next"}:</span> {read.next_step}
             </p>
           )}
           <p className="text-[11px] text-muted-foreground">
@@ -355,13 +355,13 @@ function AdList({ ads, previews, metric, fmt, money: m }: { ads: TestAd[]; previ
         <li key={adPreviewKey(a)} className="flex items-center gap-3 px-3 py-2.5">
           <AdThumb preview={previews[adPreviewKey(a)] as Preview | undefined} alt={a.name} size="sm" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium" title={a.name}>
+            <p className="truncate text-xs font-medium text-foreground" title={a.name}>
               {a.name}
             </p>
             <p className="text-[11px] text-muted-foreground">first seen {a.first_seen ? longDate(a.first_seen) : "–"}</p>
           </div>
           <div className="text-right text-[11px] tabular-nums">
-            <p className="font-semibold">{fmt(metricValue(metric, a.totals))}</p>
+            <p className="font-medium text-foreground">{fmt(metricValue(metric, a.totals))}</p>
             <p className="text-muted-foreground">
               {m(a.totals.spend)} · {oneDp(resultsOf(a.totals))} results
             </p>
@@ -389,9 +389,9 @@ function Setup({ test: t, detail: d }: { test: SprintTest; detail: TestDetail })
   return (
     <section className="space-y-3 rounded-lg border p-4" aria-label="How it's measured">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+        <h3 className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
           How it&apos;s measured
-          {d.kindGuessed && <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-normal text-muted-foreground">worked out by the app</span>}
+          {d.kindGuessed && <span className="rounded-full border border-border-strong px-2 py-0.5 text-[11px] font-normal text-muted-foreground">worked out by the app</span>}
         </h3>
         <Segmented label="Kind of test" tone="quiet" value={kind} onChange={setKind} options={(Object.keys(TEST_KINDS) as TestKind[]).map((k) => ({ value: k, label: TEST_KINDS[k].label, title: TEST_KINDS[k].hint }))} />
       </div>

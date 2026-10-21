@@ -106,3 +106,13 @@ export function Avatar({ name, url, className }: { name: string; url?: string | 
   if (url) return <img src={url} alt="" className={cn("inline-block size-8 shrink-0 rounded-full object-cover ring-1 ring-border", className)} />
   return <span className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-elevated text-xs font-bold ring-1 ring-border", className)}>{initials}</span>
 }
+
+/** The one mark for what Claude wrote (its "why now", its reads and reasons), in lime and small. The
+ *  app's only AI marker: no generic sparkles icons (taste skill, 2026-10-21). */
+export function ClaudeMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" className={className} aria-label="Claude">
+      <path d="M8 0.8c.5 3.6 1.9 5.9 7.2 7.2-5.3 1.3-6.7 3.6-7.2 7.2-.5-3.6-1.9-5.9-7.2-7.2C6.1 6.7 7.5 4.4 8 .8Z" />
+    </svg>
+  )
+}

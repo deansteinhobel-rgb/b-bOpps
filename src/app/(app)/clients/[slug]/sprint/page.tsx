@@ -155,14 +155,14 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
   const numbersSection = shownP.then((shown) => (
     <>
       {shown.dataThrough && shown.dataThrough < period.start && (
-        <p className="rounded-md border bg-card px-3 py-2 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           No ad data for this sprint yet: Windsor data runs through {longDate(shown.dataThrough)} and syncs daily.
         </p>
       )}
       {/* One box split by hairlines (taste skill: group, don't box): each cell draws its left and top
           line, and the grid sits 1px up and left so the outer ones are clipped. */}
       <div className="surface overflow-hidden">
-      <div className="-mt-px -ml-px grid sm:grid-cols-2 lg:grid-cols-4 [&>*]:shadow-[inset_1px_1px_0_var(--border)]">
+      <div className="-mt-px -ml-px grid sm:grid-cols-2 lg:grid-cols-4 [&>*]:shadow-[inset_1px_1px_0_var(--border)]">{/* taste-skill-ignore: hairlines, not a shadow */}
         <Stat label="Spend" value={money(shown.current.spend, cur)} change={pctChange(shown.current.spend, shown.previous.spend)} />
         <Stat label="Results" value={oneDp(shown.current.results)} change={pctChange(shown.current.results, shown.previous.results)} goodWhenUp />
         <Stat
@@ -211,7 +211,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
   ))
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       {/* Header */}
       <header className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -244,12 +244,16 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
           </div>
         )}
         {isCurrent && previous && !previous.closed_at && (
-          <p className="rounded-md border border-rag-amber/40 bg-rag-amber-bg px-3 py-2 text-sm text-rag-amber">
-            Sprint {previous.number} hasn&apos;t been reviewed yet.{" "}
-            <Link href={`/clients/${slug}/sprint?n=${previous.number}`} className="underline">
-              Review and close it
-            </Link>{" "}
-            so its carried tests move into this sprint.
+          // A plain line with an amber dot, not a tinted callout box.
+          <p className="flex items-start gap-2 text-sm text-body">
+            <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-rag-amber" />
+            <span>
+              Sprint {previous.number} hasn&apos;t been reviewed yet.{" "}
+              <Link href={`/clients/${slug}/sprint?n=${previous.number}`} className="underline">
+                Review and close it
+              </Link>{" "}
+              so its carried tests move into this sprint.
+            </span>
           </p>
         )}
       </header>
@@ -311,19 +315,19 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
         </div>
         <div className="surface space-y-4 p-4 sm:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-lg font-semibold">Sprint {period.number} review</p>
+            <h3 className="text-lg font-semibold text-foreground">Sprint {period.number} review</h3>
             <p className="text-xs text-muted-foreground">
               {tests.filter((t) => t.outcome === "proven").length} proven · {tests.filter((t) => t.outcome === "disproven").length} disproven ·{" "}
               {tests.filter((t) => t.outcome === "inconclusive").length} inconclusive · {tests.filter((t) => t.outcome === "carried").length} carried over
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-            <span className="shrink-0 pt-1 text-sm font-semibold">Key takeaway</span>
+            <span className="shrink-0 pt-1 text-sm font-semibold text-foreground">Key takeaway</span>
             <div className="flex-1">
               <EditableText sprintId={sprint.id} field="key_takeaway" initial={sprint.key_takeaway} placeholder="The single most important learning from this sprint…" rows={2} readOnly={closed} label="Key takeaway" />
             </div>
           </div>
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="grid divide-y overflow-hidden rounded-lg border lg:grid-cols-2 lg:divide-x lg:divide-y-0">
             <Box title="Highlights (work done + impact)" accent>
               <ul className="space-y-1">
                 <Suspense
@@ -343,14 +347,14 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
                       {t.title} (live from {longDate(t.live_on!)})
                     </li>
                   ))}
-                {tests.every((t) => !t.live_on) && <li className="text-muted-foreground italic">No tests went live yet.</li>}
+                {tests.every((t) => !t.live_on) && <li className="text-muted-foreground">No tests went live yet.</li>}
               </ul>
             </Box>
             <Box title="Top learnings">
               <ReviewList items={tests.filter((t) => t.findings_worked).map((t) => ({ id: t.id, head: t.title, body: t.findings_worked!, tag: t.outcome ?? undefined }))} empty="Findings (“what worked”) appear here." />
             </Box>
           </div>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid divide-y overflow-hidden rounded-lg border lg:grid-cols-3 lg:divide-x lg:divide-y-0">
             <Box title="Challenge & hypotheses why">
               <ReviewList items={tests.filter((t) => t.findings_blockers).map((t) => ({ id: t.id, head: t.title, body: t.findings_blockers! }))} empty="Blockers from findings appear here." />
             </Box>
@@ -369,7 +373,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
               </ul>
             </Box>
           </div>
-          <div className="rounded-md border bg-background/60 p-3">
+          <div className="rounded-lg border p-3">
             {!closed && withoutOutcome > 0 && (
               <p className="mb-2 text-sm text-rag-amber">
                 {withoutOutcome} test{withoutOutcome === 1 ? " has" : "s have"} no outcome yet. Call each one (proven, disproven, inconclusive) or carry it over before closing.
@@ -382,9 +386,9 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
 
       {/* Secondary: change log, red checks and Notion actions */}
       <details id="change-log" className="scroll-mt-6 rounded-lg border bg-card p-4">
-        <summary className="cursor-pointer text-lg">
+        <summary className="cursor-pointer text-lg font-semibold text-foreground">
           Change log{" "}
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm font-normal text-muted-foreground">
             ({changes.filter((c) => c.status === "logged").length} logged,{" "}
             <Suspense fallback={<Spinner className="inline size-3 align-[-1px]" label="Loading detected changes" />}>{detectedCount}</Suspense> detected in Windsor)
           </span>
@@ -395,22 +399,22 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
       </details>
 
       <details className="rounded-lg border bg-card p-4">
-        <summary className="cursor-pointer text-lg">
+        <summary className="cursor-pointer text-lg font-semibold text-foreground">
           Red checks and Notion actions{" "}
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm font-normal text-muted-foreground">
             ({reds.length} red, {openActions.length} open actions)
           </span>
         </summary>
         <div className="mt-4 grid gap-6 lg:grid-cols-2">
           <div className="space-y-2">
-            <h3 className="eyebrow">Red checks this sprint</h3>
+            <h3 className="text-sm font-semibold text-foreground">Red checks this sprint</h3>
             {reds.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">No reds.</p>
+              <p className="text-sm text-muted-foreground">No reds.</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {reds.map((r) => (
-                  <li key={r.id} className="rounded-md border p-3">
-                    <p className="font-bold">{r.check_definitions?.name}</p>
+                  <li key={r.id} className="rounded-lg border p-3">
+                    <p className="font-medium text-foreground">{r.check_definitions?.name}</p>
                     {r.findings && <p className="line-clamp-2 text-muted-foreground">{r.findings}</p>}
                     <Link href={`/clients/${slug}/checks?result=${r.id}#check-${r.id}`} className="text-xs underline">
                       {r.notion_action_page_id ? "Actioned in Notion: view check" : "Open the check to create an action"}
@@ -421,15 +425,15 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
             )}
           </div>
           <div className="space-y-2">
-            <h3 className="eyebrow">Open actions in Notion</h3>
+            <h3 className="text-sm font-semibold text-foreground">Open actions in Notion</h3>
             {openActions.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">None.</p>
+              <p className="text-sm text-muted-foreground">None.</p>
             ) : (
-              <ul className="divide-y rounded-md border text-sm">
+              <ul className="divide-y rounded-lg border text-sm">
                 {openActions.slice(0, 10).map((a) => (
                   <li key={a.id} className="flex items-center justify-between gap-3 px-3 py-2">
                     <span className="min-w-0">
-                      <span className="line-clamp-1 font-bold">{a.title}</span>
+                      <span className="line-clamp-1 font-medium text-foreground">{a.title}</span>
                       <span className="text-xs text-muted-foreground">
                         {a.status} · {a.owners.join(", ") || "no owner"}
                       </span>
@@ -442,7 +446,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
               </ul>
             )}
             {!closed && (
-              <details className="rounded-md border p-3">
+              <details className="rounded-lg border p-3">
                 <summary className="cursor-pointer text-sm">New action in Notion</summary>
                 <div className="mt-3">
                   <ActionForm clientSlug={slug} live={writesLive} owners={ownerOptions} defaults={{ title: "", ownerId: null, dueDate: addDays(today, 7), description: "" }} />
@@ -479,15 +483,15 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
 
 function Box({ title, accent, children }: { title: string; accent?: boolean; children: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-lg border text-sm text-foreground">
-      <p className={cn("border-b px-4 py-2.5 text-xs font-medium", accent ? "font-semibold text-foreground" : "text-muted-foreground")}>{title}</p>
+    <div className="min-w-0 text-sm text-foreground">
+      <h3 className={cn("border-b px-4 py-2.5 text-xs font-medium", accent ? "font-semibold text-foreground" : "text-muted-foreground")}>{title}</h3>
       <div className="p-4">{children}</div>
     </div>
   )
 }
 
 function ReviewList({ items, empty }: { items: { id: string; head: string; body: string; tag?: string }[]; empty: string }) {
-  if (!items.length) return <p className="text-muted-foreground italic">{empty}</p>
+  if (!items.length) return <p className="text-muted-foreground">{empty}</p>
   return (
     <ul className="space-y-2">
       {items.map((i) => (
@@ -508,7 +512,7 @@ function Stat({ label, value, change, goodWhenUp, goodWhenDown, note }: { label:
   return (
     <div className="p-4">
       <p className="text-[13px] text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-medium tabular-nums">{value}</p>
+      <p className="mt-1 text-2xl font-medium text-foreground tabular-nums">{value}</p>
       {change !== undefined && <p className={cn("text-xs", good === null ? "text-muted-foreground" : good ? "text-rag-green" : "text-rag-red")}>{signedPct(change ?? null)} vs last sprint</p>}
       {note && <p className="text-xs text-muted-foreground">{note}</p>}
     </div>
