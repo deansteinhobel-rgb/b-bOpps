@@ -48,8 +48,21 @@ export const planAd = z.object({
   postUrn: z.string().regex(/^urn:li:(share|ugcPost):\d+$/).nullable().default(null),
   /** What this ad tests against the others (one variable per ad set). */
   variable: z.string().max(200).default(""),
+  /** The copy (and image, when there is one) came from the Notion proposal, not Claude. */
+  fromProposal: z.boolean().default(false),
 })
 export type PlanAd = z.infer<typeof planAd>
+
+/** The Notion proposal a plan was made from: its images (copied to campaign-assets) and what couldn't be used. */
+export const proposalSource = z.object({
+  pageId: z.string().max(40),
+  title: z.string().max(300),
+  url: z.string().max(1000),
+  images: z.array(z.object({ n: z.number().int().positive(), caption: z.string().max(300).default(""), path: z.string().max(300).nullable().default(null), error: z.string().max(400).nullable().default(null) })).max(20).default([]),
+  /** What to fix in Notion (or here) so the plan can use everything in the proposal. */
+  problems: z.array(z.string().max(500)).max(20).default([]),
+})
+export type ProposalSource = z.infer<typeof proposalSource>
 
 export const plan = z.object({
   summary: z.string().max(800),
@@ -83,6 +96,7 @@ export const plan = z.object({
   risks: z.array(z.string().max(300)).max(6).default([]),
   /** How to judge it once live. */
   success: z.string().max(400).default(""),
+  proposal: proposalSource.nullable().default(null),
 })
 export type Plan = z.infer<typeof plan>
 

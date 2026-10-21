@@ -14,6 +14,7 @@ import type { HistoryCampaign } from "@/lib/campaign-builder/history"
 import type { NamingConvention } from "@/lib/campaign-builder/naming"
 import type { Plan, Question } from "@/lib/campaign-builder/plan-schema"
 import { presetByKey, presetsFor, type BuilderMode, type Preset } from "@/lib/campaign-builder/presets"
+import { notionPageIdIn } from "@/lib/campaign-builder/proposal-link"
 import type { Playbook } from "@/lib/campaign-builder/playbook"
 import { shortDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -89,7 +90,6 @@ export function BuilderView(p: BuilderProps) {
     <div className="space-y-8">
       <PageHeader
         title="Campaign builder"
-        description={mode === "abx" ? "Account-based LinkedIn campaigns: target account and contact lists, the buying committee, engaged accounts." : "LinkedIn campaigns built from what Lumaux knows about the client, its numbers and this month's playbook."}
         actions={
           <Segmented
             label="View"
@@ -105,7 +105,7 @@ export function BuilderView(p: BuilderProps) {
 
       {!p.buildLive && (
         <p className="rounded-md bg-rag-amber-bg px-3 py-2 text-[13px] text-rag-amber">
-          Test mode: builds and edits are logged as dry runs, with the exact requests, and nothing reaches LinkedIn. Everything the app creates starts paused.
+          Test mode: builds and edits are dry runs. Nothing reaches LinkedIn.
         </p>
       )}
 
@@ -129,7 +129,6 @@ function NewCampaign(p: BuilderProps & { onStarted: (id: string) => void }) {
   const [preset, setPreset] = useState(presets[0].key)
   const [request, setRequest] = useState("")
   const [proposal, setProposal] = useState("")
-  const [showProposal, setShowProposal] = useState(false)
   const [testId, setTestId] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -162,13 +161,11 @@ function NewCampaign(p: BuilderProps & { onStarted: (id: string) => void }) {
               type="button"
               onClick={() => setPreset(x.key)}
               aria-pressed={on}
-              className={cn("surface flex items-start gap-3 px-4 py-3.5 text-left transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime", on && "border-lime/60 bg-white/[0.04]")}
+              title={x.description}
+              className={cn("surface flex items-center gap-3 px-4 py-3 text-left transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime", on && "border-lime/60 bg-white/[0.04]")}
             >
-              <Icon className={cn("mt-0.5 size-5 shrink-0", on ? "text-lime" : "text-muted-foreground")} aria-hidden />
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-foreground">{x.label}</span>
-                <span className="mt-0.5 block text-[13px] text-muted-foreground">{x.description}</span>
-              </span>
+              <Icon className={cn("size-5 shrink-0", on ? "text-lime" : "text-muted-foreground")} aria-hidden />
+              <span className="min-w-0 text-sm font-medium text-foreground">{x.label}</span>
             </button>
           )
         })}
@@ -178,18 +175,12 @@ function NewCampaign(p: BuilderProps & { onStarted: (id: string) => void }) {
         <div className="space-y-1.5">
           <Label htmlFor="b-request">What do you want to run?</Label>
           <Textarea id="b-request" rows={3} value={request} onChange={(e) => setRequest(e.target.value)} placeholder={p.mode === "abx" ? "e.g. The PE contact list, the OIG audit document ad, $60 a day from 3 Nov" : "e.g. Lead gen for the AI security report to IT directors in the US, from next Monday"} />
-          <p className="text-xs text-muted-foreground">Claude reads the client brief, Notion HQ, calls, sprint tests, the LinkedIn numbers and the playbook, and only asks what it can&apos;t find.</p>
         </div>
-        {showProposal ? (
-          <div className="space-y-1.5">
-            <Label htmlFor="b-proposal">Proposal or brief</Label>
-            <Textarea id="b-proposal" rows={8} value={proposal} onChange={(e) => setProposal(e.target.value)} placeholder="Paste the proposal, brief or plan. Whatever it answers isn't asked." />
-          </div>
-        ) : (
-          <button type="button" className="text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" onClick={() => setShowProposal(true)}>
-            + Paste a proposal or brief
-          </button>
-        )}
+        <div className="space-y-1.5">
+          <Label htmlFor="b-proposal">Proposal (optional)</Label>
+          <Textarea id="b-proposal" rows={notionPageIdIn(proposal) || !proposal ? 1 : 6} value={proposal} onChange={(e) => setProposal(e.target.value)} placeholder="Notion link (its ad copy and images are used), or paste the text" />
+          {notionPageIdIn(proposal) && <p className="text-xs text-muted-foreground">Notion page: the ad copy and images come from it.</p>}
+        </div>
         {p.tests.length > 0 && (
           <div className="space-y-1.5">
             <Label htmlFor="b-test">For a sprint test (optional)</Label>
@@ -204,8 +195,7 @@ function NewCampaign(p: BuilderProps & { onStarted: (id: string) => void }) {
           </div>
         )}
         {error && <p className="text-[13px] text-rag-red">{error}</p>}
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">{presetByKey(preset)?.label}. About a minute.</p>
+        <div className="flex items-center justify-end gap-3">
           <Button onClick={start} disabled={busy || !p.canBuild || !p.aiReady} title={!p.canBuild ? "Admins and GTM leads on this client build campaigns for now" : !p.aiReady ? "Claude isn't set up (ANTHROPIC_API_KEY)" : undefined}>
             {busy ? "Starting…" : "Plan it"}
           </Button>
