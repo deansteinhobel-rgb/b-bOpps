@@ -48,7 +48,7 @@ export async function imageUploadUrl(slug: string, contentType: string): Promise
   const c = await clientFor(slug)
   if (c.error) return { ok: false, error: c.error }
   const ext = { "image/png": "png", "image/jpeg": "jpg", "image/gif": "gif" }[contentType]
-  if (!ext) return { ok: false, error: "LinkedIn takes JPG, PNG or GIF images." }
+  if (!ext) return { ok: false, error: "Use a JPG, PNG or GIF image." }
   const limited = await rateLimit(c.supabase, "build_image")
   if (limited) return { ok: false, error: limited }
   const path = `${c.client.id}/${randomUUID()}.${ext}`

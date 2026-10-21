@@ -15,7 +15,18 @@ import { dryRunReason, type AdsApiEnv, type AdsApiPlatform } from "./gates"
  * Nothing here enables, edits, removes or deletes anything.
  */
 
-export type BuildOperation = "create_campaign_group" | "create_campaign" | "create_ad_group" | "upload_image" | "create_post" | "create_ad"
+export type BuildOperation =
+  | "create_campaign_group"
+  | "create_campaign"
+  | "create_ad_group"
+  | "create_ad_set"
+  | "upload_image"
+  | "create_post"
+  | "create_ad"
+  | "add_keywords"
+  | "set_locations"
+  | "set_languages"
+  | "create_asset"
 
 export type BuildStep = {
   /** Unique within the build, e.g. "campaign", "ad:0". created_ids is keyed by it. */
@@ -162,4 +173,4 @@ export async function runBuild(deps: BuildDeps, build: Build, steps: BuildStep[]
   return { ok: !stopped, live, status, steps: outcomes, ids, ...(stopped ? { error: stopped } : {}) }
 }
 
-export const PLATFORM_NAME: Record<AdsApiPlatform, string> = { linkedin: "LinkedIn Campaign Manager", reddit: "Reddit Ads" }
+export const PLATFORM_NAME: Record<AdsApiPlatform, string> = { linkedin: "LinkedIn Campaign Manager", google_ads: "Google Ads", meta: "Meta Ads Manager", reddit: "Reddit Ads", microsoft_ads: "Microsoft Advertising" }

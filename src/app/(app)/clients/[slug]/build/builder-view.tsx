@@ -60,6 +60,10 @@ export type BuilderProps = {
   playbook: Playbook | null
   naming: NamingConvention | null
   tests: { id: string; title: string }[]
+  /** A sprint test to plan for (from "Build in LinkedIn" on the Sprint tab). */
+  testId?: string | null
+  /** The platform switch, under the page title. */
+  tabs?: React.ReactNode
 }
 
 const ICONS: Record<Preset["icon"], typeof Megaphone> = { megaphone: Megaphone, image: ImageIcon, file: FileText, film: Film, user: UserRound, target: Target, repeat: Repeat, building: Building2, sparkles: Sparkles }
@@ -103,6 +107,8 @@ export function BuilderView(p: BuilderProps) {
         }
       />
 
+      {p.tabs}
+
       {!p.buildLive && (
         <p className="rounded-md bg-rag-amber-bg px-3 py-2 text-[13px] text-rag-amber">
           Test mode: builds and edits are dry runs. Nothing reaches LinkedIn.
@@ -129,7 +135,7 @@ function NewCampaign(p: BuilderProps & { onStarted: (id: string) => void }) {
   const [preset, setPreset] = useState(presets[0].key)
   const [request, setRequest] = useState("")
   const [proposal, setProposal] = useState("")
-  const [testId, setTestId] = useState("")
+  const [testId, setTestId] = useState(p.testId && p.tests.some((t) => t.id === p.testId) ? p.testId : "")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()

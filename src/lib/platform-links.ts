@@ -35,7 +35,22 @@ export function platformLink(platform: Platform, accountId: string | null, campa
   return "https://ads.reddit.com/"
 }
 
-/** Which campaign-level recommendations offer "Pause the campaign" (LinkedIn only: the one platform Lumaux may pause campaigns on). */
+/** Which campaign-level recommendations offer "Pause the campaign", and on which platforms (Dean, 2026-10-21: every one Lumaux writes to). */
 export const PAUSABLE_RULES = new Set(["high_cpl", "no_results"])
+const PAUSABLE_PLATFORMS = new Set(["linkedin", "google_ads", "meta", "reddit"])
 export const canOfferPause = (rule: string, platform: string, campaignId: string | null, status?: string | null) =>
-  platform === "linkedin" && Boolean(campaignId) && PAUSABLE_RULES.has(rule) && !/paused|archived|completed|canceled|cancelled|removed/i.test(status ?? "")
+  PAUSABLE_PLATFORMS.has(platform) && Boolean(campaignId) && PAUSABLE_RULES.has(rule) && !/paused|archived|completed|canceled|cancelled|removed/i.test(status ?? "")
+
+/**
+ * Other changes Recommendations can make in the platform (Dean, 2026-10-21): converting search
+ * terms added as Google Ads keywords, a budget-capped Google campaign's daily budget, and Meta's
+ * urgent settings (Audience Network, Advantage+ audience on a list) fixed on the ad set.
+ */
+export type PlatformFix = "keywords" | "budget" | "audience_network_off" | "advantage_off"
+export function platformFixFor(rule: string, platform: string): PlatformFix | null {
+  if (platform === "google_ads" && rule === "keywords") return "keywords"
+  if (platform === "google_ads" && rule === "budget_capped") return "budget"
+  if (platform === "meta" && rule === "settings_audience_network") return "audience_network_off"
+  if (platform === "meta" && rule === "settings_advantage") return "advantage_off"
+  return null
+}

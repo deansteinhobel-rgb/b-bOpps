@@ -3,13 +3,15 @@
  * the safe value. Like Notion and Windsor, only Dean (or Claude in Dean's own sessions) flips them:
  *
  *   ADS_API_WRITES_ENABLED=true   and   ADS_API_DRY_RUN=false   → writes may be sent
- *   ADS_API_PLATFORMS=linkedin,reddit                           → only these platforms (empty = none)
+ *   ADS_API_PLATFORMS=linkedin,google_ads,meta,reddit,microsoft_ads → only these platforms (empty = none)
  *   ADS_API_LIVE_CLIENTS=dnsfilter                              → only these clients (empty = every client)
  *
+ * Google Ads and Meta are written through Windsor's write actions (WINDSOR_API_KEY); LinkedIn,
+ * Reddit and Microsoft Ads through their own APIs. The switches are the same for all five.
  * Anything else is a dry run: every call is logged with the exact request and nothing is sent.
  * A plain module (no server-only import) so the tests can use it.
  */
-export const ADS_API_PLATFORMS = ["linkedin", "reddit"] as const
+export const ADS_API_PLATFORMS = ["linkedin", "google_ads", "meta", "reddit", "microsoft_ads"] as const
 export type AdsApiPlatform = (typeof ADS_API_PLATFORMS)[number]
 
 export type AdsApiEnv = { writesEnabled: boolean; dryRun: boolean; platforms: string[]; liveClients: string[] | null }

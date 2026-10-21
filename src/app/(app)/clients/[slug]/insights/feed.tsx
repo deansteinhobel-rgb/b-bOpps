@@ -18,9 +18,10 @@ import { PLATFORM_COLOR, PLATFORM_LABEL, type Platform } from "@/lib/metrics/typ
 import type { PreviewMap } from "@/lib/previews"
 import { cn } from "@/lib/utils"
 import { exclusionFor, FACET_WORDS } from "@/lib/ads-api/exclusions"
-import { canOfferPause, PLATFORM_NAME, platformLink } from "@/lib/platform-links"
+import { canOfferPause, PLATFORM_NAME, platformFixFor, platformLink } from "@/lib/platform-links"
 import { briefInsight, logInsight, testFromInsight } from "./actions"
 import { ExcludeDialog, PauseDialog } from "./exclude-panel"
+import { FIX_LABEL, FixDialog } from "./fix-dialog"
 
 type Owner = { id: string | null; name: string; onTeam: boolean }
 type View = "open" | "in_hand" | "snoozed" | "closed"
@@ -78,7 +79,7 @@ export function InsightFeed(props: {
   reviewRunning: string | null
   lastReviewFailed: string | null
   canReview: boolean
-  /** Admins and GTM leads on the client: "Exclude in LinkedIn" (the builder's edit rule). */
+  /** Admins and GTM leads on the client: changes in the platforms (exclude, pause, keywords, budgets, Meta settings; the builder's edit rule). */
   canChangeLinkedIn?: boolean
   /** Each campaign's ad account and status (`<platform>:<campaign id>`), and each platform's account, for "Open in …" and Pause. */
   campaignInfo?: Record<string, { account: string; status: string | null }>
@@ -331,7 +332,8 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
   const [selected, setSelected] = useState<Set<string>>(() => new Set(listItems.map((x) => x.id)))
   const [panel, setPanel] = useState<Panel>(null)
   const [excludeItems, setExcludeItems] = useState<string[]>([])
-  const [dialog, setDialog] = useState<null | "exclude" | "pause">(null)
+  const [dialog, setDialog] = useState<null | "exclude" | "pause" | "fix">(null)
+  const [fixItems, setFixItems] = useState<string[]>([])
   const [pending, start] = useTransition()
   const chosen = useMemo(() => (i.listed ? listItems.filter((x) => selected.has(x.id)) : listItems), [i.listed, listItems, selected])
   const ids = chosen.map((x) => x.id)
@@ -342,6 +344,7 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
   const info = adPlatform && i.campaignId ? p.campaignInfo?.[`${adPlatform}:${i.campaignId}`] : undefined
   const inPlatform = adPlatform ? platformLink(adPlatform, info?.account ?? p.platformAccounts?.[adPlatform] ?? null, i.campaignId) : null
   const offerPause = Boolean(p.canChangeLinkedIn) && canOfferPause(i.rule, i.platform, i.campaignId, info?.status)
+  const fix = p.canChangeLinkedIn ? platformFixFor(i.rule, i.platform) : null
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>, success: string) =>
     start(async () => {
@@ -518,7 +521,8 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
         />
       )}
       {excludeFacet && <ExcludeDialog slug={p.slug} insightKey={i.key} facet={excludeFacet} items={excludeItems} open={dialog === "exclude"} onOpenChange={(o) => setDialog(o ? "exclude" : null)} />}
-      {offerPause && <PauseDialog slug={p.slug} insightKey={i.key} campaignName={i.campaignName} open={dialog === "pause"} onOpenChange={(o) => setDialog(o ? "pause" : null)} />}
+      {offerPause && adPlatform && <PauseDialog slug={p.slug} insightKey={i.key} campaignName={i.campaignName} platform={adPlatform} open={dialog === "pause"} onOpenChange={(o) => setDialog(o ? "pause" : null)} />}
+      {fix && <FixDialog slug={p.slug} insightKey={i.key} fix={fix} items={fixItems} open={dialog === "fix"} onOpenChange={(o) => setDialog(o ? "fix" : null)} />}
       {panel === "dismiss" && <DismissForm pending={pending} onCancel={() => setPanel(null)} onDismiss={(note) => {
             log("dismissed", { note })
             setPanel(null)
@@ -549,10 +553,24 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
                   Exclude {chosen.length === 1 ? FACET_WORDS[excludeFacet].one : FACET_WORDS[excludeFacet].many} in LinkedIn
                 </Button>
               )}
-              {offerPause && (
+              {offerPause && adPlatform && (
                 <Button size="sm" variant="white" disabled={pending} onClick={() => setDialog("pause")}>
-                  <PlatformIcon platform="linkedin" className="size-3.5" />
-                  Pause in LinkedIn
+                  <PlatformIcon platform={adPlatform} className="size-3.5" />
+                  Pause in {PLATFORM_NAME[adPlatform]}
+                </Button>
+              )}
+              {fix && adPlatform && (
+                <Button
+                  size="sm"
+                  variant="white"
+                  disabled={pending || (fix !== "budget" && !chosen.length)}
+                  onClick={() => {
+                    setFixItems(fix === "budget" ? [] : ids)
+                    setDialog("fix")
+                  }}
+                >
+                  <PlatformIcon platform={adPlatform} className="size-3.5" />
+                  {FIX_LABEL[fix]}
                 </Button>
               )}
               <Button size="sm" variant="outline" disabled={pending || (i.listed && !chosen.length)} onClick={() => setPanel("brief")}>

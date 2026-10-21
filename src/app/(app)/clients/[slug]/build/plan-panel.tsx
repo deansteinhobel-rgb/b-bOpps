@@ -20,7 +20,7 @@ import { usePlanPoll, type BuilderProps, type PlanRow } from "./builder-view"
 
 const OBJECTIVES = ["BRAND_AWARENESS", "WEBSITE_VISIT", "ENGAGEMENT", "VIDEO_VIEW", "LEAD_GENERATION", "WEBSITE_CONVERSION"] as const
 const CTAS = ["LEARN_MORE", "DOWNLOAD", "REGISTER", "SIGN_UP", "SUBSCRIBE", "REQUEST_DEMO", "APPLY", "VIEW_QUOTE", "ATTEND", "JOIN"] as const
-const words = (s: string) => s.toLowerCase().replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+export const words = (s: string) => s.toLowerCase().replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
 
 /** Asks the planner to run again (after Claude's questions, or after fixing what made it fail). */
 async function planAgain(planId: string, answers: Record<string, string>) {
@@ -60,7 +60,7 @@ export function PlanPanel(p: BuilderProps & { plan: PlanRow; onClose: () => void
   )
 }
 
-function Failed({ row, canBuild }: { row: PlanRow; canBuild: boolean }) {
+export function Failed({ row, canBuild }: { row: Pick<PlanRow, "id" | "error">; canBuild: boolean }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -83,7 +83,7 @@ function Failed({ row, canBuild }: { row: PlanRow; canBuild: boolean }) {
 }
 
 /** Claude's questions as a deck: one per slide, tap an answer or type one. Opens by itself. */
-function Questions({ row }: { row: PlanRow }) {
+export function Questions({ row }: { row: Pick<PlanRow, "id" | "questions" | "answers"> }) {
   const qs = row.questions
   const [open, setOpen] = useState(true)
   const [at, setAt] = useState(0)
@@ -352,7 +352,7 @@ function Overview({ plan, m }: { plan: Plan; m: (n: number) => string }) {
 }
 
 /** Where the copy and images came from, and what to fix in Notion when something couldn't be used. */
-function Proposal({ proposal }: { proposal: ProposalSource }) {
+export function Proposal({ proposal }: { proposal: ProposalSource }) {
   const used = proposal.images.filter((i) => i.path).length
   return (
     <div className="space-y-2 px-4 py-3 text-[13px]">
@@ -380,7 +380,7 @@ function Proposal({ proposal }: { proposal: ProposalSource }) {
   )
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-3 px-4 py-4">
       <h3 className="text-sm font-semibold">{title}</h3>
@@ -390,7 +390,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /** A Campaign Manager style row: the setting, its value, and a pencil that opens the editor in place. */
-function Setting({ label, value, children, startOpen = false }: { label: string; value: React.ReactNode; children?: React.ReactNode; startOpen?: boolean }) {
+export function Setting({ label, value, children, startOpen = false }: { label: string; value: React.ReactNode; children?: React.ReactNode; startOpen?: boolean }) {
   const [editing, setEditing] = useState(startOpen)
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1 px-3 py-3 sm:grid-cols-[160px_minmax(0,1fr)_auto]">
@@ -413,7 +413,7 @@ function Setting({ label, value, children, startOpen = false }: { label: string;
   )
 }
 
-function Field({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
+export function Field({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
@@ -657,11 +657,11 @@ function AdEditor({ slug, ad, leadGen, onChange }: { slug: string; ad: PlanAd; l
   )
 }
 
-function Count({ n, soft, max }: { n: number; soft: number; max: number }) {
+export function Count({ n, soft, max }: { n: number; soft: number; max: number }) {
   return <span className={cn("mt-0.5 block text-right text-xs", n > max ? "text-rag-red" : n > soft ? "text-rag-amber" : "text-muted-foreground")}>{n} / {soft}</span>
 }
 
-function ImageSlot({ slug, path, onChange, flush }: { slug: string; path: string | null; onChange: (path: string | null) => void; flush?: boolean }) {
+export function ImageSlot({ slug, path, onChange, flush }: { slug: string; path: string | null; onChange: (path: string | null) => void; flush?: boolean }) {
   // The preview link belongs to the path it was made for, so a new upload never shows an old image.
   const [preview, setPreview] = useState<{ path: string; url: string | null } | null>(null)
   const url = path && preview?.path === path ? preview.url : null
@@ -704,7 +704,7 @@ function ImageSlot({ slug, path, onChange, flush }: { slug: string; path: string
 }
 
 /** Why it's planned this way: one line per reason with where it came from, the rest folded. */
-function Why({ plan }: { plan: Plan }) {
+export function Why({ plan }: { plan: Pick<Plan, "rationale" | "success" | "practices" | "risks"> }) {
   if (!plan.rationale.length && !plan.success && !plan.practices.length && !plan.risks.length) return null
   return (
     <Section title="Why this plan">
@@ -747,12 +747,12 @@ function Why({ plan }: { plan: Plan }) {
   )
 }
 
-function Outcome({ outcome, live }: { outcome: BuildOutcome; live: boolean }) {
+export function Outcome({ outcome, live, platform = "LinkedIn", manager = "Campaign Manager" }: { outcome: BuildOutcome; live: boolean; platform?: string; manager?: string }) {
   const run = outcome.run
   return (
     <div className="space-y-2 rounded-md border p-3 text-[13px]">
       {outcome.error && !outcome.check?.errors.length && <p className="text-rag-red">{outcome.error}</p>}
-      {run?.ok && <p className="text-rag-green">{run.live ? "Created in LinkedIn, paused. Turn it on in Campaign Manager when it's ready." : "Dry run done: every request was logged and nothing was sent."}</p>}
+      {run?.ok && <p className="text-rag-green">{run.live ? `Created in ${platform}, paused. Turn it on in ${manager} when it's ready.` : "Dry run done: every request was logged and nothing was sent."}</p>}
       {outcome.check?.errors.map((e) => (
         <p key={e} className="text-rag-red">
           {e}

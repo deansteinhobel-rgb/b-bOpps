@@ -3,18 +3,26 @@ import type { Profile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { checkGuardrails, rulesFor, type PlaybookRule } from "@/lib/campaign-builder/guardrails"
+import { checkFacts, linkedInFacts, rulesFor, type GuardFacts, type PlaybookRule } from "@/lib/campaign-builder/guardrails"
 import type { BuilderMode } from "@/lib/campaign-builder/presets"
+import type { Platform } from "@/lib/metrics/types"
 import { fromJson, toJson } from "@/lib/supabase/db"
 import { createClient } from "@/lib/supabase/server"
+import { runAction } from "@/lib/windsor/mcp"
 import { canBuildCampaigns } from "./access"
 import { runBuild, type BuildStep, type RunResult, type Sender } from "./build"
 import { adsApiEnv, dryRunReason, type AdsApiPlatform } from "./gates"
 import { linkedInAudienceCount, linkedInSender } from "./linkedin"
+import { microsoftSender } from "./microsoft"
 import { linkedInSteps, linkedInTargeting, redditSteps } from "./plan"
+import { googleSteps, metaSteps, microsoftSteps } from "./plan-platforms"
+import { metaAdSetTargeting } from "./platform-edit-service"
 import { redditSender } from "./reddit"
-import { checkLinkedIn, checkReddit, type BuildContext, type Check } from "./spec"
+import { checkLinkedIn, checkReddit, type BuildContext, type Check, type RedditSpec } from "./spec"
+import { checkGoogle, checkMeta, checkMicrosoft, metaFacts, searchFacts } from "./spec-platforms"
 import { buildStore } from "./store"
+import { accessToken } from "./tokens"
+import { windsorSender } from "./windsor-sender"
 
 /**
  * Saving and sending campaign builds (Dean, 2026-10-21). Every check runs on the server, every
@@ -24,32 +32,73 @@ import { buildStore } from "./store"
 
 type Client = { id: string; slug: string; website: string | null; currency: string }
 
+/** The platforms in our metrics (client_platform_accounts, client_budgets). Microsoft Ads isn't one yet: reporting comes first. */
+export const reportedPlatform = (p: AdsApiPlatform): Platform | null => (p === "microsoft_ads" ? null : p)
+
 async function loadContext(clientId: string, platform: AdsApiPlatform, accountId: string): Promise<{ client: Client; ctx: BuildContext } | { error: string }> {
   const db = createAdminClient()
   const { data: client } = await db.from("clients").select("id, slug, website, currency").eq("id", clientId).single()
   if (!client) return { error: "Client not found." }
-  const { data: account } = await db.from("client_platform_accounts").select("monthly_budget").eq("client_id", clientId).eq("platform", platform).eq("external_account_id", accountId).eq("active", true).maybeSingle()
+  const reported = reportedPlatform(platform)
+  if (!reported) return { error: "No Microsoft Ads account is mapped for this client yet." }
+  const { data: account } = await db.from("client_platform_accounts").select("monthly_budget").eq("client_id", clientId).eq("platform", reported).eq("external_account_id", accountId).eq("active", true).maybeSingle()
   if (!account) return { error: "That ad account isn't one of this client's active accounts." }
 
   const today = londonToday()
   const month = `${today.slice(0, 7)}-01`
-  const { data: budgets } = await db.from("client_budgets").select("amount").eq("client_id", clientId).eq("platform", platform).eq("month", month).eq("campaign_id", "")
+  const { data: budgets } = await db.from("client_budgets").select("amount").eq("client_id", clientId).eq("platform", reported).eq("month", month).eq("campaign_id", "")
   const { data: daily } = await db.rpc("platform_daily", { p_client: clientId, p_from: month, p_to: today })
   const spent = (daily ?? []).filter((d) => d.platform === platform).reduce((sum, d) => sum + Number(d.spend), 0)
   const monthBudget = budgets?.length ? Number(budgets[0].amount) : account.monthly_budget
   return { client, ctx: { website: client.website, monthBudget, spentThisMonth: spent, today, clientId } }
 }
 
+/**
+ * The platform's checks, then the team's guardrails (ad_playbook_rules, on every save, dry run and
+ * send), then the steps a send would run.
+ */
 function check(platform: AdsApiPlatform, spec: unknown, ctx: BuildContext, accountId: string, currency: string, rules: PlaybookRule[] = []): Check & { steps?: BuildStep[] } {
-  if (platform === "linkedin") {
-    const r = checkLinkedIn(spec, ctx)
-    // The team's guardrails (ad_playbook_rules) are checked on every save, dry run and send.
-    if (r.spec) r.errors.push(...checkGuardrails(r.spec, rules))
+  const finish = <S,>(r: Check & { spec?: S }, facts: (s: S) => GuardFacts, steps: (s: S) => BuildStep[]): Check & { steps?: BuildStep[] } => {
+    if (r.spec) r.errors.push(...checkFacts(facts(r.spec), rules))
     const ok = r.errors.length === 0
-    return r.spec && ok ? { ...r, ok, steps: linkedInSteps(r.spec, accountId, currency) } : { ...r, ok }
+    return r.spec && ok ? { ok, errors: r.errors, warnings: r.warnings, steps: steps(r.spec) } : { ok, errors: r.errors, warnings: r.warnings }
   }
-  const r = checkReddit(spec, ctx)
-  return r.spec && r.ok ? { ...r, steps: redditSteps(r.spec) } : r
+  switch (platform) {
+    case "linkedin":
+      return finish(checkLinkedIn(spec, ctx), linkedInFacts, (s) => linkedInSteps(s, accountId, currency))
+    case "google_ads":
+      return finish(checkGoogle(spec, ctx), searchFacts, googleSteps)
+    case "meta":
+      return finish(checkMeta(spec, ctx), metaFacts, metaSteps)
+    case "microsoft_ads":
+      return finish(checkMicrosoft(spec, ctx), searchFacts, (s) => microsoftSteps(s, currency))
+    case "reddit":
+      return finish(checkReddit(spec, ctx), redditFacts, redditSteps)
+  }
+}
+
+const redditFacts = (s: RedditSpec): GuardFacts => ({ dailyBudget: s.adGroup.dailyBudget, bid: s.adGroup.bid ?? null, ads: s.ads.length, objective: s.campaign.objective, headlines: [], intros: [], facets: Object.keys(s.adGroup.targeting) })
+
+/**
+ * Meta builds whose audience starts from one of the account's ad sets: that ad set's whole targeting,
+ * read from Windsor when the build is saved, goes into the spec, so the dry run logs exactly what a
+ * live run sends. Other platforms' specs pass through.
+ */
+async function withMetaBase(platform: AdsApiPlatform, clientId: string, accountId: string, spec: unknown): Promise<{ spec: unknown } | { error: string }> {
+  if (platform !== "meta") return { spec }
+  const s = spec as { adSet?: { targeting?: { baseAdSetId?: string; base?: unknown } } }
+  const t = s?.adSet?.targeting
+  if (!t?.baseAdSetId || t.base) return { spec }
+  const base = await metaAdSetTargeting(clientId, accountId, t.baseAdSetId).catch(() => null)
+  if (!base) return { error: "Couldn't read the audience of the ad set to copy from Windsor. Pick another, or clear it." }
+  return { spec: { ...s, adSet: { ...s.adSet, targeting: { ...t, base } } } }
+}
+
+/** A one-hour link to a build image, for Meta to fetch it (the spec checked it's the client's). */
+async function campaignImageLink(path: string) {
+  const { data, error } = await createAdminClient().storage.from("campaign-assets").createSignedUrl(path, 3600)
+  if (error || !data?.signedUrl) throw new Error("Couldn't make a link to the image.")
+  return data.signedUrl
 }
 
 /** The guardrails for a build: every-client rules and the client's own, for its view. */
@@ -68,6 +117,9 @@ export async function saveCampaignBuild(me: Profile, input: SaveInput): Promise<
   if (limited) return refuse(limited)
   const loaded = await loadContext(input.clientId, input.platform, input.accountId)
   if ("error" in loaded) return refuse(loaded.error)
+  const based = await withMetaBase(input.platform, input.clientId, input.accountId, input.spec)
+  if ("error" in based) return refuse(based.error)
+  input = { ...input, spec: based.spec }
   const c = check(input.platform, input.spec, loaded.ctx, input.accountId, loaded.client.currency, await guardrails(input.clientId, input.platform, input.mode ?? "general"))
   if (!c.ok) return { check: c }
 
@@ -90,8 +142,8 @@ export async function saveCampaignBuild(me: Profile, input: SaveInput): Promise<
   return { id: data.id, check: c }
 }
 
-/** Sends a saved build: a dry run unless every switch is on (gates.ts). */
-export async function sendCampaignBuild(me: Profile, buildId: string): Promise<RunResult & { check?: Check }> {
+/** Sends a saved build: a dry run unless every switch is on (gates.ts), or when the person asked for a dry run. */
+export async function sendCampaignBuild(me: Profile, buildId: string, opts: { dryRun?: boolean } = {}): Promise<RunResult & { check?: Check }> {
   const refuse = (error: string): RunResult => ({ ok: false, live: false, status: "failed", steps: [], ids: {}, error })
   const db = createAdminClient()
   const { data: build } = await db.from("campaign_builds").select("id, client_id, platform, external_account_id, spec, created_ids, status, mode").eq("id", buildId).single()
@@ -107,7 +159,7 @@ export async function sendCampaignBuild(me: Profile, buildId: string): Promise<R
   const c = check(platform, build.spec, loaded.ctx, build.external_account_id, loaded.client.currency, await guardrails(build.client_id, platform, build.mode as BuilderMode))
   if (!c.ok || !c.steps) return { ...refuse(c.errors.join(" ")), check: c }
 
-  const env = adsApiEnv()
+  const env = opts.dryRun ? { ...adsApiEnv(), writesEnabled: false } : adsApiEnv()
   const live = dryRunReason(env, platform, loaded.client.slug) === null
   let sender: Sender | null = null
   if (live) {
@@ -119,6 +171,12 @@ export async function sendCampaignBuild(me: Profile, buildId: string): Promise<R
       if (members === null) return { ...refuse("Couldn't check the audience size with LinkedIn. Nothing was sent."), check: c }
       if (members < 300) return { ...refuse("LinkedIn says this audience is under 300 members, its minimum. Nothing was sent."), check: c }
       sender = linkedInSender()
+    } else if (platform === "google_ads" || platform === "meta") {
+      const key = process.env.WINDSOR_API_KEY
+      if (!key) return { ...refuse("WINDSOR_API_KEY isn't set, so nothing can be sent to Windsor. Nothing was sent."), check: c }
+      sender = windsorSender(platform, { run: (connector, action, account, params) => runAction(key, connector, action, account, params), signedUrl: campaignImageLink })
+    } else if (platform === "microsoft_ads") {
+      sender = microsoftSender({ token: () => accessToken("microsoft_ads"), developerToken: process.env.MICROSOFT_ADS_DEVELOPER_TOKEN ?? "", customerId: process.env.MICROSOFT_ADS_CUSTOMER_ID ?? "" })
     } else {
       sender = redditSender()
     }

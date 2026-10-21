@@ -23,6 +23,7 @@ import { CARRY_REASONS, stageOf, type Stage } from "@/lib/sprints/tests"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { canWriteGoogleAds } from "@/lib/windsor/access"
+import { canBuildCampaigns } from "@/lib/ads-api/access"
 import { cn } from "@/lib/utils"
 import { AiPanel, type AiRun, type PourHistoryRow, type Recommendation } from "./ai-panel"
 import { ChangeLog } from "./change-log"
@@ -123,6 +124,8 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
   const writesLive = notionWritesLive(slug)
   const canBuildGoogle = !closed && (accounts ?? []).some((a) => a.platform === "google_ads") && (await canWriteGoogleAds(me, client.id))
   const platforms = PLATFORMS.filter((p) => (accounts ?? []).some((a) => a.platform === p))
+  // Campaigns for a test are planned and built (or edited) in the Campaign builder (Dean, 2026-10-21).
+  const buildPlatforms = !closed && (await canBuildCampaigns(me, client.id)) ? platforms : []
   const ownerOptions = owners.map((p) => ({ id: p.notionUserId, name: p.name, onTeam: p.onTeam }))
   const withoutOutcome = tests.filter((t) => !t.outcome).length
 
@@ -192,6 +195,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
         canRename={!closed && canEdit(me)}
         writesLive={writesLive}
         canBuildGoogle={canBuildGoogle}
+        buildHref={t.platform && buildPlatforms.includes(t.platform) ? `/clients/${slug}/build?${t.platform === "linkedin" ? "" : `platform=${t.platform}&`}test=${t.id}` : null}
         today={today}
       />
     )
