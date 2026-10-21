@@ -146,7 +146,7 @@ function Delta({ now, before, betterUp = false }: { now: number | null; before: 
   return <span className={cn("tabular-nums", Math.abs(pct) < 1 ? "" : good ? "text-rag-green" : "text-rag-red")}>{`${pct > 0 ? "+" : ""}${Math.round(pct)}%`}</span>
 }
 
-function GoalSummary({ goal: g }: { goal: GoalView }) {
+export function GoalSummary({ goal: g }: { goal: GoalView }) {
   const v = g.value ?? 0
   const t = g.target
   const expected = t ? (t * g.dayOfMonth) / g.daysInMonth : null

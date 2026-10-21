@@ -8,7 +8,16 @@
 /** A client section and its pages. A section with several pages shows them as a sub-navigation. */
 export type TabGroup = { key: string; label: string; items: { href: string; label: string }[] }
 
-const SUMMARY: TabGroup = { key: "summary", label: "Summary", items: [{ href: "", label: "Summary" }] }
+// Dean, 2026-10-21: the Summary is the month so far in the read's layout (after ZenABM's reports), and
+// the weekly read sits beside it (it was briefly first in Reporting, /reporting/weekly redirects).
+const SUMMARY: TabGroup = {
+  key: "summary",
+  label: "Summary",
+  items: [
+    { href: "", label: "This month" },
+    { href: "/weekly", label: "Weekly read" },
+  ],
+}
 const TASKS: TabGroup = {
   key: "tasks",
   label: "Tasks",

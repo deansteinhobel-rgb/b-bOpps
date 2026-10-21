@@ -19,12 +19,15 @@ import { ChangesDetail, PlansDetail } from "./glance-details"
  */
 type Ctx = { supabase: Db; slug: string; client: { id: string; slug: string; name: string; currency: string }; today: string; period: ReturnType<typeof sprintOf>; through: Promise<string | null> }
 
-export function GlanceCards(ctx: Ctx) {
+/** `withAds: false` leaves the Ads card out (the Summary's read already shows the ads, Dean 2026-10-21). */
+export function GlanceCards({ withAds = true, ...ctx }: Ctx & { withAds?: boolean }) {
   return (
     <>
-      <Suspense fallback={<SectionLoading label="Loading ads…" className="min-h-56" lines={4} />}>
-        <AdsCard {...ctx} />
-      </Suspense>
+      {withAds && (
+        <Suspense fallback={<SectionLoading label="Loading ads…" className="min-h-56" lines={4} />}>
+          <AdsCard {...ctx} />
+        </Suspense>
+      )}
       <Suspense fallback={<SectionLoading label="Loading what's changed…" className="min-h-56" lines={4} />}>
         <ChangesCard {...ctx} />
       </Suspense>
