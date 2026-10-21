@@ -37,7 +37,8 @@ export function linkedInSteps(spec: LinkedInSpec, accountId: string, currency: s
       campaignGroup: `urn:li:sponsoredCampaignGroup:${groupId(ids)}`,
       name: c.name,
       type: "SPONSORED_UPDATES",
-      format: "SINGLE_IMAGE",
+      // With sponsored posts in the mix LinkedIn takes the format from the first ad (unverified until the first live build).
+      ...(spec.ads.every((a) => !a.postUrn) ? { format: "SINGLE_IMAGE" } : {}),
       objectiveType: c.objective,
       costType: c.costType,
       unitCost: { amount: String(c.bid), currencyCode: currency },
@@ -52,6 +53,12 @@ export function linkedInSteps(spec: LinkedInSpec, accountId: string, currency: s
   })
 
   spec.ads.forEach((ad, i) => {
+    // Thought leader ads (and any post that already exists): sponsor the post itself.
+    if (ad.postUrn) {
+      const post = ad.postUrn
+      steps.push({ key: `ad:${i}`, operation: "create_ad", payload: (ids) => ({ campaign: `urn:li:sponsoredCampaign:${ids.campaign}`, content: { reference: post }, intendedStatus: "PAUSED", name: ad.name }) })
+      return
+    }
     steps.push({ key: `image:${i}`, operation: "upload_image", payload: () => ({ owner: author, imagePath: ad.imagePath }) })
     steps.push({
       key: `post:${i}`,

@@ -35,12 +35,15 @@ export const linkedInSpec = z.object({
         /** Intro text above the image. */
         commentary: z.string().min(1).max(600),
         headline: z.string().min(1).max(200),
-        landingUrl: z.url({ protocol: /^https$/ }),
+        /** Needed for image ads; a sponsored post keeps its own link. */
+        landingUrl: z.union([z.url({ protocol: /^https$/ }), z.literal("")]).default(""),
         callToAction: z.enum(["LEARN_MORE", "DOWNLOAD", "REGISTER", "SIGN_UP", "SUBSCRIBE", "REQUEST_DEMO", "APPLY", "VIEW_QUOTE", "ATTEND", "JOIN"]).default("LEARN_MORE"),
-        /** Our copy of the image in storage, read on the server when the image is uploaded. */
-        imagePath: z.string().min(1),
+        /** Our copy of the image in storage (campaign-assets, `<client_id>/…`), read on the server when the image is uploaded. */
+        imagePath: z.string().default(""),
         altText: z.string().max(300).optional(),
-      }),
+        /** Sponsor a post that already exists instead (thought leader ads): no image, no new post. */
+        postUrn: z.string().regex(/^urn:li:(share|ugcPost):\d+$/).optional(),
+      }).refine((a) => Boolean(a.postUrn) !== Boolean(a.imagePath), { message: "Each ad needs an image or an existing post, not both" }),
     )
     .min(1)
     .max(10),
@@ -88,6 +91,8 @@ export type BuildContext = {
   spentThisMonth: number
   /** Today in London, YYYY-MM-DD. */
   today: string
+  /** The client the build is for: uploaded images must sit under its folder. */
+  clientId?: string
 }
 
 export type Check = { ok: boolean; errors: string[]; warnings: string[] }
@@ -141,8 +146,13 @@ export function checkLinkedIn(raw: unknown, ctx: BuildContext): Check & { spec?:
   if (c.startDate < ctx.today) errors.push("The start date is in the past.")
   if (c.endDate && c.endDate <= c.startDate) errors.push("The end date must be after the start date.")
   if (c.bid > c.dailyBudget) errors.push("The bid is higher than the daily budget.")
+  const unresolved = Object.values({ ...c.targeting.include, ...(c.targeting.exclude ?? {}) }).flat().filter((u) => u.startsWith("urn:li:unresolved:"))
+  if (unresolved.length) warnings.push(`${unresolved.length} audience value${unresolved.length === 1 ? " has" : "s have"} no LinkedIn id yet (look them up before going live): ${unresolved.slice(0, 5).map((u) => u.slice(18).replace(/_/g, " ")).join(", ")}.`)
   for (const [i, ad] of spec.ads.entries()) {
-    if (!onClientSite(ad.landingUrl, ctx.website)) errors.push(`Ad ${i + 1}: the landing page isn't on ${ctx.website ?? "the client's website (none is set)"}.`)
+    if (ad.imagePath && ctx.clientId && !ad.imagePath.startsWith(`${ctx.clientId}/`)) errors.push(`Ad ${i + 1}: that image belongs to another client.`)
+    if (!ad.postUrn && !ad.landingUrl) errors.push(`Ad ${i + 1}: image ads need a landing page.`)
+    else if (!ad.postUrn && !onClientSite(ad.landingUrl, ctx.website)) errors.push(`Ad ${i + 1}: the landing page isn't on ${ctx.website ?? "the client's website (none is set)"}.`)
+    if (ad.postUrn) continue
     if (ad.headline.length > 70) warnings.push(`Ad ${i + 1}: LinkedIn cuts headlines over 70 characters on some screens.`)
     if (ad.commentary.length > 150) warnings.push(`Ad ${i + 1}: intro text over 150 characters is cut off behind "see more".`)
   }

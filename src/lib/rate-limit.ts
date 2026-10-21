@@ -26,6 +26,12 @@ export const LIMITS = {
   google_ad_write: { max: 30, seconds: 86400, what: "Google Ads ad changes a day" },
   // Campaigns built through the platforms' own APIs (2026-10-21): saving or sending a build, dry runs included.
   campaign_build: { max: 20, seconds: 86400, what: "campaign builds a day" },
+  // The campaign builder (2026-10-21): plans and re-plans with answers, edits to live campaigns, research by hand.
+  campaign_plan: { max: 20, seconds: 86400, what: "campaign plans a day" },
+  campaign_edit: { max: 30, seconds: 86400, what: "campaign edits a day" },
+  targeting_lookup: { max: 300, seconds: 86400, what: "audience lookups a day" },
+  playbook_research: { max: 4, seconds: 86400, what: "playbook research runs a day" },
+  build_image: { max: 60, seconds: 86400, what: "ad image uploads a day" },
   // Aikido, 2026-10-13: everything else that calls Claude or Notion, or fetches from outside.
   brain_brief: { max: 12, seconds: 86400, what: "brief rebuilds a day" },
   brain_note: { max: 100, seconds: 86400, what: "notes a day" },
