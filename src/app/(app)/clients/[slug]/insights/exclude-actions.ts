@@ -131,7 +131,7 @@ export async function planLinkedInExclusion(slug: string, key: string, items: st
 const Send = z.object({
   items: z.array(z.string().max(600)).min(1).max(500),
   /** Companies: the LinkedIn company the person confirmed for each name. */
-  urns: z.record(z.string().max(600), z.string().regex(/^urn:li:organization:\d+$/)).default({}),
+  urns: z.record(z.string().max(600), z.string().max(200)).default({}),
 })
 
 /** Step 2: one edit per campaign. Marks the items done when every campaign they were on changed. */
@@ -145,7 +145,8 @@ export async function sendLinkedInExclusion(slug: string, key: string, raw: z.in
 
   // Seniorities come from LinkedIn's fixed ids, never from the browser; companies are the ones confirmed.
   const valueOf = (label: string): Exclusion | null => {
-    const urn = c.facet === "seniorities" ? seniorityUrn(label) : (p.data.urns[label] ?? null)
+    const picked = p.data.urns[label]
+    const urn = c.facet === "seniorities" ? seniorityUrn(label) : picked && /^urn:li:organization:\d+$/.test(picked) ? picked : null
     return urn ? { urn, name: label } : live ? null : { urn: `${UNRESOLVED}${label.replace(/\s+/g, "_").slice(0, 120)}`, name: label }
   }
 

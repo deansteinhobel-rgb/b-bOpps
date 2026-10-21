@@ -21,7 +21,13 @@ export async function linkedInCampaignOf(clientId: string, campaignId: string): 
   if (data && (await linkedInAccount(clientId, data.external_account_id))) return { accountId: data.external_account_id, name: data.campaign_name ?? campaignId, status: data.status }
   // A campaign the app built may not be in the daily sync yet.
   const { data: built } = await db.from("campaign_builds").select("external_account_id, name, created_ids").eq("client_id", clientId).eq("platform", "linkedin").contains("created_ids", { campaign: campaignId }).maybeSingle()
-  return built ? { accountId: built.external_account_id, name: built.name, status: null } : null
+  if (built) return { accountId: built.external_account_id, name: built.name, status: null }
+  // The status sync doesn't list every campaign (Filevine's biggest spender was missing, 2026-10-21):
+  // a campaign with recent metrics on one of the client's mapped accounts is the client's too.
+  const since = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10)
+  const { data: seen } = await db.from("windsor_daily_metrics").select("external_account_id, campaign_name").eq("client_id", clientId).eq("platform", "linkedin").eq("campaign_id", campaignId).gte("date", since).order("date", { ascending: false }).limit(1).maybeSingle()
+  if (seen && (await linkedInAccount(clientId, seen.external_account_id))) return { accountId: seen.external_account_id, name: seen.campaign_name ?? campaignId, status: null }
+  return null
 }
 
 export const beforeOf = (r: LinkedInCampaign, withTargeting = false): NonNullable<Before> => ({

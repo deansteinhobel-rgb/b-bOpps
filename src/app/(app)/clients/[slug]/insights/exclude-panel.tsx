@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { fieldClass } from "@/components/field-class"
 import { Button } from "@/components/ui/button"
@@ -18,16 +18,18 @@ export function ExcludePanel({ slug, insightKey, items, onClose }: { slug: strin
   const [urns, setUrns] = useState<Record<string, string>>({})
   const [pending, start] = useTransition()
 
+  // Asked once per opening (the panel remounts for a new selection); dev's double effect must not
+  // send a second read or drop the first answer.
+  const asked = useRef(false)
   useEffect(() => {
-    let gone = false
-    planLinkedInExclusion(slug, insightKey, items).then((p) => {
-      if (gone) return
-      setPlan(p)
-      if (p.ok) setUrns(Object.fromEntries(p.values.flatMap((v) => (v.urn ? [[v.label, v.urn]] : []))))
-    })
-    return () => {
-      gone = true
-    }
+    if (asked.current) return
+    asked.current = true
+    planLinkedInExclusion(slug, insightKey, items)
+      .then((p) => {
+        setPlan(p)
+        if (p.ok) setUrns(Object.fromEntries(p.values.flatMap((v) => (v.urn ? [[v.label, v.urn]] : []))))
+      })
+      .catch(() => setPlan({ ok: false, error: "Couldn't read the campaigns. Try again." }))
   }, [slug, insightKey, items])
 
   if (!plan) return <p className="rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground">Reading the campaigns from LinkedIn…</p>
@@ -49,7 +51,7 @@ export function ExcludePanel({ slug, insightKey, items, onClose }: { slug: strin
 
   const send = () =>
     start(async () => {
-      const r = await sendLinkedInExclusion(slug, insightKey, { items, urns })
+      const r = await sendLinkedInExclusion(slug, insightKey, { items, urns: companies ? urns : {} })
       for (const c of r.campaigns.filter((c) => !c.ok)) toast.error(`${c.name}: ${c.error ?? "not changed"}`)
       if (r.ok || r.campaigns.some((c) => c.ok)) toast.success(r.message)
       else if (!r.campaigns.length) toast.error(r.message)
