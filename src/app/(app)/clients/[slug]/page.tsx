@@ -36,10 +36,9 @@ async function MonthRead({ supabase, client, abx }: { supabase: Awaited<ReturnTy
   const today = londonToday()
   // Access confirmed above (client loaded through RLS); the read uses the secret key for its numbers.
   const [read, goals, me] = await Promise.all([loadWeeklyRead(supabase, client, { kind: "month" }), loadGoals(supabase, client.id, today), getProfile()])
-  // No goals: nothing beside the verdict, so it takes the full width.
-  const goalsRow = goals.length ? <GoalsRow slug={client.slug} goals={goals} canEdit={canEdit(me)} /> : undefined
+  const goalsRow = <GoalsRow slug={client.slug} goals={goals} canEdit={canEdit(me)} />
   const cards = (
-    <section className="grid gap-4 lg:grid-cols-2">
+    <section className="grid gap-3 lg:grid-cols-2">
       <GlanceCards withAds={false} supabase={supabase} slug={client.slug} client={client} today={today} period={sprintOf(today)} through={latestDataDay(supabase, client.id)} />
     </section>
   )

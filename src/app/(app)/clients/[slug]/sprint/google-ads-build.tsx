@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react"
 import { fieldClass } from "@/components/field-class"
-import { Spinner } from "@/components/loading"
 import { Segmented } from "@/components/segmented"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -61,12 +60,7 @@ export function GoogleAdsBuild(props: { testId: string; campaigns: Campaign[]; d
         </DialogHeader>
 
         {data && !data.live && (
-          <p className="flex items-start gap-2 text-xs text-body">
-            <span aria-hidden className="mt-1 size-2 shrink-0 rounded-full bg-rag-amber" />
-            <span>
-              <span className="font-semibold text-foreground">Test mode:</span> changes are logged here and nothing reaches Google Ads.
-            </span>
-          </p>
+          <p className="rounded-md bg-rag-amber-bg px-3 py-2 text-xs text-rag-amber">Test mode: changes are logged here and nothing reaches Google Ads.</p>
         )}
 
         <div className="space-y-1.5">
@@ -81,12 +75,7 @@ export function GoogleAdsBuild(props: { testId: string; campaigns: Campaign[]; d
           </select>
         </div>
 
-        {loading && (
-          <p className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Spinner label="Reading the campaign" className="size-3.5" />
-            Reading the campaign from Google Ads…
-          </p>
-        )}
+        {loading && <p className="text-xs text-muted-foreground">Reading the campaign from Google Ads…</p>}
         {loadError && <p className="text-xs text-rag-red">{loadError}</p>}
 
         {data && (
@@ -163,7 +152,7 @@ function CreateAd({ testId, campaign, live, onDone }: { testId: string; campaign
   if (!groups.length) return <p className="text-xs text-muted-foreground">No running ad groups with impressions in the last 14 days.</p>
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="g-group">Ad group</Label>
           <select id="g-group" className={fieldClass} value={adGroupId} onChange={(e) => setAdGroupId(e.target.value)}>
@@ -188,7 +177,7 @@ function CreateAd({ testId, campaign, live, onDone }: { testId: string; campaign
       </div>
 
       <fieldset className="space-y-1.5">
-        <legend className="text-sm font-medium text-foreground">
+        <legend className="text-sm font-medium">
           Headlines <span className="font-normal text-muted-foreground">({filledHeadlines} of {HEADLINES.min}–{HEADLINES.max})</span>
         </legend>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -198,14 +187,14 @@ function CreateAd({ testId, campaign, live, onDone }: { testId: string; campaign
         </div>
       </fieldset>
       <fieldset className="space-y-1.5">
-        <legend className="text-sm font-medium text-foreground">Descriptions</legend>
+        <legend className="text-sm font-medium">Descriptions</legend>
         <div className="grid gap-2">
           {descriptions.map((d, i) => (
             <Counted key={i} label={`Description ${i + 1}`} value={d} max={DESCRIPTION_MAX} onChange={(v) => edit(descriptions, setDescriptions, i, v)} />
           ))}
         </div>
       </fieldset>
-      <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto]">
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
         <div className="space-y-1.5">
           <Label htmlFor="g-url">Final URL</Label>
           <Input id="g-url" value={finalUrl} onChange={(e) => (setFinalUrl(e.target.value), setChecked(false))} placeholder="https://" />
@@ -215,7 +204,7 @@ function CreateAd({ testId, campaign, live, onDone }: { testId: string; campaign
       </div>
 
       {proofs.length > 0 && (
-        <ul className="space-y-1 rounded-lg border p-3 text-xs">
+        <ul className="space-y-1 rounded-md border p-3 text-xs">
           {proofs.map((p, i) => (
             <li key={i} className={p.blocking ? "text-rag-red" : "text-rag-amber"}>
               <span className="font-medium">{p.where}:</span> {p.problem}
@@ -288,7 +277,7 @@ function PauseAds({ testId, campaign, live, currency, onDone }: { testId: string
       <p className="text-xs text-muted-foreground">
         Running ads, last 14 days ({campaign.from.slice(5)} to {campaign.to.slice(5)}). Pausing can be undone in Google Ads; the app never enables or removes ads.
       </p>
-      <div className="divide-y rounded-lg border">
+      <div className="divide-y rounded-md border">
         {groups.map((g) => (
           <div key={g.id} className="space-y-1 p-3">
             <p className="text-xs font-medium text-muted-foreground">{g.name}</p>
@@ -297,7 +286,7 @@ function PauseAds({ testId, campaign, live, currency, onDone }: { testId: string
               const cpr = a.conversions > 0 ? money(a.spend / a.conversions, currency) : "no results"
               const ctr = a.impressions ? `${((a.clicks / a.impressions) * 100).toFixed(1)}% CTR` : ""
               return (
-                <label key={k} className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-sm hover:bg-white/[0.03]">
+                <label key={k} className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-sm hover:bg-secondary">
                   <input type="checkbox" className="mt-1 size-3.5 accent-lime" checked={picked.has(k)} onChange={() => toggle(k)} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{adLine(a)}</span>

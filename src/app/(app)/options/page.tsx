@@ -35,14 +35,13 @@ export default async function OptionsPage({ searchParams }: PageProps<"/options"
     <div className="space-y-8">
       <PageHeader title="Options" description="Your preferences, what you've done in the app, and a direct line to suggest features or report bugs." />
 
-      {/* Tabs on a hairline, the active one marked by the app's 1px lime line (like a client's sections). */}
-      <nav className="flex gap-7 overflow-x-auto border-b [scrollbar-width:none]" aria-label="Options sections">
+      <nav className="flex flex-wrap gap-1 border-b pb-3" aria-label="Options sections">
         {TABS.map((t) => (
           <Link
             key={t.key}
             href={`/options${t.key === "preferences" ? "" : `?tab=${t.key}`}`}
             aria-current={tab === t.key ? "page" : undefined}
-            className={cn("flex h-11 items-center rounded-sm text-sm whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset", tab === t.key ? "select-line font-medium text-foreground" : "text-body hover:text-foreground")}
+            className={cn("rounded-full px-3.5 py-1.5 text-sm transition-colors", tab === t.key ? "bg-lime font-medium text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground")}
           >
             {t.label}
           </Link>
@@ -72,18 +71,15 @@ export default async function OptionsPage({ searchParams }: PageProps<"/options"
               </>
             )}
           </p>
-          {/* One box split by hairlines (no gray fill showing through a short last row). */}
-          <section className="surface overflow-hidden">
-          <dl className="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 [&>*]:shadow-[inset_1px_1px_0_var(--border)]">
+          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 lg:grid-cols-5">
             {stats.stats.map((s) => (
-              <div key={s.key} className="p-4">
-                <dt className="text-[13px] text-muted-foreground">{s.label}</dt>
-                <dd className="mt-1 text-2xl font-medium text-foreground tabular-nums">{s.total}</dd>
-                <dd className={cn("mt-2 text-xs tabular-nums", s.last30 ? "text-foreground" : "text-muted-foreground")}>{s.last30 ? `+${s.last30} in the last 30 days` : "None in the last 30 days"}</dd>
+              <div key={s.key} className="bg-card px-4 py-4">
+                <dt className="text-xs text-muted-foreground">{s.label}</dt>
+                <dd className="mt-1 font-heading text-3xl leading-none tabular-nums">{s.total}</dd>
+                <dd className={cn("mt-2 text-xs tabular-nums", s.last30 ? "text-lime" : "text-muted-foreground")}>{s.last30 ? `+${s.last30} in the last 30 days` : "None in the last 30 days"}</dd>
               </div>
             ))}
           </dl>
-          </section>
         </div>
       )}
 

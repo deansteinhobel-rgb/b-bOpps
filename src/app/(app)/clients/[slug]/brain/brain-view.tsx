@@ -6,8 +6,6 @@ import ReactMarkdown from "react-markdown"
 import { createClient as createSupabase } from "@supabase/supabase-js"
 import { ChevronDown, FileText, X } from "lucide-react"
 import { Sparkle } from "@/components/fx/sparkle"
-import { Spinner } from "@/components/loading"
-import { Segmented } from "@/components/segmented"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { CONTENT_BANK } from "@/lib/notion/config"
@@ -32,11 +30,10 @@ export type Knowledge = {
   created_at: string
 }
 
-// One neutral outlined chip for every kind: the word carries the meaning (taste sweep: no colored tags).
 const NOTE_KINDS = [
-  { key: "target", label: "Target" },
-  { key: "constraint", label: "Rule" },
-  { key: "note", label: "Note" },
+  { key: "target", label: "Target", cls: "border-lime/40 text-lime" },
+  { key: "constraint", label: "Rule", cls: "border-rag-red/40 text-rag-red" },
+  { key: "note", label: "Note", cls: "border-foreground/20 text-muted-foreground" },
 ] as const
 const kindOf = (k: string | null) => NOTE_KINDS.find((n) => n.key === k) ?? NOTE_KINDS[2]
 const UNCHANGED = "Nothing changed since the last brief."
@@ -131,8 +128,8 @@ export function BrainView(props: { slug: string; clientName: string; hqPageId: s
         )}
       </div>
       {status && (
-        <p className="flex items-center gap-2 text-sm text-body" aria-live="polite">
-          <Spinner className="size-3.5 text-muted-foreground" label={status} /> {status}
+        <p className="flex items-center gap-2 text-sm text-lime" aria-live="polite">
+          <span className="size-1.5 animate-pulse rounded-full bg-lime" /> {status}
         </p>
       )}
       {error && <p className="text-sm text-rag-red">{error}</p>}
@@ -194,7 +191,7 @@ function BriefPanel({ slug, brief, sources, canAdmin }: { slug: string; brief: B
   if (!brief?.content) {
     return (
       <section className="surface flex flex-col items-center justify-center gap-2 p-10 text-center">
-        <p className="text-base font-semibold text-foreground">No brief yet</p>
+        <p className="font-heading text-xl">No brief yet</p>
         <p className="max-w-md text-sm text-muted-foreground">
           {canAdmin ? "Tick the HQ pages that matter below, add any must-knows, then Build the brain." : "Someone on the client's team can build it from the Notion HQ."}
         </p>
@@ -208,15 +205,15 @@ function BriefPanel({ slug, brief, sources, canAdmin }: { slug: string; brief: B
           {brief.written_by === "person" ? `Corrected by ${brief.profiles?.full_name ?? "the team"}` : `Written by Claude from ${brief.source_count ?? sources} sources`} · {date(brief.finished_at ?? brief.created_at)}
         </p>
         {!editing && (
-          <Button size="sm" variant="outline" onClick={() => { setText(brief.content ?? ""); setEditing(true) }}>
+          <button type="button" onClick={() => { setText(brief.content ?? ""); setEditing(true) }} className="rounded-md border px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
             Correct the brief
-          </Button>
+          </button>
         )}
       </div>
       {editing ? (
         <div className="space-y-3 p-5">
           <p className="text-xs text-muted-foreground">Edit the markdown. Your version is used straight away, and Claude keeps your corrections when it next rebuilds.</p>
-          <Textarea rows={24} value={text} onChange={(e) => setText(e.target.value)} className="font-mono text-xs" />{/* taste-skill-ignore: markdown source being edited */}
+          <Textarea rows={24} value={text} onChange={(e) => setText(e.target.value)} className="font-mono text-xs" />
           <div className="flex items-center gap-2">
             <Button size="sm" disabled={pending} onClick={() => start(async () => { const r = await saveBriefEdit(slug, text); if (r.ok) setEditing(false); else setMsg(r.message ?? "Couldn't save.") })}>
               {pending ? "Saving…" : "Save corrections"}
@@ -231,7 +228,7 @@ function BriefPanel({ slug, brief, sources, canAdmin }: { slug: string; brief: B
         <div className="brief-prose space-y-1 px-5 py-4 text-sm leading-relaxed">
           <ReactMarkdown
             components={{
-              h2: ({ children }) => <h3 className="mt-5 mb-2 border-b pb-1.5 text-sm font-semibold text-foreground first:mt-0">{children}</h3>,
+              h2: ({ children }) => <h3 className="mt-5 mb-2 border-b pb-1.5 text-xs font-semibold text-lime first:mt-0">{children}</h3>,
               h3: ({ children }) => <h4 className="mt-3 mb-1 text-sm font-semibold">{children}</h4>,
               ul: ({ children }) => <ul className="space-y-1.5">{children}</ul>,
               li: ({ children }) => <li className="relative pl-4 before:absolute before:top-2 before:left-0 before:size-1 before:rounded-full before:bg-foreground/40">{children}</li>,
@@ -240,7 +237,7 @@ function BriefPanel({ slug, brief, sources, canAdmin }: { slug: string; brief: B
               a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="underline">{children}</a>,
               code: ({ children }) => {
                 const t = String(children)
-                return t.startsWith("§") ? <span className="ml-1 inline-block rounded border px-1.5 py-px align-middle text-[11px] text-subtle-foreground">{t.slice(1)}</span> : <code className="rounded bg-accent px-1 text-xs">{t}</code>
+                return t.startsWith("§") ? <span className="ml-1 inline-block rounded border px-1.5 py-px align-middle text-[10px] text-subtle-foreground">{t.slice(1)}</span> : <code className="rounded bg-accent px-1 text-xs">{t}</code>
               },
             }}
           >
@@ -272,7 +269,7 @@ function MustKnows({ slug, notes }: { slug: string; notes: Knowledge[] }) {
       <ul className="divide-y">
         {notes.map((n) => (
           <li key={n.id} className="group flex items-start gap-2 px-4 py-2.5 text-sm">
-            <span className="mt-0.5 shrink-0 rounded-full border border-border-strong px-1.5 py-px text-[11px] text-body">{kindOf(n.category).label}</span>
+            <span className={cn("mt-0.5 shrink-0 rounded-full border px-1.5 py-px text-[10px]", kindOf(n.category).cls)}>{kindOf(n.category).label}</span>
             <span className="min-w-0 flex-1 whitespace-pre-line">{n.title.length < 80 ? n.title : n.title + "…"}</span>
             <button type="button" onClick={() => start(async () => void (await removeNote(slug, n.id)))} className="shrink-0 text-subtle-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground" aria-label="Remove">
               <X className="size-3.5" />
@@ -282,7 +279,13 @@ function MustKnows({ slug, notes }: { slug: string; notes: Knowledge[] }) {
         {notes.length === 0 && <li className="px-4 py-4 text-xs text-muted-foreground">None yet. E.g. &ldquo;Q4 target: 120 SQLs&rdquo;, &ldquo;Never retarget existing customers&rdquo;.</li>}
       </ul>
       <div className="space-y-2 border-t p-3">
-        <Segmented label="Kind of must-know" value={kind} options={NOTE_KINDS.map((k) => ({ value: k.key, label: k.label }))} onChange={setKind} />
+        <div className="flex gap-1">
+          {NOTE_KINDS.map((k) => (
+            <button key={k.key} type="button" onClick={() => setKind(k.key)} className={cn("rounded-full border px-2.5 py-0.5 text-xs", kind === k.key ? k.cls + " bg-accent" : "text-muted-foreground")}>
+              {k.label}
+            </button>
+          ))}
+        </div>
         <div className="flex gap-2">
           <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder={kind === "target" ? "Q4 target: 120 SQLs" : kind === "constraint" ? "Legal won't approve competitor names in ads" : "Anything else worth knowing"} className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2.5 text-sm outline-none focus:border-foreground/30" aria-label="Must-know" />
           <Button size="sm" disabled={pending || !text.trim()} onClick={add}>
@@ -360,7 +363,7 @@ function NotionSources({ slug, title, intro, empty, pages, canAdmin }: { slug: s
       <span className="min-w-0 flex-1">
         <span className="block truncate">
           {p.title}
-          {p.notion_kind === "database" && <span className="ml-1.5 text-[11px] text-muted-foreground">database</span>}
+          {p.notion_kind === "database" && <span className="ml-1.5 text-[10px] text-muted-foreground">database</span>}
         </span>
         {p.path && <span className="block truncate text-[11px] text-subtle-foreground">{p.path}</span>}
       </span>
@@ -381,7 +384,7 @@ function NotionSources({ slug, title, intro, empty, pages, canAdmin }: { slug: s
           <h3 className="text-sm font-semibold">{title}</h3>
           <p className="text-xs text-muted-foreground">{intro}</p>
         </div>
-        {msg && <span className="text-xs text-body">{msg}</span>}
+        {msg && <span className="text-xs text-lime">{msg}</span>}
       </div>
       <ul className="divide-y">{on.map(row)}</ul>
       {off.length > 0 && (

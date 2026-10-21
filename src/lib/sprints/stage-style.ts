@@ -1,15 +1,14 @@
 import type { Stage } from "./tests"
 
 /**
- * Each board stage's color (Dean, 2026-09-30: easier to scan). B&B's data colors and neutrals (no
- * violet, taste skill 2026-10-21), never lime (that's the selection mark) and not RAG on its own, so a
- * stage never reads as good or bad.
+ * Each board stage's color (Dean, 2026-09-30: easier to scan). Brand secondaries and neutrals,
+ * never lime (that's for actions) and not RAG on its own, so a stage never reads as good or bad.
  * A plain module: the server page and the client card both use it.
  */
 export const STAGE_STYLE: Record<Stage, { dot: string; bar: string; ring: string; empty: string }> = {
   planned: { dot: "bg-rag-na", bar: "bg-rag-na/60", ring: "ring-rag-na/25", empty: "Plan a test to get the sprint going." },
-  in_production: { dot: "bg-body", bar: "bg-body/70", ring: "ring-body/25", empty: "Nothing with the team yet." },
-  ready: { dot: "bg-pink", bar: "bg-pink/80", ring: "ring-pink/30", empty: "Nothing waiting to launch." },
+  in_production: { dot: "bg-lavender", bar: "bg-lavender/70", ring: "ring-lavender/25", empty: "Nothing with the team yet." },
+  ready: { dot: "bg-violet", bar: "bg-violet/80", ring: "ring-violet/30", empty: "Nothing waiting to launch." },
   live: { dot: "bg-rag-green", bar: "bg-rag-green/70", ring: "ring-rag-green/25", empty: "Nothing live yet." },
   review: { dot: "bg-rag-amber", bar: "bg-rag-amber/70", ring: "ring-rag-amber/25", empty: "Nothing to call yet." },
   done: { dot: "bg-muted-foreground", bar: "bg-muted-foreground/50", ring: "ring-border", empty: "" },

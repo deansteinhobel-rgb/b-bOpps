@@ -14,9 +14,8 @@ export function CountBadge({ children, active, className }: { children: React.Re
 
 /**
  * Flat filters for a list (Dean, 2026-10-15: part of the list, not a capsule floating above it). The
- * selected one is white, medium weight and aria-checked, with the app's one selection mark under its
- * label (a 1px lime line, taste skill 2026-10-21), so it never relies on color alone. Arrow keys move
- * between options (one tab stop for the group), with a lime focus ring.
+ * selected one gets a quiet fill, medium weight and aria-checked, so it never relies on color. Arrow
+ * keys move between options (one tab stop for the group), with a lime focus ring.
  */
 export function FilterTabs<T extends string>({ label, value, options, onChange, showLabel = true }: { label: string; value: T; options: { value: T; label: React.ReactNode; count?: number }[]; onChange: (v: T) => void; showLabel?: boolean }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([])
@@ -49,14 +48,12 @@ export function FilterTabs<T extends string>({ label, value, options, onChange, 
                 move(i, by)
               }}
               className={cn(
-                "inline-flex h-8 items-center rounded-sm px-2 text-[13px] whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                on ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+                "inline-flex h-8 items-center gap-2 rounded-md px-2.5 text-[13px] whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                on ? "bg-white/[0.08] font-medium text-foreground" : "text-body hover:bg-white/[0.04] hover:text-foreground",
               )}
             >
-              <span className={cn("inline-flex h-full items-center gap-2", on && "select-line")}>
-                {o.label}
-                {o.count !== undefined && <CountBadge active={on}>{o.count}</CountBadge>}
-              </span>
+              {o.label}
+              {o.count !== undefined && <CountBadge active={on}>{o.count}</CountBadge>}
             </button>
           )
         })}

@@ -133,7 +133,7 @@ export function ContentLibrary({
 function Empty({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="surface px-6 py-10 text-center">
-      <p className="font-semibold text-foreground">{title}</p>
+      <p className="font-semibold">{title}</p>
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{children}</p>
     </div>
   )
@@ -181,7 +181,7 @@ function LibraryList({ pieces, byId, sequences, allVerticals }: { pieces: Librar
           return (
             <li key={p.id}>
               <details className="group">
-                <summary className="cursor-pointer list-none px-4 py-3 hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
+                <summary className="cursor-pointer list-none px-4 py-3 hover:bg-accent/30 [&::-webkit-details-marker]:hidden">
                   <div className="grid gap-x-4 gap-y-1.5 lg:grid-cols-[minmax(0,1fr)_8rem_7.5rem_7rem_5.5rem_11rem] lg:items-center">
                     <div className="flex min-w-0 items-start gap-2">
                       <ChevronRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none" aria-hidden />
@@ -256,7 +256,7 @@ function PieceDetail({ p, byId, allVerticals }: { p: LibraryPiece; byId: Map<str
         </div>
       </div>
       <div>
-        <h4 className="mb-2 text-[13px] font-semibold text-foreground">Its follow-up sequence</h4>
+        <p className="eyebrow mb-2">Its follow-up sequence</p>
         <ol className="space-y-3">
           {p.emails.map((e) => {
             const t = emailTarget(e, byId)
@@ -386,7 +386,7 @@ function Matrix({
                       type="button"
                       aria-pressed={isSel}
                       onClick={() => onSelect(isSel ? null : a.id)}
-                      className="flex w-full items-baseline gap-2 rounded-md px-2 py-1.5 text-left outline-none hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex w-full items-baseline gap-2 rounded-md px-2 py-1.5 text-left outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-lime/60"
                     >
                       <span className="w-5 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{number.get(a.id)}</span>
                       <span className="line-clamp-2">{a.title}</span>
@@ -403,7 +403,7 @@ function Matrix({
                     const why = `${number.get(b.id)}. ${b.title}\n${FIT_LABEL[fit.level]}: ${fit.reasons.join("; ")}`
                     return (
                       <td key={b.id} className="p-0 text-center">
-                        <button type="button" title={why} aria-label={`${a.title} to ${b.title}: ${FIT_LABEL[fit.level]}`} onClick={() => onSelect(a.id)} className="inline-flex size-8 items-center justify-center rounded-md outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring">
+                        <button type="button" title={why} aria-label={`${a.title} to ${b.title}: ${FIT_LABEL[fit.level]}`} onClick={() => onSelect(a.id)} className="inline-flex size-8 items-center justify-center rounded-md outline-none hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-lime/60">
                           <FitDot level={fit.level} />
                         </button>
                       </td>

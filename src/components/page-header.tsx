@@ -1,7 +1,6 @@
 import { cn } from "@/lib/utils"
 
-/** Consistent page header: optional lead (e.g. a client logo), title, description, actions. The
- *  eyebrow is no longer a label above the title (taste skill: no eyebrows); it leads the line under it. */
+/** Consistent page header: optional eyebrow and lead (e.g. a client logo), title, description, actions. */
 export function PageHeader({
   eyebrow,
   title,
@@ -22,14 +21,9 @@ export function PageHeader({
       <div className="flex min-w-0 items-center gap-4">
         {lead}
         <div className="min-w-0">
+          {eyebrow && <div className="eyebrow mb-1.5">{eyebrow}</div>}
           <h1 className="text-[28px] leading-9">{title}</h1>
-          {(eyebrow || description) && (
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              {eyebrow}
-              {eyebrow && description && " · "}
-              {description}
-            </p>
-          )}
+          {description && <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>}
         </div>
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}

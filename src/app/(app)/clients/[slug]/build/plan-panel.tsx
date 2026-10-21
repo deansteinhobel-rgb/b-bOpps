@@ -38,10 +38,10 @@ export function PlanPanel(p: BuilderProps & { plan: PlanRow; onClose: () => void
     <section className="surface overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div className="min-w-0">
-          <h2 className="truncate text-xl">{row.plan?.campaign.name ?? "New campaign"}</h2>
-          <p className="mt-0.5 text-[13px] text-muted-foreground">
+          <div className="eyebrow">
             {row.mode === "abx" ? "ABX" : "General"} · {presetByKey(row.preset)?.label ?? row.preset}
-          </p>
+          </div>
+          <h2 className="truncate text-xl">{row.plan?.campaign.name ?? "New campaign"}</h2>
         </div>
         <Button variant="outline" size="sm" onClick={p.onClose}>
           New campaign
@@ -124,7 +124,7 @@ export function Questions({ row }: { row: Pick<PlanRow, "id" | "questions" | "an
         <DialogContent className="grid-cols-[minmax(0,1fr)] gap-6 p-6 sm:max-w-lg">
           <div className="flex gap-1.5 pr-8" aria-hidden>
             {qs.map((x, j) => (
-              <span key={x.id} className={cn("h-1 flex-1 rounded-full transition-colors", j <= at ? "bg-foreground" : "bg-white/10")} />
+              <span key={x.id} className={cn("h-1 flex-1 rounded-full transition-colors", j <= at ? "bg-lime" : "bg-white/10")} />
             ))}
           </div>
           <div key={q.id} className="space-y-4 animate-in fade-in-0 slide-in-from-right-4 duration-200">
@@ -144,7 +144,7 @@ export function Questions({ row }: { row: Pick<PlanRow, "id" | "questions" | "an
                       type="button"
                       onClick={() => pick(o)}
                       aria-pressed={on}
-                      className={cn("flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-left text-sm transition-colors hover:border-border-strong focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none", on && "border-white/60 bg-white/[0.04] font-medium text-foreground")}
+                      className={cn("flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-left text-sm transition-colors hover:border-border-strong focus-visible:ring-2 focus-visible:ring-lime focus-visible:outline-none", on && "border-lime/70 bg-white/[0.04] text-foreground")}
                     >
                       {o}
                       {on && <CheckIcon className="size-4 text-lime" aria-hidden />}
@@ -254,7 +254,7 @@ function PlanEditor(p: BuilderProps & { row: PlanRow; initial: Plan }) {
               </>
             }
           >
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               <Field label="Daily budget" id="pl-budget">
                 <Input id="pl-budget" type="number" min={10} step="1" value={c.dailyBudget} onChange={(e) => set({ dailyBudget: Number(e.target.value) })} />
               </Field>
@@ -288,7 +288,7 @@ function PlanEditor(p: BuilderProps & { row: PlanRow; initial: Plan }) {
       </Section>
 
       <Section title={`Ads · ${plan.ads.length}`}>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           {plan.ads.map((ad, i) => (
             <AdCard key={i} slug={p.slug} ad={ad} leadGen={c.objective === "LEAD_GENERATION"} onChange={(patch) => setAd(i, patch)} />
           ))}
@@ -367,7 +367,7 @@ export function Proposal({ proposal }: { proposal: ProposalSource }) {
         </span>
       </p>
       {proposal.problems.length > 0 && (
-        <ul className="space-y-1 text-rag-amber">
+        <ul className="space-y-1 rounded-md bg-rag-amber-bg px-3 py-2 text-rag-amber">
           {proposal.problems.map((x) => (
             <li key={x} className="flex gap-2">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
@@ -402,7 +402,7 @@ export function Setting({ label, value, children, startOpen = false }: { label: 
           onClick={() => setEditing(!editing)}
           aria-label={editing ? `Done editing ${label.toLowerCase()}` : `Edit ${label.toLowerCase()}`}
           aria-expanded={editing}
-          className="col-start-2 row-start-1 grid size-7 place-items-center justify-self-end rounded-full text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:col-start-3"
+          className="col-start-2 row-start-1 grid size-7 place-items-center justify-self-end rounded-full text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-lime focus-visible:outline-none sm:col-start-3"
         >
           {editing ? <CheckIcon className="size-3.5" aria-hidden /> : <Pencil className="size-3.5" aria-hidden />}
         </button>
@@ -560,8 +560,7 @@ function Lookup({ slug, facet, accountId, initial = "", autoOpen, onPick }: { sl
   }
   const shown = segments ? results.filter((r) => r.name.toLowerCase().includes(q.toLowerCase())) : results
   return (
-    // A floating lookup over the page: a real overlay, so it keeps its shadow.
-    <span className="block w-80 rounded-md border bg-popover p-2 shadow-lg" /* taste-skill-ignore */>
+    <span className="block w-80 rounded-md border bg-popover p-2 shadow-lg">
       <Input autoFocus value={q} onChange={(e) => search(e.target.value)} placeholder={segments ? "Filter the account's lists" : `Search ${FACETS[facet].toLowerCase()}`} />
       {busy && <span className="mt-2 block text-xs text-muted-foreground">Looking it up…</span>}
       {error && <span className="mt-2 block text-xs text-rag-amber">{error}</span>}
@@ -598,7 +597,7 @@ function AdCard({ slug, ad, leadGen, onChange }: { slug: string; ad: PlanAd; lea
           onClick={() => setEditing(!editing)}
           aria-label={editing ? `Done editing ${ad.name}` : `Edit ${ad.name}`}
           aria-expanded={editing}
-          className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-lime focus-visible:outline-none"
         >
           {editing ? <CheckIcon className="size-3.5" aria-hidden /> : <Pencil className="size-3.5" aria-hidden />}
         </button>
@@ -615,7 +614,7 @@ function AdCard({ slug, ad, leadGen, onChange }: { slug: string; ad: PlanAd; lea
           ) : (
             <p className="border-y px-3 py-6 text-center text-xs text-muted-foreground">{ad.creativeBrief || FORMAT_LABEL[ad.format as AdFormat]}</p>
           )}
-          <div className="mt-auto flex items-center gap-3 bg-elevated px-3 py-2.5">
+          <div className="mt-auto flex items-center gap-3 bg-white/[0.03] px-3 py-2.5">
             <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold text-foreground">{ad.headline || <span className="font-normal text-muted-foreground">No headline</span>}</span>
             <span className="shrink-0 rounded-full border border-border-strong px-3 py-1 text-xs font-medium text-foreground">{words(ad.callToAction)}</span>
           </div>

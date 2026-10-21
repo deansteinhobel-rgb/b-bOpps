@@ -1,7 +1,6 @@
 "use client"
 
-import { ClaudeMark } from "@/components/brand"
-import { ShieldCheck, TriangleAlert } from "lucide-react"
+import { ShieldCheck, Sparkles, TriangleAlert } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -48,7 +47,7 @@ export function TermIcpPanel({ slug, campaignId, review, onReview, canCheck, can
     <div className="space-y-3 border-b px-4 py-3">
       {aiMax && (
         <p className="flex items-start gap-2 text-xs text-muted-foreground">
-          <span className="mt-px rounded-full border border-border-strong px-1.5 py-px text-[11px] text-body">AI Max</span>
+          <span className="mt-px rounded-full border border-violet-400/40 px-1.5 py-px text-[10px] text-violet-300">AI Max</span>
           <span>
             AI Max is on here: it found {aiMax.terms.toLocaleString("en-GB")} of these searches, {fmt("spend", aiMax.spend, currency)} ({Math.round(aiMax.share * 100)}% of the spend on visible terms). They didn&apos;t come from our keywords, so check them most often.
           </span>
@@ -61,7 +60,7 @@ export function TermIcpPanel({ slug, campaignId, review, onReview, canCheck, can
             <ShieldCheck className="size-4 text-muted-foreground" aria-hidden />
             <span className="text-muted-foreground">Check which searches don&apos;t fit the client&apos;s ICP. Claude reads the client brief and the top 300 terms (about a minute).</span>
             <Button size="sm" variant="outline" onClick={run} disabled={running} className="ml-auto gap-1.5">
-              <ClaudeMark className="size-3.5 text-lime" />
+              <Sparkles className="size-3.5" aria-hidden />
               {running ? "Checking…" : "Check against the ICP"}
             </Button>
           </div>

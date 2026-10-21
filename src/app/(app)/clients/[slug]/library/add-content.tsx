@@ -4,7 +4,6 @@ import { Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
-import { Spinner } from "@/components/loading"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -226,7 +225,7 @@ export function AddContent({ cfg, clientSlug, pieces, aiEnabled }: { cfg: Librar
                   {aiEnabled ? "Add the basics. Claude reads the library, classifies the piece, builds its follow-up sequence and suggests where it fits in existing ones. You review everything before it's saved." : "Add the basics, then set its theme and sequence."}
                 </DialogDescription>
               </DialogHeader>
-              {error && <p className="text-sm text-rag-red">{error}</p>}
+              {error && <p className="rounded-md bg-rag-red-bg px-3 py-2 text-sm text-rag-red">{error}</p>}
               <Field label="Page link" htmlFor="ac-url" hint={readMsg ?? `Paste a ${cfg.pageHosts[0]} link and Lumaux reads the page.`}>
                 <div className="flex gap-2">
                   <Input
@@ -300,8 +299,10 @@ export function AddContent({ cfg, clientSlug, pieces, aiEnabled }: { cfg: Librar
                 <DialogDescription>Claude is reading the library and the current sequences. This usually takes under a minute.</DialogDescription>
               </DialogHeader>
               <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground" role="status">
-                <Spinner label="Finding where it fits" />
-                <span>Reading the library…</span>
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="size-2 animate-pulse rounded-full bg-lime motion-reduce:animate-none" style={{ animationDelay: `${i * 200}ms` }} aria-hidden />
+                ))}
+                <span className="ml-2">Thinking…</span>
               </div>
               <div className="flex justify-end">
                 <Button
@@ -326,8 +327,8 @@ export function AddContent({ cfg, clientSlug, pieces, aiEnabled }: { cfg: Librar
                   {title.trim()}. {signed ? "Claude's suggestions are filled in. Change anything before saving." : "Set its theme, stage and sequence."}
                 </DialogDescription>
               </DialogHeader>
-              {error && <p className="text-sm text-rag-red">{error}</p>}
-              <div className="grid gap-4 sm:grid-cols-2">
+              {error && <p className="rounded-md bg-rag-red-bg px-3 py-2 text-sm text-rag-red">{error}</p>}
+              <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Theme" htmlFor="ac-theme">
                   <Input id="ac-theme" list="ac-themes" value={theme} onChange={(e) => setTheme(e.target.value)} maxLength={80} />
                   <datalist id="ac-themes">
@@ -353,7 +354,7 @@ export function AddContent({ cfg, clientSlug, pieces, aiEnabled }: { cfg: Librar
 
               <div className="space-y-2">
                 <div>
-                  <h3 className="font-semibold text-foreground">Its follow-up sequence</h3>
+                  <p className="font-semibold">Its follow-up sequence</p>
                   <p className="text-xs text-muted-foreground">What to send someone who engages with this piece, and the angle for each email.</p>
                 </div>
                 {emails.map((e) => (
@@ -376,11 +377,11 @@ export function AddContent({ cfg, clientSlug, pieces, aiEnabled }: { cfg: Librar
               {changes.length > 0 && (
                 <div className="space-y-2">
                   <div>
-                    <h3 className="font-semibold text-foreground">Add it to existing sequences</h3>
+                    <p className="font-semibold">Add it to existing sequences</p>
                     <p className="text-xs text-muted-foreground">Untick anything you don&apos;t want changed. A changed sequence goes back for approval.</p>
                   </div>
                   {changes.map((c, i) => (
-                    <label key={`${c.engagedId}-${c.slot}`} className="flex cursor-pointer gap-3 rounded-lg border p-3 text-sm transition-colors hover:border-border-strong">
+                    <label key={`${c.engagedId}-${c.slot}`} className="flex cursor-pointer gap-3 rounded-lg border p-3 text-sm hover:bg-accent/30">
                       <input type="checkbox" className="mt-1 accent-lime" checked={c.on} onChange={() => setChanges((all) => all.map((x, j) => (j === i ? { ...x, on: !x.on } : x)))} />
                       <span className="min-w-0 space-y-0.5">
                         <span className="block">

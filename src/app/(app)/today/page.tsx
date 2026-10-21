@@ -26,6 +26,7 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
   const showAll = !onTeam || (isAdmin(me) && all === "1")
   const list = ((clients ?? []) as QueueClient[]).filter((c) => showAll || mine.has(c.id))
   const items = await loadQueue(supabase, list, { profileId: me.id })
+  const first = (me.full_name ?? "").split(" ")[0]
   const attention = items.filter((i) => i.group === "attention").length
   const clientCount = new Set(items.map((i) => i.client.slug)).size
 
@@ -33,7 +34,7 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
     <div className="space-y-6">
       <PageHeader
         eyebrow={showAll ? "All clients" : "Your clients"}
-        title="Today"
+        title={first ? `Today, ${first}` : "Today"}
         description={
           items.length
             ? `${items.length} thing${items.length === 1 ? "" : "s"} to act on across ${clientCount} client${clientCount === 1 ? "" : "s"}${attention ? `, ${attention} needing attention` : ""}. From recommendations, QA checks, calls, sprint tests and pacing.`
@@ -42,7 +43,7 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
         actions={
           isAdmin(me) &&
           onTeam && (
-            <nav className="inline-flex" aria-label="Whose clients">
+            <nav className="inline-flex gap-0.5 rounded-lg bg-white/[0.04] p-0.5" aria-label="Whose clients">
               {[
                 ["/today", "My clients", !showAll],
                 ["/today?all=1", "All clients", showAll],
@@ -51,9 +52,9 @@ export default async function TodayPage({ searchParams }: PageProps<"/today">) {
                   key={String(href)}
                   href={String(href)}
                   aria-current={active ? "page" : undefined}
-                  className={cn("flex h-8 items-center rounded-sm px-2 text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", active ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
+                  className={cn("flex h-8 items-center rounded-md px-3 text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", active ? "bg-white/[0.1] font-medium text-foreground" : "text-body hover:text-foreground")}
                 >
-                  <span className={cn("flex h-full items-center", active && "select-line")}>{label}</span>
+                  {label}
                 </Link>
               ))}
             </nav>

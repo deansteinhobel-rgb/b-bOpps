@@ -1,4 +1,3 @@
-import { ChevronRight } from "lucide-react"
 import Link from "next/link"
 import { AdThumb } from "@/components/ad-thumb"
 import { PlatformIcon, PlatformLabel } from "@/components/brand"
@@ -14,6 +13,8 @@ import { Delta } from "./charts"
 const ROWS: MetricKey[] = ["spend", "results", "cpr", "ctr", "cpc"]
 const ADS_SHOWN = 10
 
+const tint = (color: string, pct: number) => `color-mix(in oklab, ${color} ${pct}%, transparent)`
+
 /** A link to the page with this segment and platform picked (null clears either), landing on the detail. */
 function viewHref(base: string, query: URLSearchParams, segment: string | null, platform: Platform | null, anchor = "segment-detail") {
   const q = new URLSearchParams(query)
@@ -26,9 +27,8 @@ function viewHref(base: string, query: URLSearchParams, segment: string | null, 
 
 /**
  * SMB vs ABX (Dean, 2026-09-30): each segment's campaigns added up across every platform, side by
- * side, with a row per platform. Its color stays on the dot and the spend bar (taste skill: white
- * headings, no tints). Clicking a segment or one of its platforms picks it for the whole page and
- * opens its campaigns and ads underneath (`SegmentDetail`).
+ * side in its own color, with a row per platform. Clicking a segment or one of its platforms picks
+ * it for the whole page and opens its campaigns and ads underneath (`SegmentDetail`).
  */
 export function SegmentSplit({ segments, currency, base, query, active, platform }: { segments: SegmentTotals[]; currency: string; base: string; query: URLSearchParams; active: string | null; platform: Platform | null }) {
   const total = segments.reduce((s, x) => s + x.now.spend, 0)
@@ -54,10 +54,11 @@ export function SegmentSplit({ segments, currency, base, query, active, platform
         {segments.map((s) => {
           const on = active === s.key
           return (
-            <div key={s.key} className={cn("space-y-4 p-4", on && "bg-elevated")}>
+            <div key={s.key} className="relative space-y-4 p-4" style={on ? { background: tint(s.color, 8) } : undefined}>
+              <span className="absolute inset-x-0 top-0 h-1" style={{ background: s.color, opacity: on || !active ? 1 : 0.45 }} aria-hidden />
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="flex items-center gap-2 text-base font-semibold">
+                  <h3 className="flex items-center gap-2 text-base font-semibold" style={{ color: s.color }}>
                     <span className="size-2.5 rounded-full" style={{ background: s.color }} aria-hidden />
                     {s.label}
                   </h3>
@@ -68,7 +69,7 @@ export function SegmentSplit({ segments, currency, base, query, active, platform
                     Show all
                   </Link>
                 ) : (
-                  <Link href={viewHref(base, query, s.key, null)} className="shrink-0 text-xs font-medium text-body underline-offset-4 transition-colors hover:text-foreground hover:underline">
+                  <Link href={viewHref(base, query, s.key, null)} className="shrink-0 rounded-md px-2 py-1 text-xs font-medium transition-colors hover:bg-secondary" style={{ color: s.color }}>
                     See {s.label} →
                   </Link>
                 )}
@@ -77,7 +78,7 @@ export function SegmentSplit({ segments, currency, base, query, active, platform
                 {ROWS.map((k) => (
                   <div key={k}>
                     <dt className="text-xs text-muted-foreground">{k === "cpr" ? "Cost / result" : METRIC[k].label}</dt>
-                    <dd className="mt-0.5 text-xl leading-tight tabular-nums font-medium">{fmt(k, s.now[k], currency)}</dd>
+                    <dd className="mt-0.5 font-heading text-xl leading-tight tabular-nums">{fmt(k, s.now[k], currency)}</dd>
                     <Delta k={k} now={s.now[k]} before={s.prev[k]} />
                   </div>
                 ))}
@@ -100,13 +101,16 @@ export function SegmentSplit({ segments, currency, base, query, active, platform
                             href={viewHref(base, query, s.key, p.platform)}
                             title={`${s.label} campaigns and ads on ${PLATFORM_LABEL[p.platform]}`}
                             aria-current={here ? "true" : undefined}
-                            className={cn("-mx-2 grid grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_4.5rem_0.75rem] items-center gap-2 rounded-md px-2 py-2 transition-colors", here ? "bg-white/[0.06] font-medium text-foreground" : "hover:bg-white/[0.03]")}
+                            className="-mx-2 grid grid-cols-[minmax(0,1fr)_4.5rem_3.5rem_4.5rem_0.75rem] items-center gap-2 rounded-md px-2 py-2 transition-colors hover:bg-secondary/70"
+                            style={here ? { background: tint(s.color, 18), boxShadow: `inset 3px 0 0 ${s.color}` } : undefined}
                           >
                             <span className="min-w-0 truncate"><PlatformLabel platform={p.platform} /></span>
                             <span className="text-right">{money(p.now.spend, currency)}</span>
                             <span className="text-right">{whole(p.now.results)}</span>
                             <span className="text-right">{fmt("cpr", p.now.cpr, currency)}</span>
-                            <ChevronRight className="ml-auto size-3 text-muted-foreground" aria-hidden />
+                            <span className="text-right text-muted-foreground" aria-hidden>
+                              ›
+                            </span>
                           </Link>
                         </li>
                       )
@@ -129,11 +133,11 @@ export function SegmentSplit({ segments, currency, base, query, active, platform
 export function SegmentDetail({ segment, platform, platforms, base, query, children }: { segment: SegmentOption; platform: Platform | null; platforms: Platform[]; base: string; query: URLSearchParams; children: React.ReactNode }) {
   const tabs: (Platform | null)[] = [null, ...platforms]
   return (
-    <div id="segment-detail" className="scroll-mt-28 space-y-4">
+    <div id="segment-detail" className="scroll-mt-28 space-y-4 rounded-lg border p-4" style={{ borderColor: tint(segment.color, 45), background: tint(segment.color, 4) }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="flex items-center gap-2 text-base font-semibold">
           <span className="size-2.5 rounded-full" style={{ background: segment.color }} aria-hidden />
-          <span>{segment.label}</span>
+          <span style={{ color: segment.color }}>{segment.label}</span>
           <span className="text-muted-foreground">·</span>
           {platform ? PLATFORM_LABEL[platform] : "All platforms"}
         </h3>
@@ -146,12 +150,11 @@ export function SegmentDetail({ segment, platform, platforms, base, query, child
                 href={viewHref(base, query, segment.key, p)}
                 scroll={false}
                 aria-current={here ? "page" : undefined}
-                className={cn("inline-flex h-8 items-center rounded-sm px-2 text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", here ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
+                className={cn("inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors", here ? "text-foreground" : "border-transparent text-muted-foreground hover:bg-secondary/70 hover:text-foreground")}
+                style={here ? { background: tint(segment.color, 16), borderColor: tint(segment.color, 55) } : undefined}
               >
-                <span className={cn("inline-flex h-full items-center gap-1.5", here && "select-line")}>
-                  {p && <PlatformIcon platform={p} className="size-3.5" />}
-                  {p ? PLATFORM_LABEL[p] : "All platforms"}
-                </span>
+                {p && <PlatformIcon platform={p} className="size-3.5" />}
+                {p ? PLATFORM_LABEL[p] : "All platforms"}
               </Link>
             )
           })}
@@ -211,7 +214,7 @@ export function SegmentAds({ ads, previews, currency }: { ads: AdStat[]; preview
       <ul className="divide-y">{sorted.slice(0, ADS_SHOWN).map(row)}</ul>
       {sorted.length > ADS_SHOWN && (
         <details className="group border-t">
-          <summary className="cursor-pointer list-none px-4 py-2.5 text-xs text-muted-foreground hover:bg-white/[0.03] hover:text-foreground">
+          <summary className="cursor-pointer list-none px-4 py-2.5 text-xs text-muted-foreground hover:bg-secondary/30 hover:text-foreground">
             <span className="group-open:hidden">Show {sorted.length - ADS_SHOWN} more</span>
             <span className="hidden group-open:inline">Show fewer</span>
           </summary>

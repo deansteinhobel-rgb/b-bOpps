@@ -30,7 +30,7 @@ export default async function ClientLayout({ children, params }: LayoutProps<"/c
           <span aria-hidden>←</span> All clients
         </Link>
         <div className="flex min-w-0 items-center gap-4">
-          <ClientLogo name={client.name} logoUrl={client.logo_url} size="lg" className="size-11 rounded-md" />
+          <ClientLogo name={client.name} logoUrl={client.logo_url} size="lg" className="size-11 rounded-xl" />
           <div className="min-w-0">
             <h1 className="truncate text-[28px] leading-9">{client.name}</h1>
             {client.website && <p className="truncate text-[13px] leading-5 text-muted-foreground">{client.website}</p>}
@@ -41,7 +41,7 @@ export default async function ClientLayout({ children, params }: LayoutProps<"/c
         <ClientTabs slug={slug} groups={tabGroups({ contentLibrary: libraryConfig(slug) !== null })} />
       </div>
       {!canEdit(me) && (
-        <p className="mt-6 text-[13px] text-muted-foreground">
+        <p className="mt-6 rounded-md bg-white/[0.04] px-4 py-2.5 text-[13px] text-muted-foreground">
           {canRunContentIdeas(me)
             ? "You can see everything here and get content ideas. Saving, briefing and editing are for the paid media team."
             : "You have view access: you can see everything here, but saving, briefing and editing are for the paid media team."}

@@ -54,13 +54,10 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-3xl space-y-1">
-          <h2 className="text-2xl">Competitor ads</h2>
-          <p className="text-sm text-muted-foreground">
-            What {props.clientName}&apos;s competitors are running now, from the public Meta Ad Library, Google Ads Transparency Center and LinkedIn Ad Library, read every other Sunday. The libraries show no results, but an ad that keeps running is usually one that works.
-            {props.lastReadAt && <span className="text-subtle-foreground"> Last read {when(props.lastReadAt)}.</span>}
-          </p>
-        </div>
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          What {props.clientName}&apos;s competitors are running now, from the public Meta Ad Library, Google Ads Transparency Center and LinkedIn Ad Library, read every other Sunday. The libraries show no results, but an ad that keeps running is usually one that works.
+          {props.lastReadAt && <span className="text-subtle-foreground"> Last read {when(props.lastReadAt)}.</span>}
+        </p>
         {props.canEdit && (
           <Button size="sm" variant="outline" onClick={read} disabled={pending || !competitors.length}>
             <RefreshCw className={cn(pending && "animate-spin")} /> Read again now
@@ -97,7 +94,7 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
                             ) : null
                           })}
                         </span>
-                        <span className="text-xs text-muted-foreground sm:w-24">{newCount ? <span className="text-foreground">{newCount} new</span> : "Nothing new"}</span>
+                        <span className="text-xs text-muted-foreground sm:w-24">{newCount ? <span className="text-lime">{newCount} new</span> : "Nothing new"}</span>
                         <span className="text-xs text-muted-foreground tabular-nums sm:w-28 sm:text-right">Longest {longest} days</span>
                       </>
                     ) : (
@@ -184,6 +181,7 @@ function AdCard({ ad, competitor, today, isNew }: { ad: AdRow; competitor: strin
     <button type="button" onClick={open} aria-haspopup="dialog" className="group/card flex w-full flex-col gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {ad.src ? (
         <span className="relative block aspect-square w-full overflow-hidden rounded-md border bg-elevated transition-colors group-hover/card:border-foreground/30">
+          <img src={ad.src} alt="" aria-hidden loading="lazy" className="absolute inset-0 size-full scale-110 object-cover opacity-40 blur-xl" />
           <img src={ad.src} alt={ad.headline ?? `${competitor} ad`} loading="lazy" className="relative size-full object-contain" />
         </span>
       ) : (
@@ -194,7 +192,7 @@ function AdCard({ ad, competitor, today, isNew }: { ad: AdRow; competitor: strin
       <span className="flex items-center gap-1.5 text-[13px]">
         <PlatformIcon platform={SOURCE_PLATFORM[ad.source]} />
         <span className="truncate font-medium text-foreground">{competitor}</span>
-        {isNew && <span className="pill shrink-0 border-white/30 text-foreground">New</span>}
+        {isNew && <span className="pill shrink-0 border-lime/50 text-lime">New</span>}
       </span>
       <span className="text-xs text-muted-foreground">
         Live {daysAreEstimate(ad) ? `${days}+` : days} days{ad.label_offer && ad.label_offer !== "Other" ? ` · ${ad.label_offer}` : ""}
@@ -219,8 +217,8 @@ function AdPanel({ ads, names, today }: { ads: AdRow[]; names: Map<string, strin
   return (
     <DialogPrimitive.Root open={!!ad} onOpenChange={(o) => !o && close()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/50 duration-150 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0" />
-        <DialogPrimitive.Popup className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l bg-background text-sm shadow-2xl outline-none duration-200 data-closed:animate-out data-closed:slide-out-to-right data-open:animate-in data-open:slide-in-from-right">{/* taste-skill-ignore: a real overlay (side panel) */}
+        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/40 duration-150 supports-backdrop-filter:backdrop-blur-xs data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0" />
+        <DialogPrimitive.Popup className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l bg-background text-sm shadow-2xl outline-none duration-200 data-closed:animate-out data-closed:slide-out-to-right data-open:animate-in data-open:slide-in-from-right">
           {ad && (
             <>
               <header className="flex items-start gap-3 border-b px-5 py-4">
@@ -295,11 +293,10 @@ function ThemVsUs({ ads, ours, clientName }: { ads: AdRow[]; ours: OurLabels[]; 
           </>
         }
       />
-      {/* One box split into columns, so the three lists never end at different heights. */}
-      <div className="surface grid divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
+      <div className="grid gap-4 md:grid-cols-3">
         {groups.map((g) => (
-          <div key={g.title} className="space-y-3 p-4">
-            <h3 className="text-sm font-semibold text-foreground">{g.title}</h3>
+          <div key={g.title} className="surface space-y-3 p-4">
+            <h3 className="text-sm font-semibold">{g.title}</h3>
             <ul className="space-y-2.5">
               {g.rows.map((r) => (
                 <li key={r.value} className="space-y-1">
@@ -374,9 +371,9 @@ function ManageCompetitors({ slug, competitors, canEdit }: { slug: string; compe
                 </div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
                   <dt className="inline-flex items-center gap-1.5 text-muted-foreground"><PlatformIcon platform="meta" className="size-3.5" /> Meta</dt>
-                  <dd className="font-mono text-body">{c.meta_page_id ?? "–"}</dd>{/* taste-skill-ignore: ids */}
+                  <dd className="font-mono text-body">{c.meta_page_id ?? "–"}</dd>
                   <dt className="inline-flex items-center gap-1.5 text-muted-foreground"><PlatformIcon platform="google_ads" className="size-3.5" /> Google</dt>
-                  <dd className="font-mono text-body">{c.google_advertiser_ids.join(", ") || "–"}</dd>{/* taste-skill-ignore: ids */}
+                  <dd className="font-mono text-body">{c.google_advertiser_ids.join(", ") || "–"}</dd>
                   <dt className="inline-flex items-center gap-1.5 text-muted-foreground"><PlatformIcon platform="linkedin" className="size-3.5" /> LinkedIn</dt>
                   <dd className="text-body">{c.linkedin_advertiser ?? "–"}</dd>
                 </dl>
@@ -413,13 +410,13 @@ function CompetitorForm({ slug, id, initial, onDone }: { slug: string; id: strin
   const field = (key: keyof CompetitorInput, label: string, hint: string, mono = false) => (
     <label className="space-y-1">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <input value={v[key]} onChange={(e) => setV({ ...v, [key]: e.target.value })} className={cn("h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:border-foreground/30", mono && "font-mono text-[13px]")} />{/* taste-skill-ignore: ids */}
+      <input value={v[key]} onChange={(e) => setV({ ...v, [key]: e.target.value })} className={cn("h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:border-foreground/30", mono && "font-mono text-[13px]")} />
       <span className="block text-[11px] text-subtle-foreground">{hint}</span>
     </label>
   )
   return (
     <div className="space-y-3">
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         {field("name", "Name", "As the team calls them")}
         {field("website", "Website", "e.g. cloudflare.com")}
         {field("metaPageId", "Meta page id", "The view_all_page_id in their Meta Ad Library link", true)}

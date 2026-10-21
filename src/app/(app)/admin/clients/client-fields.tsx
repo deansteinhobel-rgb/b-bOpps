@@ -25,7 +25,7 @@ export type ClientValues = {
 export function ClientFields({ values, notionOptions, taken }: { values?: ClientValues; notionOptions: string[]; taken: Set<string> }) {
   const v = values
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-3 sm:grid-cols-2">
       {v?.id && <input type="hidden" name="id" value={v.id} />}
       <div className="space-y-1">
         <Label htmlFor="name">Name</Label>
@@ -77,7 +77,7 @@ export function ClientFields({ values, notionOptions, taken }: { values?: Client
           <p className="text-sm font-semibold">Labels for comparing clients</p>
           <p className="text-xs text-muted-foreground">Used to compare what works across clients (by industry, sales motion, deal size and market). Fixed lists, so they line up.</p>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label htmlFor="industry">Industry</Label>
             <select id="industry" name="industry" defaultValue={v?.industry ?? ""} className={fieldClass}>
@@ -120,7 +120,7 @@ export function ClientFields({ values, notionOptions, taken }: { values?: Client
           <p className="text-sm">Markets they sell into</p>
           <div className="flex flex-wrap gap-2">
             {Object.entries(REGIONS).map(([k, label]) => (
-              <label key={k} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-border-strong has-checked:bg-elevated has-checked:font-medium has-checked:text-foreground">
+              <label key={k} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-lime has-checked:bg-lime has-checked:text-ink">
                 <input type="checkbox" className="sr-only" name="regions" value={k} defaultChecked={v?.regions?.includes(k)} />
                 {label}
               </label>

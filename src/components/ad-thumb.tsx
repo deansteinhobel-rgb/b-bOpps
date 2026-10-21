@@ -3,7 +3,6 @@
 import { Popover } from "@base-ui/react/popover"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
-import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import { addAdPostLink } from "@/app/(app)/ad-post-actions"
 import { Button } from "@/components/ui/button"
@@ -32,7 +31,7 @@ export function AdThumb({ preview, alt, size = "md", className }: { preview?: Pr
   }
   if (!preview?.src) {
     const label = preview?.textOnly ? "Text ad" : (preview?.kind ?? "No preview")
-    const cls = cn(tile, "flex items-center justify-center p-1 text-center text-[11px] leading-tight text-muted-foreground")
+    const cls = cn(tile, "flex items-center justify-center p-1 text-center text-[10px] leading-tight text-muted-foreground")
     if (site)
       return (
         <a href={preview!.link!} target="_blank" rel="noreferrer" className={cn(cls, "transition-colors hover:border-foreground/30 hover:text-foreground")} aria-label={`${alt}: ${label}, open it in ${site}`} title={`Open in ${site}`}>
@@ -47,8 +46,9 @@ export function AdThumb({ preview, alt, size = "md", className }: { preview?: Pr
   }
   const image =
     size === "card" ? (
-      // The whole creative, uncropped, letterboxed on the flat tile (no blurred backdrop copy: taste sweep).
+      // The whole creative, uncropped, over a blurred copy of itself so any aspect ratio fills the square.
       <span className={cn(tile, "relative block")}>
+        <img src={preview.src} alt="" aria-hidden loading="lazy" className="absolute inset-0 size-full scale-110 object-cover opacity-40 blur-xl" />
         <img src={preview.src} alt={alt} loading="lazy" className="relative size-full object-contain transition-transform duration-300 group-hover/card:scale-[1.02]" />
       </span>
     ) : (
@@ -112,7 +112,7 @@ function arrange(ad: TextAd) {
   try {
     domain = ad.finalUrl ? new URL(ad.finalUrl).hostname.replace(/^www\./, "") : ""
   } catch {}
-  const path = [domain, ad.path1, ad.path2].filter(Boolean).join(" › ")
+  const path = [domain || "example.com", ad.path1, ad.path2].filter(Boolean).join(" › ")
   return { headlines, descriptions, domain, path }
 }
 
@@ -123,7 +123,7 @@ function SearchAdThumb({ ad, alt, className, size }: { ad: TextAd; alt: string; 
       <HoverCardTrigger delay={150} render={<span className={cn("shrink-0", size === "card" && "block")} tabIndex={0} aria-label={`${alt}: search ad mock`} />}>
         {/* A tiny Google result: Sponsored, then the blue headline (and the description on cards). */}
         <span className={cn(className, "flex flex-col gap-0.5 bg-white p-1 text-left", size === "lg" && "p-2", size === "card" && "justify-center gap-1.5 p-4")}>
-          <span className={cn("font-bold text-[#202124]", size === "card" ? "text-[11px]" : size === "lg" ? "text-[11px]" : "text-[6px]")}>Sponsored</span>
+          <span className={cn("font-bold text-[#202124]", size === "card" ? "text-[11px]" : size === "lg" ? "text-[9px]" : "text-[6px]")}>Sponsored</span>
           <span className={cn("font-medium leading-tight text-[#1a0dab]", size === "card" ? "line-clamp-4 text-[15px]" : size === "lg" ? "line-clamp-4 text-[11px]" : size === "md" ? "line-clamp-4 text-[8px]" : "line-clamp-3 text-[6px]")}>{a.headlines.join(" | ")}</span>
           {size === "card" && <span className="line-clamp-3 text-[11px] leading-snug text-[#4d5156]">{a.descriptions.join(" ")}</span>}
         </span>
@@ -163,7 +163,7 @@ export function SearchAdMock({ ad, className }: { ad: TextAd; className?: string
 function CardPlaceholder({ kind, alt, className, site }: { kind: string | null; alt: string; className: string; site?: string | null }) {
   return (
     <span
-      className={cn(className, "flex flex-col items-center justify-center gap-3 bg-elevated text-muted-foreground")}
+      className={cn(className, "flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-elevated to-card text-muted-foreground")}
       role="img"
       aria-label={`${alt}: ${kind ?? "no preview"}`}
       title={site ? `Open in ${site}` : kind ? "Windsor has no image for this ad type" : undefined}
@@ -172,7 +172,7 @@ function CardPlaceholder({ kind, alt, className, site }: { kind: string | null; 
         <path d="M4 2h22l10 10v34H4z" />
         <path d="M26 2v10h10M10 22h20M10 28h20M10 34h13" />
       </svg>
-      <span className="text-xs">{kind ?? "No preview"}</span>
+      <span className="text-xsr">{kind ?? "No preview"}</span>
       {site && <span className="text-[11px] text-foreground/70 underline underline-offset-2">Open in {site} ↗</span>}
     </span>
   )
@@ -204,7 +204,7 @@ function AddPostTile({ addPost, alt, className, size }: { addPost: NonNullable<P
         title="Thought leader ad? Add the post link to show it here"
         className={cn(className, "flex flex-col items-center justify-center gap-0.5 border-dashed p-1 text-center leading-tight text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground", size === "card" ? "text-sm" : "text-[11px]")}
       >
-        <Plus aria-hidden className="size-4" />
+        <span aria-hidden className="text-base leading-none">+</span>
         Add post
       </Popover.Trigger>
       <Popover.Portal>

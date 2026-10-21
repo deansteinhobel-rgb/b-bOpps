@@ -67,13 +67,10 @@ export function KeywordAdsView(props: {
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="max-w-3xl space-y-1">
-          <h2 className="text-2xl">Keyword ads</h2>
-          <p className="text-sm text-muted-foreground">
-            What the market runs for {props.clientName}&apos;s keywords: the Meta Ad Library and LinkedIn Ad Library searched every other Sunday. For each search, the top 30 ads in the library&apos;s own order, and the 3 of those that have run longest, which are usually the ones that work. {props.clientName}&apos;s own ads are left out of the picks. Meta starts an ad&apos;s date again when it&apos;s edited, so its days are a minimum; our reads keep the earliest date we&apos;ve seen.
-            {props.lastReadAt && <span className="text-subtle-foreground"> Last read {when(props.lastReadAt)}.</span>}
-          </p>
-        </div>
+        <p className="max-w-3xl text-sm text-muted-foreground">
+          What the market runs for {props.clientName}&apos;s keywords: the Meta Ad Library and LinkedIn Ad Library searched every other Sunday. For each search, the top 30 ads in the library&apos;s own order, and the 3 of those that have run longest, which are usually the ones that work. {props.clientName}&apos;s own ads are left out of the picks. Meta starts an ad&apos;s date again when it&apos;s edited, so its days are a minimum; our reads keep the earliest date we&apos;ve seen.
+          {props.lastReadAt && <span className="text-subtle-foreground"> Last read {when(props.lastReadAt)}.</span>}
+        </p>
         {props.canEdit && (
           <Button size="sm" variant="outline" onClick={read} disabled={pending || !keywords.length}>
             <RefreshCw className={cn(pending && "animate-spin")} /> Read again now
@@ -93,7 +90,7 @@ export function KeywordAdsView(props: {
                     const sum = summaries.find((x) => x.keywordId === k.id && x.source === s)
                     const on = selected?.id === k.id && selected.source === s
                     return (
-                      <li key={`${k.id}-${s}`} className={cn("grid gap-4 px-4 py-3 md:grid-cols-[14rem_1fr]", on && "bg-white/[0.04]")}>
+                      <li key={`${k.id}-${s}`} className={cn("grid gap-3 px-4 py-3 md:grid-cols-[14rem_1fr]", on && "bg-white/[0.04]")}>
                         <Link href={href(k.id, s)} scroll={false} className="flex items-start gap-2 text-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
                           <PlatformIcon platform={SOURCE_PLATFORM[s]} className="mt-0.5" />
                           <span>
@@ -128,10 +125,8 @@ export function KeywordAdsView(props: {
               kw.sources.length > 1 && (
                 <div className="flex gap-1">
                   {(kw.sources as KeywordSource[]).map((s) => (
-                    <Link key={s} href={href(kw.id, s)} scroll={false} aria-current={s === selected.source ? "true" : undefined} className={cn("inline-flex h-8 items-center rounded-sm px-2 text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", s === selected.source ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>
-                      <span className={cn("inline-flex h-full items-center gap-1.5", s === selected.source && "select-line")}>
-                        <PlatformIcon platform={SOURCE_PLATFORM[s]} /> {SOURCE_LABEL[s]}
-                      </span>
+                    <Link key={s} href={href(kw.id, s)} scroll={false} className={cn("inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px]", s === selected.source ? "bg-white/[0.08] font-medium text-foreground" : "text-body hover:bg-white/[0.04]")}>
+                      <PlatformIcon platform={SOURCE_PLATFORM[s]} /> {SOURCE_LABEL[s]}
                     </Link>
                   ))}
                 </div>
@@ -164,6 +159,7 @@ export function KeywordAdsView(props: {
 function Creative({ ad, className }: { ad: KeywordAdView; className?: string }) {
   return ad.src ? (
     <span className={cn("relative block overflow-hidden rounded-md border bg-elevated", className)}>
+      <img src={ad.src} alt="" aria-hidden loading="lazy" className="absolute inset-0 size-full scale-110 object-cover opacity-40 blur-xl" />
       <img src={ad.src} alt={ad.headline ?? `${ad.advertiser ?? "An advertiser"}'s ad`} loading="lazy" className="relative size-full object-contain" />
     </span>
   ) : (
@@ -198,12 +194,12 @@ function AdCard({ ad, rank, today, pick }: { ad: KeywordAdView; rank: number; to
       className={cn("group flex w-full flex-col gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring", off && "opacity-45 hover:opacity-100")}
     >
       <span className="relative block">
-        <Creative ad={ad} className={cn("aspect-square w-full transition-colors group-hover:border-foreground/30", pick && "border-border-strong")} />
+        <Creative ad={ad} className={cn("aspect-square w-full transition-colors group-hover:border-foreground/30", pick && "border-lime/60")} />
         <span className="absolute top-1.5 left-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-foreground tabular-nums">#{rank}</span>
       </span>
       <span className="flex items-center gap-1.5 text-[13px]">
         <span className="truncate font-medium text-foreground">{ad.advertiser ?? "Unknown advertiser"}</span>
-        {pick && <span className="pill shrink-0 border-white/30 text-foreground">Running longest</span>}
+        {pick && <span className="pill shrink-0 border-lime/50 text-lime">Running longest</span>}
         {off && <span className="pill shrink-0">Off-topic</span>}
       </span>
       <span className="text-xs text-muted-foreground">

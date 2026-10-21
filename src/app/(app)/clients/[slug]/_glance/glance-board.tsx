@@ -46,54 +46,52 @@ export function GlanceBoard(p: {
 }) {
   const cur = p.currency
   const n = p.numbers
+  const cols = p.goals.length === 0 ? "lg:grid-cols-3" : p.goals.length === 1 ? "lg:grid-cols-4" : "lg:grid-cols-5"
+
   return (
     <div className="space-y-5">
       {/* The month in one line, then the numbers that matter */}
       <section className="space-y-4">
         {n ? (
           <div className="space-y-1.5">
-            {p.headline}
-            {/* The period line sits under the headline as its description (no eyebrow above it). */}
-            <p className="text-[13px] text-muted-foreground">
+            <p className="eyebrow">
               {p.month} so far · to {shortDate(n.dataThrough)}, day {n.daysElapsed} of {n.daysInMonth}
             </p>
+            {p.headline}
           </div>
         ) : (
           <p className="surface px-5 py-6 text-sm text-muted-foreground">No ad data yet. Once an ad account is connected and synced, this month&apos;s numbers show here.</p>
         )}
-        {/* The month's numbers in one box split by hairlines, not three separate tiles. */}
-        {n && (
-          <section className="surface overflow-hidden">
-            <div className="-mt-px -ml-px grid sm:grid-cols-3 [&>*]:shadow-[inset_1px_1px_0_var(--border)]">{/* taste-skill-ignore: hairlines between cells */}
-              <Tile label="Spent" hint="What we've paid the ad platforms this month, against the month's budget." value={money(n.mtd.spend, cur)}>
-                {p.budget > 0 ? (
-                  <span className="block space-y-1.5">
-                    <PaceBar spend={n.mtd.spend} expected={p.expected} budget={p.budget} />
-                    <span className="block">
-                      of {money(p.budget, cur)} · {paceWords(n.mtd.spend, p.expected, p.budget)}
+        {(n || p.goals.length > 0) && (
+          <div className={cn("grid gap-3 sm:grid-cols-2", cols)}>
+            {n && (
+              <>
+                <Tile label="Spent" hint="What we've paid the ad platforms this month, against the month's budget." value={money(n.mtd.spend, cur)}>
+                  {p.budget > 0 ? (
+                    <span className="block space-y-1.5">
+                      <PaceBar spend={n.mtd.spend} expected={p.expected} budget={p.budget} />
+                      <span className="block">
+                        of {money(p.budget, cur)} · {paceWords(n.mtd.spend, p.expected, p.budget)}
+                      </span>
                     </span>
-                  </span>
-                ) : (
-                  "No budget set"
-                )}
-              </Tile>
-              <Tile label="Results" hint="A result is a conversion or a lead: someone filling in a form, booking a demo or signing up after seeing an ad." value={whole(n.mtd.results)}>
-                <Delta now={n.mtd.results} before={n.lastMonthSameDays.results} betterUp /> vs the same days last month ({whole(n.lastMonthSameDays.results)})
-              </Tile>
-              <Tile label="Cost per result" hint="Spend divided by results: what each result cost us. Lower is better." value={money(n.mtd.cpr, cur)} valueClass={cprTone(n.mtd.cpr, p.target)}>
-                {p.target ? (
-                  <span className={cprTone(n.mtd.cpr, p.target)}>
-                    {n.mtd.cpr === null ? `Target ${money(p.target, cur)}` : n.mtd.cpr <= p.target ? `Under the ${money(p.target, cur)} target` : `${Math.round((n.mtd.cpr / p.target - 1) * 100)}% over the ${money(p.target, cur)} target`}
-                  </span>
-                ) : (
-                  "No target set"
-                )}
-              </Tile>
-            </div>
-          </section>
-        )}
-        {p.goals.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2">
+                  ) : (
+                    "No budget set"
+                  )}
+                </Tile>
+                <Tile label="Results" hint="A result is a conversion or a lead: someone filling in a form, booking a demo or signing up after seeing an ad." value={whole(n.mtd.results)}>
+                  <Delta now={n.mtd.results} before={n.lastMonthSameDays.results} betterUp /> vs the same days last month ({whole(n.lastMonthSameDays.results)})
+                </Tile>
+                <Tile label="Cost per result" hint="Spend divided by results: what each result cost us. Lower is better." value={money(n.mtd.cpr, cur)} valueClass={cprTone(n.mtd.cpr, p.target)}>
+                  {p.target ? (
+                    <span className={cprTone(n.mtd.cpr, p.target)}>
+                      {n.mtd.cpr === null ? `Target ${money(p.target, cur)}` : n.mtd.cpr <= p.target ? `Under the ${money(p.target, cur)} target` : `${Math.round((n.mtd.cpr / p.target - 1) * 100)}% over the ${money(p.target, cur)} target`}
+                    </span>
+                  ) : (
+                    "No target set"
+                  )}
+                </Tile>
+              </>
+            )}
             {p.goals.map((g) => (
               <GlanceCard key={g.id} id={`goal-${g.id}`} title={g.name} meta={g.monthLabel} summary={<GoalSummary goal={g} />} detailTitle={g.name} detailDescription="The client's main goal this month, from outside the ad platforms. Updated by hand." detail={<GoalCard slug={p.slug} goal={g} canEdit={p.canEditGoals} />} wide={false} />
             ))}
@@ -102,7 +100,7 @@ export function GlanceBoard(p: {
       </section>
 
       {/* Four cards, one screen: click any for the full picture */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         {p.spendDetail && n && (
           <GlanceCard
             id="spend"
@@ -121,12 +119,12 @@ export function GlanceBoard(p: {
 
 function Tile({ label, hint, value, valueClass, children }: { label: string; hint: string; value: string; valueClass?: string; children: React.ReactNode }) {
   return (
-    <div className="p-4">
-      <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+    <div className="surface px-4 py-3.5">
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {label}
         <Hint>{hint}</Hint>
       </p>
-      <p className={cn("mt-1.5 text-2xl leading-none tabular-nums font-medium", valueClass)}>{value}</p>
+      <p className={cn("mt-1.5 font-heading text-3xl leading-none tabular-nums", valueClass)}>{value}</p>
       <div className="mt-2 text-xs text-muted-foreground">{children}</div>
     </div>
   )
@@ -156,13 +154,10 @@ export function GoalSummary({ goal: g }: { goal: GoalView }) {
   const key = !t || g.value === null ? "none" : v >= t || (gap !== null && gap >= -0.05 * t) ? "good" : gap !== null && gap >= -0.15 * t ? "near" : "off"
   const tone = { good: "text-rag-green", near: "text-rag-amber", off: "text-rag-red", none: "text-muted-foreground" }[key]
   const bar = { good: "bg-rag-green", near: "bg-rag-amber", off: "bg-rag-red", none: "bg-muted-foreground" }[key]
-  // Straight-line projection to the month's end, shown at the card's foot (it fills a card stretched
-  // beside the Summary's verdict with something worth reading).
-  const projected = g.value !== null && g.dayOfMonth > 0 ? Math.round((v / g.dayOfMonth) * g.daysInMonth) : null
   return (
-    <span className="flex h-full flex-col gap-2">
+    <span className="block space-y-2">
       <span className="flex items-baseline gap-1.5">
-        <span className="text-[28px] leading-none font-medium tabular-nums">{g.value === null ? "–" : whole(g.value)}</span>
+        <span className={cn("font-heading text-3xl leading-none tabular-nums", tone)}>{g.value === null ? "–" : whole(g.value)}</span>
         {t !== null && <span className="text-xs text-muted-foreground">of {whole(t)}</span>}
       </span>
       {t ? (
@@ -171,19 +166,10 @@ export function GoalSummary({ goal: g }: { goal: GoalView }) {
             <span className={cn("absolute inset-y-0 left-0 rounded-full", bar)} style={{ width: `${Math.min(100, (v / t) * 100)}%` }} />
             {expected !== null && <span className="absolute inset-y-0 w-0.5 bg-foreground/70" style={{ left: `${Math.min(100, (expected / t) * 100)}%` }} aria-hidden />}
           </span>
-          <span className={cn("block text-xs", g.value === null ? "text-muted-foreground" : tone)}>{g.value === null ? "Not updated yet this month" : gap !== null && gap >= 0 ? `Ahead of pace by ${whole(gap)}` : `Behind pace by ${whole(Math.abs(gap ?? 0))}`}</span>
+          <span className="block text-xs text-muted-foreground">{g.value === null ? "Not updated yet this month" : gap !== null && gap >= 0 ? `Ahead of pace by ${whole(gap)}` : `Behind pace by ${whole(Math.abs(gap ?? 0))}`}</span>
         </>
       ) : (
         <span className="block text-xs text-muted-foreground">No target set</span>
-      )}
-      {projected !== null && (
-        <span className="mt-auto flex items-baseline justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
-          On course for
-          <span className="text-sm font-medium text-foreground tabular-nums">
-            {whole(projected)}
-            {t ? <span className="ml-1 text-xs font-normal text-muted-foreground">of {whole(t)}</span> : null}
-          </span>
-        </span>
       )}
     </span>
   )
@@ -208,7 +194,7 @@ function SpendSummary({ platforms, currency, targets }: { platforms: PlatformSpe
             </span>
             <span className="text-right text-xs leading-tight">
               <span className={cn("block tabular-nums", cprTone(x.cpr, targetFor(targets, x.platform)))}>{x.cpr === null ? "–" : money(x.cpr, currency)}</span>
-              <span className="block text-[11px] text-muted-foreground">{whole(x.results)} results</span>
+              <span className="block text-[10px] text-muted-foreground">{whole(x.results)} results</span>
             </span>
           </span>
         ))}
@@ -264,7 +250,7 @@ export function ChangesSummary({ recent, count, by }: { recent: TimelineEntry[];
   return (
     <span className="block space-y-3">
       <span className="flex items-baseline gap-2">
-        <span className="text-3xl leading-none tabular-nums font-medium">{count}</span>
+        <span className="font-heading text-3xl leading-none tabular-nums">{count}</span>
         <span className="text-xs text-muted-foreground">{count === 0 ? "changes. Nothing changed in the last 7 days." : [by.team && `${by.team} by the team`, by.platform && `${by.platform} on the platforms`, by.app && `${by.app} in the app`].filter(Boolean).join(" · ")}</span>
       </span>
       {recent.length > 0 && (
@@ -325,13 +311,13 @@ export function PlansSummary({ sprint, tests, nextCount }: { sprint: { number: n
   )
 }
 
-// Outlined chips with no tinted fill; only Live keeps a color (green), done reads quieter.
 const STAGE_TONE: Record<string, string> = {
-  live: "text-rag-green",
-  done: "text-muted-foreground",
+  live: "border-rag-green/40 bg-rag-green/10 text-rag-green",
+  review: "border-violet/40 bg-violet/10 text-violet",
+  done: "border-foreground/15 text-muted-foreground",
 }
 /** A test's stage as a small pill (At a glance, both layouts). */
 export function StagePill({ stage, label }: { stage: string; label?: string }) {
   const s = STAGES.find((x) => x.key === stage)
-  return <span className={cn("shrink-0 rounded-full border border-border-strong px-2 py-0.5 text-[11px]", STAGE_TONE[stage] ?? "text-body")}>{label ?? s?.label ?? stage}</span>
+  return <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[11px]", STAGE_TONE[stage] ?? "border-foreground/15 text-foreground/80")}>{label ?? s?.label ?? stage}</span>
 }

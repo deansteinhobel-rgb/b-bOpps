@@ -36,8 +36,7 @@ export function AdsPanel({ slug, currency, best, tiring, unknown, previews }: { 
                   <PlatformIcon platform={p.platform} className="size-3.5" />
                   {PLATFORM_LABEL[p.platform]} · ranked by {p.basis === "cost_per_result" ? "cost per result" : "click-through rate"}
                 </p>
-                {/* Columns fit the count, so one or two ads never sit in a mostly empty row of three. */}
-                <ul className={cn("grid gap-4", p.ads.length >= 3 ? "sm:grid-cols-2 lg:grid-cols-3" : p.ads.length === 2 ? "sm:grid-cols-2" : "")}>
+                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {p.ads.map((a, i) => (
                     <BestAd key={adKey(a)} ad={a} rank={i + 1} basis={p.basis} currency={currency} previews={previews} />
                   ))}
@@ -90,7 +89,7 @@ function BestAd({ ad, rank, basis, currency, previews }: { ad: RankedAd; rank: n
     <li className="surface flex gap-3 p-3">
       <div className="relative">
         <AdThumb preview={preview} alt={name} size="lg" />
-        <span className={cn("absolute -top-1.5 -left-1.5 flex size-5 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums", rank === 1 ? "bg-white text-ink" : "bg-secondary text-foreground")}>{rank}</span>
+        <span className={cn("absolute -top-1.5 -left-1.5 flex size-5 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums", rank === 1 ? "bg-lime text-primary-foreground" : "bg-secondary text-foreground")}>{rank}</span>
       </div>
       <div className="min-w-0 flex-1 space-y-1.5">
         <p className="line-clamp-2 text-sm font-medium leading-snug" title={name}>

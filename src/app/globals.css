@@ -69,14 +69,11 @@
    (src/app/layout.tsx), because production loads it from the Supabase project's public "brand"
    bucket and that address comes from NEXT_PUBLIC_SUPABASE_URL. */
 
-/* Lumaux by Bordeaux & Burgundy. Colors and fonts are George's B&B design system (2026-10-01); the
-   layout and components follow the taste skill's "data terminal" app style (Dean, 2026-10-21): the
-   page is #1a1a1a and the sidebar sits on it; boxes are black (darker than the page) with a faint
-   1px edge and a 6px radius; titles white, prose light gray, quiet text #91969c. Lime is the one
-   signal and stays small: every selection (nav row, tab, filter, segmented option) is the same 1px
-   lime line as wide as its label, plus focus and the first chart series. The primary button is
-   inverted white, not lime. Lime never means "green" status; RAG colors are separate. No all caps,
-   no gradients, no glass. */
+/* Lumaux by Bordeaux & Burgundy, on George's B&B design system (2026-10-01): a well-set magazine
+   spread on a dark screen. The page is #1a1a1a; boxes are black with a 1px hairline and a 12px
+   radius; titles are white, prose light gray, quiet text #91969c. One yellow, used as a signal
+   (primary buttons, the active tab, focus, one chart series), never as a background.
+   Lime never means "green" status; RAG colors are separate. No all caps anywhere. */
 :root {
   color-scheme: dark;
   --font-sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -86,10 +83,8 @@
   --lime: #e4ff1a;
   --pink: #ff3d8a;
   --ember: #e8552f;
-  /* Violet and lavender are retired (taste skill, 2026-10-21: not B&B colors, and the generated-app
-     accent). The names stay for the tags that used them, now two quiet grays. */
-  --lavender: #c7c7c7;
-  --violet: #a3a8ae;
+  --lavender: #c9b8e0;
+  --violet: #8b8ee0;
   --paper: #ffffff;
 
   --background: #1a1a1a;
@@ -100,18 +95,17 @@
   --popover: #0f0f0f;
   --popover-foreground: #ffffff;
   --elevated: #262626;
-  /* Primary is inverted white (taste skill); lime is the ring and the selection line. */
-  --primary: #ffffff;
+  --primary: var(--lime);
   --primary-foreground: #1a1a1a;
   --secondary: #262626;
   --secondary-foreground: #ffffff;
   --muted: #242424;
   --muted-foreground: #91969c;
-  --subtle-foreground: #868a90;
+  --subtle-foreground: #6c7076;
   --accent: #262626;
   --accent-foreground: #ffffff;
   --destructive: #f87171;
-  --border: #2b2b2b;
+  --border: #333333;
   --border-strong: #5e6165;
   --input: #3a3a3a;
   --ring: var(--lime);
@@ -121,16 +115,15 @@
   --chart-3: #e8552f;
   --chart-4: #9aa0a6;
   --chart-5: #5e6165;
-  --radius: 0.375rem;
+  --radius: 0.75rem;
 
-  /* The sidebar sits on the page ground, one hairline from the canvas. */
-  --sidebar: var(--background);
+  --sidebar: #000000;
   --sidebar-foreground: #ffffff;
   --sidebar-primary: var(--lime);
   --sidebar-primary-foreground: #1a1a1a;
-  --sidebar-accent: #262626;
+  --sidebar-accent: #1a1a1a;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: var(--border);
+  --sidebar-border: #262626;
   --sidebar-ring: var(--lime);
 
   /* Status (RAG), tuned for dark. Deliberately not lime. */
@@ -196,7 +189,7 @@
   color: var(--body);
 }
 
-/* A small outlined chip that labels things, inside rows and beside values (never above a heading). */
+/* The B&B pill: a small outlined chip that labels things (bold is used here and nowhere else). */
 @utility pill {
   display: inline-flex;
   align-items: center;
@@ -206,30 +199,16 @@
   border: 1px solid var(--border);
   border-radius: 9999px;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1;
   white-space: nowrap;
   color: var(--muted-foreground);
 }
-/* An active pill: one flat tone step up, white text. */
+/* An active pill: the design system's gray-to-black fill with white text. */
 @utility pill-active {
   border-color: var(--border-strong);
-  background: var(--elevated);
+  background: linear-gradient(180deg, #4a4a4a, #000000);
   color: var(--foreground);
-}
-
-/* The one selection mark (data terminal): a 1px lime line along the bottom of the label. Put it on
-   an element whose box is exactly the label (no horizontal padding), or set left/right yourself. */
-@utility select-line {
-  position: relative;
-  &::after {
-    content: "";
-    position: absolute;
-    inset-inline: 0;
-    bottom: 0;
-    height: 1px;
-    background: var(--lime);
-  }
 }
 
 /* A quiet surface for grouped content (cards, lists). */

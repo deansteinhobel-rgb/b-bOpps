@@ -1,7 +1,5 @@
 "use client"
 
-import { ChevronRight, X } from "lucide-react"
-import { ClaudeMark } from "@/components/brand"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState, useTransition } from "react"
@@ -153,11 +151,10 @@ export function InsightFeed(props: {
                 setView("open")
               }}
               aria-pressed={active}
-              // A category is also the list's filter: the picked one gets a tone step and the one selection mark.
-              className={cn("bg-card px-4 py-3.5 text-left transition-colors outline-none hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset", active && "bg-elevated select-line")}
+              className={cn("bg-card px-4 py-3.5 text-left transition-colors hover:bg-secondary/60", active && "bg-secondary")}
             >
-              <span className="text-[13px] text-muted-foreground">{CATEGORY[c].label}</span>
-              <span className="mt-1 block text-2xl leading-none font-medium tabular-nums">{byCategory[c].length}</span>
+              <span className="text-xs text-muted-foreground">{CATEGORY[c].label}</span>
+              <span className="mt-1 block font-heading text-2xl leading-none tabular-nums">{byCategory[c].length}</span>
               <span className="mt-2 block truncate text-xs text-muted-foreground">
                 {c === "waste" && wasted > 0 ? `${money(wasted, props.currency)} at stake` : CATEGORY[c].hint}
               </span>
@@ -199,7 +196,7 @@ export function InsightFeed(props: {
           ))}
           {category && (
             <FilterChip active onClick={() => setCategory(null)}>
-              {CATEGORY[category].label} <X className="size-3.5" aria-label="Clear" />
+              {CATEGORY[category].label} ✕
             </FilterChip>
           )}
         </div>
@@ -274,22 +271,23 @@ function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
   const stake = openStake(i)
   const campaignHref = i.campaignId && i.platform !== "ga4" ? `/clients/${p.slug}/reporting/${i.platform}/${encodeURIComponent(i.campaignId)}` : null
   return (
-    <div id={`insight-${i.key}`} className={cn(open && "bg-white/[0.02]")}>
+    <div id={`insight-${i.key}`} className={cn("border-l-2 border-transparent", isOpportunity(i) && "border-l-lime bg-lime/[0.03]", isUrgent(i) && "border-l-rag-red", open && "bg-secondary/25")}>
       {/* The title is the toggle; its click area stretches over the whole row, and the campaign name sits above it as a link. */}
-      <div className="group/row relative flex w-full items-start gap-3 px-5 py-4 text-left">
+      <div className="relative flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-secondary/40">
         <span className={cn("mt-2 size-2 shrink-0 rounded-full", isOpportunity(i) ? "bg-lime" : SEVERITY[i.severity].dot)} title={isOpportunity(i) ? "Opportunity" : SEVERITY[i.severity].label}>
           <span className="sr-only">{isOpportunity(i) ? "Opportunity" : SEVERITY[i.severity].label}</span>
         </span>
         <Icon platform={i.platform} className="mt-0.5" />
         <span className="min-w-0 flex-1 space-y-0.5">
           <span className="flex flex-wrap items-center gap-2 text-sm font-semibold leading-snug">
-            {/* Opportunity and Urgent are said by the section heading and the dot; no second tag. */}
-            <button type="button" onClick={onToggle} aria-expanded={open} className="text-left underline-offset-4 outline-none group-hover/row:underline after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset">
+            <button type="button" onClick={onToggle} aria-expanded={open} className="text-left outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-lime/60 focus-visible:after:ring-inset">
               {i.title}
             </button>
+            {isOpportunity(i) && <span className="rounded-full border border-lime/40 bg-lime/10 px-1.5 py-px text-[10px] font-medium text-lime">Opportunity</span>}
+            {isUrgent(i) && <span className="rounded-full border border-rag-red/40 bg-rag-red/10 px-1.5 py-px text-[10px] font-medium text-rag-red">Urgent</span>}
           </span>
           {i.claude?.whyNow && i.state === "open" && (
-            <span className="flex items-start gap-1.5 text-xs text-body">
+            <span className="flex items-start gap-1.5 text-xs text-foreground/85">
               <ClaudeMark className="mt-0.5 size-3 shrink-0 text-lime" />
               <span className="line-clamp-2">{i.claude.whyNow}</span>
             </span>
@@ -315,10 +313,12 @@ function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
         {stake > 0 && (
           <span className="shrink-0 text-right">
             <span className="block text-sm tabular-nums">{money(stake, p.currency)}</span>
-            <span className="block text-xs text-muted-foreground">{i.category === "waste" ? "wasted" : "spend behind it"}</span>
+            <span className="block text-[11px] text-muted-foreground">{i.category === "waste" ? "wasted" : "spend behind it"}</span>
           </span>
         )}
-        <ChevronRight className={cn("mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} aria-hidden />
+        <span className={cn("mt-1 text-xs text-muted-foreground transition-transform", open && "rotate-90")} aria-hidden>
+          ›
+        </span>
       </div>
       {open && <InsightDetail i={i} campaignHref={campaignHref} {...p} />}
     </div>
@@ -375,11 +375,11 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
       <div className="space-y-3">
         <p className="text-sm">{i.why}</p>
         {i.numbers.length > 0 && (
-          <dl className="flex flex-wrap gap-x-8 gap-y-3">
+          <dl className="flex flex-wrap gap-2">
             {i.numbers.map((n) => (
-              <div key={n.label}>
-                <dt className="text-xs text-muted-foreground">{n.label}</dt>
-                <dd className={cn("mt-0.5 text-base font-medium tabular-nums", n.tone === "bad" && "text-rag-red", n.tone === "good" && "text-rag-green")}>{n.value}</dd>
+              <div key={n.label} className="min-w-32 rounded-lg border bg-card px-3 py-2">
+                <dt className="text-[11px] text-muted-foreground">{n.label}</dt>
+                <dd className={cn("mt-0.5 text-base tabular-nums", n.tone === "bad" && "text-rag-red", n.tone === "good" && "text-rag-green")}>{n.value}</dd>
               </div>
             ))}
           </dl>
@@ -389,10 +389,10 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
             <AdThumb preview={preview} alt={i.items[0]?.label ?? "Ad"} size="md" />
           </div>
         )}
-        <p className="text-sm text-body">
-          <span className="font-semibold text-foreground">What to do: </span>
+        <div className="rounded-lg border-l-2 border-lime bg-lime/5 px-3 py-2 text-sm">
+          <span className="font-medium">What to do: </span>
           {i.todo}
-        </p>
+        </div>
       </div>
 
       {i.listed && listItems.length > 0 && (
@@ -417,7 +417,7 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
           <ul className="max-h-80 divide-y overflow-y-auto text-sm">
             {listItems.map((x) => (
               <li key={x.id}>
-                <label className="flex cursor-pointer items-start gap-3 px-3 py-2 hover:bg-white/[0.03]">
+                <label className="flex cursor-pointer items-start gap-3 px-3 py-2 hover:bg-secondary/40">
                   <input
                     type="checkbox"
                     className="mt-1 accent-lime"
@@ -434,16 +434,15 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
                     {x.flag && (
                       <span
                         className={cn(
-                          // An outlined chip; the tone rides on the text only (no tinted fill).
-                          "ml-2 rounded-full border border-border-strong px-1.5 py-px text-[11px] font-medium whitespace-nowrap",
-                          x.flagTone === "good" ? "text-rag-green" : x.flagTone === "bad" ? "text-rag-red" : "text-rag-amber",
+                          "ml-2 rounded-full border px-1.5 py-px text-[10px] font-medium",
+                          x.flagTone === "good" ? "border-rag-green/40 bg-rag-green/10 text-rag-green" : x.flagTone === "bad" ? "border-rag-red/40 bg-rag-red/10 text-rag-red" : "border-rag-amber/40 bg-rag-amber/10 text-rag-amber",
                         )}
                       >
                         {x.flag}
                       </span>
                     )}
                     {x.reason && (
-                      <span className="mt-0.5 flex items-start gap-1.5 text-xs text-body">
+                      <span className="mt-0.5 flex items-start gap-1.5 text-xs text-foreground/80">
                         <ClaudeMark className="mt-0.5 size-3 shrink-0 text-lime" />
                         {x.reason}
                       </span>
@@ -644,6 +643,15 @@ function SeenIn({ campaigns }: { campaigns: string[] }) {
   )
 }
 
+/** A small four-point star: marks what Claude wrote (its "why now", its ICP reasons). */
+function ClaudeMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" className={className} aria-label="Claude">
+      <path d="M8 0.8c.5 3.6 1.9 5.9 7.2 7.2-5.3 1.3-6.7 3.6-7.2 7.2-.5-3.6-1.9-5.9-7.2-7.2C6.1 6.7 7.5 4.4 8 .8Z" />
+    </svg>
+  )
+}
+
 /**
  * Claude's take (phase 4): the daily review's headline and the 1-3 things to do first, each opening
  * its insight. Anyone who can edit the client can ask for a fresh review (about a minute).
@@ -689,14 +697,15 @@ function ClaudeTake(p: Parameters<typeof InsightFeed>[0] & { onOpen: (key: strin
 
   if (!p.review && !p.canReview) return null
   return (
-    <section className="surface overflow-hidden">
-      <div className="flex flex-wrap items-start justify-between gap-3 p-5">
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="flex items-center gap-1.5 text-[13px] font-semibold">
-            <ClaudeMark className="size-3.5 text-lime" /> Claude&apos;s take
+    <section className="relative overflow-hidden rounded-lg border border-lime/25 bg-gradient-to-br from-lime/[0.07] via-card to-card p-5">
+      <div aria-hidden className="pointer-events-none absolute -top-20 -right-10 size-56 rounded-full bg-lime/10 blur-3xl" />
+      <div className="relative flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-lime">
+            <ClaudeMark className="size-3.5" /> Claude&apos;s take
             {when && <span className="font-normal text-muted-foreground">· reviewed {when}</span>}
           </p>
-          <p className="max-w-3xl text-base leading-relaxed">
+          <p className="max-w-3xl text-sm leading-relaxed">
             {p.review?.headline ?? "Claude hasn't reviewed this feed yet. It ranks what to do first, checks the LinkedIn companies and costly search terms against the ICP in the Brain, and reads each campaign's goal from its name and Notion briefs."}
           </p>
         </div>
@@ -705,24 +714,24 @@ function ClaudeTake(p: Parameters<typeof InsightFeed>[0] & { onOpen: (key: strin
             <Button size="sm" variant={p.review ? "outline" : "default"} disabled={Boolean(running) || !p.aiReady} onClick={start}>
               {running ? "Reviewing…" : p.review ? "Review again" : "Ask Claude to review"}
             </Button>
-            <span className="text-xs text-muted-foreground">{running ? "About a minute. The page updates when it's done." : "Runs every morning by itself."}</span>
+            <span className="text-[11px] text-muted-foreground">{running ? "About a minute. The page updates when it's done." : "Runs every morning by itself."}</span>
           </div>
         )}
       </div>
-      {(error || (p.lastReviewFailed && !running)) && <p className="-mt-3 px-5 pb-4 text-xs text-rag-red">{error ?? `The last review failed: ${p.lastReviewFailed}`}</p>}
+      {(error || (p.lastReviewFailed && !running)) && <p className="relative mt-2 text-xs text-rag-red">{error ?? `The last review failed: ${p.lastReviewFailed}`}</p>}
       {picks.length > 0 && (
-        <ol className="grid divide-y divide-border border-t border-border md:grid-cols-3 md:divide-x md:divide-y-0">
+        <ol className="relative mt-4 grid gap-2 md:grid-cols-3">
           {picks.map((s, n) => (
-            <li key={s.key} className="min-w-0">
-              {/* The rank is data, so it stays: a plain number, not a lime badge. */}
-              <button type="button" onClick={() => p.onOpen(s.key)} className="group flex h-full w-full items-start gap-3 p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-                <span className="w-4 shrink-0 text-sm text-muted-foreground tabular-nums">{n + 1}.</span>
+            <li key={s.key}>
+              <button type="button" onClick={() => p.onOpen(s.key)} className="group flex h-full w-full items-start gap-3 rounded-lg border bg-background/50 p-3 text-left transition-colors hover:border-lime/40 hover:bg-background/80">
+                <span className="grid size-6 shrink-0 place-items-center rounded-full bg-lime text-[11px] font-semibold text-primary-foreground">{n + 1}</span>
                 <span className="min-w-0 space-y-1">
-                  <span className="flex items-start gap-1.5 text-sm font-medium leading-snug">
-                    <Icon platform={s.insight!.platform} className="mt-0.5 size-3.5" />
-                    <span className="line-clamp-2 underline-offset-4 group-hover:underline">{s.insight!.title}</span>
+                  <span className="flex items-center gap-1.5 text-sm font-medium leading-snug">
+                    <Icon platform={s.insight!.platform} className="size-3.5" />
+                    <span className="line-clamp-2">{s.insight!.title}</span>
                   </span>
-                  <span className="line-clamp-3 block text-[13px] text-muted-foreground">{s.why}</span>
+                  <span className="line-clamp-3 block text-xs text-muted-foreground">{s.why}</span>
+                  <span className="block text-[11px] text-lime opacity-0 transition-opacity group-hover:opacity-100">Open →</span>
                 </span>
               </button>
             </li>
@@ -780,7 +789,7 @@ function BriefForm(props: {
   const [due, setDue] = useState(props.defaults.dueDate)
   const [description, setDescription] = useState(props.defaults.description)
   return (
-    <div className="grid gap-4 rounded-lg border bg-elevated p-4 sm:grid-cols-2">
+    <div className="grid gap-3 rounded-lg border bg-background/60 p-4 sm:grid-cols-2">
       <p className="text-sm font-medium sm:col-span-2">Brief the team: a Notion action on the Master Production board</p>
       {!props.live && (
         <p className="text-xs text-muted-foreground sm:col-span-2">
@@ -825,7 +834,7 @@ function TestForm(props: {
   const [owner, setOwner] = useState(props.owners.find((o) => o.onTeam && o.id)?.id ?? "")
   const [deadline, setDeadline] = useState(props.defaults.deadline)
   return (
-    <div className="grid gap-4 rounded-lg border bg-elevated p-4 sm:grid-cols-2">
+    <div className="grid gap-3 rounded-lg border bg-background/60 p-4 sm:grid-cols-2">
       <p className="text-sm font-medium sm:col-span-2">Plan it as a test in Sprint {props.sprintNumber}</p>
       <Field label="What we're testing" className="sm:col-span-2">
         <Input value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -858,7 +867,7 @@ function TestForm(props: {
 function DismissForm({ pending, onDismiss, onCancel }: { pending: boolean; onDismiss: (note: string) => void; onCancel: () => void }) {
   const [note, setNote] = useState("")
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-elevated p-3">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-background/60 p-3">
       <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Why not? (optional, helps us tune the rules)" className="h-8 min-w-0 flex-1" autoFocus />
       <Button size="sm" variant="outline" disabled={pending} onClick={() => onDismiss(note)}>
         Dismiss

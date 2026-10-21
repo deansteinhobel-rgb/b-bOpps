@@ -49,7 +49,7 @@ async function WeeklyRead({ supabase, client, week, abx }: { supabase: Awaited<R
       read={read}
       initialAbx={abx}
       nav={{ prev: addDays(week.from, -7), next: week.from < latest ? addDays(week.from, 7) : null, isLatest: week.from === latest }}
-      goals={goals.length ? <GoalsRow slug={client.slug} goals={goals} canEdit={canEdit(me)} /> : undefined}
+      goals={<GoalsRow slug={client.slug} goals={goals} canEdit={canEdit(me)} />}
     />
   )
 }

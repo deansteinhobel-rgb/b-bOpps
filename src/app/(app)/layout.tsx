@@ -23,7 +23,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className={cn("flex min-h-dvh flex-col lg:flex-row", !animations && "reduce-fx")}>
-      <a href="#main" className="sr-only rounded-full bg-white px-4 py-2 text-sm font-medium text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50">
+      <a href="#main" className="sr-only rounded-full bg-lime px-4 py-2 text-sm font-medium text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50">
         Skip to content
       </a>
       <Suspense fallback={null}>
@@ -40,12 +40,13 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         hasRole={Boolean(profile.role)}
       />
       <main id="main" className="min-w-0 flex-1">
-        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-8 lg:py-9">
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-8 lg:py-10">
           {profile.role ? (
             children
           ) : (
             <div className="max-w-xl">
-              <h1 className="text-[28px] leading-9">You&apos;re signed in, but don&apos;t have access yet</h1>
+              <p className="eyebrow">Access pending</p>
+              <h1 className="mt-2 text-3xl">You&apos;re signed in, but don&apos;t have access yet</h1>
               <p className="mt-3 text-muted-foreground">
                 An admin needs to give {profile.email} a role and assign you to clients. Ask Dean or Esa, then refresh this page.
               </p>

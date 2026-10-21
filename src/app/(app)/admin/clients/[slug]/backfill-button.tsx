@@ -49,7 +49,7 @@ export function BackfillButton({ accounts }: { accounts: { id: string; label: st
         {running ? "Backfilling…" : "Backfill 90 days"}
       </Button>
       {log.length > 0 && (
-        <ul className="max-h-48 overflow-y-auto rounded-md border bg-card p-2 font-mono text-xs" aria-live="polite" /* a run log: monospace stays, taste-skill-ignore */>
+        <ul className="max-h-48 overflow-y-auto rounded-md border bg-card p-2 font-mono text-xs" aria-live="polite">
           {log.map((line, i) => (
             <li key={i}>{line}</li>
           ))}
