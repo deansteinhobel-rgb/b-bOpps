@@ -24,6 +24,7 @@ await db.exec(`
   create schema auth;
   create table auth.users (id uuid primary key, email text);
   create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.uid', true), '')::uuid $$;
+  create function auth.role() returns text language sql stable as $$ select nullif(current_setting('request.role', true), '') $$;
   create schema storage;
   create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
   create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text);
@@ -458,6 +459,12 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   const view = await as(andrea, () => q(`select platform::text, external_account_id, data_from::text, data_through::text from public.account_data_range where client_id = '${camber}' order by 1, 2`))
   console.log(JSON.stringify(mine) === JSON.stringify(view) && mine.length >= 2 ? "client_data_range matches the view for the team: OK" : `FAIL: client_data_range ${JSON.stringify(mine)} vs view ${JSON.stringify(view)}`)
   console.log((await range(danny)).length === 0 ? "client_data_range shows nothing to someone off the team: OK" : "FAIL: client_data_range leaked another client's range")
+  // 2026-10-21: security definer with one access check up front; the server (secret key) still reads every client.
+  await db.exec(`select set_config('request.role', 'service_role', false)`)
+  const server = await q(`select platform::text, external_account_id from public.client_data_range('${camber}')`)
+  await db.exec(`select set_config('request.role', '', false)`)
+  console.log(server.length === mine.length && server.length >= 2 ? "client_data_range: the server reads any client: OK" : `FAIL: client_data_range for the server ${JSON.stringify(server)}`)
+  console.log((await q(`select platform from public.client_data_range('${camber}')`)).length === 0 ? "client_data_range: no user and no service role reads nothing: OK" : "FAIL: client_data_range without a caller")
   const fatigue = await as(andrea, () => q(`select ad_id, first_seen::text, live from public.ad_fatigue_inputs('${camber}') order by ad_id`))
   console.log(fatigue.length === 2 && fatigue[1].first_seen === "2026-10-13" ? "ad_fatigue_inputs reads recent ads, first seen = first day with impressions: OK" : `FAIL: ad_fatigue_inputs ${JSON.stringify(fatigue)}`)
   // sprint_ad_events (bounded by the range, 2026-10-15): a2 started in the range; a1 still runs on the last day.
