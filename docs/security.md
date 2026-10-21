@@ -80,6 +80,13 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
   send one partial update from a fixed list of fields, and can only ever set a status of PAUSED.
   `ad_playbooks` and every-client rules aren't client-scoped (public research and B&B's own
   rules); every-client rules are admin-edited, client rules follow `can_edit_client`.
+- **Builds and edits on every platform (2026-10-21)**: Google Ads and Meta go through Windsor's
+  MCP write actions with a fixed allowlist per connector (`src/lib/windsor/mcp.ts`; never an
+  enable, remove or delete action, and creates are forced paused), Reddit and Microsoft Ads through
+  their own APIs with fixed paths. Meta images are handed over as a one-hour signed link to the
+  client's own `campaign-assets` file (path checked). Accounts, campaigns and ad sets come from our
+  own data, never the browser; Meta targeting edits read the whole targeting first and change one
+  field. The same switches, roles, rate limits and write log as LinkedIn apply.
 - **Report embeds for Notion** (`/embed/report/<token>`, Dean 2026-09-29: "anyone with the link,
   view only"): the link's token (192 random bits, `report_links`) is the only key. It shows one
   board of one client and nothing else: no session is read or set, no links into the app, and the

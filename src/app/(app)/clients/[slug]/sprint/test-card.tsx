@@ -1,6 +1,7 @@
 "use client"
 
-import { ArrowRightLeft, Check, ChevronRight, ExternalLink, Link2, Pencil, Target, X } from "lucide-react"
+import { ArrowRightLeft, Check, ChevronRight, ExternalLink, Link2, Megaphone, Pencil, Target, X } from "lucide-react"
+import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useState, useTransition } from "react"
 import { Avatar, PlatformLabel } from "@/components/brand"
@@ -8,7 +9,7 @@ import { fieldClass } from "@/components/field-class"
 import { Sparkle } from "@/components/fx/sparkle"
 import { Hint } from "@/components/hint"
 import { StatusBadge } from "@/components/status-badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -63,6 +64,8 @@ export function TestCard(props: {
   canRename?: boolean
   /** Anyone who can edit the client can create paused ads and pause ads in Google Ads (Dean, 2026-10-15). */
   canBuildGoogle?: boolean
+  /** The Campaign builder for this test's platform, for people who build campaigns (Dean, 2026-10-21). */
+  buildHref?: string | null
 }) {
   const { test: t, stage } = props
   const [pending, start] = useTransition()
@@ -345,6 +348,11 @@ export function TestCard(props: {
             </span>
           )}
           <div className="ml-auto flex items-center gap-1">
+            {props.buildHref && stage !== "done" && (
+              <Link href={props.buildHref} title="Build or edit its campaign in the Campaign builder" aria-label="Build or edit its campaign in the Campaign builder" className={buttonVariants({ variant: "ghost", size: "icon-sm", className: "text-muted-foreground" })}>
+                <Megaphone className="size-3.5" aria-hidden />
+              </Link>
+            )}
             {primary}
             {stage !== "done" && panel !== "carry" && (
               <Button size="icon-sm" variant="ghost" onClick={() => setPanel("carry")} title="Carry over to next sprint" aria-label="Carry over to next sprint" className="text-muted-foreground">

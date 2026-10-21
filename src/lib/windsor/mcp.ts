@@ -2,18 +2,18 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { AdWriteDeps, CreateAdParams, PauseAdParams } from "./google-ads"
 import { windsorLiveClients, type PushDb, type PushDeps, type PushParams } from "./negatives"
+import { guardParams, type WindsorAction, type WindsorConnector } from "./write-guard"
 
 /**
  * Windsor's write actions only exist on its MCP server (https://mcp.windsor.ai/, bearer = our
  * Windsor API key), not on the REST API we read from. This is a minimal MCP client over streamable
- * HTTP that can run exactly THREE Google Ads actions: `push_negative_keywords`,
- * `create_responsive_search_ad` (always paused) and `pause_ad`. There is deliberately no general
- * "execute any action" function: Windsor also offers enable, remove and delete actions, and the app
- * must never reach them (CLAUDE.md, "Ad platform writes").
+ * HTTP that can run a FIXED list of actions per connector (write-guard.ts): Google Ads negatives, ads
+ * and pauses, plus campaign builds and edits for Google Ads, Meta and Microsoft Ads (Dean,
+ * 2026-10-21). Every create goes in paused. There is deliberately no general "execute any action"
+ * function: Windsor also offers enable, remove and delete actions, and the app must never reach
+ * them (CLAUDE.md, "Ad platform writes").
  */
 const MCP_URL = "https://mcp.windsor.ai/"
-const ALLOWED = new Set(["push_negative_keywords", "create_responsive_search_ad", "pause_ad"] as const)
-type Allowed = typeof ALLOWED extends Set<infer T> ? T : never
 
 type Rpc = { result?: unknown; error?: { message?: string } }
 
@@ -42,10 +42,15 @@ async function session(key: string) {
   return send
 }
 
-async function run(key: string, action: Allowed, accountId: string, params: object) {
-  if (!ALLOWED.has(action)) throw new Error(`Windsor action ${action} isn't allowed`)
+async function run(key: string, action: WindsorAction<"google_ads">, accountId: string, params: object) {
+  return runAction(key, "google_ads", action, accountId, params as Record<string, unknown>)
+}
+
+/** One allowed action on one connector (write-guard.ts checks it and forces creates to paused). */
+export async function runAction(key: string, connector: WindsorConnector, action: string, accountId: string, params: Record<string, unknown>) {
+  const checked = guardParams(connector, action, params)
   const send = await session(key)
-  const r = await send("tools/call", { name: "execute_action", arguments: { connector: "google_ads", action, account: accountId, params } })
+  const r = await send("tools/call", { name: "execute_action", arguments: { connector, action, account: accountId, params: checked } })
   if (r?.error) throw new Error(`Windsor: ${r.error.message ?? "the write failed"}`)
   const result = r?.result as { isError?: boolean } | undefined
   return { isError: Boolean(result?.isError), result: result ?? null }

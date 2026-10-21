@@ -3,16 +3,19 @@
  * the safe value. Like Notion and Windsor, only Dean (or Claude in Dean's own sessions) flips them:
  *
  *   ADS_API_WRITES_ENABLED=true   and   ADS_API_DRY_RUN=false   → writes may be sent
- *   ADS_API_PLATFORMS=linkedin,reddit                           → only these platforms (empty = none)
+ *   ADS_API_PLATFORMS=linkedin,google_ads,meta,reddit,microsoft_ads → only these platforms (empty = none)
  *   ADS_API_LIVE_CLIENTS=dnsfilter                              → only these clients (empty = every client)
  *
+ * Google Ads and Meta are written through Windsor's write actions (WINDSOR_API_KEY); LinkedIn,
+ * Reddit and Microsoft Ads through their own APIs. The switches are the same for all five.
  * Anything else is a dry run: every call is logged with the exact request and nothing is sent.
  * A plain module (no server-only import) so the tests can use it.
  */
-export const ADS_API_PLATFORMS = ["linkedin", "reddit"] as const
+export const ADS_API_PLATFORMS = ["linkedin", "google_ads", "meta", "reddit", "microsoft_ads"] as const
 export type AdsApiPlatform = (typeof ADS_API_PLATFORMS)[number]
 
-export type AdsApiEnv = { writesEnabled: boolean; dryRun: boolean; platforms: string[]; liveClients: string[] | null }
+/** `forced`: the person asked for a dry run, whatever the switches say. */
+export type AdsApiEnv = { writesEnabled: boolean; dryRun: boolean; platforms: string[]; liveClients: string[] | null; forced?: boolean }
 
 const list = (raw: string | undefined) =>
   (raw ?? "")
@@ -43,6 +46,7 @@ export const adsApiEditsEnabled = (env: Record<string, string | undefined> = pro
 
 /** Why a write would be a dry run, or null when it would really be sent. */
 export function dryRunReason(env: AdsApiEnv, platform: AdsApiPlatform, clientSlug: string): string | null {
+  if (env.forced) return dryRunReason({ ...env, forced: false }, platform, clientSlug) ?? "Dry run, as asked: nothing was sent"
   if (!env.writesEnabled || env.dryRun) return "ADS_API_WRITES_ENABLED/ADS_API_DRY_RUN: nothing was sent"
   if (!env.platforms.includes(platform)) return `ADS_API_PLATFORMS: live writes are off for ${platform}, nothing was sent`
   if (env.liveClients && !env.liveClients.includes(clientSlug.toLowerCase())) return "ADS_API_LIVE_CLIENTS: live writes are off for this client, nothing was sent"

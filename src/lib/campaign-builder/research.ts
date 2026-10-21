@@ -18,10 +18,11 @@ export { playbookForPrompt, type Playbook } from "./playbook"
  * the builder reads the latest ready one. Cron /api/cron/playbook, or "Research now" in the builder.
  */
 export const RESEARCH_MODEL = "claude-opus-5-5"
-export const RESEARCH_PLATFORMS = ["linkedin", "google_ads", "meta", "reddit"] as const
+// Microsoft Ads has no monthly cron slot yet (vercel.json): "Research now" on the builder runs it.
+export const RESEARCH_PLATFORMS = ["linkedin", "google_ads", "meta", "reddit", "microsoft_ads"] as const
 export type ResearchPlatform = (typeof RESEARCH_PLATFORMS)[number]
 
-const NAME: Record<ResearchPlatform, string> = { linkedin: "LinkedIn Ads", google_ads: "Google Ads", meta: "Meta Ads", reddit: "Reddit Ads" }
+const NAME: Record<ResearchPlatform, string> = { linkedin: "LinkedIn Ads", google_ads: "Google Ads", meta: "Meta Ads", reddit: "Reddit Ads", microsoft_ads: "Microsoft Advertising" }
 
 /** What each platform's research covers. LinkedIn first; the others follow the same outline. */
 const TOPICS: Record<ResearchPlatform, string> = {
@@ -29,6 +30,7 @@ const TOPICS: Record<ResearchPlatform, string> = {
   google_ads: "search campaign structure, match types and AI Max, Performance Max for B2B, bidding strategies and conversion value, negative keywords and brand exclusions, responsive search ads, Demand Gen, offline conversion imports, and anything Google changed in the last 3 months",
   meta: "B2B on Meta: Advantage+ audiences and placements, lead ads vs website conversions, the Conversions API, creative volume and fatigue, campaign structure and budgets, and anything Meta changed in the last 3 months",
   reddit: "Reddit Ads for B2B: community and interest targeting, conversation placements, bidding, lead gen, the Reddit Pixel and Conversions API, creative that fits Reddit, and anything Reddit changed in the last 3 months",
+  microsoft_ads: "Microsoft Advertising (Bing) Search for B2B: importing from Google Ads, LinkedIn profile targeting, match types, Smart Bidding, responsive search ads, the Microsoft Audience Network, UET and offline conversions, and anything Microsoft changed in the last 3 months",
 }
 
 const SUBMIT: Anthropic.Tool = {

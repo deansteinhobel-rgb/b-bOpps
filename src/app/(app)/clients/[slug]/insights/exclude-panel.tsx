@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { LoaderCircleIcon } from "lucide-react"
 import { fieldClass } from "@/components/field-class"
 import { FACET_WORDS, type ExcludeFacet } from "@/lib/ads-api/exclusions"
+import type { Platform } from "@/lib/metrics/types"
+import { PLATFORM_NAME } from "@/lib/platform-links"
 import { cn } from "@/lib/utils"
 import { ActionDialog } from "./action-dialog"
 import { planLinkedInExclusion, sendLinkedInExclusion, type ExclusionPlan } from "./exclude-actions"
@@ -123,12 +125,12 @@ export function ExcludeDialog({ slug, insightKey, facet, items, open, onOpenChan
 }
 
 /** The loading state: what's being read, and rows standing in for the campaigns. */
-function Reading({ what }: { what: string }) {
+export function Reading({ what, from = "LinkedIn" }: { what: string; from?: string }) {
   return (
     <div className="space-y-3" role="status" aria-live="polite">
       <p className="flex items-center gap-2 text-muted-foreground">
         <LoaderCircleIcon className="size-4 animate-spin" />
-        Reading {what} from LinkedIn…
+        Reading {what} from {from}…
       </p>
       <div className="divide-y rounded-lg border" aria-hidden>
         {[0, 1].map((n) => (
@@ -142,8 +144,8 @@ function Reading({ what }: { what: string }) {
   )
 }
 
-/** "Pause in LinkedIn" on a cost per result or no-results recommendation, in the same pop-up. */
-export function PauseDialog({ slug, insightKey, campaignName, open, onOpenChange }: { slug: string; insightKey: string; campaignName: string | null; open: boolean; onOpenChange: (open: boolean) => void }) {
+/** "Pause in <platform>" on a cost per result or no-results recommendation, in the same pop-up. */
+export function PauseDialog({ slug, insightKey, campaignName, platform = "linkedin", open, onOpenChange }: { slug: string; insightKey: string; campaignName: string | null; platform?: Platform; open: boolean; onOpenChange: (open: boolean) => void }) {
   const router = useRouter()
   const [plan, setPlan] = useState<PausePlan | null>(null)
   const asked = useRef(false)
@@ -165,11 +167,11 @@ export function PauseDialog({ slug, insightKey, campaignName, open, onOpenChange
     <ActionDialog
       open={open}
       onOpenChange={onOpenChange}
-      platform="linkedin"
+      platform={platform}
       title="Pause the campaign"
       live={ready ? ready.live : null}
       reason={ready?.reason}
-      confirmLabel="Pause in LinkedIn"
+      confirmLabel={`Pause in ${PLATFORM_NAME[platform]}`}
       canConfirm={Boolean(ready)}
       onDone={() => router.refresh()}
       onConfirm={async () => {
@@ -178,14 +180,14 @@ export function PauseDialog({ slug, insightKey, campaignName, open, onOpenChange
       }}
     >
       {!plan ? (
-        <Reading what="the campaign" />
+        <Reading what="the campaign" from={platform === "linkedin" ? "LinkedIn" : "Windsor"} />
       ) : !plan.ok ? (
         <p className="text-rag-red">{plan.error}</p>
       ) : (
         <div className="space-y-1 rounded-lg border px-3 py-2">
           <p className="truncate font-medium">{plan.name}</p>
           <p className="text-xs text-body">Status: {plan.status ?? "unknown"} → PAUSED</p>
-          <p className="text-xs text-muted-foreground">It stops spending straight away. Turn it back on in Campaign Manager; Lumaux never turns campaigns on.</p>
+          <p className="text-xs text-muted-foreground">It stops spending straight away. Turn it back on in {PLATFORM_NAME[platform]}; Lumaux never turns campaigns on.</p>
         </div>
       )}
     </ActionDialog>

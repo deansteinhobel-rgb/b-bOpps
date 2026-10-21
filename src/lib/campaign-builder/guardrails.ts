@@ -41,11 +41,45 @@ export function describeCheck(c: CheckRule): string {
   return c.field === "audienceNetwork" ? "Audience Network on" : `${f} must include ${c.value}`
 }
 
-/** Checks a spec against the guardrails that carry a check. Errors stop a save, dry run or send. */
-export function checkGuardrails(spec: LinkedInSpec, rules: PlaybookRule[]): string[] {
-  const errors: string[] = []
+/**
+ * What the guardrails look at, from any platform's spec. Fields a platform doesn't have are left
+ * out and their rules pass (a bid rule on a Meta ad set with automatic bidding, say).
+ */
+export type GuardFacts = {
+  dailyBudget: number
+  bid?: number | null
+  ads: number
+  audienceNetwork?: boolean | null
+  objective?: string | null
+  /** Every headline and intro (primary text) that the build writes, with the ad it belongs to. */
+  headlines: { ad: string; text: string }[]
+  intros: { ad: string; text: string }[]
+  /** Audience facets the build targets (LinkedIn facet names; Meta "custom_audiences"; Google "keywords"). */
+  facets: string[]
+}
+
+/** LinkedIn's spec → its facts. Sponsored posts keep their own copy, so only image ads count for text. */
+export function linkedInFacts(spec: LinkedInSpec): GuardFacts {
   const c = spec.campaign
   const imageAds = spec.ads.filter((a) => !a.postUrn)
+  return {
+    dailyBudget: c.dailyBudget,
+    bid: c.bid,
+    ads: spec.ads.length,
+    audienceNetwork: c.offsiteDelivery,
+    objective: c.objective,
+    headlines: imageAds.map((a) => ({ ad: a.name, text: a.headline })),
+    intros: imageAds.map((a) => ({ ad: a.name, text: a.commentary })),
+    facets: Object.entries(c.targeting.include).filter(([, v]) => v?.length).map(([k]) => k),
+  }
+}
+
+/** Checks a LinkedIn spec against the guardrails that carry a check. Errors stop a save, dry run or send. */
+export const checkGuardrails = (spec: LinkedInSpec, rules: PlaybookRule[]) => checkFacts(linkedInFacts(spec), rules)
+
+/** Checks any platform's facts against the guardrails that carry a check. */
+export function checkFacts(f: GuardFacts, rules: PlaybookRule[]): string[] {
+  const errors: string[] = []
   for (const r of rules) {
     const k = r.check_rule
     if (r.kind !== "guardrail" || !k) continue
@@ -53,34 +87,37 @@ export function checkGuardrails(spec: LinkedInSpec, rules: PlaybookRule[]): stri
     const fail = (what: string) => errors.push(`${r.title}: ${what}`)
     switch (k.field) {
       case "dailyBudget":
-        if (k.op === "max" && c.dailyBudget > n) fail(`the daily budget is ${c.dailyBudget}, over ${n}.`)
-        if (k.op === "min" && c.dailyBudget < n) fail(`the daily budget is ${c.dailyBudget}, under ${n}.`)
+        if (k.op === "max" && f.dailyBudget > n) fail(`the daily budget is ${f.dailyBudget}, over ${n}.`)
+        if (k.op === "min" && f.dailyBudget < n) fail(`the daily budget is ${f.dailyBudget}, under ${n}.`)
         break
       case "bid":
-        if (k.op === "max" && c.bid > n) fail(`the bid is ${c.bid}, over ${n}.`)
-        if (k.op === "min" && c.bid < n) fail(`the bid is ${c.bid}, under ${n}.`)
+        if (f.bid == null) break
+        if (k.op === "max" && f.bid > n) fail(`the bid is ${f.bid}, over ${n}.`)
+        if (k.op === "min" && f.bid < n) fail(`the bid is ${f.bid}, under ${n}.`)
         break
       case "ads":
-        if (k.op === "max" && spec.ads.length > n) fail(`${spec.ads.length} ads, more than ${n}.`)
-        if (k.op === "min" && spec.ads.length < n) fail(`${spec.ads.length} ads, fewer than ${n}.`)
+        if (k.op === "max" && f.ads > n) fail(`${f.ads} ads, more than ${n}.`)
+        if (k.op === "min" && f.ads < n) fail(`${f.ads} ads, fewer than ${n}.`)
         break
       case "audienceNetwork":
-        if (k.op === "forbid" && c.offsiteDelivery) fail("the Audience Network is on.")
-        if (k.op === "require" && !c.offsiteDelivery) fail("the Audience Network is off.")
+        if (f.audienceNetwork == null) break
+        if (k.op === "forbid" && f.audienceNetwork) fail("the Audience Network is on.")
+        if (k.op === "require" && !f.audienceNetwork) fail("the Audience Network is off.")
         break
       case "objective":
-        if (k.op === "forbid" && c.objective === k.value) fail(`the objective is ${c.objective}.`)
-        if (k.op === "require" && c.objective !== k.value) fail(`the objective must be ${k.value}.`)
+        if (f.objective == null) break
+        if (k.op === "forbid" && f.objective === k.value) fail(`the objective is ${f.objective}.`)
+        if (k.op === "require" && f.objective !== k.value) fail(`the objective must be ${k.value}.`)
         break
       case "headlineLength":
-        if (k.op === "max") for (const a of imageAds) if (a.headline.length > n) fail(`"${a.name}" has a ${a.headline.length}-character headline (max ${n}).`)
+        if (k.op === "max") for (const h of f.headlines) if (h.text.length > n) fail(`"${h.ad}" has a ${h.text.length}-character headline (max ${n}).`)
         break
       case "introLength":
-        if (k.op === "max") for (const a of imageAds) if (a.commentary.length > n) fail(`"${a.name}" has ${a.commentary.length} characters of intro text (max ${n}).`)
+        if (k.op === "max") for (const h of f.intros) if (h.text.length > n) fail(`"${h.ad}" has ${h.text.length} characters of intro text (max ${n}).`)
         break
       case "facet": {
         const facet = String(k.value ?? "")
-        const has = Boolean(c.targeting.include[facet]?.length)
+        const has = f.facets.includes(facet)
         if (k.op === "require" && !has) fail(`the audience needs ${facet}.`)
         if (k.op === "forbid" && has) fail(`the audience can't use ${facet}.`)
         break
