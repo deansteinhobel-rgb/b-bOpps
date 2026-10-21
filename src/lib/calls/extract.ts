@@ -148,7 +148,7 @@ export async function extractCall(callId: string) {
     // Items no longer in the edited notes go, unless someone already did something about them.
     const gone = (existing ?? []).filter((e) => !kept.has(e.id) && !latest.has(e.id)).map((e) => e.id)
     if (gone.length) await db.from("call_commitments").update({ superseded_at: now }).in("id", gone)
-    await db.from("client_calls").update({ summary: clip(out.summary, 1500), extract_status: "done", extracted_at: now, extract_error: null, usage }).eq("id", callId)
+    await db.from("client_calls").update({ summary: clip(out.summary, 1500), extract_status: "done", extracted_at: now, extract_error: null, usage, updated_at: now }).eq("id", callId)
   } catch (e) {
     console.error("[calls] extract failed", callId, e)
     await db.from("client_calls").update({ extract_status: "failed", extract_error: (e as Error).message.slice(0, 300), usage }).eq("id", callId)

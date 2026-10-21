@@ -7,10 +7,13 @@
  *   pnpm sync:calls --link proactis=<link>,star-global=<link>   # a shared database: each client's
  *                                         # Client option comes from its name, or --option <name>
  *   pnpm sync:calls --no-ai               # Notion only
+ *   pnpm sync:calls --rescan [slug]       # re-read every call (as on Friday nights), retry failed
+ *                                         # ones, then rebuild the client brief if calls changed
  */
 import { extractPending } from "@/lib/calls/extract"
 import { checkFollowUps } from "@/lib/calls/followups"
-import { notionIdFrom, optionFor, resolveCallSource, syncCallNotes } from "@/lib/calls/notion"
+import { markCallsForRescan, notionIdFrom, optionFor, resolveCallSource, syncCallNotes } from "@/lib/calls/notion"
+import { buildClientBrief } from "@/lib/knowledge/brief"
 import { createAdminClient } from "@/lib/supabase/admin"
 
 const db = createAdminClient()
@@ -41,6 +44,10 @@ if (only) q = q.eq("slug", only)
 const { data: clients } = await q
 for (const c of clients ?? []) {
   const t = Date.now()
+  if (args.includes("--rescan")) {
+    const m = await markCallsForRescan(c.id)
+    console.log(`  ${c.slug}: ${m.found} calls listed, ${m.marked} marked to read again`)
+  }
   let s = await syncCallNotes(c.id, { full: args.includes("--full") })
   while (s.remaining > 0) s = await syncCallNotes(c.id)
   console.log(`  ${c.slug}: ${s.found} calls found, ${s.read} read (${((Date.now() - t) / 1000).toFixed(0)}s)`)
@@ -49,4 +56,5 @@ for (const c of clients ?? []) {
   console.log(`  ${c.slug}: ${e.extracted} read by Claude (${((Date.now() - t) / 1000).toFixed(0)}s)`)
   const f = await checkFollowUps(c.id)
   console.log(`  ${c.slug}: ${f.checked} open follow-ups checked, ${f.acted} seen happening, ${f.due} new reminders`)
+  if (args.includes("--rescan")) console.log(`  ${c.slug}: brief ${(await buildClientBrief(c.id)).skipped ? "unchanged" : "rebuilt"} (${((Date.now() - t) / 1000).toFixed(0)}s)`)
 }
