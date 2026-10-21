@@ -14,7 +14,7 @@ import { FACETS, notBuildable, unresolved, type Facet, type Plan, type PlanAd, t
 import { BUILDABLE_FORMATS, FORMAT_LABEL, presetByKey, type AdFormat } from "@/lib/campaign-builder/presets"
 import { money } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { accountAudiences, buildFromPlan, imagePreview, imageUploadUrl, lookupTargeting, savePlan, type BuildOutcome } from "./actions"
+import { accountAudiences, accountLeadForms, buildFromPlan, imagePreview, imageUploadUrl, lookupTargeting, savePlan, type BuildOutcome } from "./actions"
 import { usePlanPoll, type BuilderProps, type PlanRow } from "./builder-view"
 
 const OBJECTIVES = ["BRAND_AWARENESS", "WEBSITE_VISIT", "ENGAGEMENT", "VIDEO_VIEW", "LEAD_GENERATION", "WEBSITE_CONVERSION"] as const
@@ -191,6 +191,7 @@ function PlanEditor(p: BuilderProps & { row: PlanRow; initial: Plan }) {
           <input type="checkbox" checked={c.offsiteDelivery} onChange={(e) => set({ offsiteDelivery: e.target.checked })} />
           LinkedIn Audience Network
         </label>
+        {c.objective === "LEAD_GENERATION" && <LeadFormPicker slug={p.slug} accountId={accountId} value={c.leadForm} onChange={(leadForm) => set({ leadForm })} />}
       </Block>
 
       <Block title="Audience" description={plan.audience.summary}>
@@ -201,7 +202,7 @@ function PlanEditor(p: BuilderProps & { row: PlanRow; initial: Plan }) {
       <Block title="Ads" description={briefOnly.length ? `${briefOnly.length} ${briefOnly.length === 1 ? "ad is" : "ads are"} a format the app can't build yet (${[...new Set(briefOnly.map((a) => FORMAT_LABEL[a.format as AdFormat]))].join(", ")}): brief and build ${briefOnly.length === 1 ? "it" : "them"} in Campaign Manager.` : undefined}>
         <div className="space-y-4">
           {plan.ads.map((ad, i) => (
-            <AdEditor key={i} slug={p.slug} ad={ad} onChange={(patch) => setAd(i, patch)} />
+            <AdEditor key={i} slug={p.slug} ad={ad} leadGen={c.objective === "LEAD_GENERATION"} onChange={(patch) => setAd(i, patch)} />
           ))}
         </div>
       </Block>
@@ -414,7 +415,7 @@ function Lookup({ slug, facet, accountId, initial = "", autoOpen, onPick }: { sl
   )
 }
 
-function AdEditor({ slug, ad, onChange }: { slug: string; ad: PlanAd; onChange: (patch: Partial<PlanAd>) => void }) {
+function AdEditor({ slug, ad, leadGen, onChange }: { slug: string; ad: PlanAd; leadGen: boolean; onChange: (patch: Partial<PlanAd>) => void }) {
   const buildable = BUILDABLE_FORMATS.includes(ad.format as AdFormat)
   return (
     <div className={cn("rounded-md border p-3", !buildable && "opacity-80")}>
@@ -437,7 +438,7 @@ function AdEditor({ slug, ad, onChange }: { slug: string; ad: PlanAd; onChange: 
             </div>
           )}
           <div className="grid gap-2 sm:grid-cols-[1fr_160px]">
-            <Input aria-label="Landing page" value={ad.landingUrl} onChange={(e) => onChange({ landingUrl: e.target.value })} placeholder="https://… (the client's site)" />
+            <Input aria-label="Landing page" value={ad.landingUrl} onChange={(e) => onChange({ landingUrl: e.target.value })} placeholder={leadGen ? "Not needed: the ad opens the lead form" : "https://… (the client's site)"} disabled={leadGen} />
             <select aria-label="Call to action" className={fieldClass} value={ad.callToAction} onChange={(e) => onChange({ callToAction: e.target.value as PlanAd["callToAction"] })}>
               {CTAS.map((x) => (
                 <option key={x} value={x}>
@@ -508,7 +509,7 @@ function Outcome({ outcome, live }: { outcome: BuildOutcome; live: boolean }) {
   const run = outcome.run
   return (
     <div className="space-y-2 rounded-md border p-3 text-[13px]">
-      {outcome.error && <p className="text-rag-red">{outcome.error}</p>}
+      {outcome.error && !outcome.check?.errors.length && <p className="text-rag-red">{outcome.error}</p>}
       {run?.ok && <p className="text-rag-green">{run.live ? "Created in LinkedIn, paused. Turn it on in Campaign Manager when it's ready." : "Dry run done: every request was logged and nothing was sent."}</p>}
       {outcome.check?.errors.map((e) => (
         <p key={e} className="text-rag-red">
@@ -532,6 +533,59 @@ function Outcome({ outcome, live }: { outcome: BuildOutcome; live: boolean }) {
         </ol>
       )}
       {!live && !run && !outcome.error && <p className="text-muted-foreground">Nothing was sent.</p>}
+    </div>
+  )
+}
+
+/** Lead gen: the account's lead form every ad opens. Read from LinkedIn; Claude never picks it. */
+function LeadFormPicker({ slug, accountId, value, onChange }: { slug: string; accountId: string; value: Target | null; onChange: (v: Target | null) => void }) {
+  const [forms, setForms] = useState<{ name: string; urn: string; state: string }[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [manual, setManual] = useState("")
+  const load = async () => {
+    setBusy(true)
+    const r = await accountLeadForms(slug, accountId)
+    setBusy(false)
+    if (r.ok) setForms(r.forms)
+    else setError(r.error)
+  }
+  return (
+    <div className="mt-4 space-y-1.5">
+      <Label htmlFor="pl-form">Lead form</Label>
+      {value ? (
+        <div className="flex items-center gap-2 text-[13px]">
+          <span className="pill font-medium text-body">{value.name}</span>
+          <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => onChange(null)}>
+            Change
+          </button>
+        </div>
+      ) : forms ? (
+        <select id="pl-form" className={fieldClass} value="" onChange={(e) => {
+          const f = forms.find((x) => x.urn === e.target.value)
+          if (f) onChange({ name: f.name, urn: f.urn })
+        }}>
+          <option value="">Pick the account&apos;s lead form…</option>
+          {forms.map((f) => (
+            <option key={f.urn} value={f.urn}>
+              {f.name}
+              {f.state && f.state !== "PUBLISHED" ? ` (${f.state.toLowerCase()})` : ""}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" onClick={load} disabled={busy || !accountId}>
+            {busy ? "Reading forms…" : "Pick from LinkedIn"}
+          </Button>
+          <Input id="pl-form" className="w-64" value={manual} onChange={(e) => setManual(e.target.value)} placeholder="or paste urn:li:adForm:…" />
+          <Button size="sm" variant="outline" disabled={!/^urn:li:adForm:\d+$/.test(manual.trim())} onClick={() => onChange({ name: manual.trim(), urn: manual.trim() })}>
+            Use
+          </Button>
+        </div>
+      )}
+      {error && <p className="text-xs text-rag-amber">{error}</p>}
+      {!value && <p className="text-xs text-muted-foreground">Lead gen ads open a LinkedIn lead form instead of a landing page. Build the form in Campaign Manager first.</p>}
     </div>
   )
 }

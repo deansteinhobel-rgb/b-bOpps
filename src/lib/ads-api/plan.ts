@@ -53,10 +53,12 @@ export function linkedInSteps(spec: LinkedInSpec, accountId: string, currency: s
   })
 
   spec.ads.forEach((ad, i) => {
+    // Lead gen: the ad opens the lead form, with the ad's button label.
+    const leadForm = c.leadFormUrn ? { leadgenCallToAction: { destination: c.leadFormUrn, label: ad.callToAction } } : {}
     // Thought leader ads (and any post that already exists): sponsor the post itself.
     if (ad.postUrn) {
       const post = ad.postUrn
-      steps.push({ key: `ad:${i}`, operation: "create_ad", payload: (ids) => ({ campaign: `urn:li:sponsoredCampaign:${ids.campaign}`, content: { reference: post }, intendedStatus: "PAUSED", name: ad.name }) })
+      steps.push({ key: `ad:${i}`, operation: "create_ad", payload: (ids) => ({ campaign: `urn:li:sponsoredCampaign:${ids.campaign}`, content: { reference: post }, intendedStatus: "PAUSED", name: ad.name, ...leadForm }) })
       return
     }
     steps.push({ key: `image:${i}`, operation: "upload_image", payload: () => ({ owner: author, imagePath: ad.imagePath }) })
@@ -70,8 +72,7 @@ export function linkedInSteps(spec: LinkedInSpec, accountId: string, currency: s
         // A dark post: only ever shown as an ad, never on the company page's feed.
         distribution: { feedDistribution: "NONE", targetEntities: [], thirdPartyDistributionChannels: [] },
         content: { media: { id: ids[`image:${i}`], title: ad.headline, ...(ad.altText ? { altText: ad.altText } : {}) } },
-        contentLandingPage: ad.landingUrl,
-        contentCallToActionLabel: ad.callToAction,
+        ...(c.leadFormUrn ? {} : { contentLandingPage: ad.landingUrl, contentCallToActionLabel: ad.callToAction }),
         lifecycleState: "PUBLISHED",
         isReshareDisabledByAuthor: false,
         adContext: { dscAdAccount: account, dscStatus: "ACTIVE" },
@@ -80,7 +81,7 @@ export function linkedInSteps(spec: LinkedInSpec, accountId: string, currency: s
     steps.push({
       key: `ad:${i}`,
       operation: "create_ad",
-      payload: (ids) => ({ campaign: `urn:li:sponsoredCampaign:${ids.campaign}`, content: { reference: ids[`post:${i}`] }, intendedStatus: "PAUSED", name: ad.name }),
+      payload: (ids) => ({ campaign: `urn:li:sponsoredCampaign:${ids.campaign}`, content: { reference: ids[`post:${i}`] }, intendedStatus: "PAUSED", name: ad.name, ...leadForm }),
     })
   })
   return steps

@@ -3,7 +3,7 @@ import { checkLinkedIn, type BuildContext } from "@/lib/ads-api/spec"
 import { linkedInSteps } from "@/lib/ads-api/plan"
 import { campaignPatch, describeChange, runEdit, type EditStore } from "@/lib/ads-api/edit"
 import { checkGuardrails, rulesFor, type PlaybookRule } from "./guardrails"
-import { plan as planSchema, planToSpec, unresolved, UNRESOLVED, type Plan } from "./plan-schema"
+import { knownUrn, plan as planSchema, planToSpec, unresolved, UNRESOLVED, type Plan } from "./plan-schema"
 import { isAbxCampaign } from "./presets"
 import { cleanPlaybook } from "./playbook"
 
@@ -51,6 +51,23 @@ describe("plan → spec", () => {
     expect(steps.map((s) => s.key)).toEqual(["group", "campaign", "image:0", "post:0", "ad:0", "ad:1"])
     expect(steps.at(-1)!.payload({ campaign: "9" })).toMatchObject({ content: { reference: "urn:li:share:7100000000000000000" }, intendedStatus: "PAUSED" })
     expect(steps[1].payload({ group: "1" })).not.toHaveProperty("format")
+  })
+  it("lead gen needs a lead form, and its ads open the form instead of a landing page", () => {
+    const leadGen = { ...plan, campaign: { ...plan.campaign, objective: "LEAD_GENERATION" as const }, ads: [{ ...plan.ads[0], landingUrl: "" }] }
+    expect(checkLinkedIn(planToSpec(leadGen, "123").spec, ctx).errors.join()).toMatch(/lead form/)
+    const withForm = { ...leadGen, campaign: { ...leadGen.campaign, leadForm: { name: "AI report form", urn: "urn:li:adForm:42" } } }
+    const r = checkLinkedIn(planToSpec(withForm, "123").spec, ctx)
+    expect(r.errors).toEqual([])
+    const steps = linkedInSteps(r.spec!, "500", "USD")
+    const post = steps.find((s) => s.key === "post:0")!.payload({ "image:0": "urn:li:image:1" })
+    expect(post).not.toHaveProperty("contentLandingPage")
+    expect(steps.find((s) => s.key === "ad:0")!.payload({ campaign: "9", "post:0": "urn:li:share:1" })).toMatchObject({ leadgenCallToAction: { destination: "urn:li:adForm:42", label: "LEARN_MORE" } })
+  })
+  it("fills in fixed ids for company size and seniority", () => {
+    expect(knownUrn("staffCountRanges", "51-200")).toBe("urn:li:staffCountRange:(51,200)")
+    expect(knownUrn("staffCountRanges", "10,001+ employees")).toBe("urn:li:staffCountRange:(10001,2147483647)")
+    expect(knownUrn("seniorities", "Director")).toBe("urn:li:seniority:6")
+    expect(knownUrn("titles", "Director")).toBeNull()
   })
   it("refuses another client's image", () => {
     const { spec } = planToSpec({ ...plan, ads: [{ ...plan.ads[0], imagePath: "22222222-2222-2222-2222-222222222222/a.png" }] }, "123")

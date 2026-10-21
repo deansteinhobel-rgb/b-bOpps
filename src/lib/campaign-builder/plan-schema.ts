@@ -65,6 +65,8 @@ export const plan = z.object({
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().default(null),
     offsiteDelivery: z.boolean().default(false),
+    /** Lead gen: the account's lead form, picked by the team (Claude never guesses it). */
+    leadForm: target.nullable().default(null),
     /** e.g. US / en. */
     locale: z.object({ country: z.string().length(2), language: z.string().length(2) }),
   }),
@@ -91,6 +93,26 @@ export const question = z.object({
   options: z.array(z.string().max(120)).max(6).default([]),
 })
 export type Question = z.infer<typeof question>
+
+/**
+ * Facets whose LinkedIn ids are fixed and documented, so a name can be turned into its URN without
+ * a lookup: company size and seniority.
+ */
+const STAFF_RANGES: Record<string, [number, number]> = { "1": [1, 1], "2-10": [2, 10], "11-50": [11, 50], "51-200": [51, 200], "201-500": [201, 500], "501-1000": [501, 1000], "1001-5000": [1001, 5000], "5001-10000": [5001, 10000], "10001+": [10001, 2147483647] }
+const SENIORITIES: Record<string, number> = { unpaid: 1, training: 2, entry: 3, senior: 4, manager: 5, director: 6, vp: 7, "vice president": 7, cxo: 8, "c-suite": 8, partner: 9, owner: 10 }
+
+export function knownUrn(facet: string, name: string): string | null {
+  const n = name.trim().toLowerCase().replace(/,/g, "").replace(/\s*(employees|staff)$/, "").replace(/\s+/g, "")
+  if (facet === "staffCountRanges") {
+    const r = STAFF_RANGES[n.replace(/[–—]/g, "-")]
+    return r ? `urn:li:staffCountRange:(${r[0]},${r[1]})` : null
+  }
+  if (facet === "seniorities") {
+    const id = SENIORITIES[name.trim().toLowerCase()]
+    return id ? `urn:li:seniority:${id}` : null
+  }
+  return null
+}
 
 export const UNRESOLVED = "urn:li:unresolved:"
 const slugOf = (s: string) => s.trim().replace(/\s+/g, "_").slice(0, 120)
@@ -155,6 +177,7 @@ export function planToSpec(p: Plan, organizationId: string): { spec: Omit<Linked
         locale: c.locale,
         targeting: { include, ...(Object.keys(exclude).length ? { exclude } : {}) },
         offsiteDelivery: c.offsiteDelivery,
+        ...(c.objective === "LEAD_GENERATION" && c.leadForm?.urn ? { leadFormUrn: c.leadForm.urn } : {}),
       },
       ads,
     },

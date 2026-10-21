@@ -10,7 +10,7 @@ import { loadTargets, targetFor } from "@/lib/targets"
 import { rulesFor, rulesForPrompt, type PlaybookRule } from "./guardrails"
 import { historyForPrompt, linkedInHistory } from "./history"
 import { latestNaming, namingForPrompt, refreshNaming } from "./naming"
-import { FACETS, plan as planSchema, question as questionSchema, type Plan, type Question } from "./plan-schema"
+import { FACETS, knownUrn, plan as planSchema, question as questionSchema, type Plan, type Question } from "./plan-schema"
 import { FORMAT_LABEL, presetByKey, type BuilderMode } from "./presets"
 import { latestPlaybook, playbookForPrompt } from "./research"
 
@@ -239,11 +239,19 @@ function normalize(raw: unknown): unknown {
     Object.fromEntries(
       Object.entries((side as Record<string, unknown>) ?? {})
         .filter(([k]) => k in FACETS)
-        .map(([k, list]) => [k, (Array.isArray(list) ? list : []).map((t) => (typeof t === "string" ? { name: t, urn: null } : { name: String((t as Record<string, unknown>)?.name ?? ""), urn: (t as Record<string, unknown>)?.urn || null })).filter((t) => t.name)]),
+        .map(([k, list]) => [
+          k,
+          (Array.isArray(list) ? list : [])
+            .map((t) => (typeof t === "string" ? { name: t, urn: null } : { name: String((t as Record<string, unknown>)?.name ?? ""), urn: ((t as Record<string, unknown>)?.urn as string) || null }))
+            .filter((t) => t.name)
+            // Company sizes and seniorities have fixed ids: fill them in.
+            .map((t) => ({ ...t, urn: t.urn ?? knownUrn(k, t.name) })),
+        ]),
     )
   const audience = (p.audience ?? {}) as Record<string, unknown>
   return {
     ...p,
+    campaign: { ...((p.campaign as object) ?? {}), leadForm: null },
     audience: { ...audience, include: fixTargets(audience.include), exclude: fixTargets(audience.exclude) },
     ads: (Array.isArray(p.ads) ? p.ads : []).map((a) => ({ ...(a as object), imagePath: null, postUrn: null })),
   }

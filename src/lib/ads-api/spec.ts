@@ -27,6 +27,8 @@ export const linkedInSpec = z.object({
     targeting: z.object({ include: z.record(z.string(), urns), exclude: z.record(z.string(), urns).optional() }),
     /** LinkedIn Audience Network. Off by default; LinkedIn refuses it on lead gen campaigns. */
     offsiteDelivery: z.boolean().default(false),
+    /** Lead gen: the account's lead form every ad opens (urn:li:adForm:…). Unverified until the first live lead gen build. */
+    leadFormUrn: z.string().regex(/^urn:li:adForm:\d+$/, "A LinkedIn lead form (urn:li:adForm:…)").optional(),
   }),
   ads: z
     .array(
@@ -141,6 +143,8 @@ export function checkLinkedIn(raw: unknown, ctx: BuildContext): Check & { spec?:
   if (!c.targeting.include.interfaceLocales) errors.push("LinkedIn needs an interface language (interfaceLocales) in the audience.")
   if (!c.targeting.include.locations && !c.targeting.include.profileLocations) errors.push("LinkedIn needs a location in the audience.")
   if (c.targeting.include.locations && c.targeting.include.profileLocations) errors.push("Use locations or profile locations, not both.")
+  if (c.objective === "LEAD_GENERATION" && !c.leadFormUrn) errors.push("Lead gen campaigns need a lead form: pick one of the account's forms.")
+  if (c.leadFormUrn && c.objective !== "LEAD_GENERATION") errors.push("Only lead gen campaigns use a lead form.")
   if (c.objective === "LEAD_GENERATION" && c.offsiteDelivery) errors.push("LinkedIn doesn't allow the Audience Network on lead gen campaigns.")
   if (c.dailyBudget < 10) errors.push("LinkedIn's minimum daily budget is 10.")
   if (c.startDate < ctx.today) errors.push("The start date is in the past.")
@@ -150,8 +154,8 @@ export function checkLinkedIn(raw: unknown, ctx: BuildContext): Check & { spec?:
   if (unresolved.length) warnings.push(`${unresolved.length} audience value${unresolved.length === 1 ? " has" : "s have"} no LinkedIn id yet (look them up before going live): ${unresolved.slice(0, 5).map((u) => u.slice(18).replace(/_/g, " ")).join(", ")}.`)
   for (const [i, ad] of spec.ads.entries()) {
     if (ad.imagePath && ctx.clientId && !ad.imagePath.startsWith(`${ctx.clientId}/`)) errors.push(`Ad ${i + 1}: that image belongs to another client.`)
-    if (!ad.postUrn && !ad.landingUrl) errors.push(`Ad ${i + 1}: image ads need a landing page.`)
-    else if (!ad.postUrn && !onClientSite(ad.landingUrl, ctx.website)) errors.push(`Ad ${i + 1}: the landing page isn't on ${ctx.website ?? "the client's website (none is set)"}.`)
+    if (!ad.postUrn && !ad.landingUrl && !c.leadFormUrn) errors.push(`Ad ${i + 1}: image ads need a landing page.`)
+    else if (!ad.postUrn && ad.landingUrl && !onClientSite(ad.landingUrl, ctx.website)) errors.push(`Ad ${i + 1}: the landing page isn't on ${ctx.website ?? "the client's website (none is set)"}.`)
     if (ad.postUrn) continue
     if (ad.headline.length > 70) warnings.push(`Ad ${i + 1}: LinkedIn cuts headlines over 70 characters on some screens.`)
     if (ad.commentary.length > 150) warnings.push(`Ad ${i + 1}: intro text over 150 characters is cut off behind "see more".`)

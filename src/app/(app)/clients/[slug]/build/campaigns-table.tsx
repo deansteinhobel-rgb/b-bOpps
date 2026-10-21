@@ -21,7 +21,8 @@ export function CampaignsTable(p: { slug: string; mode: BuilderMode; campaigns: 
   const m = (n: number) => money(n, p.currency)
   const rows = showAll ? p.campaigns : p.campaigns.filter((c) => c.spend30 > 0).slice(0, 25)
   const tone = (c: HistoryCampaign) => {
-    if (p.target === null || !c.spend30) return null
+    // ABX is judged on reaching and engaging the accounts, not on cost per result.
+    if (p.mode === "abx" || p.target === null || !c.spend30) return null
     if (!c.results30) return "red" as const
     const cpr = c.spend30 / c.results30
     return cpr <= p.target ? ("green" as const) : cpr <= p.target * 1.2 ? ("amber" as const) : ("red" as const)
@@ -129,9 +130,10 @@ function EditCampaign({ slug, campaign, currency, running }: { slug: string; cam
       <Button size="sm" variant="outline" onClick={openDialog}>
         {running ? "Pause or edit" : "Edit"}
       </Button>
-      <DialogContent className="sm:max-w-lg">
+      {/* Grid items don't shrink below their content by default: a long campaign name would push the dialog wider. */}
+      <DialogContent className="grid-cols-[minmax(0,1fr)] sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="truncate">{campaign.name}</DialogTitle>
+          <DialogTitle className="truncate pr-6">{campaign.name}</DialogTitle>
           <DialogDescription>Each change is logged with the value before it, in Admin → Activity. Lumaux never turns a campaign on, removes or deletes one.</DialogDescription>
         </DialogHeader>
         {pending && !info && <p className="text-xs text-muted-foreground">Reading the campaign from LinkedIn…</p>}

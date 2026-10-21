@@ -9,7 +9,7 @@ import { canBuildCampaigns } from "@/lib/ads-api/access"
 import { runEdit, type Before, type CampaignChange, type EditResult } from "@/lib/ads-api/edit"
 import { adsApiEditsEnabled, adsApiEnv, editDryRunReason } from "@/lib/ads-api/gates"
 import { linkedInEditSender } from "@/lib/ads-api/linkedin"
-import { accountOrganization, matchedAudiences, readCampaign, targetingTypeahead, type MatchedAudience } from "@/lib/ads-api/linkedin-read"
+import { accountOrganization, leadForms, matchedAudiences, readCampaign, targetingTypeahead, type MatchedAudience } from "@/lib/ads-api/linkedin-read"
 import { saveCampaignBuild, sendCampaignBuild } from "@/lib/ads-api/service"
 import type { Check } from "@/lib/ads-api/spec"
 import type { RunResult } from "@/lib/ads-api/build"
@@ -97,6 +97,18 @@ export async function accountAudiences(slug: string, accountId: string): Promise
   }
 }
 
+/** The account's lead gen forms, for lead gen builds. */
+export async function accountLeadForms(slug: string, accountId: string): Promise<{ ok: true; forms: { name: string; urn: string; state: string }[] } | { ok: false; error: string }> {
+  const c = await clientFor(slug)
+  if (c.error) return { ok: false, error: c.error }
+  if (!(await linkedInAccount(c.client.id, accountId))) return { ok: false, error: "That isn't one of this client's LinkedIn accounts." }
+  try {
+    return { ok: true, forms: await leadForms(accountId) }
+  } catch (e) {
+    return { ok: false, error: notConnected(e) }
+  }
+}
+
 /** Saves the team's edits to a plan (copy, audience ids, images, budget). Checked against the plan's format. */
 export async function savePlan(planId: string, raw: unknown): Promise<{ ok: boolean; error?: string }> {
   const me = await getProfile()
@@ -110,6 +122,9 @@ export async function savePlan(planId: string, raw: unknown): Promise<{ ok: bool
   await createAdminClient(me.id).from("campaign_build_plans").update({ plan: toJson(parsed.data), updated_at: new Date().toISOString() }).eq("id", planId)
   return { ok: true }
 }
+
+/** A check as the browser gets it: the build's steps hold functions, which can't leave the server. */
+const plainCheck = (c: Check | undefined): Check | undefined => (c ? { ok: c.ok, errors: c.errors, warnings: c.warnings } : undefined)
 
 export type BuildOutcome = { ok: boolean; buildId?: string; check?: Check; run?: RunResult; leftOut: string[]; error?: string }
 
@@ -133,13 +148,14 @@ export async function buildFromPlan(planId: string, accountId: string): Promise<
   if (!spec.ads.length) return { ok: false, leftOut, error: "No ad is ready to build yet: upload images, or pick the posts to sponsor." }
 
   const saved = await saveCampaignBuild(me, { clientId: row.client_id, platform: "linkedin", accountId, name: parsed.data.campaign.name, spec, sprintTestId: row.sprint_test_id, planId: row.id, mode: row.mode as "general" | "abx" })
-  if (!saved.id) return { ok: false, leftOut, check: saved.check, error: saved.check.errors.join(" ") }
+  if (!saved.id) return { ok: false, leftOut, check: plainCheck(saved.check), error: saved.check.errors.join(" ") }
   if (!organizationId) saved.check.warnings.push("LinkedIn isn't connected yet, so the company page couldn't be read: the dry run uses a placeholder.")
   await createAdminClient(me.id).from("campaign_build_plans").update({ campaign_build_id: saved.id, updated_at: new Date().toISOString() }).eq("id", row.id)
   const run = organizationId || !isLive(row.clients?.slug ?? "") ? await sendCampaignBuild(me, saved.id) : undefined
   revalidatePath(`/clients/${row.clients?.slug}/build`)
-  if (!run) return { ok: false, buildId: saved.id, check: saved.check, leftOut, error: "Couldn't read the company page from LinkedIn, so nothing was sent." }
-  return { ok: run.ok, buildId: saved.id, check: { ...saved.check, warnings: [...saved.check.warnings, ...(run.check?.warnings ?? [])].filter((w, i, a) => a.indexOf(w) === i) }, run, leftOut, error: run.error }
+  if (!run) return { ok: false, buildId: saved.id, check: plainCheck(saved.check), leftOut, error: "Couldn't read the company page from LinkedIn, so nothing was sent." }
+  const { check: runCheck, ...result } = run
+  return { ok: run.ok, buildId: saved.id, check: plainCheck({ ...saved.check, warnings: [...saved.check.warnings, ...(runCheck?.warnings ?? [])].filter((w, i, a) => a.indexOf(w) === i) }), run: result, leftOut, error: run.error }
 }
 
 const isLive = (slug: string) => {
@@ -148,9 +164,10 @@ const isLive = (slug: string) => {
 }
 
 /** Sends a saved build again (after a fix in the platform, or the first live run of a dry-run build). */
-export async function sendBuild(buildId: string): Promise<RunResult> {
+export async function sendBuild(buildId: string): Promise<RunResult & { check?: Check }> {
   const me = await getProfile()
-  return sendCampaignBuild(me, buildId)
+  const { check, ...run } = await sendCampaignBuild(me, buildId)
+  return { ...run, check: plainCheck(check) }
 }
 
 // ── Edits to live campaigns ──────────────────────────────────────────────────────────────────────
@@ -179,7 +196,8 @@ export async function liveCampaign(slug: string, campaignId: string): Promise<Li
     return { ok: true, before: { name: r.name, status: r.status, dailyBudget: r.dailyBudget, start: r.start, startMs: r.startMs, end: r.end }, live: reason === null, reason }
   } catch (e) {
     // Dry runs still work without LinkedIn: the before is unknown.
-    return { ok: true, before: null, live: false, reason: notConnected(e) }
+    const m = (e as Error).message
+    return { ok: true, before: null, live: false, reason: /isn't connected|isn't set/.test(m) ? "LinkedIn isn't connected to Lumaux yet, so the campaign's current values can't be shown." : `LinkedIn: ${m}` }
   }
 }
 

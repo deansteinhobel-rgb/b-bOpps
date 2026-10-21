@@ -52,6 +52,12 @@ export async function matchedAudiences(accountId: string, deps?: ReadDeps): Prom
     .map((e) => ({ name: e.name!, urn: `urn:li:adSegment:${e.id}`, type: e.type ?? "", status: e.status ?? "", size: e.matchedMemberCount ?? e.audienceSize ?? null }))
 }
 
+/** The account's lead gen forms (read only). Unverified until LinkedIn is connected. */
+export async function leadForms(accountId: string, deps?: ReadDeps): Promise<{ name: string; urn: string; state: string }[]> {
+  const json = await get<{ elements?: { id?: number | string; name?: string; state?: string }[] }>(`/leadForms?q=owner&owner=(sponsoredAccount:${encodeURIComponent(accountUrn(accountId))})&count=100`, deps)
+  return (json.elements ?? []).filter((e) => e.id && e.name).map((e) => ({ name: e.name!, urn: `urn:li:adForm:${e.id}`, state: e.state ?? "" }))
+}
+
 export type LinkedInCampaign = {
   id: string
   name: string
