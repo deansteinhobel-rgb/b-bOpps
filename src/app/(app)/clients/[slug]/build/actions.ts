@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 import { getProfile, isAdmin } from "@/lib/auth"
 import { canBuildCampaigns } from "@/lib/ads-api/access"
+import { beforeOf, editStore, linkedInAccount, linkedInCampaignOf } from "@/lib/ads-api/edit-service"
 import { runEdit, type Before, type CampaignChange, type EditResult } from "@/lib/ads-api/edit"
 import { adsApiEditsEnabled, adsApiEnv, editDryRunReason } from "@/lib/ads-api/gates"
 import { linkedInEditSender } from "@/lib/ads-api/linkedin"
@@ -35,12 +36,6 @@ async function clientFor(slug: string) {
   if (!client) return { error: "This client isn't available to you." } as const
   if (!(await canBuildCampaigns(me, client.id))) return { error: NOT_ALLOWED } as const
   return { me, supabase, client, error: null } as const
-}
-
-async function linkedInAccount(clientId: string, accountId: string) {
-  if (!/^\d+$/.test(accountId)) return false
-  const { data } = await createAdminClient().from("client_platform_accounts").select("external_account_id").eq("client_id", clientId).eq("platform", "linkedin").eq("external_account_id", accountId).eq("active", true).maybeSingle()
-  return Boolean(data)
 }
 
 const notConnected = (e: unknown) => {
@@ -172,28 +167,18 @@ export async function sendBuild(buildId: string): Promise<RunResult & { check?: 
 
 // ── Edits to live campaigns ──────────────────────────────────────────────────────────────────────
 
-async function campaignOf(clientId: string, campaignId: string) {
-  if (!/^\d+$/.test(campaignId)) return null
-  const db = createAdminClient()
-  const { data } = await db.from("campaign_statuses").select("external_account_id, campaign_name, status").eq("client_id", clientId).eq("platform", "linkedin").eq("campaign_id", campaignId).maybeSingle()
-  if (data && (await linkedInAccount(clientId, data.external_account_id))) return { accountId: data.external_account_id, name: data.campaign_name ?? campaignId }
-  // A campaign the app built may not be in the daily sync yet.
-  const { data: built } = await db.from("campaign_builds").select("external_account_id, name, created_ids").eq("client_id", clientId).eq("platform", "linkedin").contains("created_ids", { campaign: campaignId }).maybeSingle()
-  return built ? { accountId: built.external_account_id, name: built.name } : null
-}
-
 export type LiveCampaignInfo = { ok: true; before: Before; live: boolean; reason: string | null } | { ok: false; error: string }
 
 /** The campaign as LinkedIn has it now (the "before" the edit dialog shows), and whether edits are live. */
 export async function liveCampaign(slug: string, campaignId: string): Promise<LiveCampaignInfo> {
   const c = await clientFor(slug)
   if (c.error) return { ok: false, error: c.error }
-  const campaign = await campaignOf(c.client.id, campaignId)
+  const campaign = await linkedInCampaignOf(c.client.id, campaignId)
   if (!campaign) return { ok: false, error: "That isn't one of this client's LinkedIn campaigns." }
   const reason = editDryRunReason({ ...adsApiEnv(), editsEnabled: adsApiEditsEnabled() }, "linkedin", c.client.slug)
   try {
     const r = await readCampaign(campaign.accountId, campaignId)
-    return { ok: true, before: { name: r.name, status: r.status, dailyBudget: r.dailyBudget, start: r.start, startMs: r.startMs, end: r.end }, live: reason === null, reason }
+    return { ok: true, before: beforeOf(r), live: reason === null, reason }
   } catch (e) {
     // Dry runs still work without LinkedIn: the before is unknown.
     const m = (e as Error).message
@@ -213,7 +198,7 @@ export async function editLiveCampaign(slug: string, campaignId: string, raw: Ca
   if (!parsed.success) return fail("Check the change.")
   const c = await clientFor(slug)
   if (c.error) return fail(c.error)
-  const campaign = await campaignOf(c.client.id, campaignId)
+  const campaign = await linkedInCampaignOf(c.client.id, campaignId)
   if (!campaign) return fail("That isn't one of this client's LinkedIn campaigns.")
   const limited = await rateLimit(c.supabase, "campaign_edit")
   if (limited) return fail(limited)
@@ -223,7 +208,7 @@ export async function editLiveCampaign(slug: string, campaignId: string, raw: Ca
   let before: Before = null
   try {
     const r = await readCampaign(campaign.accountId, campaignId)
-    before = { name: r.name, status: r.status, dailyBudget: r.dailyBudget, start: r.start, startMs: r.startMs, end: r.end }
+    before = beforeOf(r)
   } catch (e) {
     // Live edits need the value before; dry runs log without it.
     if (live) return fail(`Couldn't read the campaign from LinkedIn first, so nothing was sent. ${notConnected(e)}`)
@@ -242,15 +227,7 @@ export async function editLiveCampaign(slug: string, campaignId: string, raw: Ca
     {
       env,
       sender: live ? linkedInEditSender() : null,
-      store: {
-        async log(row) {
-          const { data, error } = await db.from("platform_write_log").insert({ ...row, payload: toJson(row.payload), previous: toJson(row.previous) }).select("id").single()
-          return error || !data ? { error: error?.message ?? "no row" } : { id: data.id }
-        },
-        async finishLog(id, v) {
-          await db.from("platform_write_log").update({ success: v.success, response: toJson(v.response), completed_at: new Date().toISOString() }).eq("id", id)
-        },
-      },
+      store: editStore(db),
     },
     { by: c.me.id, client: { id: c.client.id, slug: c.client.slug }, accountId: campaign.accountId, campaignId, currency: c.client.currency, change, before, money: (n) => money(n, c.client.currency) },
   )

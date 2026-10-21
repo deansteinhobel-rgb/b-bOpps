@@ -17,7 +17,9 @@ import { isOpportunity, isUrgent, RULES, type Category, type FeedInsight, type I
 import { PLATFORM_COLOR, PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import type { PreviewMap } from "@/lib/previews"
 import { cn } from "@/lib/utils"
+import { exclusionFor, FACET_WORDS } from "@/lib/ads-api/exclusions"
 import { briefInsight, logInsight, testFromInsight } from "./actions"
+import { ExcludePanel } from "./exclude-panel"
 
 type Owner = { id: string | null; name: string; onTeam: boolean }
 type View = "open" | "in_hand" | "snoozed" | "closed"
@@ -75,6 +77,8 @@ export function InsightFeed(props: {
   reviewRunning: string | null
   lastReviewFailed: string | null
   canReview: boolean
+  /** Admins and GTM leads on the client: "Exclude in LinkedIn" (the builder's edit rule). */
+  canChangeLinkedIn?: boolean
   aiReady: boolean
   /** From Options. */
   defaultOrder?: "claude" | "priority"
@@ -316,17 +320,19 @@ function InsightRow({ insight: i, open, onToggle, ...p }: RowProps) {
   )
 }
 
-type Panel = null | "brief" | "test" | "dismiss"
+type Panel = null | "brief" | "test" | "dismiss" | "exclude"
 
 function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "open" | "onToggle"> & { i: FeedInsight; campaignHref: string | null }) {
   const listItems = i.state === "closed" ? i.items : i.open
   const [selected, setSelected] = useState<Set<string>>(() => new Set(listItems.map((x) => x.id)))
   const [panel, setPanel] = useState<Panel>(null)
+  const [excludeItems, setExcludeItems] = useState<string[]>([])
   const [pending, start] = useTransition()
   const chosen = useMemo(() => (i.listed ? listItems.filter((x) => selected.has(x.id)) : listItems), [i.listed, listItems, selected])
   const ids = chosen.map((x) => x.id)
   const preview = p.previews[i.key]
   const rule = RULES[i.rule]
+  const excludeFacet = p.canChangeLinkedIn && i.platform === "linkedin" ? exclusionFor(i.rule) : null
 
   const run = (fn: () => Promise<{ ok: boolean; message?: string }>, success: string) =>
     start(async () => {
@@ -502,6 +508,7 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
           }
         />
       )}
+      {panel === "exclude" && <ExcludePanel slug={p.slug} insightKey={i.key} items={excludeItems} onClose={() => setPanel(null)} />}
       {panel === "dismiss" && <DismissForm pending={pending} onCancel={() => setPanel(null)} onDismiss={(note) => {
             log("dismissed", { note })
             setPanel(null)
@@ -518,6 +525,19 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
               <Button size="sm" disabled={pending || (i.listed && !chosen.length)} onClick={() => log("done")}>
                 {i.listed && chosen.length < listItems.length ? `Done (${chosen.length})` : "Done"}
               </Button>
+              {excludeFacet && (
+                <Button
+                  size="sm"
+                  variant="white"
+                  disabled={pending || !chosen.length}
+                  onClick={() => {
+                    setExcludeItems(ids)
+                    setPanel("exclude")
+                  }}
+                >
+                  Exclude {chosen.length === 1 ? FACET_WORDS[excludeFacet].one : FACET_WORDS[excludeFacet].many} in LinkedIn
+                </Button>
+              )}
               <Button size="sm" variant="outline" disabled={pending || (i.listed && !chosen.length)} onClick={() => setPanel("brief")}>
                 Brief the team
               </Button>

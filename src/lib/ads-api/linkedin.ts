@@ -92,7 +92,8 @@ async function bucketImage(path: string) {
 
 /**
  * Edits to a campaign that exists (Dean, 2026-10-21; edit.ts builds the patch): one partial update
- * on the campaign, nothing else. The patch can't set any status but PAUSED.
+ * on the campaign, nothing else. The patch can't set any status but PAUSED, and targeting only
+ * whole, on its own, with an include side (exclusions from Recommendations).
  */
 export function linkedInEditSender(deps: { token: () => Promise<string>; fetch?: Fetcher } = { token: () => accessToken("linkedin") }): EditSender {
   const f = deps.fetch ?? fetch
@@ -100,9 +101,15 @@ export function linkedInEditSender(deps: { token: () => Promise<string>; fetch?:
     async patch(accountId, campaignId, body) {
       if (!/^\d+$/.test(accountId) || !/^\d+$/.test(campaignId)) throw new Error("That isn't a LinkedIn campaign.")
       const set = (body as { patch?: { $set?: Record<string, unknown> } }).patch?.$set ?? {}
+      if (!Object.keys(set).length) throw new Error("Nothing to send.")
       if ("status" in set && set.status !== "PAUSED") throw new Error("Lumaux only ever pauses campaigns.")
-      const allowed = new Set(["status", "dailyBudget", "runSchedule", "name"])
+      const allowed = new Set(["status", "dailyBudget", "runSchedule", "name", "targetingCriteria"])
       if (Object.keys(set).some((k) => !allowed.has(k))) throw new Error("That change isn't one Lumaux makes.")
+      // Targeting goes alone and always whole (exclusions.ts keeps its include side as it was).
+      if ("targetingCriteria" in set) {
+        const t = set.targetingCriteria as { include?: unknown } | null
+        if (Object.keys(set).length > 1 || !t || typeof t !== "object" || !t.include) throw new Error("That targeting change isn't one Lumaux makes.")
+      }
       const response = await f(`${API}/adAccounts/${accountId}/adCampaigns/${campaignId}`, {
         method: "POST",
         headers: { ...headers(await deps.token()), "X-RestLi-Method": "PARTIAL_UPDATE" },

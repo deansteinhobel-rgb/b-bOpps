@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation"
 import { aiConfigured } from "@/lib/ai/claude"
+import { canBuildCampaigns } from "@/lib/ads-api/access"
 import { canEdit, getProfile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { loadFeed } from "@/lib/insights/feed"
@@ -49,6 +50,7 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
       reviewRunning={feed.reviewRunning}
       lastReviewFailed={feed.lastReviewFailed}
       canReview={canEdit(me)}
+      canChangeLinkedIn={await canBuildCampaigns(me, client.id)}
       aiReady={aiConfigured()}
       defaultOrder={me.preferences?.optimise_order}
     />

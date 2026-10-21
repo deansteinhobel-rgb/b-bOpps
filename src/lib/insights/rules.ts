@@ -23,7 +23,7 @@ export type RuleKey =
 
 /** `campaigns`: where the item was seen (LinkedIn companies); `flag`: a short warning shown beside it. */
 /** `campaigns`: where the item was seen (LinkedIn companies); `flag`: a short tag beside it, `flagTone` its color. */
-export type InsightItem = { id: string; label: string; note?: string; spend?: number; flag?: string; flagTone?: "bad" | "good" | "warn"; reason?: string; campaigns?: string[] }
+export type InsightItem = { id: string; label: string; note?: string; spend?: number; flag?: string; flagTone?: "bad" | "good" | "warn"; reason?: string; campaigns?: string[]; /** LinkedIn company items: the campaign ids behind `campaigns`, same order. */ campaignIds?: string[] }
 export type Insight = {
   key: string
   rule: RuleKey
@@ -593,22 +593,26 @@ function linkedinInsights(input: InsightInputs, money: (v: number) => string): I
   // Companies: our client's own staff (or ours) seeing the ads, then everyone who clicked.
   const companies = li.li_company
   if (companies) {
-    const byCompany = new Map<string, { m: Sums; campaigns: Set<string> }>()
+    const byCompany = new Map<string, { m: Sums; campaigns: Map<string, string> }>()
     for (const r of companies.rows) {
-      const e = byCompany.get(r.value) ?? { m: Z(), campaigns: new Set<string>() }
+      const e = byCompany.get(r.value) ?? { m: Z(), campaigns: new Map<string, string>() }
       e.m = plus(e.m, r.m)
-      e.campaigns.add(r.campaignName)
+      e.campaigns.set(r.campaignId, r.campaignName)
       byCompany.set(r.value, e)
     }
     // Which campaigns each company saw; seeing several is flagged (Dean), since each needs the exclusion.
-    const companyItem = (n: string, e: { m: Sums; campaigns: Set<string> }, note: string): InsightItem => ({
-      id: n,
-      label: n,
-      spend: e.m.spend,
-      note,
-      campaigns: [...e.campaigns].sort(),
-      flag: e.campaigns.size > 1 ? `${e.campaigns.size} campaigns` : undefined,
-    })
+    const companyItem = (n: string, e: { m: Sums; campaigns: Map<string, string> }, note: string): InsightItem => {
+      const seen = [...e.campaigns].sort((a, b) => a[1].localeCompare(b[1]))
+      return {
+        id: n,
+        label: n,
+        spend: e.m.spend,
+        note,
+        campaigns: seen.map(([, name]) => name),
+        campaignIds: seen.map(([id]) => id),
+        flag: e.campaigns.size > 1 ? `${e.campaigns.size} campaigns` : undefined,
+      }
+    }
     const clientWords = input.clientName.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(" ").filter((w) => w.length >= 4)
     const own = [...byCompany].filter(([name]) => {
       const n = name.toLowerCase()
