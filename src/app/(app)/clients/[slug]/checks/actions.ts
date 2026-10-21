@@ -59,7 +59,7 @@ export async function saveCheckResult(input: z.input<typeof Input>): Promise<Sav
   const flagChanged = (flaggedTo ?? null) !== current.flagged_to_profile_id
   // auto_data is server-only in the database (guard_check_result_fields), so the save goes through the
   // admin client. Access is confirmed above: canEdit, and `current` was loaded through RLS.
-  const { error } = await createAdminClient()
+  const { error } = await createAdminClient(me?.id)
     .from("check_results")
     .update({
       status,

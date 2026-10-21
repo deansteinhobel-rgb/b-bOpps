@@ -111,7 +111,7 @@ export async function POST(request: Request) {
     const angle = await writeAngle({ cfg, engaged: asPrompt(piece.code), slot: body.slot, earlier, target: target === "handoff" ? "handoff" : asPrompt(target.code) })
     // Still Claude's piece: the new angle becomes Claude's too, so the email stays "Claude's pick".
     const sameAsClaude = email.suggested && email.suggested.targetId === email.targetId && email.suggested.handoff === email.handoff
-    const { error } = await createAdminClient()
+    const { error } = await createAdminClient(me?.id)
       .from("content_sequences")
       .update({ angle, updated_by_profile_id: me.id, ...(sameAsClaude ? { suggested_angle: angle, suggested_at: new Date().toISOString() } : {}) })
       .eq("piece_id", piece.id)

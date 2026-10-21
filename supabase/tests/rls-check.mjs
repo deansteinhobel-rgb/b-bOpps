@@ -604,3 +604,40 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   try { await as(dean, () => q("select public.ads_api_token('linkedin')")); console.log("FAIL: a signed-in user read an ads token") } catch { console.log("ads api tokens: users can't read them: OK") }
   try { await as(dean, () => q("select public.set_ads_api_token('linkedin', 'x')")); console.log("FAIL: a signed-in user stored an ads token") } catch { console.log("ads api tokens: users can't store them: OK") }
 }
+// Change log (2026-10-21): every change a person makes is recorded by trigger, with who and what.
+// The server's own work isn't; the server acting for someone passes x-lumaux-actor.
+{
+  const camber = "11111111-1111-1111-1111-111111111111"
+  const andrea = "aaaaaaaa-0000-0000-0000-000000000002"
+  const danny = "aaaaaaaa-0000-0000-0000-000000000003"
+  const dean = "aaaaaaaa-0000-0000-0000-000000000001"
+  const before = (await q("select count(*)::int as n from public.change_log"))[0].n
+  const sp = await as(andrea, () => q(`insert into public.sprints (client_id, number, start_date, end_date) values ('${camber}', 40, '2028-01-03', '2028-01-16') returning id`))
+  const t = await as(andrea, () => q(`insert into public.sprint_tests (sprint_id, client_id, title) values ('${sp[0].id}', '${camber}', 'Log me') returning id`))
+  await as(andrea, () => q(`update public.sprint_tests set title = 'Logged' where id = '${t[0].id}'`))
+  const rows = await q(`select profile_id, client_id, op, label, changes from public.change_log where table_name = 'sprint_tests' and row_id = '${t[0].id}' order by id`)
+  console.log(rows.length === 2 && rows.every((r) => r.profile_id === andrea && r.client_id === camber) && rows[0].op === "insert" ? "change log: a person's insert and update are recorded: OK" : "FAIL: change log didn't record the edit")
+  console.log(rows[1]?.changes?.title?.from === "Log me" && rows[1]?.changes?.title?.to === "Logged" && rows[1]?.label === "Logged" ? "change log: updates keep from and to: OK" : "FAIL: change log diff")
+  await q(`update public.sprint_tests set title = 'Server' where id = '${t[0].id}'`)
+  const server = await q(`select id from public.change_log where table_name = 'sprint_tests' and row_id = '${t[0].id}'`)
+  console.log(server.length === 2 ? "change log: the server's own work isn't recorded: OK" : "FAIL: server change logged")
+  await db.exec(`select set_config('request.role', 'service_role', false); select set_config('request.headers', '{"x-lumaux-actor":"${dean}"}', false);`)
+  try { await q(`update public.sprint_tests set title = 'For Dean' where id = '${t[0].id}'`) } finally { await db.exec(`select set_config('request.role', '', false); select set_config('request.headers', '', false);`) }
+  const forDean = await q(`select profile_id from public.change_log where table_name = 'sprint_tests' and row_id = '${t[0].id}' and profile_id = '${dean}'`)
+  console.log(forDean.length === 1 ? "change log: the server acting for a person records them: OK" : "FAIL: x-lumaux-actor not recorded")
+  await db.exec(`select set_config('request.role', 'service_role', false); select set_config('request.headers', '{"x-lumaux-actor":"not-a-uuid"}', false);`)
+  await q(`update public.sprint_tests set title = 'Bad header' where id = '${t[0].id}'`)
+  await db.exec(`select set_config('request.role', '', false); select set_config('request.headers', '', false);`)
+  console.log("change log: a bad actor header doesn't break the write: OK")
+  await as(andrea, () => q(`update public.profiles set last_seen_at = now() where id = '${andrea}'`))
+  const seen = await q(`select id from public.change_log where table_name = 'profiles' and changes ? 'last_seen_at'`)
+  console.log(seen.length === 0 ? "change log: last seen isn't a change: OK" : "FAIL: last seen logged")
+  const teamSees = await as(andrea, () => q("select id from public.change_log where client_id is not null"))
+  const otherSees = await as(danny, () => q(`select id from public.change_log where client_id = '${camber}'`))
+  console.log(teamSees.length > 0 && otherSees.length === 0 ? "change log: the team reads its client's, other teams don't: OK" : "FAIL: change log visibility")
+  const adminSees = (await as(dean, () => q("select count(*)::int as n from public.change_log")))[0].n
+  console.log(adminSees > before ? "change log: admins read everything: OK" : "FAIL: admin can't read the change log")
+  try { await as(andrea, () => q(`insert into public.change_log (profile_id, table_name, op) values ('${andrea}', 'x', 'insert')`)); console.log("FAIL: a user wrote to the change log") } catch { console.log("change log: users can't write to it: OK") }
+  const tamper = [...(await as(dean, () => q("update public.change_log set label = 'x' returning id"))), ...(await as(dean, () => q("delete from public.change_log returning id")))]
+  console.log(tamper.length === 0 ? "change log can't be changed or deleted: OK" : "FAIL: change log changed or deleted")
+}
