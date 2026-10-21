@@ -1,5 +1,5 @@
 import "server-only"
-import { LINKEDIN_VERSION, restli } from "./linkedin"
+import { LINKEDIN_VERSION, restli, restliEncode } from "./linkedin"
 import { accessToken } from "./tokens"
 
 /**
@@ -34,7 +34,7 @@ const accountUrn = (id: string) => {
 /** Targeting values by name, e.g. facet "titles", query "IT director" → [{ name, urn }]. */
 export async function targetingTypeahead(facet: string, query: string, deps?: ReadDeps) {
   if (!/^[A-Za-z]+$/.test(facet)) throw new Error("Unknown facet.")
-  const q = `q=typeahead&facet=${encodeURIComponent(`urn:li:adTargetingFacet:${facet}`)}&query=${encodeURIComponent(query.slice(0, 100))}`
+  const q = `q=typeahead&facet=${restliEncode(`urn:li:adTargetingFacet:${facet}`)}&query=${restliEncode(query.slice(0, 100))}`
   const json = await get<{ elements?: { urn?: string; name?: string }[] }>(`/adTargetingEntities?${q}`, deps)
   return (json.elements ?? []).filter((e) => e.urn && e.name).slice(0, 15).map((e) => ({ name: e.name!, urn: e.urn! }))
 }
@@ -54,7 +54,7 @@ export async function matchedAudiences(accountId: string, deps?: ReadDeps): Prom
 
 /** The account's lead gen forms (read only). Unverified until LinkedIn is connected. */
 export async function leadForms(accountId: string, deps?: ReadDeps): Promise<{ name: string; urn: string; state: string }[]> {
-  const json = await get<{ elements?: { id?: number | string; name?: string; state?: string }[] }>(`/leadForms?q=owner&owner=(sponsoredAccount:${encodeURIComponent(accountUrn(accountId))})&count=100`, deps)
+  const json = await get<{ elements?: { id?: number | string; name?: string; state?: string }[] }>(`/leadForms?q=owner&owner=(sponsoredAccount:${restliEncode(accountUrn(accountId))})&count=100`, deps)
   return (json.elements ?? []).filter((e) => e.id && e.name).map((e) => ({ name: e.name!, urn: `urn:li:adForm:${e.id}`, state: e.state ?? "" }))
 }
 

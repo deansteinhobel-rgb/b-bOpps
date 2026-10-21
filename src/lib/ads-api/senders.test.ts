@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 vi.mock("server-only", () => ({}))
 vi.mock("./tokens", () => ({ accessToken: async () => "never-used", USER_AGENT: "test" }))
 import { PlatformRefused } from "./build"
-import { linkedInSender, restli } from "./linkedin"
+import { linkedInSender, restli, restliEncode } from "./linkedin"
 import { redditSender } from "./reddit"
 
 // Fake fetch that records every request. Never the real platforms.
@@ -73,6 +73,9 @@ describe("LinkedIn sender", () => {
     expect(restli({ include: { and: [{ or: { "urn:li:adTargetingFacet:locations": ["urn:li:geo:1"] } }] } })).toBe(
       "(include:(and:List((or:(urn%3Ali%3AadTargetingFacet%3Alocations:List(urn%3Ali%3Ageo%3A1))))))",
     )
+    // Brackets in values are Rest.li syntax unless encoded (LinkedIn 400 on "Finni Health (YC W23)").
+    expect(restliEncode("Finni Health (YC W23)")).toBe("Finni%20Health%20%28YC%20W23%29")
+    expect(restli(["urn:li:staffCountRange:(51,200)"])).toBe("List(urn%3Ali%3AstaffCountRange%3A%2851%2C200%29)")
   })
 })
 

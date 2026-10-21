@@ -5,6 +5,7 @@ import { canEdit, getProfile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { loadFeed } from "@/lib/insights/feed"
 import { addDays } from "@/lib/metrics/ads"
+import { isPlatform, type Platform } from "@/lib/metrics/types"
 import { notionWritesLive } from "@/lib/notion/server"
 import { peopleForClient } from "@/lib/people"
 import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
@@ -30,6 +31,14 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
   const byAd = ads.length ? await previewsFor(supabase, client.id, ads) : {}
   const previews: PreviewMap = Object.fromEntries(feed.insights.flatMap((x) => (x.ad && byAd[adKey(x.ad)] ? [[x.key, byAd[adKey(x.ad)]]] : [])))
   const today = londonToday()
+  // For "Check it in …" and Pause: each campaign's account and status, and each platform's account.
+  const [{ data: statuses }, { data: accounts }] = await Promise.all([
+    supabase.from("campaign_statuses").select("platform, campaign_id, external_account_id, status").eq("client_id", client.id),
+    supabase.from("client_platform_accounts").select("platform, external_account_id").eq("client_id", client.id).eq("active", true),
+  ])
+  const campaignInfo = Object.fromEntries((statuses ?? []).map((s) => [`${s.platform}:${s.campaign_id}`, { account: s.external_account_id, status: s.status }]))
+  const platformAccounts: Partial<Record<Platform, string>> = {}
+  for (const a of accounts ?? []) if (isPlatform(a.platform)) platformAccounts[a.platform] ??= a.external_account_id
 
   return (
     <InsightFeed
@@ -51,6 +60,8 @@ export default async function InsightsPage({ params, searchParams }: PageProps<"
       lastReviewFailed={feed.lastReviewFailed}
       canReview={canEdit(me)}
       canChangeLinkedIn={await canBuildCampaigns(me, client.id)}
+      campaignInfo={campaignInfo}
+      platformAccounts={platformAccounts}
       aiReady={aiConfigured()}
       defaultOrder={me.preferences?.optimise_order}
     />

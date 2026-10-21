@@ -86,8 +86,8 @@ export async function planLinkedInExclusion(slug: string, key: string, items: st
       try {
         values.push({ label: x.label, ...matchCompany(x.label, await targetingTypeahead("employers", x.label)) })
       } catch (e) {
+        // One name LinkedIn can't look up shouldn't stop the rest: it's left out, shown as not found.
         if (linkedInNotConnected(e)) connected = false
-        else return { ok: false, error: `LinkedIn: ${(e as Error).message}` }
         values.push({ label: x.label, urn: null, candidates: [] })
       }
     }

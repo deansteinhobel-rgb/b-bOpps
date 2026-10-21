@@ -135,6 +135,13 @@ export async function linkedInAudienceCount(targetingCriteria: unknown, deps: { 
 /** Rest.li 2.0 query encoding: objects as (k:v), arrays as List(…), URNs URL-encoded. */
 export function restli(value: unknown): string {
   if (Array.isArray(value)) return `List(${value.map(restli).join(",")})`
-  if (value && typeof value === "object") return `(${Object.entries(value).map(([k, v]) => `${encodeURIComponent(k)}:${restli(v)}`).join(",")})`
-  return encodeURIComponent(String(value))
+  if (value && typeof value === "object") return `(${Object.entries(value).map(([k, v]) => `${restliEncode(k)}:${restli(v)}`).join(",")})`
+  return restliEncode(String(value))
 }
+
+/**
+ * A value inside a Rest.li 2.0 query. encodeURIComponent leaves ( ) ! ' * as they are, and Rest.li
+ * reads brackets as syntax: "Finni Health (YC W23)" got LinkedIn's 400 "Invalid query parameters"
+ * (2026-10-21). So those are encoded too.
+ */
+export const restliEncode = (v: string) => encodeURIComponent(v).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
