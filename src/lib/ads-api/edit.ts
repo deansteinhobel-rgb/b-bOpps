@@ -1,8 +1,9 @@
+import { describeExclusion, sameInclude, withExclusions, type ExcludeFacet, type Exclusion } from "./exclusions"
 import { editDryRunReason, type AdsApiEnv, type AdsApiPlatform } from "./gates"
 
 /**
  * Edits to a LinkedIn campaign that already exists (Dean, 2026-10-21): pause it, change its daily
- * budget, end date or name. One edit = one platform_write_log row, written first with the value
+ * budget, end date or name, or add exclusions from Recommendations (exclusions.ts). One edit = one platform_write_log row, written first with the value
  * before (read from LinkedIn) and the change; then sent as a partial update; then the result.
  * There is no way to enable, remove or delete here: status can only ever be set to PAUSED, and the
  * patch is built from a fixed list of fields. A plain module so the tests can use it.
@@ -11,12 +12,20 @@ import { editDryRunReason, type AdsApiEnv, type AdsApiPlatform } from "./gates"
 export type CampaignChange =
   | { kind: "pause" }
   | { kind: "update"; dailyBudget?: number; endDate?: string | null; name?: string }
+  | { kind: "exclude"; facet: ExcludeFacet; values: Exclusion[] }
 
-export type Before = { name: string; status: string; dailyBudget: number | null; start: string | null; startMs?: number | null; end: string | null } | null
+export type Before = { name: string; status: string; dailyBudget: number | null; start: string | null; startMs?: number | null; end: string | null; targetingCriteria?: unknown } | null
 
 /** The partial update LinkedIn gets: `{ patch: { $set: {...} } }` (end date removal via $delete). */
 export function campaignPatch(change: CampaignChange, currency: string, before: Before) {
   if (change.kind === "pause") return { patch: { $set: { status: "PAUSED" } } }
+  if (change.kind === "exclude") {
+    // A dry run without LinkedIn connected logs what it would add; there's no targeting to send.
+    if (!before?.targetingCriteria) return { unsent: "LinkedIn's current targeting wasn't read", exclude: { facet: change.facet, values: change.values } }
+    const { targeting } = withExclusions(before.targetingCriteria, change.facet, change.values)
+    if (!sameInclude(before.targetingCriteria, targeting)) throw new Error("The include side of the targeting would change, so nothing was sent.")
+    return { patch: { $set: { targetingCriteria: targeting } } }
+  }
   const set: Record<string, unknown> = {}
   if (change.dailyBudget !== undefined) {
     if (!(change.dailyBudget >= 10)) throw new Error("LinkedIn's minimum daily budget is 10.")
@@ -39,6 +48,15 @@ export function campaignPatch(change: CampaignChange, currency: string, before: 
 /** What changes, before → after, for the log and the confirmation. */
 export function describeChange(change: CampaignChange, before: Before, money: (n: number) => string): string[] {
   if (change.kind === "pause") return [`Status: ${before?.status ?? "unknown"} → PAUSED`]
+  if (change.kind === "exclude") {
+    if (!before?.targetingCriteria) return describeExclusion(change.facet, change.values, [])
+    try {
+      const { added, already } = withExclusions(before.targetingCriteria, change.facet, change.values)
+      return describeExclusion(change.facet, added, already)
+    } catch {
+      return describeExclusion(change.facet, change.values, [])
+    }
+  }
   const lines: string[] = []
   if (change.dailyBudget !== undefined) lines.push(`Daily budget: ${before?.dailyBudget != null ? money(before.dailyBudget) : "unknown"} → ${money(change.dailyBudget)}`)
   if (change.endDate !== undefined) lines.push(`End date: ${before?.end ?? "none"} → ${change.endDate ?? "none"}`)
