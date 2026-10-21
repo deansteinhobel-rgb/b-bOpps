@@ -319,7 +319,8 @@ export async function syncCallNotes(clientId: string, opts: { full?: boolean; bu
       const changed = d !== c.content_digest || Boolean(c.extract_error)
       await db
         .from("client_calls")
-        .update({ content, content_chars: content.length, content_digest: d, synced_at: now, updated_at: now, ...(changed ? { extract_status: content.length < 80 ? "skipped" : "pending", extract_error: null } : {}) })
+        // updated_at moves only when the notes changed: the client brief rebuilds on it.
+        .update({ content, content_chars: content.length, content_digest: d, synced_at: now, ...(changed ? { updated_at: now, extract_status: content.length < 80 ? "skipped" : "pending", extract_error: null } : {}) })
         .eq("id", c.id)
     } catch (e) {
       await db.from("client_calls").update({ synced_at: now, extract_status: "failed", extract_error: `Couldn't read it from Notion: ${(e as Error).message}`.slice(0, 300) }).eq("id", c.id)
@@ -328,6 +329,22 @@ export async function syncCallNotes(clientId: string, opts: { full?: boolean; bu
   }
   await db.from("clients").update({ call_notes_checked_at: checkedAt }).eq("id", clientId)
   return { found: rows.length, read, remaining: stale.length - read }
+}
+
+/**
+ * The weekly full scan (Dean, 2026-10-21: every Friday night): lists every row in the client's call
+ * notes (not just rows edited since the last check, so nothing missed slips through) and marks every
+ * call to be read again. The hourly job then reads them; notes that didn't change keep their summary,
+ * and calls whose reading failed (a linked page now shared, a Claude error) are read and summarized
+ * again. Writes only our database.
+ */
+export async function markCallsForRescan(clientId: string) {
+  const db = createAdminClient()
+  const listed = await syncCallNotes(clientId, { full: true, budgetMs: 1 })
+  const { data } = await db.from("client_calls").update({ synced_at: null }).eq("client_id", clientId).eq("source", "notion").is("removed_at", null).select("id")
+  // Claude failed on these but the notes were read: try Claude again without waiting for Notion.
+  await db.from("client_calls").update({ extract_status: "pending", extract_error: null }).eq("client_id", clientId).eq("extract_status", "failed").not("content", "is", null).not("extract_error", "like", "Couldn't read it from Notion%")
+  return { found: listed.found, marked: data?.length ?? 0 }
 }
 
 /** The calls in a source, without reading or saving anything (for scripts and checks). */
