@@ -195,6 +195,30 @@ export type Database = {
           },
         ]
       }
+      ads_api_connections: {
+        Row: {
+          connected_at: string
+          last_refreshed_at: string | null
+          platform: string
+          refresh_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          connected_at: string
+          last_refreshed_at?: string | null
+          platform: string
+          refresh_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          connected_at?: string
+          last_refreshed_at?: string | null
+          platform?: string
+          refresh_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       breakdown_sync_state: {
         Row: {
           client_id: string
@@ -385,6 +409,92 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_builds: {
+        Row: {
+          client_id: string
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          created_ids: Json
+          dry_run_at: string | null
+          error: string | null
+          external_account_id: string
+          id: string
+          name: string
+          platform: string
+          sent_at: string | null
+          spec: Json
+          sprint_test_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_ids?: Json
+          dry_run_at?: string | null
+          error?: string | null
+          external_account_id: string
+          id?: string
+          name: string
+          platform: string
+          sent_at?: string | null
+          spec: Json
+          sprint_test_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_ids?: Json
+          dry_run_at?: string | null
+          error?: string | null
+          external_account_id?: string
+          id?: string
+          name?: string
+          platform?: string
+          sent_at?: string | null
+          spec?: Json
+          sprint_test_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_builds_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_builds_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_builds_sprint_test_id_fkey"
+            columns: ["sprint_test_id"]
+            isOneToOne: false
+            referencedRelation: "recommendation_results"
+            referencedColumns: ["test_id"]
+          },
+          {
+            foreignKeyName: "campaign_builds_sprint_test_id_fkey"
+            columns: ["sprint_test_id"]
+            isOneToOne: false
+            referencedRelation: "sprint_tests"
             referencedColumns: ["id"]
           },
         ]
@@ -2625,7 +2735,8 @@ export type Database = {
         Row: {
           ad_group_id: string | null
           ad_id: string | null
-          campaign_id: string
+          campaign_build_id: string | null
+          campaign_id: string | null
           client_id: string
           completed_at: string | null
           created_at: string
@@ -2639,12 +2750,14 @@ export type Database = {
           profile_id: string | null
           response: Json | null
           sprint_test_id: string | null
+          step: string | null
           success: boolean | null
         }
         Insert: {
           ad_group_id?: string | null
           ad_id?: string | null
-          campaign_id: string
+          campaign_build_id?: string | null
+          campaign_id?: string | null
           client_id: string
           completed_at?: string | null
           created_at?: string
@@ -2658,12 +2771,14 @@ export type Database = {
           profile_id?: string | null
           response?: Json | null
           sprint_test_id?: string | null
+          step?: string | null
           success?: boolean | null
         }
         Update: {
           ad_group_id?: string | null
           ad_id?: string | null
-          campaign_id?: string
+          campaign_build_id?: string | null
+          campaign_id?: string | null
           client_id?: string
           completed_at?: string | null
           created_at?: string
@@ -2677,9 +2792,17 @@ export type Database = {
           profile_id?: string | null
           response?: Json | null
           sprint_test_id?: string | null
+          step?: string | null
           success?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "platform_write_log_campaign_build_id_fkey"
+            columns: ["campaign_build_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_builds"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "platform_write_log_client_id_fkey"
             columns: ["client_id"]
@@ -4121,6 +4244,7 @@ export type Database = {
           spend: number
         }[]
       }
+      ads_api_token: { Args: { p_platform: string }; Returns: string }
       breakdown_totals: {
         Args: {
           p_campaign?: string
@@ -4299,6 +4423,10 @@ export type Database = {
           spend: number
           term: string
         }[]
+      }
+      set_ads_api_token: {
+        Args: { p_platform: string; p_token: string }
+        Returns: undefined
       }
       sprint_ad_events: {
         Args: { p_client: string; p_from: string; p_to: string }
