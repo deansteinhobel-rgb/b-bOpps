@@ -118,6 +118,7 @@ Every page, query, table and RLS policy is scoped by `client_id`. In v1 the clie
 - Creatives: `AdThumb` shows a large hover preview (base-ui preview card, in a portal so tables don't clip it).
 - RAG colors are tuned for dark (#4ade80 / #fbbf24 / #f87171 with 12% backgrounds) and never use lime.
 - `/design` is a **development-only** preview with sample data, used to check the look without signing in. It 404s in production.
+- **Taste skill for every visual change** (Dean, 2026-10-21): when designing something new or changing how anything looks, load the `design-taste-frontend` skill ([Leonxlnx/taste-skill](https://github.com/Leonxlnx/taste-skill), installed per user in `~/.claude/skills/`, not in this repo) and follow it. Lumaux screens are **app screens**: use its `references/app-screens.md` run (`draw.mjs --app --keep palette,type`, `inspect.mjs --app`), not the landing-page run. **George's B&B design system above wins wherever they clash**: the 1px #333 hairline boxes and 12px radius, sentence-case eyebrows, lime as the one signal, MADE Avenue titles stay; pass the inspector `--allow <rule>` for those and say so. No stock photos or archive images in the app. Its working files go in `.taste-skill/` (git-ignored).
 
 ## Security (2026-09-29, before the first Vercel deploy)
 - Everything is in `docs/security.md`: what's in place and the settings to switch on (GitHub, Supabase, Vercel, Anthropic). Keep it current.
