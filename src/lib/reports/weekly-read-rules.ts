@@ -38,9 +38,14 @@ export type AbxRead = ReadCore & {
   accountsThrough: string | null
 }
 
+/** The period read: a week against the week before, or the month so far against the same days last month. */
+export type ReadPeriod = { kind: "week" | "month"; from: string; to: string; prevFrom: string; prevTo: string }
+export type GoalLine = { name: string; value: number | null; target: number | null; expected: number | null; tone: "green" | "amber" | "red" | null; behindPct: number | null }
+
 export type WeeklyRead = {
   client: { name: string; slug: string; currency: string; logoUrl: string | null }
-  week: { from: string; to: string; prevFrom: string; prevTo: string }
+  week: ReadPeriod
+  goals: GoalLine[]
   dataThrough: string
   complete: boolean
   overall: OverallRead
@@ -69,8 +74,9 @@ export function weekTone(p: { results: number; prevResults: number; spend: numbe
 }
 
 /** The headline: how the week went in a few words, then the results line. */
-export function verdictHeadline(p: { tone: Tone; results: number; spend: string; cpr: string | null; target: string | null; underTarget: boolean | null }) {
-  const lead = p.tone === "good" ? "A good week" : p.tone === "bad" ? "A hard week" : "A steady week"
+export function verdictHeadline(p: { tone: Tone; results: number; spend: string; cpr: string | null; target: string | null; underTarget: boolean | null; period?: "week" | "month" }) {
+  const noun = p.period === "month" ? "month so far" : "week"
+  const lead = p.tone === "good" ? `A good ${noun}` : p.tone === "bad" ? `A hard ${noun}` : `A steady ${noun}`
   // Google reports fractional conversions; the headline counts whole results.
   const n = Math.round(p.results)
   if (n === 0) return `${lead}: ${p.spend} spent with no results`

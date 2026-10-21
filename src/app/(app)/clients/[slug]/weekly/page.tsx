@@ -1,13 +1,16 @@
 import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import { SectionLoading } from "@/components/loading"
+import { canEdit, getProfile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { addDays } from "@/lib/metrics/ads"
 import { lastWeek } from "@/lib/reports/weekly"
 import { loadWeeklyRead } from "@/lib/reports/weekly-read"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
-import { WeeklyReadView } from "./weekly-read-view"
+import { loadGoals } from "../_glance/glance-data"
+import { GoalsRow } from "../_read/goals-row"
+import { ReadView } from "../_read/read-view"
 
 export const metadata = { title: "Weekly read" }
 
@@ -21,11 +24,10 @@ function parseWeek(v: unknown) {
 }
 
 /**
- * Weekly read (Dean, 2026-10-21, after ZenABM's reports): last week for one client, easy to digest.
- * The verdict first, then what's working / needs attention / where to act, then the numbers and the
- * evidence. Overall for every client; ABX for clients with an account-based segment (Camber).
+ * Weekly read (Dean, 2026-10-21, after ZenABM's reports): Summary › Weekly read, last week against the week
+ * before, in the Summary's layout. Overall for every client; ABX for clients with an account-based segment.
  */
-export default async function WeeklyReadPage({ params, searchParams }: PageProps<"/clients/[slug]/reporting/weekly">) {
+export default async function WeeklyReadPage({ params, searchParams }: PageProps<"/clients/[slug]/weekly">) {
   const [{ slug }, sp] = await Promise.all([params, searchParams])
   const supabase = await createClient()
   const { data: client } = await supabase.from("clients").select("id, slug, monthly_kpi_target").eq("slug", slug).maybeSingle()
@@ -33,15 +35,22 @@ export default async function WeeklyReadPage({ params, searchParams }: PageProps
   const week = parseWeek(sp.week)
   return (
     <Suspense key={week.from} fallback={<SectionLoading label="Reading the week…" className="min-h-96" lines={8} />}>
-      <WeeklyRead supabase={supabase} client={client} week={week} view={sp.view === "abx" ? "abx" : "overall"} />
+      <WeeklyRead supabase={supabase} client={client} week={week} abx={sp.abx === "1"} />
     </Suspense>
   )
 }
 
-async function WeeklyRead({ supabase, client, week, view }: { supabase: Awaited<ReturnType<typeof createClient>>; client: { id: string; slug: string; monthly_kpi_target: number | string | null }; week: { from: string; to: string }; view: "overall" | "abx" }) {
+async function WeeklyRead({ supabase, client, week, abx }: { supabase: Awaited<ReturnType<typeof createClient>>; client: { id: string; slug: string; monthly_kpi_target: number | string | null }; week: { from: string; to: string }; abx: boolean }) {
   // Access confirmed above (client loaded through RLS), so the secret key is safe to read with.
-  const read = await loadWeeklyRead(createAdminClient(), supabase, client, week)
+  const [read, goals, me] = await Promise.all([loadWeeklyRead(createAdminClient(), supabase, client, { kind: "week", ...week }), loadGoals(supabase, client.id, week.to), getProfile()])
   if (!read) return <p className="text-sm text-muted-foreground">No ad data for this client yet.</p>
   const latest = lastWeek(londonToday()).from
-  return <WeeklyReadView read={read} initialView={read.abx ? view : "overall"} prevWeek={addDays(week.from, -7)} nextWeek={week.from < latest ? addDays(week.from, 7) : null} isLatest={week.from === latest} />
+  return (
+    <ReadView
+      read={read}
+      initialAbx={abx}
+      nav={{ prev: addDays(week.from, -7), next: week.from < latest ? addDays(week.from, 7) : null, isLatest: week.from === latest }}
+      goals={<GoalsRow slug={client.slug} goals={goals} canEdit={canEdit(me)} />}
+    />
+  )
 }

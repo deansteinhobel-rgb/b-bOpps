@@ -8,6 +8,7 @@ import { pickAds, type ReportAd } from "@/lib/metrics/client-report"
 import { fatigueInputs } from "@/lib/metrics/fatigue-snapshot"
 import { getPacing } from "@/lib/metrics/overview"
 import { getPerformance, type Derived } from "@/lib/metrics/performance"
+import type { RangeSpec } from "@/lib/metrics/range"
 import { adKey, previewsFor, type Preview, type PreviewMap } from "@/lib/previews"
 import { PLATFORMS, type Platform } from "@/lib/metrics/types"
 import { loadTargets, targetFor } from "@/lib/targets"
@@ -86,11 +87,12 @@ const weekAd = (a: ReportAd, previews: PreviewMap): WeekAd => {
 }
 
 /** `previewTtl`: how long the ad image links last (seconds). Slack posts keep theirs for 90 days. */
-export async function weeklySnapshot(db: Db, clientId: string, week = lastWeek(), previewTtl = 3600): Promise<WeeklySnapshot | null> {
+/** `range`: what the totals compare (default: the week against the week before; the Summary passes the month so far, `mtd`). */
+export async function weeklySnapshot(db: Db, clientId: string, week = lastWeek(), previewTtl = 3600, range?: RangeSpec): Promise<WeeklySnapshot | null> {
   const { data: client } = await db.from("clients").select("id, name, slug, currency, logo_url, monthly_kpi_target").eq("id", clientId).single()
   if (!client) return null
   const [perf, pacing, targets, ads, fatigue] = await Promise.all([
-    getPerformance(db, clientId, { range: { kind: "custom", from: week.from, to: week.to } }),
+    getPerformance(db, clientId, { range: range ?? { kind: "custom", from: week.from, to: week.to } }),
     getPacing(db, clientId),
     loadTargets(db, clientId, client.monthly_kpi_target),
     adsForPeriod(db, clientId, week.from, week.to),

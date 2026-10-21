@@ -34,6 +34,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/clients/:slug/account", destination: "/clients/:slug", permanent: false },
+      { source: "/clients/:slug/reporting/weekly", destination: "/clients/:slug/weekly", permanent: false },
       { source: "/clients/:slug/performance", destination: "/clients/:slug/reporting", permanent: false },
       { source: "/clients/:slug/performance/:path*", destination: "/clients/:slug/reporting/:path*", permanent: false },
     ]

@@ -1,8 +1,9 @@
 "use client"
 
-// The weekly read (Dean, 2026-10-21, after ZenABM's reports). The order is the point: the verdict, then
-// what's working / needs attention / where to act, then the numbers, then the evidence (top 5 of each
-// list, "Show all" for the rest). Every ad that's named shows its preview.
+// The read (Dean, 2026-10-21, after ZenABM's reports): the Summary (this month so far) and the weekly read.
+// The order is the point: the verdict, then what's working / needs attention / where to act, then the
+// numbers, then the evidence (top 5 of each list, "Show all" for the rest). Every ad that's named shows
+// its preview.
 import { useState } from "react"
 import Link from "next/link"
 import {
@@ -42,7 +43,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { money as fmtMoney, whole } from "@/lib/format"
 import type { AbxRead, AccountRow, AdRow, Flag as FlagRow, IconKey, ReadAd, ReadCore, ReadItem, Tile, Tone, WeeklyRead } from "@/lib/reports/weekly-read-rules"
 import { cn } from "@/lib/utils"
-import { Sparkline } from "../charts"
+import { Sparkline } from "../reporting/charts"
 
 type View = "overall" | "abx"
 
@@ -68,6 +69,7 @@ const TONE_TEXT: Record<Tone, string> = { good: "text-rag-green", bad: "text-rag
 /** Long names (Google search ads are named after all their headlines) cut short; the full name shows on hover. */
 const short = (s: string, n = 70) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s)
 const pct = (v: number | null) => (v === null ? "–" : `${(v * 100).toFixed(2)}%`)
+const monthOf = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" })
 const day = (iso: string, withYear = false) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(withYear ? { year: "numeric" } : {}), timeZone: "UTC" })
 
 /** A CSV download of a table (the Export buttons). */
@@ -81,37 +83,46 @@ function downloadCsv(name: string, rows: (string | number | null)[][]) {
   URL.revokeObjectURL(a.href)
 }
 
-export function WeeklyReadView({ read, initialView, prevWeek, nextWeek, isLatest }: { read: WeeklyRead; initialView: View; prevWeek: string; nextWeek: string | null; isLatest: boolean }) {
-  const [view, setViewState] = useState<View>(initialView)
+/**
+ * `nav`: the week arrows (weekly read only). `goals`: the client's goal cards, under the verdict.
+ * `below`: anything after the flags (the Summary's What's changed and What's planned cards).
+ */
+export function ReadView({ read, initialAbx, nav, goals, below }: { read: WeeklyRead; initialAbx: boolean; nav?: { prev: string; next: string | null; isLatest: boolean } | null; goals?: React.ReactNode; below?: React.ReactNode }) {
+  const [view, setViewState] = useState<View>(initialAbx && read.abx ? "abx" : "overall")
   const m = (v: number | null | undefined, digits = 0) => (v === null || v === undefined ? "–" : fmtMoney(v, read.client.currency, digits))
-  // The view lives in the URL (shareable) without a server round trip.
+  // The view lives in the URL (?abx=1, shareable) without a server round trip. Not ?view=: the goal
+  // cards' side panels use that.
   const setView = (v: View) => {
     setViewState(v)
     const url = new URL(window.location.href)
-    if (v === "abx") url.searchParams.set("view", "abx")
-    else url.searchParams.delete("view")
-    window.history.replaceState(null, "", url)
+    if (v === "abx") url.searchParams.set("abx", "1")
+    else url.searchParams.delete("abx")
+    window.history.replaceState(window.history.state, "", url)
   }
   const core: ReadCore = view === "abx" && read.abx ? read.abx : read.overall
-  const weekHref = (w: string) => `?week=${w}${view === "abx" ? "&view=abx" : ""}`
+  const weekHref = (w: string) => `?week=${w}${view === "abx" ? "&abx=1" : ""}`
   const slug = read.client.slug
+  const p = read.week
+  const current = p.kind === "month" ? "this month" : "last week"
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <Link href={weekHref(prevWeek)} aria-label="The week before" className="inline-flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-border-strong hover:text-foreground">
-            <ChevronLeft className="size-4" aria-hidden />
-          </Link>
-          <span className="pill pill-active">{isLatest ? "Last week" : "Week of"}</span>
+          {nav && (
+            <Link href={weekHref(nav.prev)} aria-label="The week before" className="inline-flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-border-strong hover:text-foreground">
+              <ChevronLeft className="size-4" aria-hidden />
+            </Link>
+          )}
+          <span className="pill pill-active">{p.kind === "month" ? `${monthOf(p.from)} so far` : nav?.isLatest ? "Last week" : "Week of"}</span>
           <span className="text-sm tabular-nums">
-            {day(read.week.from)} – {day(read.week.to, true)}
+            {day(p.from)} – {day(p.to, true)}
           </span>
           <span className="text-[13px] text-muted-foreground">
-            against {day(read.week.prevFrom)} – {day(read.week.prevTo)}
+            against {day(p.prevFrom)} – {day(p.prevTo)}
           </span>
-          {nextWeek ? (
-            <Link href={weekHref(nextWeek)} aria-label="The week after" className="inline-flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-border-strong hover:text-foreground">
+          {nav?.next ? (
+            <Link href={weekHref(nav.next)} aria-label="The week after" className="inline-flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground hover:border-border-strong hover:text-foreground">
               <ChevronRight className="size-4" aria-hidden />
             </Link>
           ) : null}
@@ -121,14 +132,17 @@ export function WeeklyReadView({ read, initialView, prevWeek, nextWeek, isLatest
       </div>
 
       <Verdict core={core} />
+      {goals}
       <ThreeColumns core={core} />
       <Tiles tiles={core.tiles} />
 
-      {view === "abx" && read.abx ? <AbxEvidence abx={read.abx} m={m} slug={slug} /> : <OverallEvidence read={read} m={m} />}
+      {view === "abx" && read.abx ? <AbxEvidence abx={read.abx} m={m} slug={slug} current={current} /> : <OverallEvidence read={read} m={m} current={current} />}
 
       <Flags green={core.green} red={core.red} />
 
       {view === "abx" && <CrmTeaser />}
+
+      {below}
 
       <p className="pt-2 text-center text-[13px] text-muted-foreground">
         Something missing or wrong in this read?{" "}
@@ -328,13 +342,13 @@ const TH = "px-3 py-2 text-left text-xs font-medium text-muted-foreground first:
 const TD = "px-3 py-2.5 tabular-nums first:pl-5 last:pr-5"
 type Money = (v: number | null | undefined, digits?: number) => string
 
-function OverallEvidence({ read, m }: { read: WeeklyRead; m: Money }) {
+function OverallEvidence({ read, m, current }: { read: WeeklyRead; m: Money; current: string }) {
   const { overall } = read
   return (
     <div className="space-y-4">
       <Panel
         title="By platform"
-        meta="Last week, with the month's budget pacing"
+        meta={`${current.charAt(0).toUpperCase()}${current.slice(1)}, with the month's budget pacing`}
         onExport={() => downloadCsv(`${read.client.slug}-platforms-${read.week.from}`, [["Platform", "Spend", "Results", "Cost per result", "Target", "Month spend", "Month budget"], ...overall.platforms.map((p) => [p.platform, p.spend.toFixed(2), p.results, p.cpr?.toFixed(2) ?? null, p.target, p.month?.spend.toFixed(2) ?? null, p.month?.budget ?? null])])}
       >
         <div className="overflow-x-auto">
@@ -385,7 +399,7 @@ function OverallEvidence({ read, m }: { read: WeeklyRead; m: Money }) {
           </table>
         </div>
       </Panel>
-      <AdsPanel title="Top ads" meta="Each platform's best last week: results first, then cost per result" rows={overall.ads} m={m} name={`${read.client.slug}-top-ads-${read.week.from}`} />
+      <AdsPanel title="Top ads" meta={`Each platform's best ${current}: results first, then cost per result`} rows={overall.ads} m={m} name={`${read.client.slug}-top-ads-${read.week.from}`} />
     </div>
   )
 }
@@ -445,7 +459,7 @@ function AdCell({ ad, format, campaign }: { ad: ReadAd; format: string; campaign
   )
 }
 
-function AbxEvidence({ abx, m, slug }: { abx: AbxRead; m: Money; slug: string }) {
+function AbxEvidence({ abx, m, slug, current }: { abx: AbxRead; m: Money; slug: string; current: string }) {
   const [allPrio, setAllPrio] = useState(false)
   const [allWatch, setAllWatch] = useState(false)
   const through = abx.accountsThrough ? `LinkedIn's last 30 days to ${day(abx.accountsThrough)}, refreshed about weekly` : "No LinkedIn company data yet"
@@ -453,7 +467,7 @@ function AbxEvidence({ abx, m, slug }: { abx: AbxRead; m: Money; slug: string })
   return (
     <div className="space-y-4">
       {abx.formats.length > 0 && (
-        <Panel title="Ad formats" meta={`${abx.segmentLabel} campaigns, last week`} onExport={() => downloadCsv(`${slug}-abx-formats`, [["Format", "Ads", "CTR", "Impressions", "Clicks", "Results", "Spend"], ...abx.formats.map((f) => [f.format, f.count, f.impressions ? ((f.clicks / f.impressions) * 100).toFixed(2) : null, f.impressions, f.clicks, f.results, f.spend.toFixed(2)])])}>
+        <Panel title="Ad formats" meta={`${abx.segmentLabel} campaigns, ${current}`} onExport={() => downloadCsv(`${slug}-abx-formats`, [["Format", "Ads", "CTR", "Impressions", "Clicks", "Results", "Spend"], ...abx.formats.map((f) => [f.format, f.count, f.impressions ? ((f.clicks / f.impressions) * 100).toFixed(2) : null, f.impressions, f.clicks, f.results, f.spend.toFixed(2)])])}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-border">

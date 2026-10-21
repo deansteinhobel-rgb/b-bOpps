@@ -4,13 +4,16 @@ import { addDays } from "@/lib/metrics/ads"
 import { adsForPeriod } from "@/lib/metrics/ads-period"
 import { pickAds, type ReportAd } from "@/lib/metrics/client-report"
 import { getPerformance, type Derived } from "@/lib/metrics/performance"
+import { dataRanges } from "@/lib/metrics/data-range"
+import type { RangeSpec } from "@/lib/metrics/range"
+import { londonToday } from "@/lib/checks/periods"
 import { segmentsFor } from "@/lib/metrics/segments"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { money as fmtMoney, whole } from "@/lib/format"
 import { loadFeed } from "@/lib/insights/feed"
 import { adKey, previewsFor, type Preview, type PreviewMap } from "@/lib/previews"
 import { loadTargets, targetFor } from "@/lib/targets"
-import { weeklySnapshot, type WeekAd, type WeeklySnapshot } from "./weekly"
+import { lastWeek, weeklySnapshot, type WeekAd, type WeeklySnapshot } from "./weekly"
 import {
   change,
   moved,
@@ -41,10 +44,26 @@ import {
  * SECURITY: `admin` reads with the secret key. Callers load the client through RLS first (the page
  * does); `user` is the person's own client, for the Recommendations log.
  */
-export async function loadWeeklyRead(admin: Db, user: Db, client: { id: string; slug: string; monthly_kpi_target: number | string | null }, week: { from: string; to: string }): Promise<WeeklyRead | null> {
+/** Week: those 7 days against the 7 before. Month: the month so far against the same days last month. */
+export type PeriodSpec = { kind: "week"; from: string; to: string } | { kind: "month" }
+
+/** The words and dates the read uses for its period. */
+type Words = { kind: "week" | "month"; from: string; to: string; range: RangeSpec; current: string; prevWord: string; refreshWeek: string }
+
+export async function loadWeeklyRead(admin: Db, user: Db, client: { id: string; slug: string; monthly_kpi_target: number | string | null }, spec: PeriodSpec): Promise<WeeklyRead | null> {
+  let words: Words
+  if (spec.kind === "week") {
+    words = { kind: "week", from: spec.from, to: spec.to, range: { kind: "custom", from: spec.from, to: spec.to }, current: "last week", prevWord: "the week before", refreshWeek: spec.from }
+  } else {
+    const { data: ranges } = await dataRanges(admin, client.id)
+    const through = (ranges ?? []).map((r) => r.data_through as string).sort().at(-1)
+    if (!through) return null
+    words = { kind: "month", from: `${through.slice(0, 7)}-01`, to: through, range: { kind: "preset", preset: "mtd" }, current: "this month", prevWord: "the same days last month", refreshWeek: lastWeek(londonToday()).from }
+  }
+  const week = { from: words.from, to: words.to }
   const trendFrom = addDays(week.to, -55)
   const [snap, trend, feed, targets] = await Promise.all([
-    weeklySnapshot(admin, client.id, week),
+    weeklySnapshot(admin, client.id, week, 3600, words.range),
     getPerformance(admin, client.id, { range: { kind: "custom", from: trendFrom, to: week.to } }),
     loadFeed(user, client.id),
     loadTargets(admin, client.id, client.monthly_kpi_target),
@@ -55,20 +74,32 @@ export async function loadWeeklyRead(admin: Db, user: Db, client: { id: string; 
   const insights = (feed?.insights ?? []).filter((i) => i.state === "open")
   const startHere = new Map((feed?.review?.startHere ?? []).map((s, n) => [s.key, { n, why: s.why }]))
 
-  const overall = buildOverall(snap, trend?.daily ?? [], insights, startHere, base, m)
+  const overall = buildOverall(snap, trend?.daily ?? [], insights, startHere, base, m, words)
 
   const abxDef = segmentsFor(client.slug).find((d) => d.key === "abx")
-  const abx = abxDef ? await buildAbx(admin, client.id, snap, week, abxDef, targetFor(targets, "linkedin"), base, m) : null
+  const abx = abxDef ? await buildAbx(admin, client.id, snap, words, abxDef, targetFor(targets, "linkedin"), base, m) : null
 
+  // What the totals were compared with: the 7 days before, or the same days last month.
+  const prevFrom = words.kind === "week" ? addDays(week.from, -7) : shiftMonth(week.from, -1)
+  const prevTo = words.kind === "week" ? addDays(week.to, -7) : minDate(shiftMonth(week.to, -1), addDays(week.from, -1))
   return {
     client: { name: snap.client.name, slug: snap.client.slug, currency: snap.client.currency, logoUrl: snap.client.logoUrl },
-    week: { ...week, prevFrom: addDays(week.from, -7), prevTo: addDays(week.to, -7) },
+    week: { kind: words.kind, from: week.from, to: week.to, prevFrom, prevTo },
+    goals: snap.goals.map((g) => ({ name: g.name, value: g.value, target: g.target, expected: g.expected, tone: g.tone, behindPct: g.behindPct })),
     dataThrough: snap.dataThrough,
     complete: snap.complete,
     overall,
     abx,
   }
 }
+
+/** The same day of another month, clipped to that month's last day. */
+function shiftMonth(iso: string, by: number) {
+  const [y, mo, d] = iso.split("-").map(Number)
+  const last = new Date(Date.UTC(y, mo - 1 + by + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(y, mo - 1 + by, Math.min(d, last))).toISOString().slice(0, 10)
+}
+const minDate = (a: string, b: string) => (a < b ? a : b)
 
 type Money = (v: number | null | undefined, digits?: number) => string
 type FeedInsight = NonNullable<Awaited<ReturnType<typeof loadFeed>>>["insights"][number]
@@ -118,7 +149,7 @@ const insightItem = (i: FeedInsight, base: string, why?: string): ReadItem => ({
 })
 const sevRank = { high: 0, medium: 1, low: 2 } as const
 
-function buildOverall(snap: WeeklySnapshot, daily: ({ date: string } & Derived)[], insights: FeedInsight[], startHere: Map<string, { n: number; why: string }>, base: string, m: Money): OverallRead {
+function buildOverall(snap: WeeklySnapshot, daily: ({ date: string } & Derived)[], insights: FeedInsight[], startHere: Map<string, { n: number; why: string }>, base: string, m: Money, w: Words): OverallRead {
   const { now, prev, target } = snap
   const tone = weekTone({ results: now.results, prevResults: prev.results, spend: now.spend, cpr: now.cpr, target })
   const results = weeklyBuckets(daily.map((d) => ({ date: d.date, value: d.results })), snap.week.to)
@@ -134,6 +165,9 @@ function buildOverall(snap: WeeklySnapshot, daily: ({ date: string } & Derived)[
   // Pacing is this month's; only said when the week ends in it.
   if (snap.month?.budget && snap.month.month.slice(0, 7) === snap.week.to.slice(0, 7)) body.push(`${monthLabel(snap.month.month)} is ${Math.round((snap.month.daysElapsed / snap.month.daysInMonth) * 100)}% through and ${Math.round((snap.month.spend / snap.month.budget) * 100)}% of the budget is spent${snap.month.tone === "green" ? ", about right" : snap.month.variancePct !== null ? `, ${Math.abs(snap.month.variancePct)}% ${snap.month.variancePct > 0 ? "ahead of" : "behind"} pace` : ""}.`)
 
+  for (const g of snap.goals.filter((g) => g.value !== null && g.target))
+    body.push(`${g.name}: ${whole(g.value)} of ${whole(g.target)} this month${g.behindPct === null ? "" : g.behindPct <= 0 ? ", on pace" : `, ${g.behindPct}% behind pace`}.`)
+
   // Every ad the snapshot picked, keyed so the columns, flags and table share one preview.
   const ad = (p: Platform, a: WeekAd) => readAd(a, p, `${p}|${a.name}`)
   const bests = snap.platforms.flatMap((p) => p.best.map((a) => ({ p, a })))
@@ -141,7 +175,7 @@ function buildOverall(snap: WeeklySnapshot, daily: ({ date: string } & Derived)[
 
   const working: ReadItem[] = []
   const topAd = bests.filter(({ a }) => a.results > 0 && a.cpr !== null).sort((x, y) => x.a.cpr! - y.a.cpr!)[0]
-  if (topAd) working.push({ key: "best-ad", icon: "doc", title: topAd.a.name, tag: "Best ad", detail: `${whole(topAd.a.results)} result${topAd.a.results === 1 ? "" : "s"} at ${m(topAd.a.cpr)}, the lowest cost per result this week`, platform: topAd.p.platform, ads: [ad(topAd.p.platform, topAd.a)], href: `${base}/reporting/client-report?platform=${topAd.p.platform}&from=${snap.week.from}&to=${snap.week.to}` })
+  if (topAd) working.push({ key: "best-ad", icon: "doc", title: topAd.a.name, tag: "Best ad", detail: `${whole(topAd.a.results)} result${topAd.a.results === 1 ? "" : "s"} at ${m(topAd.a.cpr)}, the lowest cost per result ${w.current}`, platform: topAd.p.platform, ads: [ad(topAd.p.platform, topAd.a)], href: `${base}/reporting/client-report?platform=${topAd.p.platform}&from=${snap.week.from}&to=${snap.week.to}` })
   for (const p of snap.platforms.filter((p) => p.target !== null && p.now.results > 0 && p.now.cpr! <= p.target!).slice(0, 2))
     working.push({ key: `on-target:${p.platform}`, icon: "target", title: PLATFORM_LABEL[p.platform], tag: "On target", detail: `${whole(p.now.results)} results at ${m(p.now.cpr)} against ${m(p.target)}${p.prev.cpr !== null ? `, ${p.now.cpr! <= p.prev.cpr ? "down" : "up"} from ${m(p.prev.cpr)}` : ""}`, platform: p.platform, href: `${base}/reporting?platform=${p.platform}&from=${snap.week.from}&to=${snap.week.to}` })
   for (const g of snap.goals.filter((g) => g.tone === "green").slice(0, 1))
@@ -160,7 +194,7 @@ function buildOverall(snap: WeeklySnapshot, daily: ({ date: string } & Derived)[
     const spend = staleAll.reduce((s, p) => s + p.stale.spend30, 0)
     attention.push({ key: "stale", icon: "refresh", title: `${count} tired ad${count === 1 ? "" : "s"}`, tag: "No results in 30 days", detail: `Live 30+ days, ${m(spend)} in the last 30 days with no results`, href: `${base}/reporting#fatigue` })
   }
-  for (const g of snap.goals.filter((g) => g.tone === "red").slice(0, 1))
+  for (const g of snap.goals.filter((g) => g.tone === "red" || g.tone === "amber").slice(0, 1))
     attention.push({ key: `goal:${g.name}`, icon: "goal", title: g.name, tag: "Behind pace", detail: `${whole(g.value)} so far${g.target ? ` of ${whole(g.target)}` : ""}, ${g.behindPct}% behind pace`, href: base })
 
   // Where to act: Claude's "start here" first, then the open recommendations by severity and money at stake.
@@ -171,7 +205,7 @@ function buildOverall(snap: WeeklySnapshot, daily: ({ date: string } & Derived)[
   const act: ReadItem[] = ranked.slice(0, 3).map((i) => insightItem(i, base, startHere.get(i.key)?.why))
   const refresh = snap.platforms.find((p) => p.weak.length || p.stale.count)
   if (refresh && act.length < 3)
-    act.push({ key: `refresh:${refresh.platform}`, icon: "refresh", title: `Replace weak ${PLATFORM_LABEL[refresh.platform]} ads`, detail: `${refresh.weak.length ? `The ${refresh.weak.length} weakest last week` : ""}${refresh.weak.length && refresh.stale.count ? " and " : ""}${refresh.stale.count ? `${refresh.stale.count} with no results in 30 days` : ""}`, platform: refresh.platform, ads: refresh.weak.map((a) => ad(refresh.platform, a)), action: { label: "Plan a test", href: `${base}/sprint?refresh=${refresh.platform}&week=${snap.week.from}` } })
+    act.push({ key: `refresh:${refresh.platform}`, icon: "refresh", title: `Replace weak ${PLATFORM_LABEL[refresh.platform]} ads`, detail: `${refresh.weak.length ? `The ${refresh.weak.length} weakest ${w.current}` : ""}${refresh.weak.length && refresh.stale.count ? " and " : ""}${refresh.stale.count ? `${refresh.stale.count} with no results in 30 days` : ""}`, platform: refresh.platform, ads: refresh.weak.map((a) => ad(refresh.platform, a)), action: { label: "Plan a test", href: `${base}/sprint?refresh=${refresh.platform}&week=${w.refreshWeek}` } })
 
   const green: Flag[] = [
     ...bests.filter(({ a }) => a.results > 0).slice(0, 3).map(({ p, a }) => ({ key: `best:${p.platform}:${a.name}`, kind: "Best ad", subject: a.name, detail: `${whole(a.results)} result${a.results === 1 ? "" : "s"} at ${m(a.cpr)}`, platform: p.platform, ad: ad(p.platform, a) })),
@@ -180,7 +214,7 @@ function buildOverall(snap: WeeklySnapshot, daily: ({ date: string } & Derived)[
   ]
   const red: Flag[] = [
     ...snap.platforms.filter((p) => p.target !== null && p.now.cpr !== null && p.now.cpr > p.target * 1.2).map((p) => ({ key: `over:${p.platform}`, kind: "Over target", subject: PLATFORM_LABEL[p.platform], detail: `${m(p.now.cpr)} a result against ${m(p.target)}`, platform: p.platform })),
-    ...weaks.slice(0, 3).map(({ p, a }) => ({ key: `weak:${p.platform}:${a.name}`, kind: a.results ? "Weakest ad" : "No results", subject: a.name, detail: a.results ? `${m(a.cpr)} a result on ${m(a.spend)}` : `${m(a.spend)} last week, no results`, platform: p.platform, ad: ad(p.platform, a) })),
+    ...weaks.slice(0, 3).map(({ p, a }) => ({ key: `weak:${p.platform}:${a.name}`, kind: a.results ? "Weakest ad" : "No results", subject: a.name, detail: a.results ? `${m(a.cpr)} a result on ${m(a.spend)}` : `${m(a.spend)} ${w.current}, no results`, platform: p.platform, ad: ad(p.platform, a) })),
     ...staleAll.flatMap((p) => p.stale.ads.slice(0, 2).map((s) => ({ key: `stale:${p.platform}:${s.name}`, kind: "Tired ad", subject: s.name, detail: `live ${s.ageCapped ? "90+" : s.ageDays} days, ${m(s.spend30)} in 30 days with no results`, platform: p.platform }))),
     ...insights.filter((i) => i.urgent).map((i) => ({ key: `urgent:${i.key}`, kind: "Urgent", subject: i.title, detail: i.todo, platform: i.platform === "ga4" ? null : i.platform, href: insightHref(base, i.key) })),
   ]
@@ -195,7 +229,7 @@ function buildOverall(snap: WeeklySnapshot, daily: ({ date: string } & Derived)[
 
   return {
     verdict: {
-      headline: verdictHeadline({ tone, results: now.results, spend: m(now.spend), cpr: now.cpr === null ? null : m(now.cpr), target: target === null ? null : m(target), underTarget: target === null || now.cpr === null ? null : now.cpr <= target }),
+      headline: verdictHeadline({ tone, results: now.results, spend: m(now.spend), cpr: now.cpr === null ? null : m(now.cpr), target: target === null ? null : m(target), underTarget: target === null || now.cpr === null ? null : now.cpr <= target, period: w.kind }),
       tone,
       body: body.join(" "),
       trend: results,
@@ -262,14 +296,15 @@ async function liSnapshots(db: Db, clientId: string, kind: string, to: string, c
   return { latest, weekBefore: back(5), monthBefore: back(21), all: all.slice().reverse() }
 }
 
-async function buildAbx(admin: Db, clientId: string, snap: WeeklySnapshot, week: { from: string; to: string }, def: { key: string; label: string; pattern: RegExp }, target: number | null, base: string, m: Money): Promise<AbxRead> {
+async function buildAbx(admin: Db, clientId: string, snap: WeeklySnapshot, w: Words, def: { key: string; label: string; pattern: RegExp }, target: number | null, base: string, m: Money): Promise<AbxRead> {
   const isAbx = (name: string | null | undefined) => def.pattern.test(name ?? "")
+  const week = { from: w.from, to: w.to }
   const segment = { key: def.key, defs: segmentsFor(snap.client.slug) }
   // The ABX campaigns on LinkedIn over the last 8 weeks decide which company and title rows count.
   const trend = await getPerformance(admin, clientId, { range: { kind: "custom", from: addDays(week.to, -55), to: week.to }, segment })
   const liCampaigns = (trend?.campaigns ?? []).filter((c) => c.platform === "linkedin").map((c) => c.campaignId)
   const [perf, ads, companies, titleSnaps, review] = await Promise.all([
-    getPerformance(admin, clientId, { range: { kind: "custom", from: week.from, to: week.to }, segment }),
+    getPerformance(admin, clientId, { range: w.range, segment }),
     adsForPeriod(admin, clientId, week.from, week.to),
     liSnapshots(admin, clientId, "li_company", week.to, liCampaigns),
     liSnapshots(admin, clientId, "li_job_title", week.to, liCampaigns),
@@ -342,7 +377,7 @@ async function buildAbx(admin: Db, clientId: string, snap: WeeklySnapshot, week:
   const body = [
     `${def.label} ads reached ${whole(reached)} companies in the last 30 days${reachedBefore !== null ? ` (${whole(reachedBefore)} a week before)` : ""}.`,
     surge.rows.length ? `${surge.rows.length} ${surge.rows.length === 1 ? "is" : "are"} surging, clicking at 3x the average or more.` : "",
-    now ? `Last week: ${m(now.spend)} spent, ${whole(now.results)} result${now.results === 1 ? "" : "s"}${now.cpr !== null ? ` at ${m(now.cpr)} each` : ""}.` : "",
+    now ? `${w.current.charAt(0).toUpperCase()}${w.current.slice(1)}: ${m(now.spend)} spent, ${whole(now.results)} result${now.results === 1 ? "" : "s"}${now.cpr !== null ? ` at ${m(now.cpr)} each` : ""}.` : "",
     watch.length ? `${watch.length} account${watch.length === 1 ? " needs" : "s need"} a look (not ICP, spend without clicks, or gone quiet).` : "",
   ].filter(Boolean)
   const engagedTrend = companies.all.map((s) => s.rows.filter((c) => c.clicks > 0).length)
@@ -360,7 +395,7 @@ async function buildAbx(admin: Db, clientId: string, snap: WeeklySnapshot, week:
   const noClicks = latest.filter((c) => !isNotIcp(c) && c.clicks === 0 && c.spend >= minSpend)
   if (noClicks.length) attention.push({ key: "no-clicks", icon: "wallet", title: `${noClicks.length} account${noClicks.length === 1 ? "" : "s"} taking spend without clicks`, tag: "Spend, no clicks", detail: `${m(noClicks.reduce((s, c) => s + c.spend, 0))} in 30 days, ${m(minSpend)}+ each`, platform: "linkedin" })
   if (now && target !== null && now.spend > 0 && (now.cpr === null ? now.spend >= target : now.cpr > target * 1.2))
-    attention.push({ key: "abx-over", icon: "wallet", title: `${def.label} cost per result`, tag: now.results ? "Over target" : "No results", detail: now.results ? `${m(now.cpr)} a result against ${m(target)}` : `${m(now.spend)} last week, no results`, platform: "linkedin" })
+    attention.push({ key: "abx-over", icon: "wallet", title: `${def.label} cost per result`, tag: now.results ? "Over target" : "No results", detail: now.results ? `${m(now.cpr)} a result against ${m(target)}` : `${m(now.spend)} ${w.current}, no results`, platform: "linkedin" })
 
   const act: ReadItem[] = []
   if (prioritize.length) act.push({ key: "share", icon: "users", title: `Share ${Math.min(5, prioritize.length)} engaged accounts with the AMs`, detail: prioritize.slice(0, 3).map((a) => a.name).join(", ") + (prioritize.length > 3 ? " and more" : ""), action: { label: "See the list", href: "#accounts" } })
@@ -374,7 +409,7 @@ async function buildAbx(admin: Db, clientId: string, snap: WeeklySnapshot, week:
   ]
   const red: Flag[] = [
     ...watch.slice(0, 5).map((a) => ({ key: `watch:${a.name}`, kind: a.reason?.startsWith("Not ICP") ? "Not ICP" : a.reason?.includes("none in") ? "Went quiet" : "Spend, no clicks", subject: a.name, detail: a.reason?.replace(/^Not ICP \(Claude\): /, "") ?? "" })),
-    ...picks.worst.slice(0, 2).map((a) => ({ key: `weak:${adKey(a)}`, kind: a.results ? "Weakest ad" : "No results", subject: a.ad_name ?? a.ad_id, detail: a.results ? `${m(a.costPerResult)} a result` : `${m(a.spend)} last week, no results`, platform: a.platform, ad: asRead(a) })),
+    ...picks.worst.slice(0, 2).map((a) => ({ key: `weak:${adKey(a)}`, kind: a.results ? "Weakest ad" : "No results", subject: a.ad_name ?? a.ad_id, detail: a.results ? `${m(a.costPerResult)} a result` : `${m(a.spend)} ${w.current}, no results`, platform: a.platform, ad: asRead(a) })),
   ]
 
   const coreTiles: Tile[] = [
