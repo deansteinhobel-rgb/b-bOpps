@@ -110,7 +110,7 @@ export function CheckDeck({ title, subtitle, items }: { title: string; subtitle:
                     <div
                       key={id}
                       aria-hidden
-                      className={cn("relative -mt-2 rounded-b-lg border border-t-0 bg-card px-5 pt-3 pb-2 text-xs text-muted-foreground", i === 0 ? "z-10 mx-4 opacity-80" : "z-0 mx-8 opacity-50")}
+                      className={cn("relative -mt-2 rounded-b-xl border border-t-0 bg-card px-5 pt-3 pb-2 text-xs text-muted-foreground", i === 0 ? "z-10 mx-4 opacity-80" : "z-0 mx-8 opacity-50")}
                     >
                       <span className="line-clamp-1">{byId.get(id)!.definition.name}</span>
                     </div>
@@ -130,7 +130,7 @@ export function CheckDeck({ title, subtitle, items }: { title: string; subtitle:
               <ul className="surface divide-y overflow-hidden">
                 {done.map((d) => (
                   <li key={d.result.id}>
-                    <button type="button" onClick={() => reopen(d.result.id)} className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-white/[0.03]">
+                    <button type="button" onClick={() => reopen(d.result.id)} className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-accent/50">
                       <span className="line-clamp-1">{d.definition.name}</span>
                       {d.result.status && <StatusBadge status={d.result.status} />}
                     </button>
@@ -150,7 +150,7 @@ function Progress({ done, total }: { done: number; total: number }) {
     <div className="flex items-center gap-2" aria-label={`${done} of ${total} done`}>
       <div className="flex gap-1">
         {Array.from({ length: total }, (_, i) => (
-          <span key={i} className={cn("h-1.5 w-3 rounded-full", i < done ? "bg-foreground" : "bg-secondary")} />
+          <span key={i} className={cn("h-1.5 w-3 rounded-full", i < done ? "bg-lime" : "bg-secondary")} />
         ))}
       </div>
       <span className="text-xs text-muted-foreground tabular-nums">

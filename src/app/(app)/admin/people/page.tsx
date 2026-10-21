@@ -23,7 +23,7 @@ export default async function PeoplePage() {
   const notionName = new Map(notionPeople.map((n) => [n.id, n.name]))
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <section>
         <h1 className="text-3xl">People</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -36,7 +36,7 @@ export default async function PeoplePage() {
               <Link href={`/people/${p.id}`} className="flex min-w-0 items-center gap-3 hover:underline">
                 <Avatar name={p.full_name ?? p.email} url={p.avatar_url} />
                 <span className="min-w-0">
-                  <span className="font-medium text-foreground">{p.full_name ?? p.email}</span> <span className="text-muted-foreground">{p.email}</span>
+                  <strong>{p.full_name ?? p.email}</strong> <span className="text-muted-foreground">{p.email}</span>
                   {!p.notion_user_id && <span className="ml-2 text-xs text-rag-amber">no Notion user</span>}
                   <span className="block text-xs text-muted-foreground">{lastActive(p.last_seen_at)}</span>
                 </span>
@@ -67,7 +67,7 @@ export default async function PeoplePage() {
           {(invites ?? []).map((i) => (
             <li key={i.email} className="flex flex-wrap justify-between gap-2 px-4 py-2">
               <span>
-                <span className="font-medium text-foreground">{i.full_name ?? i.email}</span> <span className="text-muted-foreground">{i.email}</span>
+                <strong>{i.full_name ?? i.email}</strong> <span className="text-muted-foreground">{i.email}</span>
               </span>
               <span className="text-muted-foreground">
                 {ROLE_LABEL[i.role as AppRole]} · Notion: {i.notion_user_id ? (notionName.get(i.notion_user_id) ?? "linked") : "not linked"} ·{" "}
@@ -89,7 +89,7 @@ export default async function PeoplePage() {
 
         <h3 className="mt-6 text-lg">Add or update an invite</h3>
         <AdminForm action={saveInvite} submitLabel="Save invite" className="mt-2 max-w-3xl rounded-lg border bg-card p-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="inv-email">Email</Label>
               <Input id="inv-email" name="email" type="email" required placeholder="name@bordeauxandburgundy.co.uk" />

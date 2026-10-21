@@ -48,13 +48,13 @@ export function BoardDeck({ boards }: { boards: { key: string; label: string; pl
           {current.actions}
           {boards.length > 1 && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <button type="button" onClick={() => step(-1)} className="rounded-md border p-1 transition-colors hover:border-border-strong hover:text-foreground" aria-label="Previous report">
+              <button type="button" onClick={() => step(-1)} className="rounded-md border p-1 hover:bg-secondary hover:text-foreground" aria-label="Previous report">
                 <ChevronLeft className="size-4" />
               </button>
               <span className="w-12 text-center tabular-nums" aria-live="polite">
                 {i + 1} / {boards.length}
               </span>
-              <button type="button" onClick={() => step(1)} className="rounded-md border p-1 transition-colors hover:border-border-strong hover:text-foreground" aria-label="Next report">
+              <button type="button" onClick={() => step(1)} className="rounded-md border p-1 hover:bg-secondary hover:text-foreground" aria-label="Next report">
                 <ChevronRight className="size-4" />
               </button>
             </div>

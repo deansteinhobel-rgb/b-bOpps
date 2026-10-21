@@ -41,7 +41,7 @@ export default async function ClientLayout({ children, params }: LayoutProps<"/c
         <ClientTabs slug={slug} groups={tabGroups({ contentLibrary: libraryConfig(slug) !== null })} />
       </div>
       {!canEdit(me) && (
-        <p className="mt-6 text-[13px] text-muted-foreground">
+        <p className="mt-6 rounded-md bg-white/[0.04] px-4 py-2.5 text-[13px] text-muted-foreground">
           {canRunContentIdeas(me)
             ? "You can see everything here and get content ideas. Saving, briefing and editing are for the paid media team."
             : "You have view access: you can see everything here, but saving, briefing and editing are for the paid media team."}

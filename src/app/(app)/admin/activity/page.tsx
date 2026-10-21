@@ -9,14 +9,13 @@ import { ActivityFilters } from "./activity-filters"
 export const metadata = { title: "Activity" }
 
 const SOURCES = Object.keys(SOURCE_LABEL) as ActivitySource[]
-// Neutral outlined chips (taste sweep): where a change happened is a label, not a status. Only "Failed" keeps red.
 const SOURCE_CLS: Record<ActivitySource, string> = {
-  app: "border-border-strong text-body",
-  platform: "border-border-strong text-foreground",
-  notion: "border-border-strong text-muted-foreground",
-  outside: "border-border-strong text-foreground",
+  app: "border-white/15 text-body",
+  platform: "border-white/30 text-foreground",
+  notion: "border-white/15 text-muted-foreground",
+  outside: "border-[#ff3d8a]/40 text-[#ff3d8a]",
 }
-const TAG_CLS = { "dry run": "border-border-strong text-muted-foreground", failed: "border-rag-red/40 text-rag-red", bulk: "border-border-strong text-muted-foreground" }
+const TAG_CLS = { "dry run": "border-white/15 text-muted-foreground", failed: "border-rag-red/40 bg-rag-red/10 text-rag-red", bulk: "border-white/15 text-muted-foreground" }
 
 const day = (iso: string) => new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "Europe/London" }).format(new Date(iso))
 const time = (iso: string) => new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }).format(new Date(iso))
@@ -82,8 +81,8 @@ export default async function ActivityPage({ searchParams }: PageProps<"/admin/a
                     </p>
                     {item.details.length > 0 && <p className="text-[13px] break-words text-muted-foreground">{item.details.join(" · ")}</p>}
                     <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className={cn("rounded-full border px-2 py-0.5", SOURCE_CLS[item.source])}>{SOURCE_LABEL[item.source]}</span>
-                      {item.tag && <span className={cn("rounded-full border px-2 py-0.5", TAG_CLS[item.tag])}>{item.tag === "dry run" ? "Dry run" : item.tag === "failed" ? "Failed" : "Bulk"}</span>}
+                      <span className={cn("rounded-full border px-2 py-0.5 font-medium", SOURCE_CLS[item.source])}>{SOURCE_LABEL[item.source]}</span>
+                      {item.tag && <span className={cn("rounded-full border px-2 py-0.5 font-medium", TAG_CLS[item.tag])}>{item.tag === "dry run" ? "Dry run" : item.tag === "failed" ? "Failed" : "Bulk"}</span>}
                       {item.platform && <PlatformIcon platform={item.platform as AnyPlatform} />}
                       {client && (
                         <Link href={`/clients/${client.slug}`} className="inline-flex items-center gap-1.5 hover:text-foreground">

@@ -1,6 +1,5 @@
 "use client"
 
-import { Check, Minus, Plus, X } from "lucide-react"
 import { useState, useTransition } from "react"
 import { PlatformIcon } from "@/components/brand"
 import { fieldClass } from "@/components/field-class"
@@ -110,7 +109,7 @@ export function BriefDialog(props: { testId: string; live: boolean; disabled?: b
                 {step === 0 && (
                   <>
                     <PeoplePicker label="Project lead" people={opts.people} value={leadIds} onChange={setLeadIds} hint="The first one owns the test." />
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
                         <Label htmlFor={`due-${props.testId}`}>Due date</Label>
                         <Input id={`due-${props.testId}`} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
@@ -182,7 +181,7 @@ export function BriefDialog(props: { testId: string; live: boolean; disabled?: b
               </div>
 
               {error && <p className="text-sm text-rag-red">{error}</p>}
-              <div className="-mx-4 -mb-4 flex items-center justify-between gap-2 rounded-b-lg border-t bg-muted/50 p-4">
+              <div className="-mx-4 -mb-4 flex items-center justify-between gap-2 rounded-b-xl border-t bg-muted/50 p-4">
                 <Button size="sm" variant="ghost" disabled={pending} onClick={() => (step === 0 ? close() : goTo(step - 1))}>
                   {step === 0 ? "Cancel" : "Back"}
                 </Button>
@@ -213,7 +212,7 @@ function NeedsStep({ needs, onChange }: { needs: Needs; onChange: (n: Needs) => 
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-foreground">Platform</p>
+        <p className="text-sm font-medium">Platform</p>
         <div className="flex flex-wrap gap-1.5">
           {NEEDS_PLATFORMS.map((p) => (
             <button
@@ -221,7 +220,7 @@ function NeedsStep({ needs, onChange }: { needs: Needs; onChange: (n: Needs) => 
               type="button"
               aria-pressed={needs.platform === p}
               onClick={() => p !== needs.platform && onChange({ ...emptyNeeds(p), notes: needs.notes, designNotes: needs.designNotes })}
-              className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors", needs.platform === p ? "border-border-strong bg-elevated font-medium text-foreground" : "hover:border-border-strong hover:text-foreground")}
+              className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs", needs.platform === p ? "border-primary bg-primary/10" : "hover:bg-secondary")}
             >
               <PlatformIcon platform={p} className="size-4" />
               {NEEDS[p].label}
@@ -231,10 +230,10 @@ function NeedsStep({ needs, onChange }: { needs: Needs; onChange: (n: Needs) => 
       </div>
 
       <div className="space-y-1.5">
-        <p className="text-sm font-medium text-foreground">
+        <p className="text-sm font-medium">
           Which ads?<span className="ml-2 text-xs font-normal text-muted-foreground">Pick all that apply{def.quantities ? ", then how many" : ""}.</span>
         </p>
-        <ul className="divide-y rounded-lg border">
+        <ul className="divide-y rounded-md border">
           {def.formats.map((f) => {
             const on = Boolean(needs.formats[f.key])
             return (
@@ -277,7 +276,7 @@ function NeedsStep({ needs, onChange }: { needs: Needs; onChange: (n: Needs) => 
 
       {def.leadForm && (
         <div className="flex min-h-9 flex-wrap items-center gap-3">
-          <p className="text-sm font-medium text-foreground">Do you need lead form copy?</p>
+          <p className="text-sm font-medium">Do you need lead form copy?</p>
           <div className="flex gap-1">
             {[true, false].map((v) => (
               <button
@@ -285,7 +284,7 @@ function NeedsStep({ needs, onChange }: { needs: Needs; onChange: (n: Needs) => 
                 type="button"
                 aria-pressed={needs.leadForm === v}
                 onClick={() => set({ leadForm: v, leadFormQty: needs.leadFormQty || 1 })}
-                className={cn("rounded-md border px-3 py-1 text-xs transition-colors", needs.leadForm === v ? "border-border-strong bg-elevated font-medium text-foreground" : "hover:border-border-strong hover:text-foreground")}
+                className={cn("rounded-md border px-3 py-1 text-xs", needs.leadForm === v ? "border-primary bg-primary/10" : "hover:bg-secondary")}
               >
                 {v ? "Yes" : "No"}
               </button>
@@ -295,7 +294,7 @@ function NeedsStep({ needs, onChange }: { needs: Needs; onChange: (n: Needs) => 
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="needs-notes">Notes</Label>
           <Textarea id="needs-notes" rows={3} value={needs.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Anything else for the brief" />
@@ -315,7 +314,7 @@ function Qty({ label, value, onChange }: { label: string; value: number; onChang
   return (
     <div className="flex items-center gap-1" role="group" aria-label={label}>
       <Button type="button" size="icon-sm" variant="outline" onClick={() => onChange(clamp(value - 1))} aria-label="One fewer">
-        <Minus aria-hidden />
+        −
       </Button>
       <input
         type="number"
@@ -327,7 +326,7 @@ function Qty({ label, value, onChange }: { label: string; value: number; onChang
         aria-label={label}
       />
       <Button type="button" size="icon-sm" variant="outline" onClick={() => onChange(clamp(value + 1))} aria-label="One more">
-        <Plus aria-hidden />
+        +
       </Button>
     </div>
   )
@@ -352,7 +351,7 @@ function Stepper({ step, onPick }: { step: number; onPick: (i: number) => void }
                 i < step && "border-primary text-primary",
               )}
             >
-              {i < step ? <Check className="size-3.5" aria-label="Done" /> : i + 1}
+              {i < step ? "✓" : i + 1}
             </span>
             <span className={cn(i !== step && "hidden md:inline")}>{label}</span>
           </button>
@@ -368,7 +367,7 @@ function Review({ rows, comment, tagged, live }: { rows: [string, string][]; com
     <div className="space-y-4">
       <div className="space-y-1">
         <p className="text-xs text-muted-foreground">The row</p>
-        <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 rounded-lg border p-3 text-sm">
+        <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 rounded-md border p-3 text-sm">
           {rows.map(([k, v]) => (
             <div key={k} className="contents">
               <dt className="text-muted-foreground">{k}</dt>
@@ -381,16 +380,12 @@ function Review({ rows, comment, tagged, live }: { rows: [string, string][]; com
       <div className="space-y-1">
         <p className="text-xs text-muted-foreground">The comment{tagged.length ? `, tagging ${tagged.join(", ")}` : ""}</p>
         {comment ? (
-          <p className="max-h-56 overflow-y-auto rounded-lg border p-3 text-sm break-words whitespace-pre-line">{highlight(comment, tagged)}</p>
+          <p className="max-h-56 overflow-y-auto rounded-md border p-3 text-sm break-words whitespace-pre-line">{highlight(comment, tagged)}</p>
         ) : (
-          <p className="text-sm text-muted-foreground">No comment.</p>
+          <p className="text-sm text-muted-foreground italic">No comment.</p>
         )}
       </div>
-      {!live && (
-        <p className="text-xs text-body">
-          <span className="font-semibold text-foreground">Test mode:</span> nothing is sent to Notion. You&apos;ll see this as a preview.
-        </p>
-      )}
+      {!live && <p className="rounded-md bg-secondary/60 p-2 text-xs">Test mode: nothing is sent to Notion. You&apos;ll see this as a preview.</p>}
     </div>
   )
 }
@@ -425,7 +420,7 @@ function DoneStep({ done, onClose }: { done: Done; onClose: () => void }) {
       <p className={cn("text-sm", !done.ok && "text-rag-amber")}>{done.text}</p>
       <div className="flex justify-end gap-2">
         {done.url && (
-          <a href={done.url} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center rounded-md border px-3 text-sm transition-colors hover:border-border-strong hover:text-foreground">
+          <a href={done.url} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center rounded-md border px-3 text-sm hover:bg-secondary">
             Open in Notion
           </a>
         )}
@@ -443,7 +438,7 @@ function PeoplePicker(props: { label: string; people: BriefPerson[]; value: stri
   const matches = props.people.filter((p) => !props.value.includes(p.id) && (q ? p.name.toLowerCase().includes(q.toLowerCase()) : p.onTeam)).slice(0, 6)
   return (
     <div className="space-y-1.5">
-      <p className="text-sm font-medium text-foreground">
+      <p className="text-sm font-medium">
         {props.label}
         {props.hint && <span className="ml-2 text-xs font-normal text-muted-foreground">{props.hint}</span>}
       </p>
@@ -454,11 +449,10 @@ function PeoplePicker(props: { label: string; people: BriefPerson[]; value: stri
               key={p.id}
               type="button"
               onClick={() => props.onChange(props.value.filter((id) => id !== p.id))}
-              className="inline-flex items-center gap-1 rounded-full border border-border-strong bg-elevated px-2 py-0.5 text-xs text-foreground hover:border-rag-red"
+              className="rounded-full border bg-secondary px-2 py-0.5 text-xs hover:border-rag-red"
               title={`Remove ${p.name}`}
             >
-              {p.name}
-              <X className="size-3 text-muted-foreground" aria-hidden />
+              {p.name} ×
             </button>
           ))}
         </div>
@@ -474,10 +468,9 @@ function PeoplePicker(props: { label: string; people: BriefPerson[]; value: stri
                   props.onChange([...props.value, p.id])
                   setQ("")
                 }}
-                className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors hover:border-border-strong hover:text-foreground", p.onTeam && "border-border-strong")}
+                className={cn("rounded-full border px-2 py-0.5 text-xs hover:bg-secondary", p.onTeam && "border-primary/40")}
               >
-                <Plus className="size-3 text-muted-foreground" aria-hidden />
-                {p.name}
+                + {p.name}
               </button>
             </li>
           ))}

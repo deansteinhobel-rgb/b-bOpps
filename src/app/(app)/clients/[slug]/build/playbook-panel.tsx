@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronRight, Plus } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { useState, useTransition } from "react"
 import { fieldClass } from "@/components/field-class"
 import { Hint } from "@/components/hint"
@@ -27,9 +27,11 @@ export function PlaybookPanel(p: { slug: string; rules: PlaybookRule[]; playbook
   const [pending, start] = useTransition()
   return (
     <section className="space-y-3">
-      <div>
-        <h2 className="text-xl">LinkedIn playbook</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">What every plan follows: the team&apos;s rules, the client&apos;s naming, and best practice researched each month.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-xl">LinkedIn playbook</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">What every plan follows: the team&apos;s rules, the client&apos;s naming, and best practice researched each month.</p>
+        </div>
       </div>
 
       <div className="surface divide-y">
@@ -45,7 +47,7 @@ export function PlaybookPanel(p: { slug: string; rules: PlaybookRule[]; playbook
           </summary>
           {p.naming ? (
             <div className="mt-2 space-y-1.5 text-[13px]">
-              <code className="block rounded bg-elevated px-2 py-1.5 text-xs text-foreground">{p.naming.pattern}</code>
+              <code className="block rounded bg-white/[0.04] px-2 py-1.5 text-xs text-foreground">{p.naming.pattern}</code>
               <ul className="space-y-0.5 text-body">
                 {p.naming.parts.map((x) => (
                   <li key={x.key}>
@@ -140,8 +142,8 @@ function RuleGroup({ kind, slug, rules, canEdit, isAdmin }: { kind: RuleKind; sl
           </Hint>
         </h3>
         {canEdit && !adding && (
-          <button type="button" className="inline-flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground" onClick={() => setAdding(true)}>
-            <Plus className="size-3.5" aria-hidden /> Add
+          <button type="button" className="text-[13px] text-muted-foreground hover:text-foreground" onClick={() => setAdding(true)}>
+            + Add
           </button>
         )}
       </div>

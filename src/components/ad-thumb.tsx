@@ -3,7 +3,6 @@
 import { Popover } from "@base-ui/react/popover"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
-import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import { addAdPostLink } from "@/app/(app)/ad-post-actions"
 import { Button } from "@/components/ui/button"
@@ -47,8 +46,9 @@ export function AdThumb({ preview, alt, size = "md", className }: { preview?: Pr
   }
   const image =
     size === "card" ? (
-      // The whole creative, uncropped, letterboxed on the flat tile (no blurred backdrop copy: taste sweep).
+      // The whole creative, uncropped, over a blurred copy of itself so any aspect ratio fills the square.
       <span className={cn(tile, "relative block")}>
+        <img src={preview.src} alt="" aria-hidden loading="lazy" className="absolute inset-0 size-full scale-110 object-cover opacity-40 blur-xl" />
         <img src={preview.src} alt={alt} loading="lazy" className="relative size-full object-contain transition-transform duration-300 group-hover/card:scale-[1.02]" />
       </span>
     ) : (
@@ -112,7 +112,7 @@ function arrange(ad: TextAd) {
   try {
     domain = ad.finalUrl ? new URL(ad.finalUrl).hostname.replace(/^www\./, "") : ""
   } catch {}
-  const path = [domain, ad.path1, ad.path2].filter(Boolean).join(" › ")
+  const path = [domain || "example.com", ad.path1, ad.path2].filter(Boolean).join(" › ")
   return { headlines, descriptions, domain, path }
 }
 
@@ -172,7 +172,7 @@ function CardPlaceholder({ kind, alt, className, site }: { kind: string | null; 
         <path d="M4 2h22l10 10v34H4z" />
         <path d="M26 2v10h10M10 22h20M10 28h20M10 34h13" />
       </svg>
-      <span className="text-xs">{kind ?? "No preview"}</span>
+      <span className="text-xsr">{kind ?? "No preview"}</span>
       {site && <span className="text-[11px] text-foreground/70 underline underline-offset-2">Open in {site} ↗</span>}
     </span>
   )
@@ -204,7 +204,7 @@ function AddPostTile({ addPost, alt, className, size }: { addPost: NonNullable<P
         title="Thought leader ad? Add the post link to show it here"
         className={cn(className, "flex flex-col items-center justify-center gap-0.5 border-dashed p-1 text-center leading-tight text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground", size === "card" ? "text-sm" : "text-[11px]")}
       >
-        <Plus aria-hidden className="size-4" />
+        <span aria-hidden className="text-base leading-none">+</span>
         Add post
       </Popover.Trigger>
       <Popover.Portal>

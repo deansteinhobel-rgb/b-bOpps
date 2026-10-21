@@ -22,14 +22,14 @@ export default async function AdminClientsPage() {
   const unmapped = [...counts.entries()].sort((a, b) => b[1] - a[1])
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <section>
         <h1 className="text-3xl">Clients</h1>
         <ul className="mt-4 divide-y rounded-lg border bg-card">
           {(clients ?? []).map((c) => (
             <li key={c.id}>
-              <Link href={`/admin/clients/${c.slug}`} className="flex items-center justify-between px-4 py-3 text-sm hover:bg-white/[0.03]">
-                <span className="font-medium text-foreground">{c.name}</span>
+              <Link href={`/admin/clients/${c.slug}`} className="flex items-center justify-between px-4 py-3 text-sm hover:bg-secondary/50">
+                <span className="font-bold">{c.name}</span>
                 <span className="text-muted-foreground">
                   Notion: {c.notion_client_option}
                   {!c.active && " · inactive"}

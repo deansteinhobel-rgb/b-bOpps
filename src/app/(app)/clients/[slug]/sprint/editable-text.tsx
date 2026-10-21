@@ -15,7 +15,7 @@ export function EditableText(props: { sprintId: string; field: Field; initial: s
   const [, start] = useTransition()
 
   if (props.readOnly) {
-    return <p className={cn("text-sm whitespace-pre-line", !value && "text-muted-foreground", props.className)}>{value || "Nothing recorded."}</p>
+    return <p className={cn("text-sm whitespace-pre-line", !value && "text-muted-foreground italic", props.className)}>{value || "Nothing recorded."}</p>
   }
   const save = () => {
     if (value === saved) return

@@ -1,13 +1,11 @@
 "use client"
 
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight } from "lucide-react"
 import { useMemo, useRef, useState } from "react"
 import { fmt, type Derived } from "@/lib/metrics/performance"
 import type { BreakdownRow, CampaignBreakdowns, ImpressionShareDay, LandingPage, LinkedInKind } from "@/lib/metrics/breakdowns"
 import { cn } from "@/lib/utils"
 import { cleanTerm } from "@/lib/windsor/negatives"
 import { Button } from "@/components/ui/button"
-import { CountBadge } from "@/components/filter-tabs"
 import { NegativePush } from "./negative-push"
 import { TermIcpPanel } from "./term-icp"
 import { MATCH_SOURCE, matchLabel } from "@/lib/insights/search-matching"
@@ -64,7 +62,7 @@ function DataTable<T>({ rows, cols, search, empty, initial, rowKey }: { rows: T[
                 <th key={c.key} className={cn("px-3 py-2 font-normal first:pl-4 last:pr-4", c.align === "right" ? "text-right" : "text-left")}>
                   <button type="button" onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key ? (s.dir === 1 ? -1 : 1) : -1 }))} className={cn("hover:text-foreground", sort.key === c.key && "text-foreground")}>
                     {c.label}
-                    {sort.key === c.key && (sort.dir === -1 ? <ArrowDown className="ml-0.5 inline size-3" aria-hidden /> : <ArrowUp className="ml-0.5 inline size-3" aria-hidden />)}
+                    {sort.key === c.key ? (sort.dir === -1 ? " ↓" : " ↑") : ""}
                   </button>
                 </th>
               ))}
@@ -72,7 +70,7 @@ function DataTable<T>({ rows, cols, search, empty, initial, rowKey }: { rows: T[
           </thead>
           <tbody className="divide-y">
             {list.map((r) => (
-              <tr key={rowKey(r)} className="hover:bg-white/[0.03]">
+              <tr key={rowKey(r)} className="hover:bg-accent/30">
                 {cols.map((c) => (
                   <td key={c.key} className={cn("px-3 py-2 first:pl-4 last:pr-4", c.align === "right" && "text-right", c.className)}>
                     {c.render ? c.render(r) : (c.value(r) ?? "–")}
@@ -92,7 +90,7 @@ function DataTable<T>({ rows, cols, search, empty, initial, rowKey }: { rows: T[
       </div>
       {shown.length > 25 &&
         (current === null ? (
-          <button type="button" onClick={() => setPage(0)} className="w-full border-t px-4 py-2 text-xs text-muted-foreground transition-colors hover:bg-white/[0.03] hover:text-foreground">
+          <button type="button" onClick={() => setPage(0)} className="w-full border-t px-4 py-2 text-xs text-muted-foreground hover:bg-accent/30 hover:text-foreground">
             Show {Math.min(PAGE, shown.length)} of {shown.length.toLocaleString("en-GB")}
           </button>
         ) : (
@@ -103,11 +101,11 @@ function DataTable<T>({ rows, cols, search, empty, initial, rowKey }: { rows: T[
             <span className="ml-auto tabular-nums">
               {(current * PAGE + 1).toLocaleString("en-GB")}–{Math.min((current + 1) * PAGE, shown.length).toLocaleString("en-GB")} of {shown.length.toLocaleString("en-GB")}
             </span>
-            <button type="button" onClick={() => go(current - 1)} disabled={current === 0} className="inline-flex items-center gap-0.5 rounded-md border px-2 py-0.5 hover:text-foreground disabled:opacity-40">
-              <ChevronLeft className="size-3.5" aria-hidden /> Previous
+            <button type="button" onClick={() => go(current - 1)} disabled={current === 0} className="rounded-md border px-2 py-0.5 hover:text-foreground disabled:opacity-40">
+              ‹ Previous
             </button>
-            <button type="button" onClick={() => go(current + 1)} disabled={current >= pages - 1} className="inline-flex items-center gap-0.5 rounded-md border px-2 py-0.5 hover:text-foreground disabled:opacity-40">
-              Next <ChevronRight className="size-3.5" aria-hidden />
+            <button type="button" onClick={() => go(current + 1)} disabled={current >= pages - 1} className="rounded-md border px-2 py-0.5 hover:text-foreground disabled:opacity-40">
+              Next ›
             </button>
           </div>
         ))}
@@ -130,14 +128,11 @@ const metricCols = (currency: string, results = true): Col<{ m: Derived }>[] => 
 
 function Tabs<K extends string>({ tabs, value, onChange }: { tabs: { key: K; label: string; count?: number }[]; value: K; onChange: (k: K) => void }) {
   return (
-    // Flat options, the selected one white with the 1px lime line (taste skill), not a filled pill.
-    <div role="tablist" className="flex flex-wrap gap-0.5">
+    <div role="tablist" className="flex flex-wrap gap-1">
       {tabs.map((t) => (
-        <button key={t.key} role="tab" aria-selected={value === t.key} type="button" onClick={() => onChange(t.key)} className={cn("inline-flex h-8 items-center rounded-sm px-2 text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", value === t.key ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>
-          <span className={cn("inline-flex h-full items-center gap-2", value === t.key && "select-line")}>
-            {t.label}
-            {t.count !== undefined && <CountBadge active={value === t.key}>{t.count}</CountBadge>}
-          </span>
+        <button key={t.key} role="tab" aria-selected={value === t.key} type="button" onClick={() => onChange(t.key)} className={cn("rounded-md px-3 py-1.5 text-sm", value === t.key ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>
+          {t.label}
+          {t.count !== undefined && <span className="ml-1.5 text-xs text-muted-foreground">{t.count}</span>}
         </button>
       ))}
     </div>
@@ -171,7 +166,7 @@ function ImpressionShare({ days }: { days: ImpressionShareDay[] }) {
               {color && <span className="size-2 rounded-sm" style={{ background: color }} />}
               {label}
             </dt>
-            <dd className="mt-1 text-2xl tabular-nums font-medium">{pct(v)}</dd>
+            <dd className="mt-1 font-heading text-2xl tabular-nums">{pct(v)}</dd>
           </div>
         ))}
       </dl>
@@ -195,7 +190,7 @@ function ImpressionShare({ days }: { days: ImpressionShareDay[] }) {
           <span>{shortDay(valid.at(-1)!.date)}</span>
         </div>
         {h && (
-          <div /* taste-skill-ignore: a tooltip over the chart is an overlay */ className="pointer-events-none absolute -top-2 rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-lg" style={{ left: `${(hover! / valid.length) * 100}%`, transform: `translate(${hover! > valid.length / 2 ? "-105%" : "8%"}, -100%)` }}>
+          <div className="pointer-events-none absolute -top-2 rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-lg" style={{ left: `${(hover! / valid.length) * 100}%`, transform: `translate(${hover! > valid.length / 2 ? "-105%" : "8%"}, -100%)` }}>
             <p className="text-muted-foreground">{shortDay(h.date)}</p>
             <p>Won {pct(h.share)} · Lost to rank {pct(h.lostRank)} · Lost to budget {pct(h.lostBudget)}</p>
           </div>
@@ -278,7 +273,7 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
     const done = pushedFor(t)
     if (done) return <span className="rounded-full border border-rag-green/40 px-1.5 py-px text-[11px] text-rag-green" title={`${done.matchType.toLowerCase()} match, ${done.adGroupId ? "this ad group" : "whole campaign"}, ${new Date(done.at).toLocaleDateString("en-GB")}`}>Negative added</span>
     const icp = icpFor(t)
-    if (icp?.verdict === "exclude") return <span className="rounded-full border border-rag-red/40 px-1.5 py-px text-[11px] text-rag-red" title={`Off-ICP: ${icp.reason}`}>Off-ICP</span>
+    if (icp?.verdict === "exclude") return <span className="rounded-full border border-rag-red/40 bg-rag-red/10 px-1.5 py-px text-[11px] text-rag-red" title={`Off-ICP: ${icp.reason}`}>Off-ICP</span>
     if (icp?.verdict === "watch") return <span className="rounded-full border border-rag-amber/40 px-1.5 py-px text-[11px] text-rag-amber" title={`Watch: ${icp.reason}`}>Watch</span>
     if (isNegativeCandidate(t, target)) return <span className="rounded-full border border-rag-red/40 px-1.5 py-px text-[11px] text-rag-red">Negative?</span>
     if (!pmax && !t.isKeyword && t.m.results >= 2) return <span className="rounded-full border border-rag-green/40 px-1.5 py-px text-[11px] whitespace-nowrap text-rag-green">Add as keyword?</span>
@@ -348,7 +343,7 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
         />
       </div>
       {tab === "terms" && pmax && (
-        <p className="border-b px-4 py-2 text-xs text-muted-foreground">
+        <p className="border-b bg-background/40 px-4 py-2 text-xs text-muted-foreground">
           Searches that showed this Performance Max campaign&apos;s ads, for the whole campaign: Google doesn&apos;t split them by asset group or match type. To block one, add it to the campaign&apos;s negative keywords or an account-level negative list in Google Ads. The app doesn&apos;t add negatives to Performance Max.
         </p>
       )}
@@ -380,17 +375,17 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
         />
       )}
       {tab === "terms" && canPush && negatives && (
-        <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 border-b bg-background/40 px-4 py-2 text-xs text-muted-foreground">
           {picked.size === 0 ? (
             <>
               <span>Tick search terms to add them as negative keywords in Google Ads.</span>
               {offIcp.length > 0 && (
-                <button type="button" onClick={() => setPicked(new Set(offIcp))} className="rounded-full border border-border-strong px-2 py-0.5 text-body transition-colors hover:border-foreground/40 hover:text-foreground">
+                <button type="button" onClick={() => setPicked(new Set(offIcp))} className="rounded-full border border-rag-red/40 bg-rag-red/10 px-2 py-0.5 text-rag-red hover:bg-rag-red/20">
                   Tick the {offIcp.length} off-ICP
                 </button>
               )}
               {candidates.length > 0 && (
-                <button type="button" onClick={() => setPicked(new Set(candidates))} className="rounded-full border border-border-strong px-2 py-0.5 text-body transition-colors hover:border-foreground/40 hover:text-foreground">
+                <button type="button" onClick={() => setPicked(new Set(candidates))} className="rounded-full border border-rag-red/40 px-2 py-0.5 text-rag-red hover:bg-rag-red/10">
                   Tick the {candidates.length} marked Negative?
                 </button>
               )}
@@ -492,7 +487,7 @@ function AssetsPanel({ assets, source, currency }: { assets: Asset[]; source: As
         </div>
         <Tabs value={group.field} onChange={setField} tabs={groups.map((g) => ({ key: g.field, label: g.label, count: g.assets.length }))} />
       </div>
-      <p className="border-b px-4 py-2 text-xs text-muted-foreground">
+      <p className="border-b bg-background/40 px-4 py-2 text-xs text-muted-foreground">
         Google mixes these assets into each ad, so one impression counts for every asset it showed. The numbers overlap and don&apos;t add up to the campaign: compare {group.label.toLowerCase()} with each other, not with other types.
       </p>
       <DataTable key={group.field} rows={group.assets} cols={cols} search={group.assets.some((a) => a.text || a.videoTitle) ? (r) => assetName(r) : undefined} empty="No assets of this type in the period." initial="spend" rowKey={(r) => r.key} />

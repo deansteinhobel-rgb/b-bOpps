@@ -124,14 +124,22 @@ export function ExcludeDialog({ slug, insightKey, facet, items, open, onOpenChan
   )
 }
 
-/** The loading state: a spinner and what's being read (no pulsing placeholder rows). */
+/** The loading state: what's being read, and rows standing in for the campaigns. */
 export function Reading({ what, from = "LinkedIn" }: { what: string; from?: string }) {
   return (
-    <div role="status" aria-live="polite">
+    <div className="space-y-3" role="status" aria-live="polite">
       <p className="flex items-center gap-2 text-muted-foreground">
         <LoaderCircleIcon className="size-4 animate-spin" />
         Reading {what} from {from}…
       </p>
+      <div className="divide-y rounded-lg border" aria-hidden>
+        {[0, 1].map((n) => (
+          <div key={n} className="space-y-2 px-3 py-3">
+            <div className="h-3.5 w-2/3 animate-pulse rounded bg-white/10" />
+            <div className="h-3 w-1/3 animate-pulse rounded bg-white/5" />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

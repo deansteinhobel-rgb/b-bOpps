@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, Phone, X } from "lucide-react"
+import { Phone, X } from "lucide-react"
 import { ClientLogo } from "@/components/brand"
 import { Button } from "@/components/ui/button"
 import { actOnFollowUp, planFollowUp } from "@/lib/calls/actions"
@@ -14,9 +14,15 @@ import { cn } from "@/lib/utils"
 export const shortDate = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(new Date(`${iso.slice(0, 10)}T12:00:00Z`))
 export const ago = (days: number) => (days <= 0 ? "today" : days === 1 ? "yesterday" : days < 14 ? `${days} days ago` : `${Math.round(days / 7)} weeks ago`)
 
-// One neutral outlined chip for every kind (taste sweep): the word says what it is, color isn't needed.
+const KIND_CLS: Record<FollowUp["kind"], string> = {
+  try: "border-white/30 text-foreground",
+  stop: "border-rag-red/40 text-rag-red",
+  change: "border-lavender/40 text-lavender",
+  idea: "border-violet/40 text-violet",
+  follow_up: "border-foreground/20 text-muted-foreground",
+}
 export function KindChip({ kind }: { kind: FollowUp["kind"] }) {
-  return <span className="shrink-0 rounded-full border border-border-strong px-1.5 py-px text-[11px] font-medium text-body">{KIND_LABEL[kind]}</span>
+  return <span className={cn("shrink-0 rounded-full border px-1.5 py-px text-[11px] font-medium", KIND_CLS[kind])}>{KIND_LABEL[kind]}</span>
 }
 
 /**
@@ -63,8 +69,7 @@ export function FollowUpActions({ item, compact, onDone }: { item: Pick<FollowUp
   const plannable = item.kind === "try" || item.kind === "idea" || item.kind === "change"
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", compact && "gap-1")}>
-      {/* Filled only in the pop-up; in a list of follow-ups every row gets the quiet outline. */}
-      <Button size="sm" variant={compact ? "default" : "outline"} disabled={pending} onClick={() => run(() => actOnFollowUp(item.id, { action: "done" }))}>
+      <Button size="sm" disabled={pending} onClick={() => run(() => actOnFollowUp(item.id, { action: "done" }))}>
         It&apos;s done
       </Button>
       {plannable && (
@@ -114,15 +119,15 @@ export function CallReminders({ reminders, canEdit }: { reminders: Reminder[]; c
   }
   const r = reminders[Math.min(index, reminders.length - 1)]
   return (
-    <aside role="status" aria-live="polite" className="animate-in fade-in slide-in-from-bottom-4 fixed bottom-4 left-4 z-40 w-[min(26rem,calc(100vw-2rem))] rounded-lg border border-border-strong bg-elevated shadow-2xl shadow-black/60 lg:left-64">
+    <aside role="status" aria-live="polite" className="animate-in fade-in slide-in-from-bottom-4 fixed bottom-4 left-4 z-40 w-[min(26rem,calc(100vw-2rem))] rounded-lg border border-lime/30 bg-elevated shadow-2xl shadow-black/60 lg:left-64">
       <div className="flex items-center gap-2 border-b px-4 py-2.5">
-        <Phone className="size-3.5 text-muted-foreground" aria-hidden />
+        <Phone className="size-3.5 text-lime" aria-hidden />
         <p className="flex-1 text-xs font-medium">Said on a call, no sign of it yet</p>
         {reminders.length > 1 && (
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            <button type="button" onClick={() => setIndex((i) => (i - 1 + reminders.length) % reminders.length)} className="px-1 hover:text-foreground" aria-label="Previous"><ChevronLeft className="size-3.5" aria-hidden /></button>
+            <button type="button" onClick={() => setIndex((i) => (i - 1 + reminders.length) % reminders.length)} className="px-1 hover:text-foreground" aria-label="Previous">‹</button>
             {Math.min(index, reminders.length - 1) + 1} of {reminders.length}
-            <button type="button" onClick={() => setIndex((i) => (i + 1) % reminders.length)} className="px-1 hover:text-foreground" aria-label="Next"><ChevronRight className="size-3.5" aria-hidden /></button>
+            <button type="button" onClick={() => setIndex((i) => (i + 1) % reminders.length)} className="px-1 hover:text-foreground" aria-label="Next">›</button>
           </span>
         )}
         <button type="button" onClick={close} className="text-subtle-foreground hover:text-foreground" aria-label="Hide for today">
@@ -147,13 +152,13 @@ export function CallReminders({ reminders, canEdit }: { reminders: Reminder[]; c
               <p className="flex items-start gap-2 text-sm font-medium">
                 <KindChip kind={r.kind} /> <span>{r.title}</span>
               </p>
-              {r.quote && <p className="border-l-2 border-border-strong pl-2.5 text-xs text-muted-foreground">&ldquo;{r.quote}&rdquo;</p>}
+              {r.quote && <p className="border-l-2 border-border-strong pl-2.5 text-xs text-muted-foreground italic">&ldquo;{r.quote}&rdquo;</p>}
               <p className="text-xs text-muted-foreground">
                 {ago(r.daysAgo)[0].toUpperCase() + ago(r.daysAgo).slice(1)}
                 {r.ownerName ? ` (${r.ownerName})` : ""}, and nothing in Lumaux or Notion shows it&apos;s happened.
               </p>
             </div>
-            {note && <p className="text-xs text-rag-green">{note.text} {note.url && <Link href={note.url} className="underline">Open it</Link>}</p>}
+            {note && <p className="text-xs text-lime">{note.text} {note.url && <Link href={note.url} className="underline">Open it</Link>}</p>}
             {canEdit ? (
               <FollowUpActions item={r} compact onDone={(m, url) => { setNote(m ? { text: m, url } : null); setIndex(0); router.refresh() }} />
             ) : null}

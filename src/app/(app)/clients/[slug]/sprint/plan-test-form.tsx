@@ -1,6 +1,5 @@
 "use client"
 
-import { Plus } from "lucide-react"
 import { useState, useTransition } from "react"
 import { fieldClass } from "@/components/field-class"
 import { Sparkle } from "@/components/fx/sparkle"
@@ -29,10 +28,7 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline, pre
   if (!open) {
     return (
       <Sparkle>
-        <Button onClick={() => setOpen(true)}>
-          <Plus aria-hidden />
-          Plan a test
-        </Button>
+        <Button onClick={() => setOpen(true)}>+ Plan a test</Button>
       </Sparkle>
     )
   }
@@ -61,9 +57,9 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline, pre
 
   return (
     <div className="space-y-4 rounded-lg border bg-card p-4">
-      <h3 className="text-base font-semibold text-foreground">Plan a test</h3>
+      <p className="font-heading text-xl">Plan a test</p>
       {prefill && <p className="text-sm text-muted-foreground">Filled in from {prefill.source}. Check it, pick an owner and save; then &ldquo;Brief the team&rdquo; sends it to Notion.</p>}
-      <div className="grid gap-4 sm:grid-cols-[12rem_1fr]">
+      <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
         <div className="space-y-1">
           <Label htmlFor="t-platform">Platform</Label>
           <select id="t-platform" className={fieldClass} value={f.platform} onChange={(e) => setF({ ...f, platform: e.target.value })}>
@@ -114,7 +110,7 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline, pre
         <p className="text-sm">
           What success looks like <span className="text-muted-foreground">(the metric is always saved, so tests compare; the target is optional if you describe it)</span>
         </p>
-        <div className="grid gap-4 sm:grid-cols-[14rem_9rem_1fr]">
+        <div className="grid gap-3 sm:grid-cols-[14rem_9rem_1fr]">
           <select aria-label="Success metric" className={fieldClass} value={f.success_metric} onChange={(e) => setF({ ...f, success_metric: e.target.value })}>
             {Object.entries(METRICS).map(([k, m]) => (
               <option key={k} value={k}>
@@ -127,7 +123,7 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline, pre
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="t-owner">Owner</Label>
           <select id="t-owner" className={fieldClass} value={f.owner} onChange={(e) => setF({ ...f, owner: e.target.value })}>

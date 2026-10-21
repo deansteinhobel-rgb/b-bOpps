@@ -7,23 +7,21 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   if (!isAdmin(profile)) notFound()
   return (
     <>
-      {/* "Admin" leads the section links on one line, not as an eyebrow above them (taste sweep). */}
-      <nav className="flex flex-wrap items-center gap-4 text-sm" aria-label="Admin sections">
-        <span className="font-medium text-foreground">Admin</span>
-        <span className="h-4 w-px bg-border" aria-hidden />
-        <Link href="/admin/clients" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+      <p className="eyebrow">Admin</p>
+      <nav className="mt-2 flex gap-4 text-sm" aria-label="Admin sections">
+        <Link href="/admin/clients" className="underline-offset-4 hover:underline">
           Clients
         </Link>
-        <Link href="/admin/people" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+        <Link href="/admin/people" className="underline-offset-4 hover:underline">
           People
         </Link>
-        <Link href="/admin/activity" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+        <Link href="/admin/activity" className="underline-offset-4 hover:underline">
           Activity
         </Link>
-        <Link href="/admin/feedback" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+        <Link href="/admin/feedback" className="underline-offset-4 hover:underline">
           Feedback
         </Link>
-        <Link href="/admin/slack" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+        <Link href="/admin/slack" className="underline-offset-4 hover:underline">
           Slack
         </Link>
       </nav>

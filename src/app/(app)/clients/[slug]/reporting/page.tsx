@@ -25,7 +25,7 @@ import { FatiguePanel } from "../fatigue-panel"
 import { PacingPanel } from "../pacing-panel"
 import { BoardDeck } from "./board-deck"
 import { LandingPages } from "./breakdowns"
-import { CampaignTable, Delta, Investigator, PlatformSplit, TrendPanel } from "./charts"
+import { CampaignTable, Delta, Investigator, PlatformSplit, Sparkline, TrendPanel } from "./charts"
 import { Controls } from "./controls"
 import { parsePlatform, parseRange } from "./params"
 import { adsForPeriod, boardAds, buildBoard, type BoardKey } from "./boards"
@@ -196,11 +196,11 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
               o.liveAds.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {o.liveAds.some((a) => isAbx(a.campaign_name)) && (
-                    <a href={`${base}/live-ads?abx=1`} download className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
+                    <a href={`${base}/live-ads?abx=1`} download className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground">
                       <Download className="size-3.5" aria-hidden /> Export live ABX ads
                     </a>
                   )}
-                  <a href={`${base}/live-ads`} download className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
+                  <a href={`${base}/live-ads`} download className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground">
                     <Download className="size-3.5" aria-hidden /> Export all live ads
                   </a>
                 </div>
@@ -213,9 +213,9 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
             {newest.length === 0 ? (
               <p className="text-sm text-muted-foreground">None yet.</p>
             ) : (
-              <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 {newest.map((a) => (
-                  <li key={adKey(a)} className="surface overflow-hidden transition-colors hover:border-border-strong">
+                  <li key={adKey(a)} className="surface overflow-hidden transition-colors hover:border-foreground/20">
                     <AdThumb preview={previews[adKey(a)]} alt={a.ad_name ?? a.ad_id} size="card" className="rounded-none border-0 border-b" />
                     <div className="space-y-1.5 p-3">
                       <p className="line-clamp-2 min-h-[2lh] text-xs font-medium leading-snug" title={a.ad_name ?? a.ad_id}>
@@ -267,7 +267,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   })()
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
       <div className="space-y-3">
         <SectionNav sections={sections} />
         <Controls
@@ -292,38 +292,35 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
       {/* 1. Overview: the account, then each platform */}
       <section id="overview" className="scroll-mt-28 space-y-4">
         <SectionHeader title="Overview" description={`${scopeName || "The whole account"}, ${dates}, ${against}. Result = conversions + leads.`} />
-        {/* One box split by hairlines (taste skill): an odd last row leaves no grey gap. */}
-        <div className="surface overflow-hidden">
-          <dl /* taste-skill-ignore: inset hairlines between cells, not a shadow */ className="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 [&>*]:shadow-[inset_1px_1px_0_var(--border)]">
-            {CARDS.map((k) => (
-              <div key={k} className="p-4">
-                <dt className="flex items-center gap-1 text-[13px] text-muted-foreground">
-                  {METRIC[k].label}
-                  {(k === "results" || k === "cpr") && resultLines.length > 0 && (
-                    <Hint label="What counts as a result?">
-                      A result is a conversion or a lead. {resultLines.join(". ")}.
-                    </Hint>
-                  )}
-                </dt>
-                <dd className={cn("mt-1 text-2xl leading-none tabular-nums font-medium", k === "cpr" && target && perf.now.cpr !== null && (perf.now.cpr <= target ? "text-rag-green" : perf.now.cpr <= target * 1.2 ? "text-rag-amber" : "text-rag-red"))}>{fmt(k, perf.now[k], cur)}</dd>
-                {k === "results" && (
-                  <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
-                    {whole(perf.now.conversions)} conv.{hasLeads && ` · ${whole(perf.now.leads)} leads`}
-                  </p>
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-4 xl:grid-cols-7">
+          {CARDS.map((k) => (
+            <div key={k} className="bg-card px-4 py-3.5">
+              <dt className="flex items-center gap-1 text-xs text-muted-foreground">
+                {METRIC[k].label}
+                {(k === "results" || k === "cpr") && resultLines.length > 0 && (
+                  <Hint label="What counts as a result?">
+                    A result is a conversion or a lead. {resultLines.join(". ")}.
+                  </Hint>
                 )}
-                {k === "cpr" && (
-                  <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
-                    {perUnit(perf.now.spend, perf.now.conversions)} / conv.{hasLeads && ` · ${perUnit(perf.now.spend, perf.now.leads)} / lead`}
-                  </p>
-                )}
-                {/* The change alone: no sparklines on KPIs (taste skill); the trend charts are in the deep dive. */}
-                <div className="mt-2">
-                  <Delta k={k} now={perf.now[k]} before={perf.prev[k]} />
-                </div>
+              </dt>
+              <dd className={cn("mt-1 font-heading text-2xl leading-none tabular-nums", k === "cpr" && target && perf.now.cpr !== null && (perf.now.cpr <= target ? "text-rag-green" : perf.now.cpr <= target * 1.2 ? "text-rag-amber" : "text-rag-red"))}>{fmt(k, perf.now[k], cur)}</dd>
+              {k === "results" && (
+                <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
+                  {whole(perf.now.conversions)} conv.{hasLeads && ` · ${whole(perf.now.leads)} leads`}
+                </p>
+              )}
+              {k === "cpr" && (
+                <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
+                  {perUnit(perf.now.spend, perf.now.conversions)} / conv.{hasLeads && ` · ${perUnit(perf.now.spend, perf.now.leads)} / lead`}
+                </p>
+              )}
+              <div className="mt-2 flex items-end justify-between gap-2">
+                <Delta k={k} now={perf.now[k]} before={perf.prev[k]} />
+                <Sparkline values={perf.daily.map((d) => d[k])} className="h-6 w-20" />
               </div>
-            ))}
-          </dl>
-        </div>
+            </div>
+          ))}
+        </dl>
         {!platform && platformsShown.length > 1 && (
           <div className="surface overflow-x-auto">
             <table className="w-full min-w-[46rem] text-sm tabular-nums">
@@ -361,7 +358,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
           </div>
         )}
         <details className="group surface overflow-hidden">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-white/[0.03]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-secondary/30">
             <span className="font-medium">Budget pacing this month</span>
             <span className="text-xs text-muted-foreground group-open:hidden">Show spend against budget{canEdit(me) ? " and edit budgets" : ""}</span>
           </summary>
@@ -385,11 +382,7 @@ function AdLine({ label, ad, basis, currency, previews }: { label: "Best" | "Wor
     <div className="flex gap-3">
       <AdThumb preview={preview} alt={ad.ad_name ?? ad.ad_id} size="lg" />
       <div className="min-w-0 space-y-1 text-sm">
-        {/* Status as a dot beside a plain label, not colored text (taste skill). */}
-        <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <span className={cn("size-1.5 rounded-full", label === "Best" ? "bg-rag-green" : "bg-rag-red")} aria-hidden />
-          {label}
-        </p>
+        <p className={cn("text-xs font-medium", label === "Best" ? "text-rag-green" : "text-rag-red")}>{label}</p>
         <p className="line-clamp-2 font-medium leading-snug" title={ad.ad_name ?? ad.ad_id}>
           {ad.ad_name ?? ad.ad_id}
         </p>

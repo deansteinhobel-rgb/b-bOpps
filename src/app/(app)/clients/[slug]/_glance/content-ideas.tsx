@@ -7,7 +7,6 @@ import { ChevronDown, Lightbulb, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { PlatformIcon } from "@/components/brand"
 import { Hint } from "@/components/hint"
-import { Spinner } from "@/components/loading"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { money, percent, whole } from "@/lib/format"
@@ -116,11 +115,10 @@ export function ContentIdeas({ slug, currency, run, running, states, owners, can
 
       {runId && (
         <div className="surface space-y-2 p-4" aria-live="polite">
-          {/* A spinner, not a lime progress bar: lime is the selection signal only. */}
-          <p className="flex items-center gap-2 text-sm">
-            <Spinner label="Getting content ideas" className="text-muted-foreground" />
-            {progress ?? "Working"}…
-          </p>
+          <p className="text-sm">{progress ?? "Working"}…</p>
+          <span className="block h-1 overflow-hidden rounded-full bg-secondary">
+            <span className="block h-full w-1/3 animate-[slide_1.6s_ease-in-out_infinite] rounded-full bg-lime motion-reduce:animate-none" />
+          </span>
           <p className="text-xs text-muted-foreground">Claude reads every campaign, who it reached and the ad creatives. It takes a minute or two; you can leave this page.</p>
         </div>
       )}
@@ -133,7 +131,7 @@ export function ContentIdeas({ slug, currency, run, running, states, owners, can
 
       {run && (
         <>
-          {run.headline && <p className="max-w-4xl text-lg leading-relaxed font-medium">{run.headline}</p>}
+          {run.headline && <p className="border-l-2 border-lime pl-4 text-base leading-relaxed">{run.headline}</p>}
 
           {/* What's working */}
           {run.working.length > 0 && (
@@ -155,7 +153,7 @@ export function ContentIdeas({ slug, currency, run, running, states, owners, can
                       <p className="text-xs text-muted-foreground">
                         {w.format} · to {w.audience}
                       </p>
-                      <p className="text-xs text-body">{w.why}</p>
+                      <p className="text-xs text-foreground/80">{w.why}</p>
                     </div>
                     <p className="text-xs tabular-nums text-muted-foreground md:text-right">
                       <span className="text-sm text-foreground">{w.results > 0 ? `${money(w.spend / w.results, currency)} per result` : "No results"}</span>
@@ -184,7 +182,7 @@ export function ContentIdeas({ slug, currency, run, running, states, owners, can
             {open.length === 0 ? (
               <p className="surface px-4 py-4 text-sm text-muted-foreground">Every idea from this run has been handled. Refresh for new ones.</p>
             ) : (
-              <ul className={cn("grid gap-4", open.length > 1 && "lg:grid-cols-2")}>
+              <ul className="grid gap-3 lg:grid-cols-2">
                 {open.map((i) => (
                   <IdeaCard key={i.id} slug={slug} runId={run.id} idea={i} state={states[i.id]} owners={owners} canEdit={canEdit} deadline={deadline} />
                 ))}
@@ -251,12 +249,11 @@ function IdeaCard({ slug, runId, idea: i, state, owners, canEdit, deadline }: { 
     <li className="surface flex flex-col">
       <div className="flex-1 space-y-3 p-4">
         <p className="flex flex-wrap items-center gap-1.5 text-[11px]">
-          {/* Outlined neutral chips: labels, not statuses, so no tinted fills or colors. */}
-          <span className="rounded-full border border-border-strong px-2 py-0.5 font-medium text-foreground">{i.content_type}</span>
-          <span className="rounded-full border border-border px-2 py-0.5 text-muted-foreground">{KIND[i.kind] ?? i.kind}</span>
-          <span className={cn("rounded-full border px-2 py-0.5", i.audience_basis === "new" ? "border-border-strong text-body" : "border-border text-muted-foreground")}>{i.audience_basis === "new" ? "New audience" : "Same audience"}</span>
+          <span className="rounded-full bg-lavender/15 px-2 py-0.5 font-medium text-lavender">{i.content_type}</span>
+          <span className="rounded-full border px-2 py-0.5 text-muted-foreground">{KIND[i.kind] ?? i.kind}</span>
+          <span className={cn("rounded-full border px-2 py-0.5", i.audience_basis === "new" ? "border-violet/40 text-violet" : "text-muted-foreground")}>{i.audience_basis === "new" ? "New audience" : "Same audience"}</span>
           {i.call_commitment_id && (
-            <span className="rounded-full border border-border-strong px-2 py-0.5 text-body" title="Follows up something the client said on a call">
+            <span className="rounded-full border border-[#f0a6ca]/40 bg-[#f0a6ca]/10 px-2 py-0.5 font-medium text-[#f0a6ca]" title="Follows up something the client said on a call">
               From a call
             </span>
           )}
@@ -268,8 +265,8 @@ function IdeaCard({ slug, runId, idea: i, state, owners, canEdit, deadline }: { 
             {i.format} · for {i.audience}
           </span>
         </p>
-        <p className="border-l-2 border-border-strong pl-3 text-sm">&ldquo;{i.hook}&rdquo;</p>
-        <p className="text-sm text-body">{i.why_it_fits}</p>
+        <p className="rounded-md bg-secondary/60 px-3 py-2 text-sm italic">&ldquo;{i.hook}&rdquo;</p>
+        <p className="text-sm text-foreground/85">{i.why_it_fits}</p>
         <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           <ChevronDown className={cn("size-3.5 transition-transform", more && "rotate-180")} aria-hidden />
           Evidence and what it builds on
@@ -376,7 +373,7 @@ function DismissedRow({ slug, runId, idea, reason, canEdit }: { slug: string; ru
   const router = useRouter()
   return (
     <li className="flex flex-wrap items-center gap-2">
-      <span className="text-body">{idea.title}</span>
+      <span className="text-foreground/80">{idea.title}</span>
       {reason && <span>· {reason}</span>}
       {canEdit && (
         <button

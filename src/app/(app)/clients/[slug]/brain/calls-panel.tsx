@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ChevronDown } from "lucide-react"
 import { ago, FollowUpActions, KindChip, shortDate } from "@/components/call-followups"
-import { Spinner } from "@/components/loading"
 import { Segmented } from "@/components/segmented"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -18,11 +17,13 @@ export type Call = { id: string; source: "notion" | "manual"; notion_page_id: st
 export type CallSource = { id: string; kind: "page" | "database"; clientOption: string | null; checkedAt: string | null } | null
 
 const notionUrl = (id: string) => `https://www.notion.so/${id.replace(/-/g, "")}`
-// The state is an outlined neutral chip; only good/bad states add a small status dot (taste sweep).
-const STATE_DOT: Partial<Record<CommitmentState, string>> = {
-  due: "bg-rag-amber",
-  acted: "bg-rag-green",
-  done: "bg-rag-green",
+const STATE_CLS: Record<CommitmentState, string> = {
+  due: "border-rag-amber/40 bg-rag-amber-bg text-rag-amber",
+  open: "border-foreground/15 text-muted-foreground",
+  acted: "border-rag-green/40 bg-rag-green-bg text-rag-green",
+  done: "border-rag-green/40 text-rag-green",
+  dropped: "border-foreground/15 text-subtle-foreground",
+  snoozed: "border-foreground/15 text-subtle-foreground",
 }
 const minsAgo = (iso: string) => {
   const m = Math.round((Date.now() - Date.parse(iso)) / 60_000)
@@ -102,8 +103,8 @@ export function CallsPanel(props: { slug: string; clientName: string; source: Ca
         </div>
       </div>
       {status && (
-        <p className="flex items-center gap-2 text-sm text-body" aria-live="polite">
-          <Spinner className="size-3.5 text-muted-foreground" label={status} /> {status}
+        <p className="flex items-center gap-2 text-sm text-lime" aria-live="polite">
+          <span className="size-1.5 animate-pulse rounded-full bg-lime" /> {status}
         </p>
       )}
       {error && <p className="text-sm text-rag-red">{error}</p>}
@@ -165,16 +166,13 @@ function FollowUpRow({ f, slug, canEdit }: { f: FollowUp; slug: string; canEdit:
             {f.dueOn ? ` · due ${shortDate(f.dueOn)}` : ""}
           </span>
         </span>
-        <span className={cn("inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border-strong px-2 py-px text-[11px]", f.state === "dropped" || f.state === "snoozed" ? "text-subtle-foreground" : "text-body")}>
-          {STATE_DOT[f.state] && <span className={cn("size-1.5 rounded-full", STATE_DOT[f.state])} aria-hidden />}
-          {STATE_LABEL[f.state]}
-        </span>
+        <span className={cn("shrink-0 rounded-full border px-2 py-px text-[11px]", STATE_CLS[f.state])}>{STATE_LABEL[f.state]}</span>
         <ChevronDown className={cn("mt-0.5 size-3.5 shrink-0 text-subtle-foreground transition-transform", open && "rotate-180")} />
       </button>
       {open && (
         <div className="mt-2 space-y-2 pl-1">
           {f.detail && <p className="text-xs text-muted-foreground">{f.detail}</p>}
-          {f.quote && <p className="border-l-2 border-border-strong pl-2.5 text-xs text-muted-foreground">&ldquo;{f.quote}&rdquo;</p>}
+          {f.quote && <p className="border-l-2 border-border-strong pl-2.5 text-xs text-muted-foreground italic">&ldquo;{f.quote}&rdquo;</p>}
           {f.state === "acted" && f.evidence && (
             <p className="text-xs text-rag-green">
               {f.evidence}
@@ -226,11 +224,11 @@ function CallList({ calls, followUps }: { calls: Call[]; followUps: FollowUp[] }
       <ul className="divide-y">
         {list.map((c) => (
           <li key={c.id} id={`call-${c.id}`} className="scroll-mt-24">
-            <button type="button" onClick={() => setOpenId((o) => (o === c.id ? null : c.id))} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-white/[0.03]">
+            <button type="button" onClick={() => setOpenId((o) => (o === c.id ? null : c.id))} className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-accent/40">
               <span className="w-12 shrink-0 text-[11px] text-muted-foreground tabular-nums">{shortDate(c.call_date)}</span>
               <span className="min-w-0 flex-1 truncate">{c.title}</span>
               {c.extract_status === "pending" ? (
-                <span className="shrink-0 text-[11px] text-muted-foreground">Reading…</span>
+                <span className="shrink-0 text-[11px] text-lime">Reading…</span>
               ) : c.extract_status === "failed" ? (
                 <span className="shrink-0 text-[11px] text-rag-red" title={c.extract_error ?? undefined}>Couldn&apos;t read</span>
               ) : c.extract_status === "skipped" ? (
@@ -313,18 +311,18 @@ function SourcePicker({ slug, source, suggestions, canAdmin, onLinked }: { slug:
           <p className="text-[11px] text-subtle-foreground">Found in the HQ:</p>
           <div className="flex flex-wrap gap-1.5">
             {suggestions.map((s) => (
-              <button key={s.id} type="button" disabled={pending} onClick={() => save(s.id)} className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground hover:border-border-strong hover:text-foreground" title={s.path ?? undefined}>
+              <button key={s.id} type="button" disabled={pending} onClick={() => save(s.id)} className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground hover:border-lime/40 hover:text-foreground" title={s.path ?? undefined}>
                 {s.title}
               </button>
             ))}
           </div>
         </div>
       )}
-      {msg && <p className={cn("text-xs", msg.ok ? "text-rag-green" : ask ? "text-muted-foreground" : "text-rag-red")}>{msg.text}</p>}
+      {msg && <p className={cn("text-xs", msg.ok ? "text-lime" : ask ? "text-muted-foreground" : "text-rag-red")}>{msg.text}</p>}
       {ask && (
         <div className="flex flex-wrap gap-1.5">
           {ask.options.map((o) => (
-            <button key={o} type="button" disabled={pending} onClick={() => save(ask.value, o)} className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground hover:border-border-strong hover:text-foreground">
+            <button key={o} type="button" disabled={pending} onClick={() => save(ask.value, o)} className="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground hover:border-lime/40 hover:text-foreground">
               {o}
             </button>
           ))}
@@ -358,7 +356,7 @@ function ManualCall({ slug, onDone }: { slug: string; onDone: () => void }) {
         <Button size="sm" variant="ghost" onClick={onDone}>
           Cancel
         </Button>
-        {msg && <span className={cn("text-xs", msg.ok ? "text-rag-green" : "text-rag-red")}>{msg.text}</span>}
+        {msg && <span className={cn("text-xs", msg.ok ? "text-lime" : "text-rag-red")}>{msg.text}</span>}
       </div>
     </div>
   )

@@ -48,7 +48,7 @@ export function NavProgress() {
 
   // Always mounted, so the bar grows from nothing instead of appearing half-full.
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-px" role={phase === "loading" ? "progressbar" : undefined} aria-label={phase === "loading" ? "Loading the page" : undefined} aria-hidden={phase !== "loading"}>
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] h-0.5" role={phase === "loading" ? "progressbar" : undefined} aria-label={phase === "loading" ? "Loading the page" : undefined} aria-hidden={phase !== "loading"}>
       <div
         className="h-full bg-lime transition-[width,opacity] ease-out"
         style={{

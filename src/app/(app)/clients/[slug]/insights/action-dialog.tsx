@@ -109,8 +109,9 @@ function Result({ outcome, platform }: { outcome: ActionOutcome; platform: strin
   return (
     <div className="space-y-3 text-sm" role="status">
       <div className="flex items-center gap-3">
-        {/* A plain colored mark, no tinted circle behind it. */}
-        {good ? <CheckIcon className="size-5 shrink-0 text-rag-green" aria-hidden /> : <XIcon className="size-5 shrink-0 text-rag-red" aria-hidden />}
+        <span className={cn("grid size-10 shrink-0 place-items-center rounded-full", good ? "bg-rag-green/15 text-rag-green" : "bg-rag-red/15 text-rag-red")}>
+          {good ? <CheckIcon className="size-5" /> : <XIcon className="size-5" />}
+        </span>
         <div>
           <p className="font-medium">{good ? (outcome.live ? `Done in ${platform}` : "Dry run logged") : outcome.live ? "It didn't go through" : "Couldn't log it"}</p>
           <p className="text-body">{outcome.message}</p>

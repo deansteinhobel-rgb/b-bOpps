@@ -46,54 +46,52 @@ export function GlanceBoard(p: {
 }) {
   const cur = p.currency
   const n = p.numbers
+  const cols = p.goals.length === 0 ? "lg:grid-cols-3" : p.goals.length === 1 ? "lg:grid-cols-4" : "lg:grid-cols-5"
+
   return (
     <div className="space-y-5">
       {/* The month in one line, then the numbers that matter */}
       <section className="space-y-4">
         {n ? (
           <div className="space-y-1.5">
-            {p.headline}
-            {/* The period line sits under the headline as its description (no eyebrow above it). */}
-            <p className="text-[13px] text-muted-foreground">
+            <p className="eyebrow">
               {p.month} so far · to {shortDate(n.dataThrough)}, day {n.daysElapsed} of {n.daysInMonth}
             </p>
+            {p.headline}
           </div>
         ) : (
           <p className="surface px-5 py-6 text-sm text-muted-foreground">No ad data yet. Once an ad account is connected and synced, this month&apos;s numbers show here.</p>
         )}
-        {/* The month's numbers in one box split by hairlines, not three separate tiles. */}
-        {n && (
-          <section className="surface overflow-hidden">
-            <div className="-mt-px -ml-px grid sm:grid-cols-3 [&>*]:shadow-[inset_1px_1px_0_var(--border)]">{/* taste-skill-ignore: hairlines between cells */}
-              <Tile label="Spent" hint="What we've paid the ad platforms this month, against the month's budget." value={money(n.mtd.spend, cur)}>
-                {p.budget > 0 ? (
-                  <span className="block space-y-1.5">
-                    <PaceBar spend={n.mtd.spend} expected={p.expected} budget={p.budget} />
-                    <span className="block">
-                      of {money(p.budget, cur)} · {paceWords(n.mtd.spend, p.expected, p.budget)}
+        {(n || p.goals.length > 0) && (
+          <div className={cn("grid gap-3 sm:grid-cols-2", cols)}>
+            {n && (
+              <>
+                <Tile label="Spent" hint="What we've paid the ad platforms this month, against the month's budget." value={money(n.mtd.spend, cur)}>
+                  {p.budget > 0 ? (
+                    <span className="block space-y-1.5">
+                      <PaceBar spend={n.mtd.spend} expected={p.expected} budget={p.budget} />
+                      <span className="block">
+                        of {money(p.budget, cur)} · {paceWords(n.mtd.spend, p.expected, p.budget)}
+                      </span>
                     </span>
-                  </span>
-                ) : (
-                  "No budget set"
-                )}
-              </Tile>
-              <Tile label="Results" hint="A result is a conversion or a lead: someone filling in a form, booking a demo or signing up after seeing an ad." value={whole(n.mtd.results)}>
-                <Delta now={n.mtd.results} before={n.lastMonthSameDays.results} betterUp /> vs the same days last month ({whole(n.lastMonthSameDays.results)})
-              </Tile>
-              <Tile label="Cost per result" hint="Spend divided by results: what each result cost us. Lower is better." value={money(n.mtd.cpr, cur)} valueClass={cprTone(n.mtd.cpr, p.target)}>
-                {p.target ? (
-                  <span className={cprTone(n.mtd.cpr, p.target)}>
-                    {n.mtd.cpr === null ? `Target ${money(p.target, cur)}` : n.mtd.cpr <= p.target ? `Under the ${money(p.target, cur)} target` : `${Math.round((n.mtd.cpr / p.target - 1) * 100)}% over the ${money(p.target, cur)} target`}
-                  </span>
-                ) : (
-                  "No target set"
-                )}
-              </Tile>
-            </div>
-          </section>
-        )}
-        {p.goals.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-2">
+                  ) : (
+                    "No budget set"
+                  )}
+                </Tile>
+                <Tile label="Results" hint="A result is a conversion or a lead: someone filling in a form, booking a demo or signing up after seeing an ad." value={whole(n.mtd.results)}>
+                  <Delta now={n.mtd.results} before={n.lastMonthSameDays.results} betterUp /> vs the same days last month ({whole(n.lastMonthSameDays.results)})
+                </Tile>
+                <Tile label="Cost per result" hint="Spend divided by results: what each result cost us. Lower is better." value={money(n.mtd.cpr, cur)} valueClass={cprTone(n.mtd.cpr, p.target)}>
+                  {p.target ? (
+                    <span className={cprTone(n.mtd.cpr, p.target)}>
+                      {n.mtd.cpr === null ? `Target ${money(p.target, cur)}` : n.mtd.cpr <= p.target ? `Under the ${money(p.target, cur)} target` : `${Math.round((n.mtd.cpr / p.target - 1) * 100)}% over the ${money(p.target, cur)} target`}
+                    </span>
+                  ) : (
+                    "No target set"
+                  )}
+                </Tile>
+              </>
+            )}
             {p.goals.map((g) => (
               <GlanceCard key={g.id} id={`goal-${g.id}`} title={g.name} meta={g.monthLabel} summary={<GoalSummary goal={g} />} detailTitle={g.name} detailDescription="The client's main goal this month, from outside the ad platforms. Updated by hand." detail={<GoalCard slug={p.slug} goal={g} canEdit={p.canEditGoals} />} wide={false} />
             ))}
@@ -102,7 +100,7 @@ export function GlanceBoard(p: {
       </section>
 
       {/* Four cards, one screen: click any for the full picture */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         {p.spendDetail && n && (
           <GlanceCard
             id="spend"
@@ -121,12 +119,12 @@ export function GlanceBoard(p: {
 
 function Tile({ label, hint, value, valueClass, children }: { label: string; hint: string; value: string; valueClass?: string; children: React.ReactNode }) {
   return (
-    <div className="p-4">
-      <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+    <div className="surface px-4 py-3.5">
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {label}
         <Hint>{hint}</Hint>
       </p>
-      <p className={cn("mt-1.5 text-2xl leading-none tabular-nums font-medium", valueClass)}>{value}</p>
+      <p className={cn("mt-1.5 font-heading text-3xl leading-none tabular-nums", valueClass)}>{value}</p>
       <div className="mt-2 text-xs text-muted-foreground">{children}</div>
     </div>
   )
@@ -264,7 +262,7 @@ export function ChangesSummary({ recent, count, by }: { recent: TimelineEntry[];
   return (
     <span className="block space-y-3">
       <span className="flex items-baseline gap-2">
-        <span className="text-3xl leading-none tabular-nums font-medium">{count}</span>
+        <span className="font-heading text-3xl leading-none tabular-nums">{count}</span>
         <span className="text-xs text-muted-foreground">{count === 0 ? "changes. Nothing changed in the last 7 days." : [by.team && `${by.team} by the team`, by.platform && `${by.platform} on the platforms`, by.app && `${by.app} in the app`].filter(Boolean).join(" · ")}</span>
       </span>
       {recent.length > 0 && (
@@ -325,13 +323,13 @@ export function PlansSummary({ sprint, tests, nextCount }: { sprint: { number: n
   )
 }
 
-// Outlined chips with no tinted fill; only Live keeps a color (green), done reads quieter.
 const STAGE_TONE: Record<string, string> = {
-  live: "text-rag-green",
-  done: "text-muted-foreground",
+  live: "border-rag-green/40 bg-rag-green/10 text-rag-green",
+  review: "border-violet/40 bg-violet/10 text-violet",
+  done: "border-foreground/15 text-muted-foreground",
 }
 /** A test's stage as a small pill (At a glance, both layouts). */
 export function StagePill({ stage, label }: { stage: string; label?: string }) {
   const s = STAGES.find((x) => x.key === stage)
-  return <span className={cn("shrink-0 rounded-full border border-border-strong px-2 py-0.5 text-[11px]", STAGE_TONE[stage] ?? "text-body")}>{label ?? s?.label ?? stage}</span>
+  return <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[11px]", STAGE_TONE[stage] ?? "border-foreground/15 text-foreground/80")}>{label ?? s?.label ?? stage}</span>
 }

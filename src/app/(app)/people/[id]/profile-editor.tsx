@@ -51,7 +51,6 @@ export function ProfileEditor({ profileId, own, name, avatarUrl, defaults }: { p
 
   return (
     <section className="surface space-y-6 p-6">
-      <h2 className="text-xl">{own ? "Your details" : "Details"}</h2>
       <div className="flex flex-wrap items-center gap-4">
         <Avatar name={d.full_name || name} url={avatarUrl} className="size-16 text-lg" />
         <div className="space-y-1.5">

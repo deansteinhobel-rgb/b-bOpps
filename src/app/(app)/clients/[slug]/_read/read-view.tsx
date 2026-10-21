@@ -240,7 +240,7 @@ function Tiles({ tiles }: { tiles: Tile[] }) {
       {/* Each cell draws its left and top hairline; the grid sits 1px up and left so the outer ones are clipped. */}
       <div className={cn("-mt-px -ml-px grid grid-cols-2 sm:grid-cols-3", tiles.length >= 6 ? "lg:grid-cols-6" : "lg:grid-cols-5")}>
       {tiles.map((t) => (
-        <div key={t.label} className="p-4 shadow-[inset_1px_1px_0_var(--border)]">{/* taste-skill-ignore: hairlines between cells */}
+        <div key={t.label} className="p-4 shadow-[inset_1px_1px_0_var(--border)]">
           <div className="flex items-center gap-1 text-[13px] text-muted-foreground">
             {t.label}
             {t.hint && <Hint>{t.hint}</Hint>}

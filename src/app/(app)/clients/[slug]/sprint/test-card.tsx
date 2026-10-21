@@ -168,7 +168,7 @@ export function TestCard(props: {
   }
 
   return (
-    <article id={`test-${t.id}`} className="scroll-mt-6 overflow-hidden rounded-lg border bg-card text-sm transition-colors hover:border-border-strong">
+    <article id={`test-${t.id}`} className="scroll-mt-6 overflow-hidden rounded-lg border bg-card text-sm transition-colors hover:border-foreground/20">
       <div className="space-y-3 p-4">
         <div className="flex items-center justify-between gap-2">
           <PlatformLabel platform={t.platform} className="min-w-0 truncate text-xs text-muted-foreground" />
@@ -178,8 +178,8 @@ export function TestCard(props: {
             </span>
           )}
           {stage === "live" && t.live_on && (
-            <span className="inline-flex shrink-0 items-center gap-1.5 text-[11px] font-medium whitespace-nowrap text-rag-green" title={`Live since ${longDate(t.live_on)}`}>
-              <span className="size-1.5 rounded-full bg-rag-green" aria-hidden />
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-rag-green-bg px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-rag-green ring-1 ring-rag-green/30" title={`Live since ${longDate(t.live_on)}`}>
+              <span className="size-1.5 animate-pulse rounded-full bg-rag-green motion-reduce:animate-none" aria-hidden />
               Live · day {Math.max(1, daysSince(t.live_on, props.today) + 1)}
             </span>
           )}
@@ -209,7 +209,7 @@ export function TestCard(props: {
         {stage === "planned" && t.assets.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {t.assets.map((a) => (
-              <span key={a} className="rounded-full border border-border-strong px-2 py-0.5 text-[11px] text-body">
+              <span key={a} className="rounded-md bg-secondary px-1.5 py-0.5 text-[11px] text-muted-foreground">
                 {ASSETS[a] ?? a}
               </span>
             ))}
@@ -241,12 +241,12 @@ export function TestCard(props: {
               {props.brief.links.map((l, i) => (
                 <li key={i} className="max-w-full">
                   {l.href ? (
-                    <a href={l.href} target="_blank" rel="noreferrer" className="inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 text-xs hover:border-border-strong" title={`${l.label}: ${l.text}`}>
+                    <a href={l.href} target="_blank" rel="noreferrer" className="inline-flex max-w-full items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs hover:bg-elevated" title={`${l.label}: ${l.text}`}>
                       <Link2 className="size-3 shrink-0 text-muted-foreground" aria-hidden />
                       <span className="truncate">{l.label}</span>
                     </a>
                   ) : (
-                    <span className="inline-flex rounded-md border px-2 py-1 text-xs" title={l.text}>
+                    <span className="inline-flex rounded-md bg-secondary px-2 py-1 text-xs" title={l.text}>
                       {l.label}
                     </span>
                   )}
@@ -260,12 +260,9 @@ export function TestCard(props: {
       )}
 
       {stage === "live" && !t.campaign_ids?.length && (
-        <Panel>
-          <p className="flex items-start gap-2 text-xs text-body">
-            <span aria-hidden className="mt-1 size-2 shrink-0 rounded-full bg-rag-amber" />
-            <span>
-              <span className="font-medium text-foreground">Which campaigns is it running in?</span> Pick them so the app can measure it.
-            </span>
+        <Panel className="bg-rag-amber-bg">
+          <p className="text-xs">
+            <span className="font-medium text-rag-amber">Which campaigns is it running in?</span> Pick them so the app can measure it.
           </p>
           {editable && panel !== "live" && (
             <Button size="sm" onClick={openLive}>
@@ -454,7 +451,7 @@ function TestTitle({ testId, title, canRename, onOpen }: { testId: string; title
     )
   return (
     <div className="group/title flex items-start gap-1">
-      <h3 className="line-clamp-3 min-w-0 flex-1 text-[15px] leading-snug font-semibold text-balance text-foreground" title={title}>
+      <h3 className="line-clamp-3 min-w-0 flex-1 text-[15px] leading-snug font-semibold text-balance" title={title}>
         {onOpen ? (
           <button type="button" className="text-left hover:underline focus-visible:underline focus-visible:outline-none" onClick={onOpen}>
             {title}
@@ -490,7 +487,7 @@ function Panel({ children, className }: { children: React.ReactNode; className?:
 function Goal({ test: t, fmt }: { test: SprintTest; fmt: Fmt }) {
   const def = t.success_metric ? METRICS[t.success_metric] : undefined
   const hasTarget = Boolean(def) && t.success_target !== null
-  if (!hasTarget && !t.success_text) return <p className="text-xs text-muted-foreground">No success measure set</p>
+  if (!hasTarget && !t.success_text) return <p className="text-xs text-muted-foreground italic">No success measure set</p>
   return (
     <div className="space-y-1.5">
       {def && hasTarget && (
@@ -514,9 +511,9 @@ function Goal({ test: t, fmt }: { test: SprintTest; fmt: Fmt }) {
 
 function NotionPill({ label, value }: { label: string; value: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-border-strong px-2 py-0.5 text-[11px]">
+    <span className="inline-flex items-center gap-1 rounded-full bg-lavender/10 px-2 py-0.5 text-[11px] ring-1 ring-lavender/25">
       <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-foreground">{value}</span>
+      <span className="font-medium text-lavender">{value}</span>
     </span>
   )
 }
@@ -529,13 +526,10 @@ function NotionLink({ href }: { href: string }) {
   )
 }
 
-/** Where a test came from: a small outlined neutral chip; the source's color stays on the icon only. */
-const TAG = "inline-flex items-center gap-1 rounded-full border border-border-strong px-2 py-0.5 text-[11px] font-medium text-body"
-
 function CarriedTag() {
   return (
-    <span className={TAG} title="Carried over from the last sprint">
-      <ArrowRightLeft className="size-3 text-rag-amber" aria-hidden />
+    <span className="inline-flex items-center gap-1 rounded-full border border-rag-amber/35 bg-rag-amber-bg px-2 py-0.5 text-[11px] font-medium text-rag-amber" title="Carried over from the last sprint">
+      <ArrowRightLeft className="size-3" aria-hidden />
       Carried over
     </span>
   )
@@ -548,7 +542,7 @@ function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns
   const [filter, setFilter] = useState("")
   const shown = campaigns.filter((c) => !filter || c.campaign_name.toLowerCase().includes(filter.toLowerCase())).slice(0, 25)
   return (
-    <div className="space-y-2 rounded-lg border p-2">
+    <div className="space-y-2 rounded-md border p-2">
       <div className="space-y-1">
         <Label htmlFor="live-on">Live from</Label>
         <Input id="live-on" type="date" value={liveOn} onChange={(e) => setLiveOn(e.target.value)} />
@@ -557,7 +551,7 @@ function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns
         <legend className="text-xs">What kind of test is it?</legend>
         <div className="grid gap-1.5">
           {(Object.keys(TEST_KINDS) as TestKind[]).map((k) => (
-            <label key={k} className={cn("flex cursor-pointer items-start gap-2 rounded-lg border px-2 py-1.5 text-xs", kind === k && "border-border-strong bg-elevated text-foreground")}>
+            <label key={k} className={cn("flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-xs", kind === k && "border-border-strong bg-elevated")}>
               <input type="radio" name="test-kind" className="mt-0.5" checked={kind === k} onChange={() => setKind(k)} />
               <span>
                 <span className="font-medium">{TEST_KINDS[k].label}</span>
@@ -579,7 +573,7 @@ function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns
               </label>
             </li>
           ))}
-          {shown.length === 0 && <li className="text-xs text-muted-foreground">No campaigns with spend in the last 30 days. New campaigns appear after the next Windsor sync.</li>}
+          {shown.length === 0 && <li className="text-xs text-muted-foreground italic">No campaigns with spend in the last 30 days. New campaigns appear after the next Windsor sync.</li>}
         </ul>
       </div>
       <div className="flex gap-2">
@@ -609,7 +603,7 @@ function Results({ test: t, results, money, fmt, label }: { test: SprintTest; re
         <div className="flex items-end justify-between gap-2">
           <div>
             <p className="text-[11px] text-muted-foreground">{label}</p>
-            <p className={cn("text-2xl leading-tight font-medium tabular-nums", tone)}>{fmt(ev?.value ?? null)}</p>
+            <p className={cn("text-2xl leading-tight font-semibold tabular-nums", tone)}>{fmt(ev?.value ?? null)}</p>
           </div>
           <div className="text-right text-[11px] text-muted-foreground">
             <p>target {fmt(t.success_target)}</p>
@@ -621,16 +615,15 @@ function Results({ test: t, results, money, fmt, label }: { test: SprintTest; re
           </div>
         </div>
       )}
-      {/* One box split by hairlines, not three tiles. */}
-      <dl className="grid grid-cols-3 divide-x overflow-hidden rounded-lg border text-xs">
+      <dl className="grid grid-cols-3 gap-2 text-xs">
         {[
           ["Spend", money(results.spend)],
           ["Results", oneDp(ev?.results ?? 0)],
           ["Clicks", String(results.clicks)],
         ].map(([k, v]) => (
-          <div key={k} className="px-2 py-1.5">
+          <div key={k} className="rounded-md bg-secondary px-2 py-1.5">
             <dt className="text-[11px] text-muted-foreground">{k}</dt>
-            <dd className="font-medium text-foreground tabular-nums">{v}</dd>
+            <dd className="font-medium tabular-nums">{v}</dd>
           </div>
         ))}
       </dl>
@@ -694,7 +687,7 @@ function CarryOver({ pending, onSubmit, onCancel }: { pending: boolean; onSubmit
   const [reason, setReason] = useState("deadline")
   const [note, setNote] = useState("")
   return (
-    <div className="space-y-2 rounded-lg border p-2">
+    <div className="space-y-2 rounded-md border p-2">
       <Label htmlFor="carry-reason">Why is it carrying over?</Label>
       <select id="carry-reason" className={fieldClass} value={reason} onChange={(e) => setReason(e.target.value)}>
         {Object.entries(CARRY_REASONS).map(([k, v]) => (
@@ -719,8 +712,8 @@ function CarryOver({ pending, onSubmit, onCancel }: { pending: boolean; onSubmit
 /** Green tag for tests that came from an approved "Pour a Sprint" suggestion. */
 export function PourTag({ className }: { className?: string }) {
   return (
-    <span className={cn(TAG, className)} title="Suggested by Pour a Sprint and approved by the team">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="size-3 text-rag-green" aria-hidden>
+    <span className={cn("inline-flex items-center gap-1 rounded-full border border-rag-green/35 bg-rag-green/10 px-2 py-0.5 text-[11px] font-medium text-rag-green", className)} title="Suggested by Pour a Sprint and approved by the team">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="size-3" aria-hidden>
         <path d="M4.5 1.5h7c0 3.6-1.3 6-3.5 6s-3.5-2.4-3.5-6Z" />
         <path d="M8 7.5v5.5M5.5 14.5h5" />
       </svg>
@@ -732,8 +725,8 @@ export function PourTag({ className }: { className?: string }) {
 /** Tag for tests made from an "Optimize now" insight. */
 export function ContentIdeaTag({ className }: { className?: string }) {
   return (
-    <span className={cn(TAG, className)} title="Planned from a content idea on At a glance">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-3 text-lavender" aria-hidden>
+    <span className={cn("inline-flex items-center gap-1 rounded-full border border-lavender/40 bg-lavender/10 px-2 py-0.5 text-[11px] font-medium text-lavender", className)} title="Planned from a content idea on At a glance">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden>
         <path d="M8 1.5a4.5 4.5 0 0 0-2.5 8.2V12h5V9.7A4.5 4.5 0 0 0 8 1.5ZM6 14.5h4" />
       </svg>
       Content idea
@@ -743,8 +736,8 @@ export function ContentIdeaTag({ className }: { className?: string }) {
 
 export function OptimizeTag({ className }: { className?: string }) {
   return (
-    <span className={cn(TAG, className)} title="Made from a Lumaux recommendation">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-3 text-violet" aria-hidden>
+    <span className={cn("inline-flex items-center gap-1 rounded-full border border-violet/40 bg-violet/10 px-2 py-0.5 text-[11px] font-medium text-violet", className)} title="Made from a Lumaux recommendation">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden>
         <path d="M9 1.5 3.5 9H8l-1 5.5L12.5 7H8l1-5.5Z" />
       </svg>
       Recommendation
@@ -754,8 +747,8 @@ export function OptimizeTag({ className }: { className?: string }) {
 
 export function CallTag({ className }: { className?: string }) {
   return (
-    <span className={cn(TAG, className)} title="Planned from something said on a client call">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-3 text-[#f0a6ca]" aria-hidden>
+    <span className={cn("inline-flex items-center gap-1 rounded-full border border-[#f0a6ca]/40 bg-[#f0a6ca]/10 px-2 py-0.5 text-[11px] font-medium text-[#f0a6ca]", className)} title="Planned from something said on a client call">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="size-3" aria-hidden>
         <path d="M3 2.5h2.5l1 3-1.5 1a7 7 0 0 0 4.5 4.5l1-1.5 3 1V13a1 1 0 0 1-1 1A11 11 0 0 1 2 3.5a1 1 0 0 1 1-1Z" />
       </svg>
       From a call
