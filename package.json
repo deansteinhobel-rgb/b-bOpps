@@ -22,6 +22,7 @@
     "slack:report": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/slack-report.ts",
     "snapshot:ads": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/snapshot-ads.ts",
     "sync:creatives": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-creatives.ts",
+    "covers:documents": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/document-covers.ts",
     "sync:competitors": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-competitors.ts",
     "seed:history": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/seed-history.ts",
     "fetch:logos": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/fetch-logos.ts",
