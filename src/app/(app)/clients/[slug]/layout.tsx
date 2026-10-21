@@ -30,7 +30,7 @@ export default async function ClientLayout({ children, params }: LayoutProps<"/c
           <span aria-hidden>←</span> All clients
         </Link>
         <div className="flex min-w-0 items-center gap-4">
-          <ClientLogo name={client.name} logoUrl={client.logo_url} size="lg" className="size-11 rounded-md" />
+          <ClientLogo name={client.name} logoUrl={client.logo_url} size="lg" className="size-11 rounded-xl" />
           <div className="min-w-0">
             <h1 className="truncate text-[28px] leading-9">{client.name}</h1>
             {client.website && <p className="truncate text-[13px] leading-5 text-muted-foreground">{client.website}</p>}
