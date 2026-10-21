@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { describeChange, describeNotionWrite, describePlatformWrite, fieldLabel, valueText } from "./activity"
+import { describeChange, describeNotionWrite, describePlatformWrite, fieldLabel, hiddenClause, HIDDEN_OUTSIDE, valueText } from "./activity"
 
 describe("activity wording", () => {
   it("names fields and values in plain words", () => {
@@ -30,5 +30,11 @@ describe("activity wording", () => {
     expect(neg).toEqual({ title: "Added negative keywords", details: ["2 terms: ssl, ssh"] })
     const brief = describeNotionWrite({ operation: "create_test_brief", payload: { properties: { Project: { title: [{ text: { content: "Lumaux | Paid Media | K-12" } }] } } } })
     expect(brief).toEqual({ title: "Briefed a test in Notion", details: ["“Lumaux | Paid Media | K-12”"] })
+  })
+})
+
+describe("hidden platform changes", () => {
+  it("keeps every row except ClickCease's IP exclusions, rows with empty fields included", () => {
+    expect(hiddenClause(HIDDEN_OUTSIDE[0])).toBe('platform.neq.google_ads,actor.is.null,actor.neq."george@bordeauxandburgundy.co.uk",object_type.is.null,object_type.neq."IP exclusion"')
   })
 })

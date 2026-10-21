@@ -15,6 +15,18 @@ export const SOURCE_LABEL: Record<ActivitySource, string> = {
   outside: "In the platform",
 }
 
+/**
+ * Changes made inside the platforms that are left out of Activity because a tool makes them all day.
+ * ClickCease (Dean, 2026-10-21) adds and removes Google Ads IP exclusions hourly under George's login:
+ * thousands of rows a week, none of them a person's decision.
+ */
+export const HIDDEN_OUTSIDE = [{ platform: "google_ads", actor: "george@bordeauxandburgundy.co.uk", objectType: "IP exclusion", why: "ClickCease" }] as const
+
+/** A PostgREST `or` filter that keeps every row except the rule's: NOT (a AND b AND c), with empty values kept. */
+export function hiddenClause(rule: { platform: string; actor: string; objectType: string }) {
+  return [`platform.neq.${rule.platform}`, `actor.is.null`, `actor.neq."${rule.actor}"`, `object_type.is.null`, `object_type.neq."${rule.objectType}"`].join(",")
+}
+
 export type ActivityItem = {
   id: string
   at: string

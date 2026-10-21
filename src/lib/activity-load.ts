@@ -1,6 +1,6 @@
 import "server-only"
 import type { Db } from "@/lib/supabase/db"
-import { type ActivityItem, type ActivitySource, describeChange, describeNotionWrite, describePlatformWrite } from "./activity"
+import { type ActivityItem, type ActivitySource, describeChange, describeNotionWrite, describePlatformWrite, HIDDEN_OUTSIDE, hiddenClause } from "./activity"
 
 export type ActivityFilter = { days: number; clientId?: string; profileId?: string; source?: ActivitySource }
 
@@ -64,6 +64,7 @@ export async function loadActivity(admin: Db, f: ActivityFilter): Promise<Activi
   const outside = async (): Promise<ActivityItem[]> => {
     let q = admin.from("platform_changes").select("id, changed_at, client_id, platform, actor, via, summary, campaign_name, object_name, bulk, change_count").gte("changed_at", since).order("changed_at", { ascending: false }).limit(LIMIT)
     if (f.clientId) q = q.eq("client_id", f.clientId)
+    for (const rule of HIDDEN_OUTSIDE) q = q.or(hiddenClause(rule))
     if (f.profileId) {
       const { data: p } = await admin.from("profiles").select("email").eq("id", f.profileId).single()
       if (!p) return []
