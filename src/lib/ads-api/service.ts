@@ -3,7 +3,9 @@ import type { Profile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { toJson } from "@/lib/supabase/db"
+import { checkGuardrails, rulesFor, type PlaybookRule } from "@/lib/campaign-builder/guardrails"
+import type { BuilderMode } from "@/lib/campaign-builder/presets"
+import { fromJson, toJson } from "@/lib/supabase/db"
 import { createClient } from "@/lib/supabase/server"
 import { canBuildCampaigns } from "./access"
 import { runBuild, type BuildStep, type RunResult, type Sender } from "./build"
@@ -35,19 +37,28 @@ async function loadContext(clientId: string, platform: AdsApiPlatform, accountId
   const { data: daily } = await db.rpc("platform_daily", { p_client: clientId, p_from: month, p_to: today })
   const spent = (daily ?? []).filter((d) => d.platform === platform).reduce((sum, d) => sum + Number(d.spend), 0)
   const monthBudget = budgets?.length ? Number(budgets[0].amount) : account.monthly_budget
-  return { client, ctx: { website: client.website, monthBudget, spentThisMonth: spent, today } }
+  return { client, ctx: { website: client.website, monthBudget, spentThisMonth: spent, today, clientId } }
 }
 
-function check(platform: AdsApiPlatform, spec: unknown, ctx: BuildContext, accountId: string, currency: string): Check & { steps?: BuildStep[] } {
+function check(platform: AdsApiPlatform, spec: unknown, ctx: BuildContext, accountId: string, currency: string, rules: PlaybookRule[] = []): Check & { steps?: BuildStep[] } {
   if (platform === "linkedin") {
     const r = checkLinkedIn(spec, ctx)
-    return r.spec && r.ok ? { ...r, steps: linkedInSteps(r.spec, accountId, currency) } : r
+    // The team's guardrails (ad_playbook_rules) are checked on every save, dry run and send.
+    if (r.spec) r.errors.push(...checkGuardrails(r.spec, rules))
+    const ok = r.errors.length === 0
+    return r.spec && ok ? { ...r, ok, steps: linkedInSteps(r.spec, accountId, currency) } : { ...r, ok }
   }
   const r = checkReddit(spec, ctx)
   return r.spec && r.ok ? { ...r, steps: redditSteps(r.spec) } : r
 }
 
-export type SaveInput = { clientId: string; platform: AdsApiPlatform; accountId: string; name: string; spec: unknown; sprintTestId?: string | null }
+/** The guardrails for a build: every-client rules and the client's own, for its view. */
+async function guardrails(clientId: string, platform: AdsApiPlatform, mode: BuilderMode) {
+  const { data } = await createAdminClient().from("ad_playbook_rules").select("id, platform, client_id, kind, modes, title, body, check_rule").eq("platform", platform).eq("kind", "guardrail").is("removed_at", null).or(`client_id.is.null,client_id.eq.${clientId}`)
+  return rulesFor((data ?? []).map((r) => ({ ...r, kind: r.kind as PlaybookRule["kind"], check_rule: fromJson<PlaybookRule["check_rule"]>(r.check_rule, null) })), { platform, clientId, mode })
+}
+
+export type SaveInput = { clientId: string; platform: AdsApiPlatform; accountId: string; name: string; spec: unknown; sprintTestId?: string | null; planId?: string | null; mode?: BuilderMode }
 
 /** Saves a draft build after checking it. Nothing is sent. */
 export async function saveCampaignBuild(me: Profile, input: SaveInput): Promise<{ id?: string; check: Check }> {
@@ -57,7 +68,7 @@ export async function saveCampaignBuild(me: Profile, input: SaveInput): Promise<
   if (limited) return refuse(limited)
   const loaded = await loadContext(input.clientId, input.platform, input.accountId)
   if ("error" in loaded) return refuse(loaded.error)
-  const c = check(input.platform, input.spec, loaded.ctx, input.accountId, loaded.client.currency)
+  const c = check(input.platform, input.spec, loaded.ctx, input.accountId, loaded.client.currency, await guardrails(input.clientId, input.platform, input.mode ?? "general"))
   if (!c.ok) return { check: c }
 
   const { data, error } = await createAdminClient(me.id)
@@ -67,6 +78,8 @@ export async function saveCampaignBuild(me: Profile, input: SaveInput): Promise<
       platform: input.platform,
       external_account_id: input.accountId,
       sprint_test_id: input.sprintTestId ?? null,
+      plan_id: input.planId ?? null,
+      mode: input.mode ?? "general",
       name: input.name.slice(0, 255),
       spec: toJson(input.spec),
       created_by: me.id,
@@ -81,7 +94,7 @@ export async function saveCampaignBuild(me: Profile, input: SaveInput): Promise<
 export async function sendCampaignBuild(me: Profile, buildId: string): Promise<RunResult & { check?: Check }> {
   const refuse = (error: string): RunResult => ({ ok: false, live: false, status: "failed", steps: [], ids: {}, error })
   const db = createAdminClient()
-  const { data: build } = await db.from("campaign_builds").select("id, client_id, platform, external_account_id, spec, created_ids, status").eq("id", buildId).single()
+  const { data: build } = await db.from("campaign_builds").select("id, client_id, platform, external_account_id, spec, created_ids, status, mode").eq("id", buildId).single()
   if (!build) return refuse("Build not found.")
   if (!(await canBuildCampaigns(me, build.client_id))) return refuse("Only admins and GTM leads on this client can build campaigns for now.")
   if (build.status === "created" || build.status === "sending") return refuse(build.status === "created" ? "This build was already created." : "This build is being sent.")
@@ -91,7 +104,7 @@ export async function sendCampaignBuild(me: Profile, buildId: string): Promise<R
   const platform = build.platform as AdsApiPlatform
   const loaded = await loadContext(build.client_id, platform, build.external_account_id)
   if ("error" in loaded) return refuse(loaded.error)
-  const c = check(platform, build.spec, loaded.ctx, build.external_account_id, loaded.client.currency)
+  const c = check(platform, build.spec, loaded.ctx, build.external_account_id, loaded.client.currency, await guardrails(build.client_id, platform, build.mode as BuilderMode))
   if (!c.ok || !c.steps) return { ...refuse(c.errors.join(" ")), check: c }
 
   const env = adsApiEnv()
@@ -100,6 +113,8 @@ export async function sendCampaignBuild(me: Profile, buildId: string): Promise<R
   if (live) {
     if (platform === "linkedin") {
       const spec = checkLinkedIn(build.spec, loaded.ctx).spec!
+      const targeting = Object.values({ ...spec.campaign.targeting.include, ...(spec.campaign.targeting.exclude ?? {}) }).flat()
+      if (targeting.some((u) => u.startsWith("urn:li:unresolved:"))) return { ...refuse("Some audience values have no LinkedIn id yet. Look them up on the plan first. Nothing was sent."), check: c }
       const members = await linkedInAudienceCount(linkedInTargeting(spec.campaign.targeting)).catch(() => null)
       if (members === null) return { ...refuse("Couldn't check the audience size with LinkedIn. Nothing was sent."), check: c }
       if (members < 300) return { ...refuse("LinkedIn says this audience is under 300 members, its minimum. Nothing was sent."), check: c }

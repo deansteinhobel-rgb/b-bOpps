@@ -195,6 +195,185 @@ export type Database = {
           },
         ]
       }
+      ad_naming_conventions: {
+        Row: {
+          client_id: string
+          created_at: string
+          examples: string[]
+          id: string
+          model: string | null
+          names_digest: string
+          notes: string | null
+          parts: Json
+          pattern: string
+          platform: string
+          separator: string | null
+          usage: Json | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          examples?: string[]
+          id?: string
+          model?: string | null
+          names_digest: string
+          notes?: string | null
+          parts?: Json
+          pattern: string
+          platform: string
+          separator?: string | null
+          usage?: Json | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          examples?: string[]
+          id?: string
+          model?: string | null
+          names_digest?: string
+          notes?: string | null
+          parts?: Json
+          pattern?: string
+          platform?: string
+          separator?: string | null
+          usage?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_naming_conventions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_playbook_rules: {
+        Row: {
+          body: string
+          check_rule: Json | null
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          modes: string[]
+          platform: string
+          removed_at: string | null
+          removed_by: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          check_rule?: Json | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          modes?: string[]
+          platform: string
+          removed_at?: string | null
+          removed_by?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          check_rule?: Json | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          modes?: string[]
+          platform?: string
+          removed_at?: string | null
+          removed_by?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_playbook_rules_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_playbook_rules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_playbook_rules_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_playbooks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          model: string | null
+          period: string
+          platform: string
+          requested_by: string | null
+          sections: Json
+          sources: Json
+          status: string
+          summary: string | null
+          usage: Json | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          model?: string | null
+          period: string
+          platform: string
+          requested_by?: string | null
+          sections?: Json
+          sources?: Json
+          status?: string
+          summary?: string | null
+          usage?: Json | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          model?: string | null
+          period?: string
+          platform?: string
+          requested_by?: string | null
+          sections?: Json
+          sources?: Json
+          status?: string
+          summary?: string | null
+          usage?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_playbooks_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ads_api_connections: {
         Row: {
           connected_at: string
@@ -413,6 +592,108 @@ export type Database = {
           },
         ]
       }
+      campaign_build_plans: {
+        Row: {
+          answers: Json
+          campaign_build_id: string | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          mode: string
+          model: string | null
+          plan: Json | null
+          platform: string
+          preset: string
+          proposal: string | null
+          questions: Json
+          request: string
+          sprint_test_id: string | null
+          status: string
+          updated_at: string
+          usage: Json | null
+        }
+        Insert: {
+          answers?: Json
+          campaign_build_id?: string | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          mode?: string
+          model?: string | null
+          plan?: Json | null
+          platform: string
+          preset: string
+          proposal?: string | null
+          questions?: Json
+          request?: string
+          sprint_test_id?: string | null
+          status?: string
+          updated_at?: string
+          usage?: Json | null
+        }
+        Update: {
+          answers?: Json
+          campaign_build_id?: string | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          mode?: string
+          model?: string | null
+          plan?: Json | null
+          platform?: string
+          preset?: string
+          proposal?: string | null
+          questions?: Json
+          request?: string
+          sprint_test_id?: string | null
+          status?: string
+          updated_at?: string
+          usage?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_build_plans_campaign_build_id_fkey"
+            columns: ["campaign_build_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_builds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_build_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_build_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_build_plans_sprint_test_id_fkey"
+            columns: ["sprint_test_id"]
+            isOneToOne: false
+            referencedRelation: "recommendation_results"
+            referencedColumns: ["test_id"]
+          },
+          {
+            foreignKeyName: "campaign_build_plans_sprint_test_id_fkey"
+            columns: ["sprint_test_id"]
+            isOneToOne: false
+            referencedRelation: "sprint_tests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_builds: {
         Row: {
           client_id: string
@@ -424,7 +705,9 @@ export type Database = {
           error: string | null
           external_account_id: string
           id: string
+          mode: string
           name: string
+          plan_id: string | null
           platform: string
           sent_at: string | null
           spec: Json
@@ -442,7 +725,9 @@ export type Database = {
           error?: string | null
           external_account_id: string
           id?: string
+          mode?: string
           name: string
+          plan_id?: string | null
           platform: string
           sent_at?: string | null
           spec: Json
@@ -460,7 +745,9 @@ export type Database = {
           error?: string | null
           external_account_id?: string
           id?: string
+          mode?: string
           name?: string
+          plan_id?: string | null
           platform?: string
           sent_at?: string | null
           spec?: Json
@@ -481,6 +768,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_builds_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_build_plans"
             referencedColumns: ["id"]
           },
           {
@@ -2798,6 +3092,7 @@ export type Database = {
           operation: string
           payload: Json
           platform: string
+          previous: Json | null
           profile_id: string | null
           response: Json | null
           sprint_test_id: string | null
@@ -2819,6 +3114,7 @@ export type Database = {
           operation: string
           payload: Json
           platform: string
+          previous?: Json | null
           profile_id?: string | null
           response?: Json | null
           sprint_test_id?: string | null
@@ -2840,6 +3136,7 @@ export type Database = {
           operation?: string
           payload?: Json
           platform?: string
+          previous?: Json | null
           profile_id?: string | null
           response?: Json | null
           sprint_test_id?: string | null

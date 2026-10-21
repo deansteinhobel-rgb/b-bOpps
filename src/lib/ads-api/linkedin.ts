@@ -1,10 +1,12 @@
 import "server-only"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { PlatformRefused, type BuildOperation, type Sender } from "./build"
+import type { EditSender } from "./edit"
 import { accessToken } from "./tokens"
 
 /**
- * LinkedIn Marketing API sender (Dean, 2026-10-21). It knows exactly five create calls and nothing
- * else: no updates, no enabling, no deletes. Statuses are forced here whatever the payload says:
+ * LinkedIn Marketing API sender (Dean, 2026-10-21). It knows exactly five create calls, plus one
+ * partial update for campaign edits (linkedInEditSender): no enabling, no removing, no deletes. Statuses are forced here whatever the payload says:
  * campaign groups DRAFT (LinkedIn doesn't allow PAUSED on create), campaigns and ads PAUSED, posts
  * dark (feedDistribution NONE: shown only as ads, never on the company page).
  */
@@ -33,7 +35,7 @@ async function fail(response: Response, what: string): Promise<never> {
   throw new Error(message)
 }
 
-export function linkedInSender(deps: LinkedInDeps = { token: () => accessToken("linkedin"), readImage: noImages }): Sender {
+export function linkedInSender(deps: LinkedInDeps = { token: () => accessToken("linkedin"), readImage: bucketImage }): Sender {
   const f = deps.fetch ?? fetch
   return {
     async send(operation, accountId, payload) {
@@ -80,9 +82,37 @@ async function uploadImage(f: Fetcher, token: string, payload: Record<string, un
   throw new Error("LinkedIn image upload: still processing after 20 seconds")
 }
 
-/** Images for builds come with the builder (phase B), from a client-scoped storage bucket. */
-async function noImages(): Promise<never> {
-  throw new PlatformRefused("Image uploads aren't set up yet (they come with the campaign builder).")
+/** Images for builds: our copy in the private campaign-assets bucket (the service checks the path is the client's). */
+async function bucketImage(path: string) {
+  if (!/^[0-9a-f-]{36}\/[\w.-]+\.(png|jpe?g|gif)$/i.test(path)) throw new PlatformRefused("That isn't a campaign image.")
+  const { data, error } = await createAdminClient().storage.from("campaign-assets").download(path)
+  if (error || !data) throw new PlatformRefused("Couldn't read the image from storage.")
+  return { bytes: new Uint8Array(await data.arrayBuffer()), contentType: data.type || "image/png" }
+}
+
+/**
+ * Edits to a campaign that exists (Dean, 2026-10-21; edit.ts builds the patch): one partial update
+ * on the campaign, nothing else. The patch can't set any status but PAUSED.
+ */
+export function linkedInEditSender(deps: { token: () => Promise<string>; fetch?: Fetcher } = { token: () => accessToken("linkedin") }): EditSender {
+  const f = deps.fetch ?? fetch
+  return {
+    async patch(accountId, campaignId, body) {
+      if (!/^\d+$/.test(accountId) || !/^\d+$/.test(campaignId)) throw new Error("That isn't a LinkedIn campaign.")
+      const set = (body as { patch?: { $set?: Record<string, unknown> } }).patch?.$set ?? {}
+      if ("status" in set && set.status !== "PAUSED") throw new Error("Lumaux only ever pauses campaigns.")
+      const allowed = new Set(["status", "dailyBudget", "runSchedule", "name"])
+      if (Object.keys(set).some((k) => !allowed.has(k))) throw new Error("That change isn't one Lumaux makes.")
+      const response = await f(`${API}/adAccounts/${accountId}/adCampaigns/${campaignId}`, {
+        method: "POST",
+        headers: { ...headers(await deps.token()), "X-RestLi-Method": "PARTIAL_UPDATE" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (response.status !== 204 && !response.ok) return fail(response, "campaign update")
+      return { status: response.status }
+    },
+  }
 }
 
 /** Read only: how many members a targeting reaches. LinkedIn reports 0 under its minimum of 300. */

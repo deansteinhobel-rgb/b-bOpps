@@ -70,6 +70,16 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
   bytes only go to `*.linkedin.com`. Writes need three switches plus the platform listed
   (`ADS_API_*`), log before sending, and use idempotency keys so a step is never sent twice. Only
   admins and GTM leads on the client can build, rate-limited to 20 a day.
+- **Campaign builder (2026-10-21)**: the planner, naming and research call Claude server-side with
+  rate limits (`campaign_plan`, `playbook_research`); client notes, proposals and campaign names are
+  treated as data in the prompts, and web content as untrusted (research only, no client data in
+  it). Ad images go to the private `campaign-assets` bucket through signed upload links under the
+  client's folder, and a build refuses another client's path. LinkedIn reads (typeahead, matched
+  audiences, a campaign, the account's company page) are fixed GET paths with checked ids. Edits to
+  live campaigns need a fourth switch (`ADS_API_EDITS_ENABLED`), read and log the value before,
+  send one partial update from a fixed list of fields, and can only ever set a status of PAUSED.
+  `ad_playbooks` and every-client rules aren't client-scoped (public research and B&B's own
+  rules); every-client rules are admin-edited, client rules follow `can_edit_client`.
 - **Report embeds for Notion** (`/embed/report/<token>`, Dean 2026-09-29: "anyone with the link,
   view only"): the link's token (192 random bits, `report_links`) is the only key. It shows one
   board of one client and nothing else: no session is read or set, no links into the app, and the

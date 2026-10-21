@@ -30,6 +30,17 @@ export function adsApiEnv(env: Record<string, string | undefined> = process.env)
   }
 }
 
+/**
+ * Edits to campaigns that are already in the platform (pause, daily budget, end date, name) need
+ * one more switch on top: ADS_API_EDITS_ENABLED=true (Dean, 2026-10-21). Off by default.
+ */
+export function editDryRunReason(env: AdsApiEnv & { editsEnabled?: boolean }, platform: AdsApiPlatform, clientSlug: string): string | null {
+  if (!env.editsEnabled) return "ADS_API_EDITS_ENABLED: edits to campaigns are off, nothing was sent"
+  return dryRunReason(env, platform, clientSlug)
+}
+
+export const adsApiEditsEnabled = (env: Record<string, string | undefined> = process.env) => env.ADS_API_EDITS_ENABLED === "true"
+
 /** Why a write would be a dry run, or null when it would really be sent. */
 export function dryRunReason(env: AdsApiEnv, platform: AdsApiPlatform, clientSlug: string): string | null {
   if (!env.writesEnabled || env.dryRun) return "ADS_API_WRITES_ENABLED/ADS_API_DRY_RUN: nothing was sent"

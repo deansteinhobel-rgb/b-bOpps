@@ -63,6 +63,22 @@
     {
       "path": "/api/cron/settings",
       "schedule": "45 4 * * *"
+    },
+    {
+      "path": "/api/cron/playbook?platform=linkedin",
+      "schedule": "30 2 1 * *"
+    },
+    {
+      "path": "/api/cron/playbook?platform=google_ads",
+      "schedule": "30 2 2 * *"
+    },
+    {
+      "path": "/api/cron/playbook?platform=meta",
+      "schedule": "30 2 3 * *"
+    },
+    {
+      "path": "/api/cron/playbook?platform=reddit",
+      "schedule": "30 2 4 * *"
     }
   ]
 }
