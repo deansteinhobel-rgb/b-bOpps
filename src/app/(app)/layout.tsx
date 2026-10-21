@@ -45,8 +45,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             children
           ) : (
             <div className="max-w-xl">
-              <p className="eyebrow">Access pending</p>
-              <h1 className="mt-2 text-3xl">You&apos;re signed in, but don&apos;t have access yet</h1>
+              <h1 className="text-[28px] leading-9">You&apos;re signed in, but don&apos;t have access yet</h1>
               <p className="mt-3 text-muted-foreground">
                 An admin needs to give {profile.email} a role and assign you to clients. Ask Dean or Esa, then refresh this page.
               </p>

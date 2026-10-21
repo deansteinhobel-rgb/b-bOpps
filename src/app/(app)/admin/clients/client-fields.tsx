@@ -120,7 +120,7 @@ export function ClientFields({ values, notionOptions, taken }: { values?: Client
           <p className="text-sm">Markets they sell into</p>
           <div className="flex flex-wrap gap-2">
             {Object.entries(REGIONS).map(([k, label]) => (
-              <label key={k} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-lime has-checked:bg-lime has-checked:text-ink">
+              <label key={k} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-border-strong has-checked:bg-elevated has-checked:font-medium has-checked:text-foreground">
                 <input type="checkbox" className="sr-only" name="regions" value={k} defaultChecked={v?.regions?.includes(k)} />
                 {label}
               </label>

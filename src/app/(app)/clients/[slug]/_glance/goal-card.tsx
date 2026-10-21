@@ -66,7 +66,6 @@ export function GoalCard({ slug, goal, canEdit }: { slug: string; goal: GoalView
 
   return (
     <section className="surface relative overflow-hidden">
-      <div aria-hidden className="pointer-events-none absolute -top-24 -left-16 size-72 rounded-full bg-lime/[0.06] blur-3xl" />
       <div className="relative flex flex-col gap-6 p-5 sm:flex-row sm:items-center sm:gap-8 sm:p-6">
         {/* The ring */}
         <div className="relative mx-auto size-40 shrink-0 sm:mx-0" onMouseLeave={() => setHover(null)}>

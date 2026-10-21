@@ -15,14 +15,14 @@ export const shortDate = (iso: string) => new Intl.DateTimeFormat("en-GB", { day
 export const ago = (days: number) => (days <= 0 ? "today" : days === 1 ? "yesterday" : days < 14 ? `${days} days ago` : `${Math.round(days / 7)} weeks ago`)
 
 const KIND_CLS: Record<FollowUp["kind"], string> = {
-  try: "border-lime/40 text-lime",
+  try: "border-white/30 text-foreground",
   stop: "border-rag-red/40 text-rag-red",
   change: "border-lavender/40 text-lavender",
   idea: "border-violet/40 text-violet",
   follow_up: "border-foreground/20 text-muted-foreground",
 }
 export function KindChip({ kind }: { kind: FollowUp["kind"] }) {
-  return <span className={cn("shrink-0 rounded-full border px-1.5 py-px text-[10px] font-medium", KIND_CLS[kind])}>{KIND_LABEL[kind]}</span>
+  return <span className={cn("shrink-0 rounded-full border px-1.5 py-px text-[11px] font-medium", KIND_CLS[kind])}>{KIND_LABEL[kind]}</span>
 }
 
 /**
@@ -152,7 +152,7 @@ export function CallReminders({ reminders, canEdit }: { reminders: Reminder[]; c
               <p className="flex items-start gap-2 text-sm font-medium">
                 <KindChip kind={r.kind} /> <span>{r.title}</span>
               </p>
-              {r.quote && <p className="border-l-2 border-lime/40 pl-2.5 text-xs text-muted-foreground italic">&ldquo;{r.quote}&rdquo;</p>}
+              {r.quote && <p className="border-l-2 border-border-strong pl-2.5 text-xs text-muted-foreground italic">&ldquo;{r.quote}&rdquo;</p>}
               <p className="text-xs text-muted-foreground">
                 {ago(r.daysAgo)[0].toUpperCase() + ago(r.daysAgo).slice(1)}
                 {r.ownerName ? ` (${r.ownerName})` : ""}, and nothing in Lumaux or Notion shows it&apos;s happened.

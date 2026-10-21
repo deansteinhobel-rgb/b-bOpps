@@ -62,9 +62,9 @@ const summaryOf = (r: Recommendation) => withSymbols(r.summary ?? firstSentence(
 
 function tags(r: Recommendation, rank: number) {
   const out: { label: string; cls: string }[] = []
-  if (rank === 0) out.push({ label: "Top pick", cls: "border-lime/40 bg-lime/10 text-lime" })
+  if (rank === 0) out.push({ label: "Top pick", cls: "border-white/40 text-foreground" })
   if (r.effort === "low" && (r.impact ?? r.confidence) !== "low") out.push({ label: "Quick win", cls: "border-foreground/20 text-foreground" })
-  if (r.confidence === "low" || !(CONNECTED.includes(r.platform) || r.platform === "several")) out.push({ label: "Bold bet", cls: "border-violet-400/30 text-violet-300" })
+  if (r.confidence === "low" || !(CONNECTED.includes(r.platform) || r.platform === "several")) out.push({ label: "Bold bet", cls: "border-pink/40 text-pink" })
   // Follows up something said on a client call (the same pink as the test's "From a call" tag).
   if (r.call_commitment_id) out.push({ label: "From a call", cls: "border-[#f0a6ca]/40 bg-[#f0a6ca]/10 text-[#f0a6ca]" })
   return out
@@ -456,7 +456,7 @@ function QueueRow({ rec: r, rank, tab, active, earlier, onClick }: { rec: Recomm
         className={cn("relative flex w-full gap-3 px-4 py-3.5 text-left transition-colors", active ? "bg-accent/70" : "hover:bg-accent/30")}
       >
         {active && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-lime" aria-hidden />}
-        <span className={cn("mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border text-[11px] tabular-nums", tab === "open" && rank === 0 ? "border-lime/50 text-lime" : "text-muted-foreground")}>
+        <span className={cn("mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border text-[11px] tabular-nums", tab === "open" && rank === 0 ? "border-white/30 text-foreground" : "text-muted-foreground")}>
           {rank + 1}
         </span>
         <span className="min-w-0 flex-1 space-y-1">
@@ -511,7 +511,7 @@ function Detail({ rec: r, rank, tab, canEdit, owners, defaultDeadline, currency 
               </span>
             )}
             {tab === "open" && tags(r, rank).map((t) => <span key={t.label} className={cn("rounded-full border px-2 py-0.5", t.cls)}>{t.label}</span>)}
-            {r.status === "reviewed" && <span className="rounded-full border border-lime/40 px-2 py-0.5 text-lime">Reviewed</span>}
+            {r.status === "reviewed" && <span className="rounded-full border border-white/30 px-2 py-0.5 text-foreground">Reviewed</span>}
           </div>
           <h3 className="text-xl font-semibold leading-snug">{withSymbols(r.title)}</h3>
           <p className="text-sm text-muted-foreground">{summaryOf(r)}</p>

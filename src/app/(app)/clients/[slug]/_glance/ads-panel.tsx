@@ -89,7 +89,7 @@ function BestAd({ ad, rank, basis, currency, previews }: { ad: RankedAd; rank: n
     <li className="surface flex gap-3 p-3">
       <div className="relative">
         <AdThumb preview={preview} alt={name} size="lg" />
-        <span className={cn("absolute -top-1.5 -left-1.5 flex size-5 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums", rank === 1 ? "bg-lime text-primary-foreground" : "bg-secondary text-foreground")}>{rank}</span>
+        <span className={cn("absolute -top-1.5 -left-1.5 flex size-5 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums", rank === 1 ? "bg-white text-ink" : "bg-secondary text-foreground")}>{rank}</span>
       </div>
       <div className="min-w-0 flex-1 space-y-1.5">
         <p className="line-clamp-2 text-sm font-medium leading-snug" title={name}>

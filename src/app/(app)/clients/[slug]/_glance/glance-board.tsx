@@ -154,10 +154,13 @@ export function GoalSummary({ goal: g }: { goal: GoalView }) {
   const key = !t || g.value === null ? "none" : v >= t || (gap !== null && gap >= -0.05 * t) ? "good" : gap !== null && gap >= -0.15 * t ? "near" : "off"
   const tone = { good: "text-rag-green", near: "text-rag-amber", off: "text-rag-red", none: "text-muted-foreground" }[key]
   const bar = { good: "bg-rag-green", near: "bg-rag-amber", off: "bg-rag-red", none: "bg-muted-foreground" }[key]
+  // Straight-line projection to the month's end, shown at the card's foot (it fills a card stretched
+  // beside the Summary's verdict with something worth reading).
+  const projected = g.value !== null && g.dayOfMonth > 0 ? Math.round((v / g.dayOfMonth) * g.daysInMonth) : null
   return (
-    <span className="block space-y-2">
+    <span className="flex h-full flex-col gap-2">
       <span className="flex items-baseline gap-1.5">
-        <span className={cn("font-heading text-3xl leading-none tabular-nums", tone)}>{g.value === null ? "–" : whole(g.value)}</span>
+        <span className="text-[28px] leading-none font-medium tabular-nums">{g.value === null ? "–" : whole(g.value)}</span>
         {t !== null && <span className="text-xs text-muted-foreground">of {whole(t)}</span>}
       </span>
       {t ? (
@@ -166,10 +169,19 @@ export function GoalSummary({ goal: g }: { goal: GoalView }) {
             <span className={cn("absolute inset-y-0 left-0 rounded-full", bar)} style={{ width: `${Math.min(100, (v / t) * 100)}%` }} />
             {expected !== null && <span className="absolute inset-y-0 w-0.5 bg-foreground/70" style={{ left: `${Math.min(100, (expected / t) * 100)}%` }} aria-hidden />}
           </span>
-          <span className="block text-xs text-muted-foreground">{g.value === null ? "Not updated yet this month" : gap !== null && gap >= 0 ? `Ahead of pace by ${whole(gap)}` : `Behind pace by ${whole(Math.abs(gap ?? 0))}`}</span>
+          <span className={cn("block text-xs", g.value === null ? "text-muted-foreground" : tone)}>{g.value === null ? "Not updated yet this month" : gap !== null && gap >= 0 ? `Ahead of pace by ${whole(gap)}` : `Behind pace by ${whole(Math.abs(gap ?? 0))}`}</span>
         </>
       ) : (
         <span className="block text-xs text-muted-foreground">No target set</span>
+      )}
+      {projected !== null && (
+        <span className="mt-auto flex items-baseline justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+          On course for
+          <span className="text-sm font-medium text-foreground tabular-nums">
+            {whole(projected)}
+            {t ? <span className="ml-1 text-xs font-normal text-muted-foreground">of {whole(t)}</span> : null}
+          </span>
+        </span>
       )}
     </span>
   )
@@ -194,7 +206,7 @@ function SpendSummary({ platforms, currency, targets }: { platforms: PlatformSpe
             </span>
             <span className="text-right text-xs leading-tight">
               <span className={cn("block tabular-nums", cprTone(x.cpr, targetFor(targets, x.platform)))}>{x.cpr === null ? "–" : money(x.cpr, currency)}</span>
-              <span className="block text-[10px] text-muted-foreground">{whole(x.results)} results</span>
+              <span className="block text-[11px] text-muted-foreground">{whole(x.results)} results</span>
             </span>
           </span>
         ))}

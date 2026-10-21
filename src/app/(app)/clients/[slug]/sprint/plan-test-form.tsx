@@ -81,7 +81,7 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline, pre
         <legend className="text-sm">What it changes (the lever)</legend>
         <div className="flex flex-wrap gap-2">
           {LEVER_KEYS.map((k) => (
-            <label key={k} title={LEVERS[k].hint} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-lime has-checked:bg-lime has-checked:text-ink">
+            <label key={k} title={LEVERS[k].hint} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-border-strong has-checked:bg-elevated has-checked:font-medium has-checked:text-foreground">
               <input type="radio" name="t-lever" className="sr-only" checked={f.lever === k} onChange={() => setF({ ...f, lever: k })} />
               {LEVERS[k].label}
             </label>
@@ -94,7 +94,7 @@ export function PlanTestForm({ sprintId, platforms, owners, defaultDeadline, pre
         <legend className="text-sm">What to brief in</legend>
         <div className="flex flex-wrap gap-2">
           {Object.entries(ASSETS).map(([k, v]) => (
-            <label key={k} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-lime has-checked:bg-lime has-checked:text-ink">
+            <label key={k} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm has-checked:border-border-strong has-checked:bg-elevated has-checked:font-medium has-checked:text-foreground">
               <input type="checkbox" className="sr-only" checked={f.assets.includes(k)} onChange={() => toggleAsset(k)} />
               {v}
             </label>
