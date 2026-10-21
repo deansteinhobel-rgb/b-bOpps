@@ -10,10 +10,10 @@ type Box = { left: number; width: number }
 
 /**
  * A client's navigation (Dean, 2026-10-15: one clear primary level, sub-pages that look like sub-pages).
- * Three levels, three looks: sections (Summary, Tasks, Reporting, Planning, Knowledge) are tabs on a
- * hairline with a lime underline that slides to the active one (the page's "you are here"); a section
- * with several pages (Tasks, Planning) shows them as a compact view switcher under it; filters inside a
- * page are flat text (FilterTabs). So no two levels look alike.
+ * Every selection is the same 1px lime line as wide as its label (taste skill "data terminal", Dean
+ * 2026-10-21); the levels differ by size and place. Sections (Summary, Tasks, Reporting, Planning,
+ * Knowledge) are 14px tabs on a full-width hairline, the line sliding along it; a section with several
+ * pages shows them under it as 13px links with no rule; filters inside a page are FilterTabs.
  */
 export function ClientTabs({ slug, groups }: { slug: string; groups: TabGroup[] }) {
   const pathname = usePathname()
@@ -39,7 +39,7 @@ export function ClientTabs({ slug, groups }: { slug: string; groups: TabGroup[] 
 
   const sub = active && active.items.length > 1 ? active : null
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <nav className="relative overflow-x-auto border-b [scrollbar-width:none]" aria-label="Client sections">
         <div className="relative flex gap-7">
           {groups.map((g) => {
@@ -62,11 +62,11 @@ export function ClientTabs({ slug, groups }: { slug: string; groups: TabGroup[] 
               </Link>
             )
           })}
-          {bar && <span className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-lime transition-all duration-200 ease-out motion-reduce:transition-none" style={bar} aria-hidden />}
+          {bar && <span className="pointer-events-none absolute bottom-0 h-px bg-lime transition-[left,width] duration-200 ease-out motion-reduce:transition-none" style={bar} aria-hidden />}
         </div>
       </nav>
       {sub && (
-        <nav className="inline-flex max-w-full gap-0.5 overflow-x-auto rounded-lg bg-white/[0.04] p-0.5 [scrollbar-width:none]" aria-label={`${sub.label} pages`}>
+        <nav className="-mx-2 flex max-w-full overflow-x-auto [scrollbar-width:none]" aria-label={`${sub.label} pages`}>
           {sub.items.map((i) => {
             // The most specific page wins: Client report (/reporting/client-report) isn't also Dashboard (/reporting).
             const on = matches(pathname, i.href) && !sub.items.some((o) => o.href.length > i.href.length && matches(pathname, o.href))
@@ -76,11 +76,11 @@ export function ClientTabs({ slug, groups }: { slug: string; groups: TabGroup[] 
                 href={base + i.href}
                 aria-current={on ? "page" : undefined}
                 className={cn(
-                  "flex h-8 items-center rounded-md px-3 text-[13px] whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  on ? "bg-white/[0.1] font-medium text-foreground" : "text-body hover:text-foreground",
+                  "flex h-8 items-center rounded-sm px-2 text-[13px] whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  on ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {i.label}
+                <span className={cn("flex h-full items-center", on && "select-line")}>{i.label}</span>
               </Link>
             )
           })}

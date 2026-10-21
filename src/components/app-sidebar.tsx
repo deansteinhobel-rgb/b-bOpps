@@ -13,17 +13,19 @@ type Props = { clients: SidebarClient[]; name: string; roleLabel: string | null;
 /** Clients in the list to see how they look, not set up yet (Dean, 2026-10-01). */
 const COMING_SOON = new Set(["drillsense"])
 
-// The sidebar is one navigation system (Dean, 2026-10-15; Linear as the reference). Every row shares
-// one shape: 36px high, 8px padding, a 20px icon slot, 14px text on one baseline. The current page is a
-// soft lift with white medium text; lime stays on the brand mark and the keyboard focus ring.
-const ROW = "relative flex h-9 w-full items-center gap-3 rounded-md px-2 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
-const ROW_ON = "bg-white/[0.08] font-medium text-foreground"
-const ROW_OFF = "text-body hover:bg-white/[0.04] hover:text-foreground"
+// The sidebar is one navigation system (Dean, 2026-10-15), on the page ground with one hairline to the
+// canvas (taste skill "open plane", 2026-10-21). Every row shares one shape: 32px on a 34px pitch, 8px
+// padding, a 20px icon slot, 14px text. Rows never change fill: the current page is marked by
+// brightness (gray to white) and the app's one selection mark, a 1px lime line lit on the sidebar's
+// edge beside it (the after: element reaches across the 12px padding to the hairline).
+const ROW = "relative flex h-8 w-full items-center gap-3 rounded-sm px-2 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+const ROW_ON = "text-foreground after:absolute after:inset-y-1 after:-right-3 after:w-px after:bg-lime"
+const ROW_OFF = "text-body hover:text-foreground"
 
 function NavRow({ href, active, icon, muted, trailing, children }: { href: string; active: boolean; icon: React.ReactNode; muted?: boolean; trailing?: React.ReactNode; children: React.ReactNode }) {
   return (
     <Link href={href} aria-current={active ? "page" : undefined} className={cn(ROW, active ? ROW_ON : ROW_OFF, muted && !active && "text-muted-foreground")}>
-      <span className={cn("flex size-5 shrink-0 items-center justify-center", active ? "text-foreground" : "text-muted-foreground", muted && !active && "opacity-50")}>{icon}</span>
+      <span className={cn("flex size-5 shrink-0 items-center justify-center transition-colors", active ? "text-foreground" : "text-muted-foreground", muted && !active && "opacity-50")}>{icon}</span>
       <span className="min-w-0 flex-1 truncate">{children}</span>
       {trailing}
     </Link>
@@ -32,11 +34,11 @@ function NavRow({ href, active, icon, muted, trailing, children }: { href: strin
 
 /** A section heading inside the sidebar: 13px, sentence case, quieter than the rows under it. */
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div className="flex h-8 items-center px-2 text-[13px] font-medium text-muted-foreground">{children}</div>
+  return <div className="flex h-7 items-center px-2 text-xs text-muted-foreground">{children}</div>
 }
 
 const svg = (d: React.ReactNode) => (
-  <svg viewBox="0 0 20 20" className="size-[18px]" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+  <svg viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
     {d}
   </svg>
 )
@@ -113,7 +115,7 @@ function ClientDirectory({ clients, pathname }: { clients: SidebarClient[]; path
                 active={pathname === `/clients/${c.slug}` || pathname.startsWith(`/clients/${c.slug}/`)}
                 icon={<ClientLogo name={c.name} logoUrl={c.logo_url} size="sm" />}
                 muted={soon}
-                trailing={soon ? <span className="shrink-0 rounded px-1.5 text-xs leading-5 text-muted-foreground ring-1 ring-white/10 ring-inset">Soon</span> : null}
+                trailing={soon ? <span className="shrink-0 text-xs text-muted-foreground">Soon</span> : null}
               >
                 {c.name}
               </NavRow>
@@ -150,17 +152,17 @@ function Profile({ name, roleLabel, profileId, avatarUrl, active }: { name: stri
       <Link
         href={`/people/${profileId}`}
         aria-current={active ? "page" : undefined}
-        className={cn("flex min-w-0 flex-1 items-center gap-3 rounded-md p-1.5 transition-colors outline-none hover:bg-white/[0.04] focus-visible:ring-2 focus-visible:ring-ring", active && "bg-white/[0.08]")}
+        className={cn("group/profile relative flex min-w-0 flex-1 items-center gap-3 rounded-sm p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring", active && "after:absolute after:inset-y-2 after:-right-3 after:w-px after:bg-lime")}
         title="Your profile"
       >
         <Avatar name={name} url={avatarUrl} className="size-7" />
         <span className="min-w-0 flex-1 leading-tight">
-          <span className="block truncate text-sm font-medium">{name}</span>
+          <span className="block truncate text-sm font-medium text-body transition-colors group-hover/profile:text-foreground">{name}</span>
           {roleLabel && <span className="block truncate text-xs text-muted-foreground">{roleLabel}</span>}
         </span>
       </Link>
       <form action="/auth/signout" method="post">
-        <button type="submit" className="h-8 rounded-md px-2 text-[13px] text-muted-foreground transition-colors outline-none hover:bg-white/[0.04] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+        <button type="submit" className="h-8 rounded-sm px-2 text-[13px] text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
           Sign out
         </button>
       </form>
@@ -178,7 +180,7 @@ export function AppSidebar(props: Props) {
   const [jump, setJump] = useState(false)
   return (
     <>
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 pt-4 pb-3 lg:flex">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 pt-5 pb-3 lg:flex">
         <Link href="/" className="flex h-10 items-center rounded-md px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <AppMark />
         </Link>
@@ -187,7 +189,8 @@ export function AppSidebar(props: Props) {
             <div className="mt-6">
               <GlobalNav pathname={pathname} onSearch={() => setJump(true)} />
             </div>
-            <div className="mt-6 min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin]">
+            {/* The scroller reaches the hairline (-mr-3 pr-3), so the active row's line isn't clipped. */}
+            <div className="mt-6 -mr-3 min-h-0 flex-1 overflow-y-auto pr-3 [scrollbar-width:thin]">
               <ClientDirectory clients={props.clients} pathname={pathname} />
             </div>
           </>
@@ -199,19 +202,19 @@ export function AppSidebar(props: Props) {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-sidebar-border bg-sidebar/95 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-sidebar-border bg-sidebar px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 lg:hidden">
         <Link href="/">
           <AppMark />
         </Link>
         <div className="flex items-center gap-2">
           {props.hasRole && (
-            <button type="button" onClick={() => setJump(true)} aria-label="Search for a client or page" className="flex size-9 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
+            <button type="button" onClick={() => setJump(true)} aria-label="Search for a client or page" className="flex size-11 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground">
               {Icon.search}
             </button>
           )}
           <details className="group relative">
-            <summary className="flex h-9 cursor-pointer list-none items-center rounded-md border px-3 text-sm transition-colors hover:border-border-strong group-open:border-border-strong [&::-webkit-details-marker]:hidden">Menu</summary>
-            <div className="absolute right-0 mt-2 max-h-[calc(100dvh-5rem)] w-64 space-y-4 overflow-y-auto rounded-lg border bg-popover p-3 shadow-xl">
+            <summary className="flex h-11 cursor-pointer list-none items-center rounded-full border px-4 text-sm transition-colors hover:border-border-strong group-open:border-border-strong [&::-webkit-details-marker]:hidden">Menu</summary>
+            <div className="absolute right-0 mt-2 max-h-[calc(100dvh-5rem)] w-72 space-y-4 overflow-y-auto rounded-md border bg-popover p-3 shadow-xl">
               {props.hasRole && (
                 <>
                   <GlobalNav pathname={pathname} />

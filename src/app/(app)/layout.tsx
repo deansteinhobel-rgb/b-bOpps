@@ -40,7 +40,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         hasRole={Boolean(profile.role)}
       />
       <main id="main" className="min-w-0 flex-1">
-        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-8 lg:py-10">
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-8 lg:py-9">
           {profile.role ? (
             children
           ) : (
