@@ -86,10 +86,8 @@
   --lime: #e4ff1a;
   --pink: #ff3d8a;
   --ember: #e8552f;
-  /* Violet and lavender are retired (taste skill, 2026-10-21: not B&B colors, and the generated-app
-     accent). The names stay for the tags that used them, now two quiet grays. */
-  --lavender: #c7c7c7;
-  --violet: #a3a8ae;
+  --lavender: #c9b8e0;
+  --violet: #8b8ee0;
   --paper: #ffffff;
 
   --background: #1a1a1a;
@@ -100,8 +98,7 @@
   --popover: #0f0f0f;
   --popover-foreground: #ffffff;
   --elevated: #262626;
-  /* Primary is inverted white (taste skill); lime is the ring and the selection line. */
-  --primary: #ffffff;
+  --primary: var(--lime);
   --primary-foreground: #1a1a1a;
   --secondary: #262626;
   --secondary-foreground: #ffffff;

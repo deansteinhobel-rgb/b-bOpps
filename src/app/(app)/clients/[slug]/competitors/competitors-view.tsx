@@ -192,7 +192,7 @@ function AdCard({ ad, competitor, today, isNew }: { ad: AdRow; competitor: strin
       <span className="flex items-center gap-1.5 text-[13px]">
         <PlatformIcon platform={SOURCE_PLATFORM[ad.source]} />
         <span className="truncate font-medium text-foreground">{competitor}</span>
-        {isNew && <span className="pill shrink-0 border-white/30 text-foreground">New</span>}
+        {isNew && <span className="pill shrink-0 border-lime/50 text-lime">New</span>}
       </span>
       <span className="text-xs text-muted-foreground">
         Live {daysAreEstimate(ad) ? `${days}+` : days} days{ad.label_offer && ad.label_offer !== "Other" ? ` · ${ad.label_offer}` : ""}

@@ -18,8 +18,8 @@ const STAGES = [
 ] as const
 type Tone = (typeof STAGES)[number]["tone"]
 const PILL: Record<Tone, string> = {
-  lime: "bg-white/[0.08] text-foreground ring-border-strong",
-  violet: "bg-pink/12 text-pink ring-pink/30",
+  lime: "bg-lime/12 text-lime ring-lime/25",
+  violet: "bg-violet/15 text-lavender ring-violet/30",
   green: "bg-rag-green-bg text-rag-green ring-rag-green/30",
   amber: "bg-rag-amber-bg text-rag-amber ring-rag-amber/30",
   muted: "bg-secondary text-muted-foreground ring-border",
@@ -104,7 +104,7 @@ export default async function BriefsPage({ params, searchParams }: PageProps<"/c
           {groups.map((g) => (
             <section key={g.key} className="space-y-2">
               <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                <span className={cn("size-1.5 rounded-full", g.tone === "lime" ? "bg-foreground" : g.tone === "violet" ? "bg-pink" : g.tone === "green" ? "bg-rag-green" : g.tone === "amber" ? "bg-rag-amber" : "bg-rag-na")} />
+                <span className={cn("size-1.5 rounded-full", g.tone === "lime" ? "bg-lime" : g.tone === "violet" ? "bg-violet" : g.tone === "green" ? "bg-rag-green" : g.tone === "amber" ? "bg-rag-amber" : "bg-rag-na")} />
                 {g.label}
                 <span className="text-subtle-foreground">{g.items.length}</span>
               </h3>
@@ -126,7 +126,7 @@ function Avatars({ names }: { names: string[] }) {
   return (
     <span className="flex items-center" title={names.join(", ")}>
       {names.slice(0, 3).map((n, i) => (
-        <span key={n + i} className={cn("flex size-6 items-center justify-center rounded-full bg-elevated text-[11px] font-medium ring-2 ring-card", i > 0 && "-ml-1.5")}>
+        <span key={n + i} className={cn("flex size-6 items-center justify-center rounded-full bg-elevated text-[10px] font-medium ring-2 ring-card", i > 0 && "-ml-1.5")}>
           {n
             .split(" ")
             .map((w) => w[0])
@@ -135,7 +135,7 @@ function Avatars({ names }: { names: string[] }) {
             .toUpperCase()}
         </span>
       ))}
-      {names.length > 3 && <span className="ml-1 text-[11px] text-muted-foreground">+{names.length - 3}</span>}
+      {names.length > 3 && <span className="ml-1 text-[10px] text-muted-foreground">+{names.length - 3}</span>}
     </span>
   )
 }
@@ -186,7 +186,7 @@ function BriefRow({ b, kids, today }: { b: MirrorItem; kids: MirrorItem[]; today
         <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
           <div className="relative hover:bg-accent/30">
             <Line b={b} today={today} />
-            <span className="absolute bottom-1 left-4 text-[11px] text-subtle-foreground group-open:hidden">
+            <span className="absolute bottom-1 left-4 text-[10px] text-subtle-foreground group-open:hidden">
               {kids.length} sub-item{kids.length === 1 ? "" : "s"}
               {openKids ? ` · ${openKids} open` : ""} ▸
             </span>

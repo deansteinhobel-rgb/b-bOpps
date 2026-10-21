@@ -193,7 +193,7 @@ export function TestCard(props: {
         />
 
         <p className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground" title={t.owner_name ? `Owner: ${t.owner_name}` : "No owner"}>
-          <Avatar name={t.owner_name ?? "?"} className="size-5 text-[11px]" />
+          <Avatar name={t.owner_name ?? "?"} className="size-5 text-[9px]" />
           <span className="truncate">{t.owner_name ?? "No owner"}</span>
         </p>
 
@@ -551,7 +551,7 @@ function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns
         <legend className="text-xs">What kind of test is it?</legend>
         <div className="grid gap-1.5">
           {(Object.keys(TEST_KINDS) as TestKind[]).map((k) => (
-            <label key={k} className={cn("flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-xs", kind === k && "border-border-strong bg-elevated")}>
+            <label key={k} className={cn("flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5 text-xs", kind === k && "border-lime/60 bg-lime/5")}>
               <input type="radio" name="test-kind" className="mt-0.5" checked={kind === k} onChange={() => setKind(k)} />
               <span>
                 <span className="font-medium">{TEST_KINDS[k].label}</span>
@@ -622,7 +622,7 @@ function Results({ test: t, results, money, fmt, label }: { test: SprintTest; re
           ["Clicks", String(results.clicks)],
         ].map(([k, v]) => (
           <div key={k} className="rounded-md bg-secondary px-2 py-1.5">
-            <dt className="text-[11px] text-muted-foreground">{k}</dt>
+            <dt className="text-[10px] text-muted-foreground">{k}</dt>
             <dd className="font-medium tabular-nums">{v}</dd>
           </div>
         ))}
@@ -784,7 +784,7 @@ function LeverChip({ testId, lever, source, editable }: { testId: string; lever:
     >
       <Target className="size-3" aria-hidden />
       <span>{def ? def.label : "Set the lever"}</span>
-      {guessed && <span className="text-[11px] opacity-70">· suggested</span>}
+      {guessed && <span className="text-[10px] opacity-70">· suggested</span>}
       <select
         aria-label="Lever"
         className="absolute inset-0 cursor-pointer opacity-0"

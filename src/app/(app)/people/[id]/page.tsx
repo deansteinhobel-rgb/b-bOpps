@@ -35,7 +35,7 @@ export default async function PersonPage({ params }: PageProps<"/people/[id]">) 
   return (
     <div className="space-y-8">
       <section className="surface relative overflow-hidden">
-        <div aria-hidden className="h-24 bg-elevated" />
+        <div aria-hidden className="h-24 bg-gradient-to-r from-lime/15 via-violet/10 to-transparent" />
         <div className="flex flex-wrap items-end gap-5 px-6 pb-6">
           <Avatar name={name} url={p.avatar_url} className="-mt-12 size-24 text-2xl ring-4 ring-card" />
           <div className="min-w-0 flex-1 space-y-1">

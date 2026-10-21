@@ -6,18 +6,65 @@
 // its preview.
 import { useState } from "react"
 import Link from "next/link"
-import { ArrowRight, ChevronDown, ChevronLeft, ChevronRight, Download, Lock } from "lucide-react"
+import {
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  Building2,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileText,
+  Flag,
+  Goal,
+  Image as ImageIcon,
+  Lock,
+  Minus,
+  RefreshCw,
+  Repeat,
+  Search,
+  Split,
+  Target,
+  TrendingDown,
+  TrendingUp,
+  TriangleAlert,
+  UserRound,
+  Users,
+  Wallet,
+  Zap,
+  type LucideIcon,
+} from "lucide-react"
 import { AdThumb } from "@/components/ad-thumb"
 import { ClientLogo, PlatformIcon, PlatformLabel } from "@/components/brand"
 import { Hint } from "@/components/hint"
-import { Segmented } from "@/components/segmented"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { money as fmtMoney, whole } from "@/lib/format"
-import type { AbxRead, AccountRow, AdRow, Flag as FlagRow, ReadAd, ReadCore, ReadItem, Tile, Tone, WeeklyRead } from "@/lib/reports/weekly-read-rules"
+import type { AbxRead, AccountRow, AdRow, Flag as FlagRow, IconKey, ReadAd, ReadCore, ReadItem, Tile, Tone, WeeklyRead } from "@/lib/reports/weekly-read-rules"
 import { cn } from "@/lib/utils"
+import { Sparkline } from "../reporting/charts"
 
 type View = "overall" | "abx"
 
+const ICON: Record<IconKey, LucideIcon> = {
+  doc: FileText,
+  image: ImageIcon,
+  search: Search,
+  wallet: Wallet,
+  repeat: Repeat,
+  users: Users,
+  building: Building2,
+  target: Target,
+  bolt: Zap,
+  "trend-up": TrendingUp,
+  "trend-down": TrendingDown,
+  title: UserRound,
+  refresh: RefreshCw,
+  split: Split,
+  goal: Goal,
+  flag: Flag,
+}
 const TONE_TEXT: Record<Tone, string> = { good: "text-rag-green", bad: "text-rag-red", neutral: "text-muted-foreground" }
 /** Long names (Google search ads are named after all their headlines) cut short; the full name shows on hover. */
 const short = (s: string, n = 70) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s)
@@ -67,8 +114,8 @@ export function ReadView({ read, initialAbx, nav, goals, below }: { read: Weekly
               <ChevronLeft className="size-4" aria-hidden />
             </Link>
           )}
-          <span className="text-sm font-medium">{p.kind === "month" ? `${monthOf(p.from)} so far` : nav?.isLatest ? "Last week" : "Week of"}</span>
-          <span className="text-sm text-body tabular-nums">
+          <span className="pill pill-active">{p.kind === "month" ? `${monthOf(p.from)} so far` : nav?.isLatest ? "Last week" : "Week of"}</span>
+          <span className="text-sm tabular-nums">
             {day(p.from)} – {day(p.to, true)}
           </span>
           <span className="text-[13px] text-muted-foreground">
@@ -84,18 +131,10 @@ export function ReadView({ read, initialAbx, nav, goals, below }: { read: Weekly
         {read.abx && <ViewSwitch value={view} onChange={setView} abxLabel={read.abx.segmentLabel} />}
       </div>
 
-      {/* The verdict answers the page's question; the client's goal sits beside it, then the numbers
-          behind it, then what to do. A lone goal never sits in a row of its own (taste skill). */}
-      {goals ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <Verdict core={core} />
-          {goals}
-        </div>
-      ) : (
-        <Verdict core={core} />
-      )}
-      <Tiles tiles={core.tiles} />
+      <Verdict core={core} />
+      {goals}
       <ThreeColumns core={core} />
+      <Tiles tiles={core.tiles} />
 
       {view === "abx" && read.abx ? <AbxEvidence abx={read.abx} m={m} slug={slug} current={current} /> : <OverallEvidence read={read} m={m} current={current} />}
 
@@ -120,31 +159,46 @@ function ViewSwitch({ value, onChange, abxLabel }: { value: View; onChange: (v: 
     { v: "overall", label: "Overall", hint: "Every platform, judged on results and cost per result" },
     { v: "abx", label: abxLabel, hint: "The account-based campaigns, and the companies they reached on LinkedIn" },
   ]
-  return <Segmented label="View" value={value} onChange={onChange} options={opts.map((o) => ({ value: o.v, label: o.label, title: o.hint }))} />
+  return (
+    <div role="radiogroup" aria-label="View" className="inline-flex h-8 items-center rounded-full border border-border bg-black p-0.5">
+      {opts.map((o) => (
+        <button
+          key={o.v}
+          role="radio"
+          aria-checked={value === o.v}
+          title={o.hint}
+          onClick={() => onChange(o.v)}
+          className={cn("h-full rounded-full px-3.5 text-[13px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-lime/60", value === o.v ? "bg-lime text-ink" : "text-muted-foreground hover:text-foreground")}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
-/** The period in one sentence, the numbers behind it, and an 8-week trend (the current period in lime). */
+/** The week in one sentence, the numbers behind it, and an 8-week trend. */
 function Verdict({ core }: { core: ReadCore }) {
   const { verdict } = core
+  const Arrow = verdict.tone === "bad" ? ArrowDownRight : verdict.tone === "good" ? ArrowUpRight : Minus
   const max = Math.max(...verdict.trend, 1)
-  const last = verdict.trend.at(-1)
   return (
-    <section className="surface h-full p-6">
+    <section className="surface p-6 sm:p-8">
       <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-        <div className="min-w-0 max-w-3xl">
-          {/* The good or bad sits in the words; a small dot repeats it for a quick scan. */}
-          <h2 className="text-2xl leading-snug sm:text-[28px] sm:leading-9">
-            <span aria-hidden className={cn("mr-3 inline-block size-2.5 -translate-y-1 rounded-full align-middle", verdict.tone === "bad" ? "bg-rag-red" : verdict.tone === "good" ? "bg-rag-green" : "bg-rag-na")} />
-            {verdict.headline}
-          </h2>
-          {verdict.body && <p className="mt-3 text-sm leading-relaxed text-body">{verdict.body}</p>}
+        <div className="flex min-w-0 gap-4">
+          <span className={cn("mt-1 inline-flex size-9 shrink-0 items-center justify-center rounded-full", verdict.tone === "bad" ? "bg-rag-red-bg text-rag-red" : verdict.tone === "good" ? "bg-rag-green-bg text-rag-green" : "bg-rag-na-bg text-rag-na")}>
+            <Arrow className="size-5" aria-hidden />
+          </span>
+          <div className="min-w-0 max-w-3xl">
+            <h2 className="text-2xl leading-snug sm:text-[28px] sm:leading-9">{verdict.headline}</h2>
+            {verdict.body && <p className="mt-3 text-sm leading-relaxed text-body">{verdict.body}</p>}
+          </div>
         </div>
         {verdict.trend.length > 1 && (
-          <figure className="shrink-0 self-start md:self-auto" aria-label={verdict.trendLabel}>
-            <div className="mb-1 text-right text-xs text-foreground tabular-nums">{last !== undefined ? whole(last) : ""}</div>
-            <div className="flex h-16 items-end gap-1 border-b border-border-strong">
+          <figure className="shrink-0" aria-label={verdict.trendLabel}>
+            <div className="flex h-20 items-end gap-1.5">
               {verdict.trend.map((v, i) => (
-                <div key={i} title={whole(v)} className={cn("w-3.5", i === verdict.trend.length - 1 ? "bg-lime" : "bg-white/20")} style={{ height: `${Math.max(4, (v / max) * 100)}%` }} />
+                <div key={i} title={whole(v)} className={cn("w-4 rounded-t-sm", i === verdict.trend.length - 1 ? "bg-lime" : "bg-white/15")} style={{ height: `${Math.max(6, (v / max) * 100)}%` }} />
               ))}
             </div>
             <figcaption className="mt-2 text-xs text-muted-foreground">{verdict.trendLabel}</figcaption>
@@ -156,26 +210,24 @@ function Verdict({ core }: { core: ReadCore }) {
 }
 
 const COLUMNS = [
-  { key: "working", title: "What's working", dot: "bg-rag-green", empty: "Nothing stood out this week." },
-  { key: "attention", title: "What needs attention", dot: "bg-rag-amber", empty: "Nothing needs attention. Good week." },
-  { key: "act", title: "Where to act", dot: "bg-foreground", empty: "No open recommendations." },
+  { key: "working", title: "What's working", Icon: Check, head: "text-rag-green", tile: "bg-rag-green-bg text-rag-green", empty: "Nothing stood out this week." },
+  { key: "attention", title: "What needs attention", Icon: TriangleAlert, head: "text-rag-amber", tile: "bg-rag-amber-bg text-rag-amber", empty: "Nothing needs attention. Good week." },
+  { key: "act", title: "Where to act", Icon: Zap, head: "text-lime", tile: "bg-lime/10 text-lime", empty: "No open recommendations." },
 ] as const
 
-/** One box split into three columns (group, don't box), so the three lists share a top and a bottom. */
 function ThreeColumns({ core }: { core: ReadCore }) {
   return (
-    <section className="surface grid divide-y divide-border lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+    <section className="grid gap-4 lg:grid-cols-3">
       {COLUMNS.map((c) => (
-        <div key={c.key} className="min-w-0 p-5">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <span aria-hidden className={cn("size-2 rounded-full", c.dot)} />
+        <div key={c.key} className="surface flex flex-col p-5">
+          <h3 className={cn("flex items-center gap-2 text-sm font-semibold", c.head)}>
+            <c.Icon className="size-4" aria-hidden />
             {c.title}
-            <span className="font-normal text-muted-foreground tabular-nums">{core[c.key].length}</span>
           </h3>
           {core[c.key].length ? (
-            <ul className="mt-4 space-y-5">
+            <ul className="mt-4 flex-1 space-y-5">
               {core[c.key].map((item) => (
-                <ReadLine key={item.key} item={item} />
+                <ReadLine key={item.key} item={item} tile={c.tile} primary={c.key === "act"} />
               ))}
             </ul>
           ) : (
@@ -187,7 +239,8 @@ function ThreeColumns({ core }: { core: ReadCore }) {
   )
 }
 
-function ReadLine({ item }: { item: ReadItem }) {
+function ReadLine({ item, tile, primary }: { item: ReadItem; tile: string; primary: boolean }) {
+  const Icon = ICON[item.icon]
   const one = item.ads?.length === 1 ? item.ads[0] : null
   const title = item.href ? (
     <Link href={item.href} title={item.title} className="text-sm font-medium text-foreground underline decoration-border-strong decoration-dotted underline-offset-4 hover:decoration-foreground">
@@ -200,19 +253,21 @@ function ReadLine({ item }: { item: ReadItem }) {
   )
   return (
     <li className="flex gap-3">
-      {/* One named ad: the ad itself leads the line. Otherwise the text starts on the column's edge. */}
-      {one && (
+      {one ? (
+        // One named ad: the ad itself leads the line.
         <span className="relative mt-0.5 shrink-0">
           <AdThumb preview={one.preview ?? undefined} alt={one.name} size="sm" className="size-12" />
           {item.platform && <PlatformIcon platform={item.platform} className="absolute -right-1 -bottom-1 size-3.5" />}
         </span>
+      ) : (
+        <span className={cn("relative mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg", tile)}>
+          <Icon className="size-4" aria-hidden />
+          {item.platform && <PlatformIcon platform={item.platform} className="absolute -right-1 -bottom-1 size-3.5" />}
+        </span>
       )}
       <div className="min-w-0">
-        <div className="break-words">
-          {!one && item.platform && <PlatformIcon platform={item.platform} className="-mt-0.5 mr-1.5 size-3.5 align-middle" />}
-          {title}
-        </div>
-        {item.tag && <div className="mt-0.5 text-xs font-medium text-body">{item.tag}</div>}
+        <div className="break-words">{title}</div>
+        {item.tag && <div className="mt-0.5 text-xs font-medium text-foreground/80">{item.tag}</div>}
         <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">{item.detail}</p>
         {item.ads && item.ads.length > 1 && (
           <div className="mt-2 flex gap-1.5">
@@ -222,9 +277,8 @@ function ReadLine({ item }: { item: ReadItem }) {
           </div>
         )}
         {item.action && (
-          <Link href={item.action.href} className="group/act mt-2 inline-flex items-center gap-1 rounded-sm text-[13px] font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            {item.action.label}
-            <ArrowRight className="size-3.5 transition-transform group-hover/act:translate-x-0.5" aria-hidden />
+          <Link href={item.action.href} className={buttonVariants({ variant: primary ? "default" : "outline", size: "xs", className: "mt-2" })}>
+            {item.action.label} <ArrowRight aria-hidden />
           </Link>
         )}
       </div>
@@ -232,27 +286,23 @@ function ReadLine({ item }: { item: ReadItem }) {
   )
 }
 
-/** The numbers behind the verdict: one box split by hairlines, label over value, the change against
- *  the comparison period under it. No sparklines (the trend is the verdict's chart). */
 function Tiles({ tiles }: { tiles: Tile[] }) {
   return (
-    <section className="surface overflow-hidden">
-      {/* Each cell draws its left and top hairline; the grid sits 1px up and left so the outer ones are clipped. */}
-      <div className={cn("-mt-px -ml-px grid grid-cols-2 sm:grid-cols-3", tiles.length >= 6 ? "lg:grid-cols-6" : "lg:grid-cols-5")}>
+    <section className={cn("grid grid-cols-2 gap-3 sm:grid-cols-3", tiles.length >= 6 ? "lg:grid-cols-6" : "lg:grid-cols-5")}>
       {tiles.map((t) => (
-        <div key={t.label} className="p-4 shadow-[inset_1px_1px_0_var(--border)]">
+        <div key={t.label} className="surface p-4">
           <div className="flex items-center gap-1 text-[13px] text-muted-foreground">
             {t.label}
             {t.hint && <Hint>{t.hint}</Hint>}
           </div>
-          <div className="mt-1.5 text-2xl font-medium tabular-nums">{t.now}</div>
+          <div className="mt-1.5 text-2xl font-semibold tabular-nums">{t.now}</div>
           <div className="mt-1 flex min-h-4 items-baseline gap-1.5 text-xs">
             {t.change && <span className={cn("font-medium tabular-nums", TONE_TEXT[t.tone])}>{t.change}</span>}
             {t.before !== null && <span className="text-muted-foreground">vs {t.before}</span>}
           </div>
+          {t.spark.length > 1 && <Sparkline values={t.spark} className="mt-3 h-6 w-full" />}
         </div>
       ))}
-      </div>
     </section>
   )
 }
@@ -278,7 +328,7 @@ function Panel({ id, title, meta, total, expanded, onToggle, onExport, children 
           <span>
             Showing {expanded ? total : 5} of {total}
           </span>
-          <button onClick={onToggle} className="inline-flex items-center gap-1 font-medium text-foreground underline-offset-4 hover:underline">
+          <button onClick={onToggle} className="inline-flex items-center gap-1 font-medium text-foreground hover:text-lime">
             {expanded ? "Show top 5" : "Show all"}
             <ChevronDown className={cn("size-3.5 transition-transform", expanded && "rotate-180")} aria-hidden />
           </button>
@@ -551,20 +601,20 @@ function AccountLine({ a, sub, right, m }: { a: AccountRow; sub?: string; right:
 function Flags({ green, red }: { green: FlagRow[]; red: FlagRow[] }) {
   if (!green.length && !red.length) return null
   return (
-    <section className="surface grid divide-y divide-border lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+    <section className="grid gap-4 lg:grid-cols-2">
       {[
-        { title: "Green flags", rows: green, dot: "bg-rag-green", empty: "None this week." },
-        { title: "Red flags", rows: red, dot: "bg-rag-red", empty: "None this week." },
+        { title: "Green flags", rows: green, color: "text-rag-green", dot: "bg-rag-green", empty: "None this week." },
+        { title: "Red flags", rows: red, color: "text-rag-red", dot: "bg-rag-red", empty: "None this week." },
       ].map((f) => (
-        <div key={f.title} className="min-w-0 p-5">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <span aria-hidden className={cn("size-2 rounded-full", f.dot)} /> {f.title}
-            <span className="font-normal text-muted-foreground tabular-nums">{f.rows.length}</span>
+        <div key={f.title} className="surface p-5">
+          <h3 className={cn("flex items-center gap-2 text-sm font-semibold", f.color)}>
+            <Flag className="size-4" aria-hidden /> {f.title}
           </h3>
           {f.rows.length ? (
             <ul className="mt-3 space-y-2.5">
               {f.rows.map((r) => (
                 <li key={r.key} className={cn("flex gap-2.5 text-sm leading-snug", r.ad && "items-center")}>
+                  <span className={cn("size-1.5 shrink-0 rounded-full", !r.ad && "mt-1.5", f.dot)} aria-hidden />
                   {r.ad && <AdThumb preview={r.ad.preview ?? undefined} alt={r.ad.name} size="sm" className="size-9" />}
                   <span className="min-w-0 break-words">
                     <span className="text-muted-foreground">{r.kind}: </span>
@@ -578,7 +628,7 @@ function Flags({ green, red }: { green: FlagRow[]; red: FlagRow[] }) {
                         {short(r.subject)}
                       </span>
                     )}
-                    <span className="text-muted-foreground">. {r.detail}</span>
+                    <span className="text-muted-foreground"> — {r.detail}</span>
                   </span>
                 </li>
               ))}

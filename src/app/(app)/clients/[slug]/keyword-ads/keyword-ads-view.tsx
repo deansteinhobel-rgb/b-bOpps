@@ -199,7 +199,7 @@ function AdCard({ ad, rank, today, pick }: { ad: KeywordAdView; rank: number; to
       </span>
       <span className="flex items-center gap-1.5 text-[13px]">
         <span className="truncate font-medium text-foreground">{ad.advertiser ?? "Unknown advertiser"}</span>
-        {pick && <span className="pill shrink-0 border-white/30 text-foreground">Running longest</span>}
+        {pick && <span className="pill shrink-0 border-lime/50 text-lime">Running longest</span>}
         {off && <span className="pill shrink-0">Off-topic</span>}
       </span>
       <span className="text-xs text-muted-foreground">

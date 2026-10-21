@@ -166,13 +166,13 @@ function FollowUpRow({ f, slug, canEdit }: { f: FollowUp; slug: string; canEdit:
             {f.dueOn ? ` · due ${shortDate(f.dueOn)}` : ""}
           </span>
         </span>
-        <span className={cn("shrink-0 rounded-full border px-2 py-px text-[11px]", STATE_CLS[f.state])}>{STATE_LABEL[f.state]}</span>
+        <span className={cn("shrink-0 rounded-full border px-2 py-px text-[10px]", STATE_CLS[f.state])}>{STATE_LABEL[f.state]}</span>
         <ChevronDown className={cn("mt-0.5 size-3.5 shrink-0 text-subtle-foreground transition-transform", open && "rotate-180")} />
       </button>
       {open && (
         <div className="mt-2 space-y-2 pl-1">
           {f.detail && <p className="text-xs text-muted-foreground">{f.detail}</p>}
-          {f.quote && <p className="border-l-2 border-border-strong pl-2.5 text-xs text-muted-foreground italic">&ldquo;{f.quote}&rdquo;</p>}
+          {f.quote && <p className="border-l-2 border-lime/40 pl-2.5 text-xs text-muted-foreground italic">&ldquo;{f.quote}&rdquo;</p>}
           {f.state === "acted" && f.evidence && (
             <p className="text-xs text-rag-green">
               {f.evidence}
@@ -228,13 +228,13 @@ function CallList({ calls, followUps }: { calls: Call[]; followUps: FollowUp[] }
               <span className="w-12 shrink-0 text-[11px] text-muted-foreground tabular-nums">{shortDate(c.call_date)}</span>
               <span className="min-w-0 flex-1 truncate">{c.title}</span>
               {c.extract_status === "pending" ? (
-                <span className="shrink-0 text-[11px] text-lime">Reading…</span>
+                <span className="shrink-0 text-[10px] text-lime">Reading…</span>
               ) : c.extract_status === "failed" ? (
-                <span className="shrink-0 text-[11px] text-rag-red" title={c.extract_error ?? undefined}>Couldn&apos;t read</span>
+                <span className="shrink-0 text-[10px] text-rag-red" title={c.extract_error ?? undefined}>Couldn&apos;t read</span>
               ) : c.extract_status === "skipped" ? (
-                <span className="shrink-0 text-[11px] text-subtle-foreground">{c.notion_status ?? "No notes"}</span>
+                <span className="shrink-0 text-[10px] text-subtle-foreground">{c.notion_status ?? "No notes"}</span>
               ) : (
-                count.get(c.id) ? <span className="shrink-0 text-[11px] text-muted-foreground">{count.get(c.id)} said</span> : null
+                count.get(c.id) ? <span className="shrink-0 text-[10px] text-muted-foreground">{count.get(c.id)} said</span> : null
               )}
             </button>
             {openId === c.id && (

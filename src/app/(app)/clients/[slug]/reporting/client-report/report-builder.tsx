@@ -121,7 +121,7 @@ function Question({ n, title, answer, icon, open, always, onChange, children }: 
   const done = Boolean(answer) && !open
   return (
     <section className="flex gap-4 px-5 py-4" aria-label={title}>
-      <span className={cn("mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums", done || always ? "bg-white/[0.1] text-foreground" : "bg-white text-ink")} aria-hidden>
+      <span className={cn("mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold tabular-nums", done || always ? "bg-white/[0.1] text-foreground" : "bg-lime text-primary-foreground")} aria-hidden>
         {done ? <Check className="size-3.5" /> : n}
       </span>
       <div className="min-w-0 flex-1">
@@ -174,7 +174,7 @@ function CampaignRow({ on, onClick, name, platform, detail }: { on: boolean; onC
         onClick={onClick}
         className={cn("flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors outline-none hover:bg-white/[0.04] focus-visible:bg-white/[0.06]", on && "bg-white/[0.08] font-medium")}
       >
-        <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-full border", on ? "border-white bg-white" : "border-border-strong")} aria-hidden>
+        <span className={cn("flex size-4 shrink-0 items-center justify-center rounded-full border", on ? "border-lime bg-lime" : "border-border-strong")} aria-hidden>
           {on && <span className="size-1.5 rounded-full bg-black" />}
         </span>
         {platform && <PlatformIcon platform={platform} className="size-4 shrink-0" />}

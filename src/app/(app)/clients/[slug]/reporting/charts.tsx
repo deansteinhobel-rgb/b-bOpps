@@ -315,7 +315,7 @@ export function CampaignTable({ rows, currency, slug, query, targets }: { rows: 
                       </span>
                       {(c.k === "cpr" || c.k === "results" || c.k === "ctr") && (
                         <span className="block">
-                          <Delta k={c.k} now={r.now[c.k]} before={r.prev[c.k]} className="text-[11px]" />
+                          <Delta k={c.k} now={r.now[c.k]} before={r.prev[c.k]} className="text-[10px]" />
                         </span>
                       )}
                     </td>

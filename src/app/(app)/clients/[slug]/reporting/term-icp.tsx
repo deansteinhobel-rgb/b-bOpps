@@ -47,7 +47,7 @@ export function TermIcpPanel({ slug, campaignId, review, onReview, canCheck, can
     <div className="space-y-3 border-b px-4 py-3">
       {aiMax && (
         <p className="flex items-start gap-2 text-xs text-muted-foreground">
-          <span className="mt-px rounded-full border border-border-strong px-1.5 py-px text-[11px] text-body">AI Max</span>
+          <span className="mt-px rounded-full border border-violet-400/40 px-1.5 py-px text-[10px] text-violet-300">AI Max</span>
           <span>
             AI Max is on here: it found {aiMax.terms.toLocaleString("en-GB")} of these searches, {fmt("spend", aiMax.spend, currency)} ({Math.round(aiMax.share * 100)}% of the spend on visible terms). They didn&apos;t come from our keywords, so check them most often.
           </span>

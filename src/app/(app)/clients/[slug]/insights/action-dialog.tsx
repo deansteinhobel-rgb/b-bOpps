@@ -63,7 +63,7 @@ export function ActionDialog(p: {
             <PlatformIcon platform={p.platform} className="size-5" />
             <span className="truncate">{p.title}</span>
             {p.live !== null && (
-              <span className={cn("pill ml-auto shrink-0", p.live ? "border-white/30 text-foreground" : "text-muted-foreground")}>{p.live ? `Live in ${name}` : "Dry run"}</span>
+              <span className={cn("pill ml-auto shrink-0", p.live ? "border-lime/50 text-lime" : "text-muted-foreground")}>{p.live ? `Live in ${name}` : "Dry run"}</span>
             )}
           </DialogTitle>
           <DialogDescription>

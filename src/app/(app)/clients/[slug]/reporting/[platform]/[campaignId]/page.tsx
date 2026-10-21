@@ -154,7 +154,7 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
                       {fmt(k, a.now[k], cur)}
                       {a.prev && k !== "spend" && k !== "impressions" && (
                         <span className="block">
-                          <Delta k={k} now={a.now[k]} before={a.prev[k]} className="text-[11px]" />
+                          <Delta k={k} now={a.now[k]} before={a.prev[k]} className="text-[10px]" />
                         </span>
                       )}
                     </td>

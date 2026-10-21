@@ -30,7 +30,7 @@ export function CampaignAskCard({ aiReady }: { aiReady: boolean }) {
             onClick={() => open(s)}
             className={cn(
               "rounded-full border px-3 py-1.5 text-left text-xs transition-colors disabled:opacity-50",
-              s === WEEKLY_READ ? "border-border-strong bg-elevated text-foreground hover:bg-[#303030]" : "text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+              s === WEEKLY_READ ? "border-lime/40 bg-lime/10 text-foreground hover:bg-lime/15" : "text-muted-foreground hover:border-foreground/30 hover:text-foreground",
             )}
           >
             {s}

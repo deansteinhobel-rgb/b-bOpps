@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react"
 import { ParticleAmpersand } from "@/components/fx/particle-ampersand"
-import { Segmented } from "@/components/segmented"
 import { StatusBadge } from "@/components/status-badge"
 import { cn } from "@/lib/utils"
 import { CheckCard } from "./check-card"
@@ -54,20 +53,18 @@ export function CheckDeck({ title, subtitle, items }: { title: string; subtitle:
     <section className="space-y-5" ref={deckRef}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-2xl">{title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
+          <p className="eyebrow">{subtitle}</p>
+          <h2 className="mt-1 text-2xl">{title}</h2>
         </div>
         <div className="flex items-center gap-4">
           <Progress done={doneCount} total={total} />
-          <Segmented
-            label="View"
-            value={view}
-            onChange={setView}
-            options={[
-              { value: "deck", label: "Cards" },
-              { value: "list", label: "List" },
-            ]}
-          />
+          <div className="flex rounded-full border bg-card p-0.5 text-xs">
+            {(["deck", "list"] as const).map((v) => (
+              <button key={v} type="button" onClick={() => setView(v)} className={cn("rounded-full px-3 py-1 capitalize", view === v ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}>
+                {v === "deck" ? "Cards" : "List"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

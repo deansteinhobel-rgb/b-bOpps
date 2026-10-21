@@ -185,7 +185,7 @@ function ImpressionShare({ days }: { days: ImpressionShareDay[] }) {
             )
           })}
         </div>
-        <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+        <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
           <span>{shortDay(valid[0].date)}</span>
           <span>{shortDay(valid.at(-1)!.date)}</span>
         </div>
@@ -271,13 +271,13 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
   const pickedTerms = [...new Map(visible.filter((t) => picked.has(termKey(t))).map((t) => [termKey(t), t])).values()]
   const flag = (t: Term) => {
     const done = pushedFor(t)
-    if (done) return <span className="rounded-full border border-rag-green/40 px-1.5 py-px text-[11px] text-rag-green" title={`${done.matchType.toLowerCase()} match, ${done.adGroupId ? "this ad group" : "whole campaign"}, ${new Date(done.at).toLocaleDateString("en-GB")}`}>Negative added</span>
+    if (done) return <span className="rounded-full border border-rag-green/40 px-1.5 py-px text-[10px] text-rag-green" title={`${done.matchType.toLowerCase()} match, ${done.adGroupId ? "this ad group" : "whole campaign"}, ${new Date(done.at).toLocaleDateString("en-GB")}`}>Negative added</span>
     const icp = icpFor(t)
-    if (icp?.verdict === "exclude") return <span className="rounded-full border border-rag-red/40 bg-rag-red/10 px-1.5 py-px text-[11px] text-rag-red" title={`Off-ICP: ${icp.reason}`}>Off-ICP</span>
-    if (icp?.verdict === "watch") return <span className="rounded-full border border-rag-amber/40 px-1.5 py-px text-[11px] text-rag-amber" title={`Watch: ${icp.reason}`}>Watch</span>
-    if (isNegativeCandidate(t, target)) return <span className="rounded-full border border-rag-red/40 px-1.5 py-px text-[11px] text-rag-red">Negative?</span>
-    if (!pmax && !t.isKeyword && t.m.results >= 2) return <span className="rounded-full border border-rag-green/40 px-1.5 py-px text-[11px] whitespace-nowrap text-rag-green">Add as keyword?</span>
-    if (t.isKeyword) return <span className="text-[11px] text-subtle-foreground">keyword</span>
+    if (icp?.verdict === "exclude") return <span className="rounded-full border border-rag-red/40 bg-rag-red/10 px-1.5 py-px text-[10px] text-rag-red" title={`Off-ICP: ${icp.reason}`}>Off-ICP</span>
+    if (icp?.verdict === "watch") return <span className="rounded-full border border-rag-amber/40 px-1.5 py-px text-[10px] text-rag-amber" title={`Watch: ${icp.reason}`}>Watch</span>
+    if (isNegativeCandidate(t, target)) return <span className="rounded-full border border-rag-red/40 px-1.5 py-px text-[10px] text-rag-red">Negative?</span>
+    if (!pmax && !t.isKeyword && t.m.results >= 2) return <span className="rounded-full border border-lime/40 px-1.5 py-px text-[10px] text-lime">Add as keyword?</span>
+    if (t.isKeyword) return <span className="text-[10px] text-subtle-foreground">keyword</span>
     return null
   }
   const termCols: Col<Term>[] = [
@@ -303,7 +303,7 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
       value: (r) => r.dim2,
       render: (r) =>
         MATCH_SOURCE[r.dim2]?.aiMax ? (
-          <span className="rounded-full border border-border-strong px-1.5 py-px text-[11px] text-body" title={MATCH_SOURCE[r.dim2].hint}>
+          <span className="rounded-full border border-violet-400/40 px-1.5 py-px text-[10px] text-violet-300" title={MATCH_SOURCE[r.dim2].hint}>
             AI Max
           </span>
         ) : (
@@ -319,7 +319,7 @@ function GoogleDetail({ data, currency, target, negatives }: { data: Extract<Cam
     const v = kwVerdict.get(cleanTerm(r.dim1))
     if (!v) return null
     return (
-      <span className={cn("rounded-full border px-1.5 py-px text-[11px]", v.verdict === "pause" ? "border-rag-red/40 text-rag-red" : "border-rag-amber/40 text-rag-amber")} title={`${v.reason} Change it in Google Ads: the app doesn't edit keywords.`}>
+      <span className={cn("rounded-full border px-1.5 py-px text-[10px]", v.verdict === "pause" ? "border-rag-red/40 text-rag-red" : "border-rag-amber/40 text-rag-amber")} title={`${v.reason} Change it in Google Ads: the app doesn't edit keywords.`}>
         {v.verdict === "pause" ? "Pause?" : "Review"}
       </span>
     )
