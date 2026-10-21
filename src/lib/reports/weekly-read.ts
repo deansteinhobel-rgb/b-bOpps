@@ -1,5 +1,9 @@
 import "server-only"
+import { unstable_cache } from "next/cache"
 import type { Db } from "@/lib/supabase/db"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { dataStamp, windsorTag } from "@/lib/metrics/cached"
+import { codeFingerprint } from "@/lib/insights/rules"
 import { addDays } from "@/lib/metrics/ads"
 import { adsForPeriod } from "@/lib/metrics/ads-period"
 import { pickAds, type ReportAd } from "@/lib/metrics/client-report"
@@ -41,8 +45,8 @@ import {
  * pacing and goals, plus the open Recommendations. ABX: the client's account-based campaigns (its ABX
  * segment) with the LinkedIn companies and job titles they reached.
  *
- * SECURITY: `admin` reads with the secret key. Callers load the client through RLS first (the page
- * does); `user` is the person's own client, for the Recommendations log.
+ * SECURITY: the numbers are read with the secret key (and cached for everyone). Callers load the client
+ * through RLS first (the page does); `user` is the person's own client, for the Recommendations log.
  */
 /** Week: those 7 days against the 7 before. Month: the month so far against the same days last month. */
 export type PeriodSpec = { kind: "week"; from: string; to: string } | { kind: "month" }
@@ -50,34 +54,16 @@ export type PeriodSpec = { kind: "week"; from: string; to: string } | { kind: "m
 /** The words and dates the read uses for its period. */
 type Words = { kind: "week" | "month"; from: string; to: string; range: RangeSpec; current: string; prevWord: string; refreshWeek: string }
 
-export async function loadWeeklyRead(admin: Db, user: Db, client: { id: string; slug: string; monthly_kpi_target: number | string | null }, spec: PeriodSpec): Promise<WeeklyRead | null> {
-  let words: Words
-  if (spec.kind === "week") {
-    words = { kind: "week", from: spec.from, to: spec.to, range: { kind: "custom", from: spec.from, to: spec.to }, current: "last week", prevWord: "the week before", refreshWeek: spec.from }
-  } else {
-    const { data: ranges } = await dataRanges(admin, client.id)
-    const through = (ranges ?? []).map((r) => r.data_through as string).sort().at(-1)
-    if (!through) return null
-    words = { kind: "month", from: `${through.slice(0, 7)}-01`, to: through, range: { kind: "preset", preset: "mtd" }, current: "this month", prevWord: "the same days last month", refreshWeek: lastWeek(londonToday()).from }
-  }
-  const week = { from: words.from, to: words.to }
-  const trendFrom = addDays(week.to, -55)
-  const [snap, trend, feed, targets] = await Promise.all([
-    weeklySnapshot(admin, client.id, week, 3600, words.range),
-    getPerformance(admin, client.id, { range: { kind: "custom", from: trendFrom, to: week.to } }),
-    loadFeed(user, client.id),
-    loadTargets(admin, client.id, client.monthly_kpi_target),
-  ])
-  if (!snap) return null
-  const m = (v: number | null | undefined, digits = 0) => (v === null || v === undefined ? "–" : fmtMoney(v, snap.client.currency, digits))
+export async function loadWeeklyRead(user: Db, client: Client, spec: PeriodSpec): Promise<WeeklyRead | null> {
+  const [numbers, feed] = await Promise.all([cachedNumbers(client, spec), loadFeed(user, client.id)])
+  if (!numbers) return null
+  const { words, snap, daily, abx } = numbers
+  const m = moneyIn(snap.client.currency)
   const base = `/clients/${client.slug}`
   const insights = (feed?.insights ?? []).filter((i) => i.state === "open")
   const startHere = new Map((feed?.review?.startHere ?? []).map((s, n) => [s.key, { n, why: s.why }]))
-
-  const overall = buildOverall(snap, trend?.daily ?? [], insights, startHere, base, m, words)
-
-  const abxDef = segmentsFor(client.slug).find((d) => d.key === "abx")
-  const abx = abxDef ? await buildAbx(admin, client.id, snap, words, abxDef, targetFor(targets, "linkedin"), base, m) : null
+  const overall = buildOverall(snap, daily, insights, startHere, base, m, words)
+  const week = { from: words.from, to: words.to }
 
   // What the totals were compared with: the 7 days before, or the same days last month.
   const prevFrom = words.kind === "week" ? addDays(week.from, -7) : shiftMonth(week.from, -1)
@@ -91,6 +77,46 @@ export async function loadWeeklyRead(admin: Db, user: Db, client: { id: string; 
     overall,
     abx,
   }
+}
+
+type Client = { id: string; slug: string; monthly_kpi_target: number | string | null }
+const moneyIn = (currency: string): Money => (v, digits = 0) => (v === null || v === undefined ? "–" : fmtMoney(v, currency, digits))
+
+/**
+ * The slow part of the read (the period's numbers, ads, pacing, goals, the 8-week trend and the ABX view)
+ * cached for the London day (Dean, 2026-10-21: it took seconds on every open). The key carries the
+ * client's data stamp, so a sync or Claude's review shows straight away, and the windsor tag is dropped
+ * when budgets, targets or goals are edited. The Recommendations log is read live on every open.
+ * Ad previews are signed for 2 days, longer than an entry can be served.
+ */
+const DAY = 86_400
+const READ_CODE = codeFingerprint(computeNumbers, weeklySnapshot, getPerformance, buildAbx, liSnapshots)
+async function cachedNumbers(client: Client, spec: PeriodSpec) {
+  const today = londonToday()
+  const key = spec.kind === "week" ? `week:${spec.from}` : "month"
+  return unstable_cache(() => computeNumbers(createAdminClient(), client, spec, today), ["weekly-read", "v1", READ_CODE, client.id, await dataStamp(client.id), key, today], { tags: ["windsor", windsorTag(client.id)], revalidate: DAY })()
+}
+
+async function computeNumbers(admin: Db, client: Client, spec: PeriodSpec, today: string) {
+  let words: Words
+  if (spec.kind === "week") {
+    words = { kind: "week", from: spec.from, to: spec.to, range: { kind: "custom", from: spec.from, to: spec.to }, current: "last week", prevWord: "the week before", refreshWeek: spec.from }
+  } else {
+    const { data: ranges } = await dataRanges(admin, client.id)
+    const through = (ranges ?? []).map((r) => r.data_through as string).sort().at(-1)
+    if (!through) return null
+    words = { kind: "month", from: `${through.slice(0, 7)}-01`, to: through, range: { kind: "preset", preset: "mtd" }, current: "this month", prevWord: "the same days last month", refreshWeek: lastWeek(today).from }
+  }
+  const week = { from: words.from, to: words.to }
+  const [snap, trend, targets] = await Promise.all([
+    weeklySnapshot(admin, client.id, week, 2 * DAY, words.range),
+    getPerformance(admin, client.id, { range: { kind: "custom", from: addDays(week.to, -55), to: week.to } }),
+    loadTargets(admin, client.id, client.monthly_kpi_target),
+  ])
+  if (!snap) return null
+  const abxDef = segmentsFor(client.slug).find((d) => d.key === "abx")
+  const abx = abxDef ? await buildAbx(admin, client.id, snap, words, abxDef, targetFor(targets, "linkedin"), `/clients/${client.slug}`, moneyIn(snap.client.currency)) : null
+  return { words, snap, daily: trend?.daily ?? [], abx }
 }
 
 /** The same day of another month, clipped to that month's last day. */
@@ -316,7 +342,7 @@ async function buildAbx(admin: Db, clientId: string, snap: WeeklySnapshot, w: Wo
 
   // Ads in the ABX campaigns last week, with their format from the preview (document, carousel...).
   const abxAds = ads.filter((a) => isAbx(a.campaign_name) && a.spend > 0)
-  const previews: PreviewMap = abxAds.length ? await previewsFor(admin, clientId, abxAds) : {}
+  const previews: PreviewMap = abxAds.length ? await previewsFor(admin, clientId, abxAds, 2 * DAY) : {}
   const asRead = (a: ReportAd | (typeof abxAds)[number]): ReadAd => ({ key: adKey(a), name: a.ad_name ?? a.ad_id, platform: a.platform, preview: previews[adKey(a)] ?? null })
   const formatOf = (a: (typeof abxAds)[number]) => kindOf(previews[adKey(a)])
   const formats = new Map<string, FormatRow>()

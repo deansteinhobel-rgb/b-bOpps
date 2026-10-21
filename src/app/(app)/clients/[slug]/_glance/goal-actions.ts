@@ -1,8 +1,9 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { z } from "zod"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
+import { windsorTag } from "@/lib/metrics/cached"
 import { createClient } from "@/lib/supabase/server"
 
 // Client goal figures (e.g. DNSFilter's Activated Free Trials). Anyone who can edit the client (checked
@@ -36,6 +37,7 @@ export async function saveGoalValue(slug: string, raw: z.input<typeof Input>): P
     { onConflict: "goal_id,month" },
   )
   if (error) return { ok: false, message: "Couldn't save." }
+  revalidateTag(windsorTag(goal.client_id), { expire: 0 }) // the cached Summary and Weekly read show goals
   revalidatePath(`/clients/${slug}`)
   return { ok: true }
 }
