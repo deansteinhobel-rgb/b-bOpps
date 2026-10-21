@@ -55,7 +55,23 @@ const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim
 export function fieldsFor(account: WindsorAccount, level: Level = "ad"): string[] {
   const dims = DIMENSIONS[account.windsor_connector]
   if (!dims) throw new Error(`Unknown Windsor connector: ${account.windsor_connector}`)
-  return [...new Set(["date", dims.campaign_id, dims.campaign_name, ...(level === "ad" ? [dims.ad_id] : []), ...METRICS, ...account.conversion_fields, ...account.lead_fields])]
+  const results = [...account.conversion_fields, ...account.lead_fields].filter((f) => !splitsOut(account, f))
+  return [...new Set(["date", dims.campaign_id, dims.campaign_name, ...(level === "ad" ? [dims.ad_id] : []), ...METRICS, ...results])]
+}
+
+/**
+ * Result fields Windsor must be asked for on their own. Its Meta connector, given an action field
+ * (`actions_lead`, `actions_*`) with spend over more than one day, returns every row but zeroes spend and
+ * impressions on all days except the last (DNSFilter, 7-19 Oct 2026: $1,790 of $7,433). A request with the
+ * action fields and no metrics counts them correctly, so they come in a second request (`splitFieldsFor`)
+ * and are merged by date, campaign and ad. Custom pixel conversions (`conversions_*`) are fine alongside.
+ */
+const splitsOut = (account: WindsorAccount, field: string) => account.windsor_connector === "facebook" && field.startsWith("actions_")
+
+export function splitFieldsFor(account: WindsorAccount, level: Level = "ad"): string[] {
+  const dims = DIMENSIONS[account.windsor_connector]
+  const split = [...account.conversion_fields, ...account.lead_fields].filter((f) => splitsOut(account, f))
+  return split.length ? [...new Set(["date", dims.campaign_id, ...(level === "ad" ? [dims.ad_id] : []), ...split])] : []
 }
 
 /**
@@ -108,13 +124,53 @@ const windsorGet = (account: WindsorAccount, dateFrom: string, dateTo: string, f
 /** One request per account, filtered to that account by Windsor (never pull all and filter). */
 export async function fetchAccountMetrics(account: WindsorAccount, dateFrom: string, dateTo: string, level: Level = "ad"): Promise<MetricRow[]> {
   const dims = DIMENSIONS[account.windsor_connector]
-  const [data, names] = await Promise.all([
+  const split = splitFieldsFor(account, level)
+  const [data, extra, names] = await Promise.all([
     windsorGet(account, dateFrom, dateTo, fieldsFor(account, level)),
+    split.length ? splitRows(account, dateFrom, dateTo, split) : [],
     level === "ad" ? windsorGet(account, dateFrom, dateTo, nameFieldsFor(account)).catch(() => []) : [], // names are cosmetic
   ])
   const adNames = new Map<string, string>()
   for (const n of names) if (str(n[dims.ad_id]) && str(n[dims.ad_name])) adNames.set(str(n[dims.ad_id]), str(n[dims.ad_name]))
-  return toMetricRows(account, data, adNames)
+  return mergeSplitRows(toMetricRows(account, data, adNames), toMetricRows(account, extra))
+}
+
+/**
+ * The split request. Meta sometimes refuses action fields over a range ("Facebook returned incomplete
+ * time-series data", DNSFilter 15-21 Sept 2026) but answers each day on its own, so a failed range is asked
+ * for a day at a time (one by one: Meta rate-limits). A day that still fails fails the sync.
+ */
+async function splitRows(account: WindsorAccount, dateFrom: string, dateTo: string, fields: string[]) {
+  try {
+    return await windsorGet(account, dateFrom, dateTo, fields)
+  } catch (e) {
+    if (dateFrom === dateTo) throw e
+    const out: Record<string, unknown>[] = []
+    for (let d = dateFrom; d <= dateTo; d = new Date(Date.parse(d) + 864e5).toISOString().slice(0, 10)) out.push(...(await windsorGet(account, d, d, fields)))
+    return out
+  }
+}
+
+/**
+ * Adds the split request's results (`splitFieldsFor`) to the numbers rows with the same date, campaign and ad.
+ * A result on a key with no numbers row (rare: a lead attributed to a day the ad didn't spend) becomes its own
+ * row with no spend, so no result is lost.
+ */
+export function mergeSplitRows(rows: MetricRow[], extra: MetricRow[]): MetricRow[] {
+  if (!extra.length) return rows
+  const key = (r: MetricRow) => `${r.date}|${r.campaign_id}|${r.ad_id}`
+  const byKey = new Map(rows.map((r) => [key(r), r]))
+  for (const e of extra) {
+    const row = byKey.get(key(e))
+    if (!row) {
+      if (e.conversions || e.leads) rows.push({ ...e, spend: 0, impressions: 0, clicks: 0 })
+      continue
+    }
+    row.conversions += e.conversions
+    row.leads += e.leads
+    row.raw = { ...row.raw, ...e.raw }
+  }
+  return rows
 }
 
 /**
