@@ -8,7 +8,7 @@ import { pickAds, type ReportAd } from "@/lib/metrics/client-report"
 import { fatigueInputs } from "@/lib/metrics/fatigue-snapshot"
 import { getPacing } from "@/lib/metrics/overview"
 import { getPerformance, type Derived } from "@/lib/metrics/performance"
-import { adKey, previewsFor, type PreviewMap } from "@/lib/previews"
+import { adKey, previewsFor, type Preview, type PreviewMap } from "@/lib/previews"
 import { PLATFORMS, type Platform } from "@/lib/metrics/types"
 import { loadTargets, targetFor } from "@/lib/targets"
 import { STALE_DAYS, type Tone } from "./weekly-message"
@@ -26,7 +26,8 @@ import { STALE_DAYS, type Tone } from "./weekly-message"
 const STALE_SHOWN = 3
 
 /** `image`: a signed link to our copy of the ad's image; `link`: the ad's public post, where there is one. */
-export type WeekAd = { name: string; campaign: string | null; spend: number; results: number; cpr: number | null; ctr: number | null; image: string | null; link: string | null; kind: string | null }
+/** `preview`: the whole preview, for the app's weekly read (search ad mocks, document covers, hover). */
+export type WeekAd = { name: string; campaign: string | null; spend: number; results: number; cpr: number | null; ctr: number | null; image: string | null; link: string | null; kind: string | null; preview: Preview | null }
 export type StaleAd = { name: string; campaign: string | null; ageDays: number; ageCapped: boolean; spend30: number }
 export type WeekPlatform = {
   platform: Platform
@@ -81,7 +82,7 @@ const goalTone = (value: number, expected: number): Tone => {
 
 const weekAd = (a: ReportAd, previews: PreviewMap): WeekAd => {
   const p = previews[adKey(a)]
-  return { name: a.ad_name ?? a.ad_id, campaign: a.campaign_name, spend: a.spend, results: a.results, cpr: a.costPerResult, ctr: a.ctr, image: p?.src ?? null, link: p?.link ?? null, kind: p?.textOnly ? "Search ad" : (p?.kind ?? null) }
+  return { name: a.ad_name ?? a.ad_id, campaign: a.campaign_name, spend: a.spend, results: a.results, cpr: a.costPerResult, ctr: a.ctr, image: p?.src ?? null, link: p?.link ?? null, kind: p?.textOnly ? "Search ad" : (p?.kind ?? null), preview: p ?? null }
 }
 
 /** `previewTtl`: how long the ad image links last (seconds). Slack posts keep theirs for 90 days. */

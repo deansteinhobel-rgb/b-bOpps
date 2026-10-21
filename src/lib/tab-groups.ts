@@ -22,6 +22,8 @@ const REPORTING: TabGroup = {
   key: "reporting",
   label: "Reporting",
   items: [
+    // Dean, 2026-10-21: last week at a glance (after ZenABM's reports), Overall and ABX.
+    { href: "/reporting/weekly", label: "Weekly read" },
     { href: "/reporting", label: "Dashboard" },
     // Dean, 2026-10-19: the step-by-step report the team shares with the client.
     { href: "/reporting/client-report", label: "Client report" },
