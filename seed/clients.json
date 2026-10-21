@@ -176,8 +176,8 @@
           "windsor_connector": "reddit",
           "external_account_id": "t2_3q8y68o7",
           "account_name": "dnsfilter",
-          "monthly_budget": 5000,
-          "kpi_target": 650,
+          "monthly_budget": 6500,
+          "kpi_target": 750,
           "conversion_fields": [
             "conversion_lead_clicks",
             "conversion_sign_up_clicks",
