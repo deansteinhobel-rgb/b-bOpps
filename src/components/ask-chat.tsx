@@ -124,7 +124,7 @@ export function AskChat({ aiReady }: { aiReady: boolean }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-full border border-lime/30 bg-card py-2 pr-4 pl-2 text-sm shadow-lg shadow-black/40 transition-colors hover:border-lime/60"
+        className="fixed right-4 bottom-4 z-40 flex items-center gap-2 rounded-full border border-border-strong bg-card py-2 pr-4 pl-2 text-sm shadow-lg shadow-black/40 transition-colors hover:border-white/50"
         aria-label={campaign ? "Ask about this campaign or the latest paid media news" : "Ask about the latest paid media news"}
       >
         <WinePour progress={0.7} pouring={false} className="h-8 w-7 text-foreground" />
@@ -185,7 +185,7 @@ export function AskChat({ aiReady }: { aiReady: boolean }) {
                   onClick={() => ask(s)}
                   className={cn(
                     "rounded-full border px-3 py-1.5 text-left text-xs transition-colors disabled:opacity-50",
-                    active === "campaign" && s === WEEKLY_READ ? "border-lime/40 bg-lime/10 text-foreground hover:bg-lime/15" : "text-muted-foreground hover:border-foreground/30 hover:text-foreground",
+                    active === "campaign" && s === WEEKLY_READ ? "border-border-strong bg-elevated text-foreground hover:bg-[#303030]" : "text-muted-foreground hover:border-foreground/30 hover:text-foreground",
                   )}
                 >
                   {s}

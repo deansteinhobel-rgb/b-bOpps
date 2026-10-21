@@ -53,24 +53,24 @@ export function GlanceCard({
         type="button"
         onClick={() => go(true)}
         aria-haspopup="dialog"
-        className={cn("group surface flex min-w-0 cursor-pointer flex-col p-4 text-left transition-colors outline-none hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-lime/60", className)}
+        className={cn("group surface flex min-w-0 cursor-pointer flex-col p-4 text-left transition-colors outline-none hover:border-border-strong focus-visible:ring-2 focus-visible:ring-ring", className)}
       >
         <span className="flex w-full items-baseline justify-between gap-2">
           <span className="flex min-w-0 items-baseline gap-2">
             <span className="text-sm font-semibold">{title}</span>
-            {meta && <span className="truncate text-[11px] text-muted-foreground">{meta}</span>}
+            {meta && <span className="truncate text-xs text-muted-foreground">{meta}</span>}
           </span>
-          <span className="flex shrink-0 items-center text-[11px] text-muted-foreground transition-colors group-hover:text-foreground">
+          <span className="flex shrink-0 items-center text-xs text-muted-foreground transition-colors group-hover:text-foreground">
             Details <ChevronRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
           </span>
         </span>
         {/* The summary is for reading; the whole card opens the panel. */}
-        <span className="pointer-events-none mt-3 block min-w-0 flex-1">{summary}</span>
+        <span className="pointer-events-none mt-3 flex min-w-0 flex-1 flex-col">{summary}</span>
       </button>
 
       <DialogPrimitive.Root open={open} onOpenChange={(o) => !o && go(false)}>
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/40 duration-150 supports-backdrop-filter:backdrop-blur-xs data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0" />
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/50 duration-150 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0" />
           <DialogPrimitive.Popup
             className={cn(
               "fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l bg-background text-sm shadow-2xl outline-none duration-200 data-closed:animate-out data-closed:slide-out-to-right data-open:animate-in data-open:slide-in-from-right",

@@ -159,7 +159,10 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
           No ad data for this sprint yet: Windsor data runs through {longDate(shown.dataThrough)} and syncs daily.
         </p>
       )}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* One box split by hairlines (taste skill: group, don't box): each cell draws its left and top
+          line, and the grid sits 1px up and left so the outer ones are clipped. */}
+      <div className="surface overflow-hidden">
+      <div className="-mt-px -ml-px grid sm:grid-cols-2 lg:grid-cols-4 [&>*]:shadow-[inset_1px_1px_0_var(--border)]">
         <Stat label="Spend" value={money(shown.current.spend, cur)} change={pctChange(shown.current.spend, shown.previous.spend)} />
         <Stat label="Results" value={oneDp(shown.current.results)} change={pctChange(shown.current.results, shown.previous.results)} goodWhenUp />
         <Stat
@@ -170,6 +173,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
           note={target ? `Target ${money(target, cur)}` : undefined}
         />
         <Trend trend={shown.trend} current={period.number} currency={cur} />
+      </div>
       </div>
     </>
   ))
@@ -212,10 +216,9 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
       <header className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="eyebrow">Sprint</p>
-            <h2 className="mt-1 text-4xl">
+            <h2 className="text-[28px] leading-9">
               Sprint {period.number}{" "}
-              <span className="text-2xl text-muted-foreground">
+              <span className="text-xl text-muted-foreground">
                 · {longDate(period.start)} – {longDate(period.end)}
               </span>
             </h2>
@@ -235,8 +238,9 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
           </div>
         </div>
         {isCurrent && (
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary" aria-hidden>
-            <div className="h-full bg-lime" style={{ width: `${(day / SPRINT_DAYS) * 100}%` }} />
+          // Where we are in the fortnight: a 2px track, the days gone in white (lime is the selection mark).
+          <div className="h-0.5 w-full bg-border" aria-hidden>
+            <div className="h-full bg-foreground" style={{ width: `${(day / SPRINT_DAYS) * 100}%` }} />
           </div>
         )}
         {isCurrent && previous && !previous.closed_at && (
@@ -305,16 +309,16 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
           <h2 className="text-2xl">Sprint review</h2>
           <p className="text-sm text-muted-foreground">Built from the tests. Add the key takeaway, then close the sprint.</p>
         </div>
-        <div className="space-y-4 rounded-lg border border-lime/25 bg-card p-4 sm:p-6">
+        <div className="surface space-y-4 p-4 sm:p-6">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="font-heading text-2xl">Sprint {period.number} review</p>
+            <p className="text-lg font-semibold">Sprint {period.number} review</p>
             <p className="text-xs text-muted-foreground">
               {tests.filter((t) => t.outcome === "proven").length} proven · {tests.filter((t) => t.outcome === "disproven").length} disproven ·{" "}
               {tests.filter((t) => t.outcome === "inconclusive").length} inconclusive · {tests.filter((t) => t.outcome === "carried").length} carried over
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-            <span className="shrink-0 rounded-full bg-lime px-3 py-1 text-xs font-bold text-ink">Key takeaway</span>
+            <span className="shrink-0 pt-1 text-sm font-semibold">Key takeaway</span>
             <div className="flex-1">
               <EditableText sprintId={sprint.id} field="key_takeaway" initial={sprint.key_takeaway} placeholder="The single most important learning from this sprint…" rows={2} readOnly={closed} label="Key takeaway" />
             </div>
@@ -452,10 +456,10 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
       {/* History */}
       <section className="space-y-3">
         <h2 className="text-2xl">Sprint history</h2>
-        <ul className="divide-y rounded-lg border bg-card text-sm">
+        <ul className="surface divide-y text-sm">
           {history.map((h) => (
             <li key={h.id}>
-              <Link href={`/clients/${slug}/sprint${h.number === current.number ? "" : `?n=${h.number}`}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-secondary/50">
+              <Link href={`/clients/${slug}/sprint${h.number === current.number ? "" : `?n=${h.number}`}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-white/[0.03]">
                 <span>
                   <strong>Sprint {h.number}</strong> <span className="text-muted-foreground">· {longDate(h.start_date)}</span>
                   {h.key_takeaway && <span className="mt-0.5 block text-muted-foreground">“{h.key_takeaway}”</span>}
@@ -475,8 +479,8 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
 
 function Box({ title, accent, children }: { title: string; accent?: boolean; children: React.ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-lg border bg-background/60 text-sm text-foreground">
-      <p className={cn("border-b px-4 py-2.5 text-xs font-medium", accent ? "border-lime/30 text-lime" : "text-muted-foreground")}>{title}</p>
+    <div className="overflow-hidden rounded-lg border text-sm text-foreground">
+      <p className={cn("border-b px-4 py-2.5 text-xs font-medium", accent ? "font-semibold text-foreground" : "text-muted-foreground")}>{title}</p>
       <div className="p-4">{children}</div>
     </div>
   )
@@ -502,9 +506,9 @@ function ReviewList({ items, empty }: { items: { id: string; head: string; body:
 function Stat({ label, value, change, goodWhenUp, goodWhenDown, note }: { label: string; value: string; change?: number | null; goodWhenUp?: boolean; goodWhenDown?: boolean; note?: string }) {
   const good = change === null || change === undefined ? null : goodWhenDown ? change < 0 : goodWhenUp ? change > 0 : null
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-heading text-2xl tabular-nums">{value}</p>
+    <div className="p-4">
+      <p className="text-[13px] text-muted-foreground">{label}</p>
+      <p className="mt-1 text-2xl font-medium tabular-nums">{value}</p>
       {change !== undefined && <p className={cn("text-xs", good === null ? "text-muted-foreground" : good ? "text-rag-green" : "text-rag-red")}>{signedPct(change ?? null)} vs last sprint</p>}
       {note && <p className="text-xs text-muted-foreground">{note}</p>}
     </div>
@@ -514,13 +518,13 @@ function Stat({ label, value, change, goodWhenUp, goodWhenDown, note }: { label:
 function Trend({ trend, current, currency }: { trend: { number: number; costPerResult: number | null }[]; current: number; currency: string }) {
   const max = Math.max(...trend.map((t) => t.costPerResult ?? 0), 1)
   return (
-    <div className="rounded-lg border bg-card p-4">
-      <p className="text-xs text-muted-foreground">Cost per result by sprint</p>
+    <div className="p-4">
+      <p className="text-[13px] text-muted-foreground">Cost per result by sprint</p>
       <div className="mt-2 flex h-16 items-end gap-1.5" role="img" aria-label={trend.map((t) => `Sprint ${t.number}: ${t.costPerResult === null ? "no results" : money(t.costPerResult, currency)}`).join(", ")}>
         {trend.map((t) => (
           <div key={t.number} className="flex flex-1 flex-col items-center gap-1" title={`Sprint ${t.number}: ${t.costPerResult === null ? "no results" : money(t.costPerResult, currency)}`}>
-            <div className={cn("w-full rounded-sm", t.number === current ? "bg-lime" : "bg-violet/50")} style={{ height: `${t.costPerResult ? Math.max((t.costPerResult / max) * 48, 3) : 2}px` }} />
-            <span className="text-[10px] text-muted-foreground">{t.number}</span>
+            <div className={cn("w-full", t.number === current ? "bg-lime" : "bg-white/20")} style={{ height: `${t.costPerResult ? Math.max((t.costPerResult / max) * 48, 3) : 2}px` }} />
+            <span className="text-[11px] text-muted-foreground">{t.number}</span>
           </div>
         ))}
       </div>

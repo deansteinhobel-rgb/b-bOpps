@@ -11,7 +11,7 @@ export const metadata = { title: "Activity" }
 const SOURCES = Object.keys(SOURCE_LABEL) as ActivitySource[]
 const SOURCE_CLS: Record<ActivitySource, string> = {
   app: "border-white/15 text-body",
-  platform: "border-lime/40 text-lime",
+  platform: "border-white/30 text-foreground",
   notion: "border-white/15 text-muted-foreground",
   outside: "border-[#ff3d8a]/40 text-[#ff3d8a]",
 }
@@ -71,7 +71,7 @@ export default async function ActivityPage({ searchParams }: PageProps<"/admin/a
                     <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       {who ? (
                         <Link href={`/people/${who.id}`} className="inline-flex items-center gap-1.5 font-medium hover:underline">
-                          <Avatar name={name} url={who.avatar_url} className="size-5 text-[9px]" />
+                          <Avatar name={name} url={who.avatar_url} className="size-5 text-[11px]" />
                           {name}
                         </Link>
                       ) : (

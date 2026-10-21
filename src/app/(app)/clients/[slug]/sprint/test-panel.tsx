@@ -339,7 +339,7 @@ function DayBars({ label, data, liveFrom, format }: { label: string; data: { dat
         })}
         {liveIdx > 0 && <line x1={liveIdx * w} x2={liveIdx * w} y1={0} y2={32} className="stroke-foreground/60" strokeWidth={0.4} strokeDasharray="1 1" vectorEffect="non-scaling-stroke" />}
       </svg>
-      <div className="flex justify-between text-[10px] text-subtle-foreground">
+      <div className="flex justify-between text-[11px] text-subtle-foreground">
         <span>{data[0] && longDate(data[0].date)}</span>
         {liveIdx > 0 && <span className="text-foreground/70">went live {longDate(liveFrom)}</span>}
         <span>{data.at(-1) && longDate(data.at(-1)!.date)}</span>
@@ -391,7 +391,7 @@ function Setup({ test: t, detail: d }: { test: SprintTest; detail: TestDetail })
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold">
           How it&apos;s measured
-          {d.kindGuessed && <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-normal text-muted-foreground">worked out by the app</span>}
+          {d.kindGuessed && <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-normal text-muted-foreground">worked out by the app</span>}
         </h3>
         <Segmented label="Kind of test" tone="quiet" value={kind} onChange={setKind} options={(Object.keys(TEST_KINDS) as TestKind[]).map((k) => ({ value: k, label: TEST_KINDS[k].label, title: TEST_KINDS[k].hint }))} />
       </div>

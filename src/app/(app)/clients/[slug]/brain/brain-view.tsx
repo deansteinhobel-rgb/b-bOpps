@@ -31,7 +31,7 @@ export type Knowledge = {
 }
 
 const NOTE_KINDS = [
-  { key: "target", label: "Target", cls: "border-lime/40 text-lime" },
+  { key: "target", label: "Target", cls: "border-white/30 text-foreground" },
   { key: "constraint", label: "Rule", cls: "border-rag-red/40 text-rag-red" },
   { key: "note", label: "Note", cls: "border-foreground/20 text-muted-foreground" },
 ] as const
@@ -237,7 +237,7 @@ function BriefPanel({ slug, brief, sources, canAdmin }: { slug: string; brief: B
               a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="underline">{children}</a>,
               code: ({ children }) => {
                 const t = String(children)
-                return t.startsWith("§") ? <span className="ml-1 inline-block rounded border px-1.5 py-px align-middle text-[10px] text-subtle-foreground">{t.slice(1)}</span> : <code className="rounded bg-accent px-1 text-xs">{t}</code>
+                return t.startsWith("§") ? <span className="ml-1 inline-block rounded border px-1.5 py-px align-middle text-[11px] text-subtle-foreground">{t.slice(1)}</span> : <code className="rounded bg-accent px-1 text-xs">{t}</code>
               },
             }}
           >
@@ -269,7 +269,7 @@ function MustKnows({ slug, notes }: { slug: string; notes: Knowledge[] }) {
       <ul className="divide-y">
         {notes.map((n) => (
           <li key={n.id} className="group flex items-start gap-2 px-4 py-2.5 text-sm">
-            <span className={cn("mt-0.5 shrink-0 rounded-full border px-1.5 py-px text-[10px]", kindOf(n.category).cls)}>{kindOf(n.category).label}</span>
+            <span className={cn("mt-0.5 shrink-0 rounded-full border px-1.5 py-px text-[11px]", kindOf(n.category).cls)}>{kindOf(n.category).label}</span>
             <span className="min-w-0 flex-1 whitespace-pre-line">{n.title.length < 80 ? n.title : n.title + "…"}</span>
             <button type="button" onClick={() => start(async () => void (await removeNote(slug, n.id)))} className="shrink-0 text-subtle-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground" aria-label="Remove">
               <X className="size-3.5" />
@@ -363,7 +363,7 @@ function NotionSources({ slug, title, intro, empty, pages, canAdmin }: { slug: s
       <span className="min-w-0 flex-1">
         <span className="block truncate">
           {p.title}
-          {p.notion_kind === "database" && <span className="ml-1.5 text-[10px] text-muted-foreground">database</span>}
+          {p.notion_kind === "database" && <span className="ml-1.5 text-[11px] text-muted-foreground">database</span>}
         </span>
         {p.path && <span className="block truncate text-[11px] text-subtle-foreground">{p.path}</span>}
       </span>

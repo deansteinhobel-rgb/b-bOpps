@@ -31,7 +31,7 @@ export function AdThumb({ preview, alt, size = "md", className }: { preview?: Pr
   }
   if (!preview?.src) {
     const label = preview?.textOnly ? "Text ad" : (preview?.kind ?? "No preview")
-    const cls = cn(tile, "flex items-center justify-center p-1 text-center text-[10px] leading-tight text-muted-foreground")
+    const cls = cn(tile, "flex items-center justify-center p-1 text-center text-[11px] leading-tight text-muted-foreground")
     if (site)
       return (
         <a href={preview!.link!} target="_blank" rel="noreferrer" className={cn(cls, "transition-colors hover:border-foreground/30 hover:text-foreground")} aria-label={`${alt}: ${label}, open it in ${site}`} title={`Open in ${site}`}>
@@ -123,7 +123,7 @@ function SearchAdThumb({ ad, alt, className, size }: { ad: TextAd; alt: string; 
       <HoverCardTrigger delay={150} render={<span className={cn("shrink-0", size === "card" && "block")} tabIndex={0} aria-label={`${alt}: search ad mock`} />}>
         {/* A tiny Google result: Sponsored, then the blue headline (and the description on cards). */}
         <span className={cn(className, "flex flex-col gap-0.5 bg-white p-1 text-left", size === "lg" && "p-2", size === "card" && "justify-center gap-1.5 p-4")}>
-          <span className={cn("font-bold text-[#202124]", size === "card" ? "text-[11px]" : size === "lg" ? "text-[9px]" : "text-[6px]")}>Sponsored</span>
+          <span className={cn("font-bold text-[#202124]", size === "card" ? "text-[11px]" : size === "lg" ? "text-[11px]" : "text-[6px]")}>Sponsored</span>
           <span className={cn("font-medium leading-tight text-[#1a0dab]", size === "card" ? "line-clamp-4 text-[15px]" : size === "lg" ? "line-clamp-4 text-[11px]" : size === "md" ? "line-clamp-4 text-[8px]" : "line-clamp-3 text-[6px]")}>{a.headlines.join(" | ")}</span>
           {size === "card" && <span className="line-clamp-3 text-[11px] leading-snug text-[#4d5156]">{a.descriptions.join(" ")}</span>}
         </span>
@@ -163,7 +163,7 @@ export function SearchAdMock({ ad, className }: { ad: TextAd; className?: string
 function CardPlaceholder({ kind, alt, className, site }: { kind: string | null; alt: string; className: string; site?: string | null }) {
   return (
     <span
-      className={cn(className, "flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-elevated to-card text-muted-foreground")}
+      className={cn(className, "flex flex-col items-center justify-center gap-3 bg-elevated text-muted-foreground")}
       role="img"
       aria-label={`${alt}: ${kind ?? "no preview"}`}
       title={site ? `Open in ${site}` : kind ? "Windsor has no image for this ad type" : undefined}
