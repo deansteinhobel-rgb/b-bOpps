@@ -54,10 +54,13 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          What {props.clientName}&apos;s competitors are running now, from the public Meta Ad Library, Google Ads Transparency Center and LinkedIn Ad Library, read every other Sunday. The libraries show no results, but an ad that keeps running is usually one that works.
-          {props.lastReadAt && <span className="text-subtle-foreground"> Last read {when(props.lastReadAt)}.</span>}
-        </p>
+        <div className="max-w-3xl space-y-1">
+          <h2 className="text-2xl">Competitor ads</h2>
+          <p className="text-sm text-muted-foreground">
+            What {props.clientName}&apos;s competitors are running now, from the public Meta Ad Library, Google Ads Transparency Center and LinkedIn Ad Library, read every other Sunday. The libraries show no results, but an ad that keeps running is usually one that works.
+            {props.lastReadAt && <span className="text-subtle-foreground"> Last read {when(props.lastReadAt)}.</span>}
+          </p>
+        </div>
         {props.canEdit && (
           <Button size="sm" variant="outline" onClick={read} disabled={pending || !competitors.length}>
             <RefreshCw className={cn(pending && "animate-spin")} /> Read again now
@@ -94,7 +97,7 @@ export function CompetitorsView(props: { slug: string; clientName: string; today
                             ) : null
                           })}
                         </span>
-                        <span className="text-xs text-muted-foreground sm:w-24">{newCount ? <span className="text-lime">{newCount} new</span> : "Nothing new"}</span>
+                        <span className="text-xs text-muted-foreground sm:w-24">{newCount ? <span className="text-foreground">{newCount} new</span> : "Nothing new"}</span>
                         <span className="text-xs text-muted-foreground tabular-nums sm:w-28 sm:text-right">Longest {longest} days</span>
                       </>
                     ) : (
@@ -217,7 +220,7 @@ function AdPanel({ ads, names, today }: { ads: AdRow[]; names: Map<string, strin
   return (
     <DialogPrimitive.Root open={!!ad} onOpenChange={(o) => !o && close()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/40 duration-150 supports-backdrop-filter:backdrop-blur-xs data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0" />
+        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/50 duration-150 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0" />
         <DialogPrimitive.Popup className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l bg-background text-sm shadow-2xl outline-none duration-200 data-closed:animate-out data-closed:slide-out-to-right data-open:animate-in data-open:slide-in-from-right">
           {ad && (
             <>
@@ -416,7 +419,7 @@ function CompetitorForm({ slug, id, initial, onDone }: { slug: string; id: strin
   )
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         {field("name", "Name", "As the team calls them")}
         {field("website", "Website", "e.g. cloudflare.com")}
         {field("metaPageId", "Meta page id", "The view_all_page_id in their Meta Ad Library link", true)}

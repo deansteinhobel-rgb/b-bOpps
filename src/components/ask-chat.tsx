@@ -229,8 +229,8 @@ export function AskChat({ aiReady }: { aiReady: boolean }) {
           ),
         )}
         {status && (
-          <p className="flex items-center gap-2 text-xs text-lime" aria-live="polite">
-            <span className="size-1.5 animate-pulse rounded-full bg-lime" /> {status}
+          <p className="flex items-center gap-2 text-xs text-body" aria-live="polite">
+            <span className="size-1.5 rounded-full bg-lime" /> {status}
           </p>
         )}
         <div ref={end} />

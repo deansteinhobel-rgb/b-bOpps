@@ -22,7 +22,7 @@ export default async function AdminClientsPage() {
   const unmapped = [...counts.entries()].sort((a, b) => b[1] - a[1])
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <section>
         <h1 className="text-3xl">Clients</h1>
         <ul className="mt-4 divide-y rounded-lg border bg-card">

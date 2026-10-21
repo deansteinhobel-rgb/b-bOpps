@@ -38,7 +38,7 @@ export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, 
 
   return (
     <div className="space-y-4">
-      <div className={cn("grid gap-3", platforms.length >= 4 ? "md:grid-cols-2" : platforms.length === 3 ? "md:grid-cols-3" : platforms.length === 2 ? "md:grid-cols-2" : "")}>
+      <div className={cn("grid gap-4", platforms.length >= 4 ? "md:grid-cols-2" : platforms.length === 3 ? "md:grid-cols-3" : platforms.length === 2 ? "md:grid-cols-2" : "")}>
         {platforms.map((p) => {
           const active = platform === p.platform
           const words = paceWords(p.spend, p.expected, p.budget)
@@ -62,7 +62,7 @@ export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, 
                 <span className="text-xs text-muted-foreground">{total ? `${Math.round((p.spend / total) * 100)}% of spend` : ""}</span>
               </span>
               <span className="block">
-                <span className="font-heading text-2xl tabular-nums">{money(p.spend, currency)}</span>
+                <span className="text-2xl tabular-nums font-medium">{money(p.spend, currency)}</span>
                 <span className="ml-1.5 text-xs text-muted-foreground">{p.budget ? `of ${money(p.budget, currency)}` : "no budget set"}</span>
               </span>
               {p.budget ? (

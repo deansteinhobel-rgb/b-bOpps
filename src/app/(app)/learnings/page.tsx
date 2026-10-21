@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { CountBadge } from "@/components/filter-tabs"
 import { fieldClass } from "@/components/field-class"
 import { ClientLogo, PlatformIcon } from "@/components/brand"
 import { PageHeader } from "@/components/page-header"
@@ -80,13 +81,12 @@ export default async function LearningsPage({ searchParams }: PageProps<"/learni
           <Link
             href={href(outcome, !fromPour)}
             aria-current={fromPour ? "page" : undefined}
-            className={cn(
-              "inline-flex h-8 items-center gap-2 rounded-full border px-3 text-sm transition-colors",
-              fromPour ? "border-rag-green/40 bg-rag-green/10 text-rag-green" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-            )}
+            className={cn("inline-flex h-8 items-center rounded-sm px-2 text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", fromPour ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
           >
-            Pour a Sprint only
-            <span className="text-xs tabular-nums opacity-70">{all.filter((r) => r.recommendation_id && (!clientSlug || r.clients?.slug === clientSlug)).length}</span>
+            <span className={cn("inline-flex h-full items-center gap-2", fromPour && "select-line")}>
+              Pour a Sprint only
+              <CountBadge active={fromPour}>{all.filter((r) => r.recommendation_id && (!clientSlug || r.clients?.slug === clientSlug)).length}</CountBadge>
+            </span>
           </Link>
         </nav>
         <form className="flex gap-2" action="/learnings">
@@ -144,7 +144,7 @@ export default async function LearningsPage({ searchParams }: PageProps<"/learni
                   </svg>
                 </summary>
                 <div className="space-y-4 border-t bg-background/40 px-4 py-4 sm:pl-10">
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2">
                     <Finding tone="green" label="What worked" text={r.findings_worked} />
                     <Finding tone="red" label="Blocker" text={r.findings_blockers} />
                   </div>
@@ -173,14 +173,14 @@ function FilterPill({ href, active, label, count, dot }: { href: string; active:
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={cn(
-        "inline-flex h-8 items-center gap-2 rounded-full border px-3 text-sm transition-colors",
-        active ? "border-foreground/20 bg-accent text-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
-      )}
+      // Flat options like FilterTabs: the picked one is white with the 1px lime line under it.
+      className={cn("inline-flex h-8 items-center rounded-sm px-2 text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", active ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
     >
-      {dot && <span className={cn("size-1.5 rounded-full", dot)} aria-hidden />}
-      {label}
-      <span className="text-xs text-subtle-foreground tabular-nums">{count}</span>
+      <span className={cn("inline-flex h-full items-center gap-2", active && "select-line")}>
+        {dot && <span className={cn("size-1.5 rounded-full", dot)} aria-hidden />}
+        {label}
+        <CountBadge active={active}>{count}</CountBadge>
+      </span>
     </Link>
   )
 }
@@ -189,7 +189,7 @@ function Finding({ tone, label, text }: { tone: "green" | "red"; label: string; 
   return (
     <div className={cn("rounded-md border-l-2 bg-card px-3 py-2.5", tone === "green" ? "border-l-rag-green" : "border-l-rag-red")}>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn("mt-1 text-sm leading-relaxed", !text && "text-subtle-foreground italic")}>{text ?? "None recorded"}</p>
+      <p className={cn("mt-1 text-sm leading-relaxed", !text && "text-subtle-foreground")}>{text ?? "None recorded"}</p>
     </div>
   )
 }

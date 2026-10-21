@@ -15,7 +15,7 @@ export default async function ContentIdeasPage({ params }: PageProps<"/clients/[
   const ideas = await loadContentIdeas(supabase, client, londonToday()) // client loaded through RLS above
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <p className="max-w-3xl text-sm text-muted-foreground">
         Which content is working for {client.name} and for whom, and Claude&apos;s ideas for content, ads and angles to brief in or test, each matched to the audience it&apos;s for. Plan one as a sprint test, or say why it isn&apos;t for us.
       </p>

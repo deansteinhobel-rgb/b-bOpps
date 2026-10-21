@@ -33,7 +33,7 @@ export default async function ContentLibraryPage({ params }: PageProps<"/clients
   const approval = { leads, defaultLead: me.notion_user_id && leads.some((l) => l.notionUserId === me.notion_user_id) ? me.notion_user_id : null, live: notionWritesLive(client.slug) }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <p className="max-w-3xl text-sm text-muted-foreground">
         Every live landing page and guide for {client.name}, and the three emails to send someone who engaged with each one. The Matrix shows which pieces promote each other best.
       </p>

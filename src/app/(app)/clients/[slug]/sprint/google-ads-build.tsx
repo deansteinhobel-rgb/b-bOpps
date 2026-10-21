@@ -152,7 +152,7 @@ function CreateAd({ testId, campaign, live, onDone }: { testId: string; campaign
   if (!groups.length) return <p className="text-xs text-muted-foreground">No running ad groups with impressions in the last 14 days.</p>
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="g-group">Ad group</Label>
           <select id="g-group" className={fieldClass} value={adGroupId} onChange={(e) => setAdGroupId(e.target.value)}>
@@ -194,7 +194,7 @@ function CreateAd({ testId, campaign, live, onDone }: { testId: string; campaign
           ))}
         </div>
       </fieldset>
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+      <div className="grid gap-4 sm:grid-cols-[1fr_auto_auto]">
         <div className="space-y-1.5">
           <Label htmlFor="g-url">Final URL</Label>
           <Input id="g-url" value={finalUrl} onChange={(e) => (setFinalUrl(e.target.value), setChecked(false))} placeholder="https://" />

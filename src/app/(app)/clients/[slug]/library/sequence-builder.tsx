@@ -1,6 +1,6 @@
 "use client"
 
-import { Sparkles } from "lucide-react"
+import { ClaudeMark } from "@/components/brand"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -125,7 +125,7 @@ function SequenceRow({ p, all, byId, clientSlug, canEdit, aiEnabled, approval }:
         </div>
         {canEdit && aiEnabled && (
           <button type="button" disabled={asking || pending} onClick={() => void reask()} className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline disabled:no-underline disabled:opacity-70">
-            <Sparkles className="size-3" aria-hidden />
+            <ClaudeMark className="size-3 text-lime" />
             {asking ? "Asking Claude…" : "Ask Claude again"}
           </button>
         )}

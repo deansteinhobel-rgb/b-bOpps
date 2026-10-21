@@ -26,15 +26,13 @@ export default async function ClientsPage() {
   const supabase = await createClient()
   // The cards are read with the secret key, so only people with a role get them.
   const cards = profile.role ? await clientCards(supabase) : []
-  const first = (profile.full_name ?? "").split(" ")[0]
   const day = cards[0] ? Math.round(cards[0].monthPace * 100) : null
 
   return (
     <div className="relative space-y-6">
       <ParticleAmpersand className="pointer-events-none absolute -top-6 right-0 hidden h-40 w-36 opacity-60 xl:block" density={0.8} />
       <PageHeader
-        eyebrow="All clients"
-        title={first ? `Good to see you, ${first}` : "Clients"}
+        title="All clients"
         description={`Spend against budget and the funnel against target, this month so far${day !== null ? ` (${day}% of the month gone)` : ""}.`}
       />
       {cards.length === 0 ? (

@@ -75,7 +75,7 @@ export function ClientReportView({ data: d, client, currency, note, hrefFor }: {
             // Five tiles (Google Ads has no leads): stretch one so the grid has no gap.
             <div key={t.label} className={cn("bg-card px-5 py-5", tiles.length === 5 && i === 0 && "col-span-2 sm:col-span-1", tiles.length === 5 && i === 4 && "sm:col-span-2")}>
               <dt className="text-[13px] font-medium">{t.label}</dt>
-              <dd className="mt-2 font-heading text-3xl leading-none tabular-nums">{t.show(t.now)}</dd>
+              <dd className="mt-2 text-3xl leading-none tabular-nums font-medium">{t.show(t.now)}</dd>
               {compare && (
                 <dd className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
                   <Chip now={t.now} prev={t.prev} better={t.better} />
@@ -228,7 +228,7 @@ function GoalBlock({ goal }: { goal: ReportGoal }) {
       <h3 id="cr-goal" className="text-base font-semibold">
         {goal.name}
       </h3>
-      <ul className={cn("mt-3 grid gap-3", months.length > 1 && "sm:grid-cols-2", months.length > 2 && "lg:grid-cols-3")}>
+      <ul className={cn("mt-3 grid gap-4", months.length > 1 && "sm:grid-cols-2", months.length > 2 && "lg:grid-cols-3")}>
         {months.map((x) => {
           const met = x.value !== null && x.target !== null && x.value >= x.target
           const pace = x.inProgress && x.value !== null && x.expected !== null ? x.value - x.expected : null
@@ -252,7 +252,7 @@ function GoalBlock({ goal }: { goal: ReportGoal }) {
                 {x.inProgress ? " so far" : ""}
               </p>
               <p className="mt-1.5 flex items-baseline gap-2">
-                <span className="font-heading text-4xl leading-none tabular-nums">{x.value === null ? "–" : whole(x.value)}</span>
+                <span className="text-4xl leading-none tabular-nums font-medium">{x.value === null ? "–" : whole(x.value)}</span>
                 {x.target !== null && <span className="text-sm text-muted-foreground tabular-nums">of {whole(x.target)} target</span>}
               </p>
               {share !== null && (

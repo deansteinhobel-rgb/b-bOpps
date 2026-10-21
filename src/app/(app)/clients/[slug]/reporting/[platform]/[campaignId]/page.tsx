@@ -8,7 +8,7 @@ import { cachedPerformance } from "@/lib/metrics/cached"
 import { derive, fmt, METRIC, type MetricKey } from "@/lib/metrics/performance"
 import { adKey, previewsFor } from "@/lib/previews"
 import { createClient } from "@/lib/supabase/server"
-import { Delta, Investigator, Sparkline, TrendPanel } from "../../charts"
+import { Delta, Investigator, TrendPanel } from "../../charts"
 import { CampaignDetailData } from "../../breakdowns"
 import { Controls } from "../../controls"
 import { parsePlatform, parseRange } from "../../params"
@@ -84,10 +84,9 @@ export default async function CampaignPage({ params, searchParams }: PageProps<"
         {CARDS.map((k) => (
           <div key={k} className="bg-card px-4 py-3.5">
             <dt className="text-xs text-muted-foreground">{METRIC[k].label}</dt>
-            <dd className="mt-1 font-heading text-2xl leading-none tabular-nums">{fmt(k, perf.now[k], cur)}</dd>
-            <div className="mt-2 flex items-end justify-between gap-2">
+            <dd className="mt-1 text-2xl leading-none tabular-nums font-medium">{fmt(k, perf.now[k], cur)}</dd>
+            <div className="mt-2">
               <Delta k={k} now={perf.now[k]} before={perf.prev[k]} />
-              <Sparkline values={perf.daily.map((d) => d[k])} className="h-6 w-20" />
             </div>
           </div>
         ))}

@@ -101,7 +101,7 @@ export function Timeline({ entries, pageSize = PAGE }: { entries: TimelineEntry[
       <ol>
         {days.map((d) => (
           <li key={d.key}>
-            <p className="sticky top-0 z-10 border-b bg-card/95 px-5 py-2 text-xs font-medium text-muted-foreground backdrop-blur">{d.label}</p>
+            <p className="sticky top-0 z-10 border-b bg-card px-5 py-2 text-xs font-medium text-muted-foreground">{d.label}</p>
             <ul className="divide-y">
               {d.items.map((e) => (
                 <Entry key={e.id} e={e} />

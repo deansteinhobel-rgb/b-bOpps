@@ -25,7 +25,7 @@ import { FatiguePanel } from "../fatigue-panel"
 import { PacingPanel } from "../pacing-panel"
 import { BoardDeck } from "./board-deck"
 import { LandingPages } from "./breakdowns"
-import { CampaignTable, Delta, Investigator, PlatformSplit, Sparkline, TrendPanel } from "./charts"
+import { CampaignTable, Delta, Investigator, PlatformSplit, TrendPanel } from "./charts"
 import { Controls } from "./controls"
 import { parsePlatform, parseRange } from "./params"
 import { adsForPeriod, boardAds, buildBoard, type BoardKey } from "./boards"
@@ -213,7 +213,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
             {newest.length === 0 ? (
               <p className="text-sm text-muted-foreground">None yet.</p>
             ) : (
-              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+              <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 {newest.map((a) => (
                   <li key={adKey(a)} className="surface overflow-hidden transition-colors hover:border-foreground/20">
                     <AdThumb preview={previews[adKey(a)]} alt={a.ad_name ?? a.ad_id} size="card" className="rounded-none border-0 border-b" />
@@ -267,7 +267,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
   })()
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       <div className="space-y-3">
         <SectionNav sections={sections} />
         <Controls
@@ -303,7 +303,7 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
                   </Hint>
                 )}
               </dt>
-              <dd className={cn("mt-1 font-heading text-2xl leading-none tabular-nums", k === "cpr" && target && perf.now.cpr !== null && (perf.now.cpr <= target ? "text-rag-green" : perf.now.cpr <= target * 1.2 ? "text-rag-amber" : "text-rag-red"))}>{fmt(k, perf.now[k], cur)}</dd>
+              <dd className={cn("mt-1 text-2xl leading-none tabular-nums font-medium", k === "cpr" && target && perf.now.cpr !== null && (perf.now.cpr <= target ? "text-rag-green" : perf.now.cpr <= target * 1.2 ? "text-rag-amber" : "text-rag-red"))}>{fmt(k, perf.now[k], cur)}</dd>
               {k === "results" && (
                 <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
                   {whole(perf.now.conversions)} conv.{hasLeads && ` · ${whole(perf.now.leads)} leads`}
@@ -314,9 +314,9 @@ export default async function ReportingPage({ params, searchParams }: PageProps<
                   {perUnit(perf.now.spend, perf.now.conversions)} / conv.{hasLeads && ` · ${perUnit(perf.now.spend, perf.now.leads)} / lead`}
                 </p>
               )}
-              <div className="mt-2 flex items-end justify-between gap-2">
+              {/* The change alone: no sparklines on KPIs (taste skill); the trend charts are in the deep dive. */}
+              <div className="mt-2">
                 <Delta k={k} now={perf.now[k]} before={perf.prev[k]} />
-                <Sparkline values={perf.daily.map((d) => d[k])} className="h-6 w-20" />
               </div>
             </div>
           ))}

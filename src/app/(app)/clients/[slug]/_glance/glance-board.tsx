@@ -63,7 +63,7 @@ export function GlanceBoard(p: {
           <p className="surface px-5 py-6 text-sm text-muted-foreground">No ad data yet. Once an ad account is connected and synced, this month&apos;s numbers show here.</p>
         )}
         {(n || p.goals.length > 0) && (
-          <div className={cn("grid gap-3 sm:grid-cols-2", cols)}>
+          <div className={cn("grid gap-4 sm:grid-cols-2", cols)}>
             {n && (
               <>
                 <Tile label="Spent" hint="What we've paid the ad platforms this month, against the month's budget." value={money(n.mtd.spend, cur)}>
@@ -100,7 +100,7 @@ export function GlanceBoard(p: {
       </section>
 
       {/* Four cards, one screen: click any for the full picture */}
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         {p.spendDetail && n && (
           <GlanceCard
             id="spend"
@@ -124,7 +124,7 @@ function Tile({ label, hint, value, valueClass, children }: { label: string; hin
         {label}
         <Hint>{hint}</Hint>
       </p>
-      <p className={cn("mt-1.5 font-heading text-3xl leading-none tabular-nums", valueClass)}>{value}</p>
+      <p className={cn("mt-1.5 text-3xl leading-none tabular-nums font-medium", valueClass)}>{value}</p>
       <div className="mt-2 text-xs text-muted-foreground">{children}</div>
     </div>
   )
@@ -262,7 +262,7 @@ export function ChangesSummary({ recent, count, by }: { recent: TimelineEntry[];
   return (
     <span className="block space-y-3">
       <span className="flex items-baseline gap-2">
-        <span className="font-heading text-3xl leading-none tabular-nums">{count}</span>
+        <span className="text-3xl leading-none tabular-nums font-medium">{count}</span>
         <span className="text-xs text-muted-foreground">{count === 0 ? "changes. Nothing changed in the last 7 days." : [by.team && `${by.team} by the team`, by.platform && `${by.platform} on the platforms`, by.app && `${by.app} in the app`].filter(Boolean).join(" · ")}</span>
       </span>
       {recent.length > 0 && (

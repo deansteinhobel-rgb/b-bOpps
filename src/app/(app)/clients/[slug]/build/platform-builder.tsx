@@ -90,7 +90,7 @@ function NewPlatformCampaign(p: PlatformBuilderProps & { onStarted: (id: string)
 
   return (
     <section className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         {presets.map((x) => {
           const Icon = ICONS[x.icon as Preset["icon"]] ?? Megaphone
           const on = x.key === preset
@@ -101,9 +101,9 @@ function NewPlatformCampaign(p: PlatformBuilderProps & { onStarted: (id: string)
               onClick={() => setPreset(x.key)}
               aria-pressed={on}
               title={x.description}
-              className={cn("surface flex items-center gap-3 px-4 py-3 text-left transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime", on && "border-lime/60 bg-white/[0.04]")}
+              className={cn("surface flex items-center gap-3 px-4 py-3 text-left transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime", on && "border-white/60 bg-white/[0.04]")}
             >
-              <Icon className={cn("size-5 shrink-0", on ? "text-lime" : "text-muted-foreground")} aria-hidden />
+              <Icon className={cn("size-5 shrink-0", on ? "text-foreground" : "text-muted-foreground")} aria-hidden />
               <span className="min-w-0 text-sm font-medium text-foreground">{x.label}</span>
             </button>
           )

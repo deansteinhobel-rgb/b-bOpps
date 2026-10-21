@@ -211,7 +211,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
   ))
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       {/* Header */}
       <header className="space-y-3">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -343,7 +343,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
                       {t.title} (live from {longDate(t.live_on!)})
                     </li>
                   ))}
-                {tests.every((t) => !t.live_on) && <li className="text-muted-foreground italic">No tests went live yet.</li>}
+                {tests.every((t) => !t.live_on) && <li className="text-muted-foreground">No tests went live yet.</li>}
               </ul>
             </Box>
             <Box title="Top learnings">
@@ -405,7 +405,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
           <div className="space-y-2">
             <h3 className="eyebrow">Red checks this sprint</h3>
             {reds.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">No reds.</p>
+              <p className="text-sm text-muted-foreground">No reds.</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {reds.map((r) => (
@@ -423,7 +423,7 @@ export default async function SprintPage({ params, searchParams }: PageProps<"/c
           <div className="space-y-2">
             <h3 className="eyebrow">Open actions in Notion</h3>
             {openActions.length === 0 ? (
-              <p className="text-sm text-muted-foreground italic">None.</p>
+              <p className="text-sm text-muted-foreground">None.</p>
             ) : (
               <ul className="divide-y rounded-md border text-sm">
                 {openActions.slice(0, 10).map((a) => (
@@ -487,7 +487,7 @@ function Box({ title, accent, children }: { title: string; accent?: boolean; chi
 }
 
 function ReviewList({ items, empty }: { items: { id: string; head: string; body: string; tag?: string }[]; empty: string }) {
-  if (!items.length) return <p className="text-muted-foreground italic">{empty}</p>
+  if (!items.length) return <p className="text-muted-foreground">{empty}</p>
   return (
     <ul className="space-y-2">
       {items.map((i) => (

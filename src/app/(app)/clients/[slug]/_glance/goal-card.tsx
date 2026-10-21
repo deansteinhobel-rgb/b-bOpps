@@ -96,7 +96,7 @@ export function GoalCard({ slug, goal, canEdit }: { slug: string; goal: GoalView
             />
           )}
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="font-heading text-4xl leading-none tabular-nums">{goal.value === null ? "–" : fmt(v)}</span>
+            <span className="text-4xl leading-none tabular-nums font-medium">{goal.value === null ? "–" : fmt(v)}</span>
             <span className="mt-1 text-xs text-muted-foreground tabular-nums">of {t ? fmt(t) : "–"}</span>
           </div>
           {tip && <span className="absolute top-full left-1/2 z-10 mt-1 w-56 -translate-x-1/2 rounded-md border bg-popover px-2.5 py-1.5 text-center text-xs shadow-lg">{tip}</span>}
@@ -105,7 +105,7 @@ export function GoalCard({ slug, goal, canEdit }: { slug: string; goal: GoalView
         {/* The numbers */}
         <div className="min-w-0 flex-1 space-y-3">
           <div>
-            <p className="text-xs font-medium text-lime">Main goal · {goal.monthLabel}</p>
+            <p className="text-xs font-medium text-muted-foreground">Main goal · {goal.monthLabel}</p>
             <h3 className="mt-1 text-xl font-semibold">{goal.name}</h3>
           </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">

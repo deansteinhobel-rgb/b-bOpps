@@ -78,7 +78,7 @@ export function SegmentSplit({ segments, currency, base, query, active, platform
                 {ROWS.map((k) => (
                   <div key={k}>
                     <dt className="text-xs text-muted-foreground">{k === "cpr" ? "Cost / result" : METRIC[k].label}</dt>
-                    <dd className="mt-0.5 font-heading text-xl leading-tight tabular-nums">{fmt(k, s.now[k], currency)}</dd>
+                    <dd className="mt-0.5 text-xl leading-tight tabular-nums font-medium">{fmt(k, s.now[k], currency)}</dd>
                     <Delta k={k} now={s.now[k]} before={s.prev[k]} />
                   </div>
                 ))}

@@ -179,7 +179,7 @@ export function TestCard(props: {
           )}
           {stage === "live" && t.live_on && (
             <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-rag-green-bg px-2 py-0.5 text-[11px] font-medium whitespace-nowrap text-rag-green ring-1 ring-rag-green/30" title={`Live since ${longDate(t.live_on)}`}>
-              <span className="size-1.5 animate-pulse rounded-full bg-rag-green motion-reduce:animate-none" aria-hidden />
+              <span className="size-1.5 rounded-full bg-rag-green" aria-hidden />
               Live · day {Math.max(1, daysSince(t.live_on, props.today) + 1)}
             </span>
           )}
@@ -487,7 +487,7 @@ function Panel({ children, className }: { children: React.ReactNode; className?:
 function Goal({ test: t, fmt }: { test: SprintTest; fmt: Fmt }) {
   const def = t.success_metric ? METRICS[t.success_metric] : undefined
   const hasTarget = Boolean(def) && t.success_target !== null
-  if (!hasTarget && !t.success_text) return <p className="text-xs text-muted-foreground italic">No success measure set</p>
+  if (!hasTarget && !t.success_text) return <p className="text-xs text-muted-foreground">No success measure set</p>
   return (
     <div className="space-y-1.5">
       {def && hasTarget && (
@@ -573,7 +573,7 @@ function MarkLive({ campaigns, today, pending, onSubmit, onCancel }: { campaigns
               </label>
             </li>
           ))}
-          {shown.length === 0 && <li className="text-xs text-muted-foreground italic">No campaigns with spend in the last 30 days. New campaigns appear after the next Windsor sync.</li>}
+          {shown.length === 0 && <li className="text-xs text-muted-foreground">No campaigns with spend in the last 30 days. New campaigns appear after the next Windsor sync.</li>}
         </ul>
       </div>
       <div className="flex gap-2">

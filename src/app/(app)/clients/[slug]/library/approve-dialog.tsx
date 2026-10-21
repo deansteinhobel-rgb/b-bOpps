@@ -49,7 +49,7 @@ export function ApproveDialog({ p, byId, clientSlug, setup, disabled }: { p: Lib
         {setup.leads.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nobody on this client&apos;s team list is linked to a Notion user yet, so the brief has no one to lead it. An admin can link people in Admin → People.</p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-1.5 text-xs text-muted-foreground">
               Project Lead
               <select value={lead} onChange={(e) => setLead(e.target.value)} className={field}>

@@ -152,13 +152,13 @@ export function CallReminders({ reminders, canEdit }: { reminders: Reminder[]; c
               <p className="flex items-start gap-2 text-sm font-medium">
                 <KindChip kind={r.kind} /> <span>{r.title}</span>
               </p>
-              {r.quote && <p className="border-l-2 border-border-strong pl-2.5 text-xs text-muted-foreground italic">&ldquo;{r.quote}&rdquo;</p>}
+              {r.quote && <p className="border-l-2 border-border-strong pl-2.5 text-xs text-muted-foreground">&ldquo;{r.quote}&rdquo;</p>}
               <p className="text-xs text-muted-foreground">
                 {ago(r.daysAgo)[0].toUpperCase() + ago(r.daysAgo).slice(1)}
                 {r.ownerName ? ` (${r.ownerName})` : ""}, and nothing in Lumaux or Notion shows it&apos;s happened.
               </p>
             </div>
-            {note && <p className="text-xs text-lime">{note.text} {note.url && <Link href={note.url} className="underline">Open it</Link>}</p>}
+            {note && <p className="text-xs text-rag-green">{note.text} {note.url && <Link href={note.url} className="underline">Open it</Link>}</p>}
             {canEdit ? (
               <FollowUpActions item={r} compact onDone={(m, url) => { setNote(m ? { text: m, url } : null); setIndex(0); router.refresh() }} />
             ) : null}

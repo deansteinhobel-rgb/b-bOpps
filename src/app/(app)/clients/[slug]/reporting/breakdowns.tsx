@@ -166,7 +166,7 @@ function ImpressionShare({ days }: { days: ImpressionShareDay[] }) {
               {color && <span className="size-2 rounded-sm" style={{ background: color }} />}
               {label}
             </dt>
-            <dd className="mt-1 font-heading text-2xl tabular-nums">{pct(v)}</dd>
+            <dd className="mt-1 text-2xl tabular-nums font-medium">{pct(v)}</dd>
           </div>
         ))}
       </dl>

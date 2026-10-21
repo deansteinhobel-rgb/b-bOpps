@@ -60,7 +60,7 @@ export function ActionForm(props: {
         <Label htmlFor={id("title")}>Title</Label>
         <Input id={id("title")} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor={id("owner")}>Owner (Project Lead)</Label>
           <select id={id("owner")} value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="h-9 w-full rounded-md border border-input bg-card px-2 text-sm">

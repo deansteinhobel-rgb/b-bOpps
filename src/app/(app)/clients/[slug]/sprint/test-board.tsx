@@ -18,7 +18,7 @@ export function TestBoard<T extends { id: string }>({ items, card }: { items: { 
           return (
             <section key={s.key} aria-label={s.label} className={cn("flex flex-col gap-2", here.length ? "lg:min-w-[14.5rem] lg:flex-1" : "max-lg:hidden lg:w-32 lg:flex-none")}>
               <StageHeader stage={s.key} label={s.label} hint={s.hint} count={here.length} />
-              <div className="grid gap-3 sm:grid-cols-2 lg:flex lg:min-h-40 lg:flex-col lg:rounded-lg lg:bg-secondary/30 lg:p-2">
+              <div className="grid gap-4 sm:grid-cols-2 lg:flex lg:min-h-40 lg:flex-col lg:rounded-lg lg:bg-secondary/30 lg:p-2">
                 {here.length ? here.map(({ t, stage }) => card(t, stage)) : <p className="rounded-lg border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">{STAGE_STYLE[s.key].empty}</p>}
               </div>
             </section>
@@ -28,7 +28,7 @@ export function TestBoard<T extends { id: string }>({ items, card }: { items: { 
       {done.length > 0 && (
         <section aria-label="Done" className="space-y-2 pt-2">
           <StageHeader stage="done" label="Done" hint="Called or carried over" count={done.length} />
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{done.map(({ t, stage }) => card(t, stage))}</div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{done.map(({ t, stage }) => card(t, stage))}</div>
         </section>
       )}
     </>

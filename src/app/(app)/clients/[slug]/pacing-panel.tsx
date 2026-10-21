@@ -143,7 +143,7 @@ function PacingRow({ row: r, currency, canEdit, clientSlug, month, monthLabel }:
 
   return (
     <li className="px-4 py-3.5">
-      <div className="grid items-center gap-3 md:grid-cols-[minmax(0,15rem)_1fr_13rem]">
+      <div className="grid items-center gap-4 md:grid-cols-[minmax(0,15rem)_1fr_13rem]">
         <div className="min-w-0 text-sm" title={r.title}>
           {r.label}
           {r.budgetNote && <p className="mt-0.5 text-[11px] text-subtle-foreground">{r.budgetNote}</p>}

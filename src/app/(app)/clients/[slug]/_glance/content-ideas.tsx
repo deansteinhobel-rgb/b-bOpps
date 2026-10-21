@@ -131,7 +131,7 @@ export function ContentIdeas({ slug, currency, run, running, states, owners, can
 
       {run && (
         <>
-          {run.headline && <p className="border-l-2 border-lime pl-4 text-base leading-relaxed">{run.headline}</p>}
+          {run.headline && <p className="max-w-4xl text-lg leading-relaxed font-medium">{run.headline}</p>}
 
           {/* What's working */}
           {run.working.length > 0 && (
@@ -182,7 +182,7 @@ export function ContentIdeas({ slug, currency, run, running, states, owners, can
             {open.length === 0 ? (
               <p className="surface px-4 py-4 text-sm text-muted-foreground">Every idea from this run has been handled. Refresh for new ones.</p>
             ) : (
-              <ul className="grid gap-3 lg:grid-cols-2">
+              <ul className="grid gap-4 lg:grid-cols-2">
                 {open.map((i) => (
                   <IdeaCard key={i.id} slug={slug} runId={run.id} idea={i} state={states[i.id]} owners={owners} canEdit={canEdit} deadline={deadline} />
                 ))}
@@ -265,7 +265,7 @@ function IdeaCard({ slug, runId, idea: i, state, owners, canEdit, deadline }: { 
             {i.format} · for {i.audience}
           </span>
         </p>
-        <p className="rounded-md bg-secondary/60 px-3 py-2 text-sm italic">&ldquo;{i.hook}&rdquo;</p>
+        <p className="rounded-md bg-secondary/60 px-3 py-2 text-sm">&ldquo;{i.hook}&rdquo;</p>
         <p className="text-sm text-foreground/85">{i.why_it_fits}</p>
         <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
           <ChevronDown className={cn("size-3.5 transition-transform", more && "rotate-180")} aria-hidden />

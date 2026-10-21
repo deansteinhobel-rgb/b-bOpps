@@ -146,7 +146,7 @@ function EditCampaign({ slug, campaign, currency, running }: { slug: string; cam
                 Now: {before.status.toLowerCase()} · {before.dailyBudget ? `${m(before.dailyBudget)} a day` : "no daily budget"} · {before.end ? `ends ${shortDate(before.end)}` : "no end date"}
               </p>
             )}
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="e-budget">Daily budget</Label>
                 <Input id="e-budget" type="number" min={10} value={budget} onChange={(e) => setBudget(e.target.value)} />

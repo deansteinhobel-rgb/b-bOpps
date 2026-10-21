@@ -254,7 +254,7 @@ function PlanEditor(p: BuilderProps & { row: PlanRow; initial: Plan }) {
               </>
             }
           >
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-3">
               <Field label="Daily budget" id="pl-budget">
                 <Input id="pl-budget" type="number" min={10} step="1" value={c.dailyBudget} onChange={(e) => set({ dailyBudget: Number(e.target.value) })} />
               </Field>
@@ -288,7 +288,7 @@ function PlanEditor(p: BuilderProps & { row: PlanRow; initial: Plan }) {
       </Section>
 
       <Section title={`Ads · ${plan.ads.length}`}>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2">
           {plan.ads.map((ad, i) => (
             <AdCard key={i} slug={p.slug} ad={ad} leadGen={c.objective === "LEAD_GENERATION"} onChange={(patch) => setAd(i, patch)} />
           ))}

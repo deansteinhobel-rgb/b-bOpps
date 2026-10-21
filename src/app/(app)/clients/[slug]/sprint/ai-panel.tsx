@@ -132,7 +132,7 @@ export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady
 
   // The pour module always stays at the top (Dean); the suggestions sit below it.
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <PourHero canGenerate={props.canGenerate && !props.closed} aiReady={props.aiReady} busy={starting || Boolean(runId)} onPour={pour} error={failed} again={props.recs.length > 0} note={heroNote} />
       {overlay}
       {(props.recs.length > 0 || props.history.length > 0) && (
@@ -386,7 +386,7 @@ function useHoverSeconds() {
 
 /**
  * Wine hanging off the banner's bottom edge, drops falling, and a puddle on the heading below.
- * Sized for the Sprint page's 40px gap (space-y-10) between the banner and "Tests this sprint".
+ * Sized for the Sprint page's 40px gap (space-y-8) between the banner and "Tests this sprint".
  */
 function Drips({ active }: { active: boolean }) {
   return (
@@ -526,7 +526,7 @@ function Detail({ rec: r, rank, tab, canEdit, owners, defaultDeadline, currency 
               <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3">
                 {r.evidence.map((e) => (
                   <div key={e.label} className="bg-card px-3.5 py-3">
-                    <dd className="font-heading text-2xl leading-none tabular-nums">{withSymbols(e.value)}</dd>
+                    <dd className="text-2xl leading-none tabular-nums font-medium">{withSymbols(e.value)}</dd>
                     <dt className="mt-1.5 text-[11px] text-muted-foreground">{e.label}</dt>
                   </div>
                 ))}
@@ -600,7 +600,7 @@ function Detail({ rec: r, rank, tab, canEdit, owners, defaultDeadline, currency 
 
       {/* One clear next step */}
       {canEdit && open && mode === "view" && (
-        <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t bg-card/95 px-5 py-3 backdrop-blur">
+        <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t bg-card px-5 py-3">
           {r.status === "draft" ? (
             <>
               <Button size="sm" onClick={() => setMode("edit")}>
@@ -649,7 +649,7 @@ function EditForm({ rec: r, pending, onSave, onCancel }: { rec: Recommendation; 
       <Field label="What to brief in">
         <Textarea rows={3} value={f.brief_notes} onChange={(e) => setF({ ...f, brief_notes: e.target.value })} />
       </Field>
-      <div className="grid gap-3 sm:grid-cols-[11rem_7rem_1fr]">
+      <div className="grid gap-4 sm:grid-cols-[11rem_7rem_1fr]">
         <Field label="Success metric">
           <select className={fieldClass} value={f.success_metric} onChange={(e) => setF({ ...f, success_metric: e.target.value })}>
             {Object.entries(METRICS).map(([k, v]) => (
@@ -682,7 +682,7 @@ function ApproveForm({ owners, defaultDeadline, pending, onApprove, onCancel }: 
   const [owner, setOwner] = useState(owners.find((o) => o.onTeam && o.id)?.id ?? "")
   const [deadline, setDeadline] = useState(defaultDeadline)
   return (
-    <div className="grid gap-3 rounded-lg border bg-background/60 p-4 sm:grid-cols-2">
+    <div className="grid gap-4 rounded-lg border bg-background/60 p-4 sm:grid-cols-2">
       <p className="text-sm font-medium sm:col-span-2">Add it to this sprint&apos;s plan</p>
       <Field label="Owner">
         <select className={fieldClass} value={owner} onChange={(e) => setOwner(e.target.value)}>

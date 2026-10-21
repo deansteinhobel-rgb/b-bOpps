@@ -76,7 +76,7 @@ export function ReportBoard({ board: b, client, currency, from, to, prevFrom, pr
           // Seven tiles: Spend takes two cells so the grid has no gap.
           <div key={t.label} className={cn("bg-card px-4 py-4", i === 0 && tiles.length % 2 === 1 && "col-span-2")}>
             <dt className="text-xs font-medium">{t.label}</dt>
-            <dd className="mt-2 font-heading text-3xl leading-none tabular-nums">{show(t.kind, t.now, currency)}</dd>
+            <dd className="mt-2 text-3xl leading-none tabular-nums font-medium">{show(t.kind, t.now, currency)}</dd>
             {compare && (
               <dd className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
                 <Chip now={t.now} prev={t.prev} better={t.better} />

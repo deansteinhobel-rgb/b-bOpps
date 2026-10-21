@@ -23,7 +23,7 @@ export default async function PeoplePage() {
   const notionName = new Map(notionPeople.map((n) => [n.id, n.name]))
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <section>
         <h1 className="text-3xl">People</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -89,7 +89,7 @@ export default async function PeoplePage() {
 
         <h3 className="mt-6 text-lg">Add or update an invite</h3>
         <AdminForm action={saveInvite} submitLabel="Save invite" className="mt-2 max-w-3xl rounded-lg border bg-card p-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
               <Label htmlFor="inv-email">Email</Label>
               <Input id="inv-email" name="email" type="email" required placeholder="name@bordeauxandburgundy.co.uk" />

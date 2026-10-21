@@ -128,8 +128,8 @@ export function BrainView(props: { slug: string; clientName: string; hqPageId: s
         )}
       </div>
       {status && (
-        <p className="flex items-center gap-2 text-sm text-lime" aria-live="polite">
-          <span className="size-1.5 animate-pulse rounded-full bg-lime" /> {status}
+        <p className="flex items-center gap-2 text-sm text-body" aria-live="polite">
+          <span className="size-1.5 rounded-full bg-lime" /> {status}
         </p>
       )}
       {error && <p className="text-sm text-rag-red">{error}</p>}
@@ -228,7 +228,7 @@ function BriefPanel({ slug, brief, sources, canAdmin }: { slug: string; brief: B
         <div className="brief-prose space-y-1 px-5 py-4 text-sm leading-relaxed">
           <ReactMarkdown
             components={{
-              h2: ({ children }) => <h3 className="mt-5 mb-2 border-b pb-1.5 text-xs font-semibold text-lime first:mt-0">{children}</h3>,
+              h2: ({ children }) => <h3 className="mt-5 mb-2 border-b pb-1.5 text-sm font-semibold text-foreground first:mt-0">{children}</h3>,
               h3: ({ children }) => <h4 className="mt-3 mb-1 text-sm font-semibold">{children}</h4>,
               ul: ({ children }) => <ul className="space-y-1.5">{children}</ul>,
               li: ({ children }) => <li className="relative pl-4 before:absolute before:top-2 before:left-0 before:size-1 before:rounded-full before:bg-foreground/40">{children}</li>,
@@ -384,7 +384,7 @@ function NotionSources({ slug, title, intro, empty, pages, canAdmin }: { slug: s
           <h3 className="text-sm font-semibold">{title}</h3>
           <p className="text-xs text-muted-foreground">{intro}</p>
         </div>
-        {msg && <span className="text-xs text-lime">{msg}</span>}
+        {msg && <span className="text-xs text-body">{msg}</span>}
       </div>
       <ul className="divide-y">{on.map(row)}</ul>
       {off.length > 0 && (

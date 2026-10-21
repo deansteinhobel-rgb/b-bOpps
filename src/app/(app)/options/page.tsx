@@ -76,8 +76,8 @@ export default async function OptionsPage({ searchParams }: PageProps<"/options"
             {stats.stats.map((s) => (
               <div key={s.key} className="bg-card px-4 py-4">
                 <dt className="text-xs text-muted-foreground">{s.label}</dt>
-                <dd className="mt-1 font-heading text-3xl leading-none tabular-nums">{s.total}</dd>
-                <dd className={cn("mt-2 text-xs tabular-nums", s.last30 ? "text-lime" : "text-muted-foreground")}>{s.last30 ? `+${s.last30} in the last 30 days` : "None in the last 30 days"}</dd>
+                <dd className="mt-1 text-3xl leading-none tabular-nums font-medium">{s.total}</dd>
+                <dd className={cn("mt-2 text-xs tabular-nums", s.last30 ? "text-foreground" : "text-muted-foreground")}>{s.last30 ? `+${s.last30} in the last 30 days` : "None in the last 30 days"}</dd>
               </div>
             ))}
           </dl>

@@ -20,7 +20,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         <AppMark />
         <div className="space-y-2">
           <h1 className="text-4xl leading-tight">
-            Every client. <span className="text-lime">Every sprint.</span>
+            Every client. Every sprint.
           </h1>
           <p className="text-sm text-muted-foreground">Paid media performance, weekly QA and test sprints, in one place.</p>
         </div>

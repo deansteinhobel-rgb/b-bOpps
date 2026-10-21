@@ -85,7 +85,7 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
     .sort((a, b) => Number(b.onTeam) - Number(a.onTeam) || a.name.localeCompare(b.name))
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       {!isCurrent && (
         <Link href={`/clients/${slug}/checks`} className="text-sm underline">
           ← Back to this week

@@ -75,7 +75,7 @@ export function ChangeLog(props: {
         {!props.readOnly && (
           <div className="space-y-3 rounded-lg border bg-card p-4">
             <p className="text-sm font-bold">Log a change</p>
-            <div className="grid gap-3 sm:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-4">
               <div className="space-y-1">
                 <Label htmlFor="c-date">Date</Label>
                 <Input id="c-date" type="date" value={form.changed_on} onChange={(e) => setForm({ ...form, changed_on: e.target.value })} />
@@ -133,7 +133,7 @@ export function ChangeLog(props: {
         )}
 
         {logged.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">No changes logged yet.</p>
+          <p className="text-sm text-muted-foreground">No changes logged yet.</p>
         ) : (
           <ol className="relative space-y-3 border-l pl-5">
             {logged.map((c) => (
@@ -165,7 +165,7 @@ export function ChangeLog(props: {
         <p className="text-sm font-bold">Detected in Windsor</p>
         <p className="text-xs text-muted-foreground">Changes spotted in the ad data this sprint. Log the ones your team made, and dismiss the rest.</p>
         {props.suggestions.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic">Nothing new to review.</p>
+          <p className="text-sm text-muted-foreground">Nothing new to review.</p>
         ) : (
           <ul className="space-y-2">
             {props.suggestions.slice(0, 12).map((s) => (

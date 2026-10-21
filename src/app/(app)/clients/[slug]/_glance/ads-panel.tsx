@@ -36,7 +36,7 @@ export function AdsPanel({ slug, currency, best, tiring, unknown, previews }: { 
                   <PlatformIcon platform={p.platform} className="size-3.5" />
                   {PLATFORM_LABEL[p.platform]} · ranked by {p.basis === "cost_per_result" ? "cost per result" : "click-through rate"}
                 </p>
-                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {p.ads.map((a, i) => (
                     <BestAd key={adKey(a)} ad={a} rank={i + 1} basis={p.basis} currency={currency} previews={previews} />
                   ))}

@@ -4,6 +4,7 @@ import { Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
+import { Spinner } from "@/components/loading"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -299,10 +300,8 @@ export function AddContent({ cfg, clientSlug, pieces, aiEnabled }: { cfg: Librar
                 <DialogDescription>Claude is reading the library and the current sequences. This usually takes under a minute.</DialogDescription>
               </DialogHeader>
               <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground" role="status">
-                {[0, 1, 2].map((i) => (
-                  <span key={i} className="size-2 animate-pulse rounded-full bg-lime motion-reduce:animate-none" style={{ animationDelay: `${i * 200}ms` }} aria-hidden />
-                ))}
-                <span className="ml-2">Thinking…</span>
+                <Spinner label="Finding where it fits" />
+                <span>Reading the library…</span>
               </div>
               <div className="flex justify-end">
                 <Button
@@ -328,7 +327,7 @@ export function AddContent({ cfg, clientSlug, pieces, aiEnabled }: { cfg: Librar
                 </DialogDescription>
               </DialogHeader>
               {error && <p className="rounded-md bg-rag-red-bg px-3 py-2 text-sm text-rag-red">{error}</p>}
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Theme" htmlFor="ac-theme">
                   <Input id="ac-theme" list="ac-themes" value={theme} onChange={(e) => setTheme(e.target.value)} maxLength={80} />
                   <datalist id="ac-themes">

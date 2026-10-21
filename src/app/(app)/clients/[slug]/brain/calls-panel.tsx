@@ -103,8 +103,8 @@ export function CallsPanel(props: { slug: string; clientName: string; source: Ca
         </div>
       </div>
       {status && (
-        <p className="flex items-center gap-2 text-sm text-lime" aria-live="polite">
-          <span className="size-1.5 animate-pulse rounded-full bg-lime" /> {status}
+        <p className="flex items-center gap-2 text-sm text-body" aria-live="polite">
+          <span className="size-1.5 rounded-full bg-lime" /> {status}
         </p>
       )}
       {error && <p className="text-sm text-rag-red">{error}</p>}
@@ -172,7 +172,7 @@ function FollowUpRow({ f, slug, canEdit }: { f: FollowUp; slug: string; canEdit:
       {open && (
         <div className="mt-2 space-y-2 pl-1">
           {f.detail && <p className="text-xs text-muted-foreground">{f.detail}</p>}
-          {f.quote && <p className="border-l-2 border-border-strong pl-2.5 text-xs text-muted-foreground italic">&ldquo;{f.quote}&rdquo;</p>}
+          {f.quote && <p className="border-l-2 border-border-strong pl-2.5 text-xs text-muted-foreground">&ldquo;{f.quote}&rdquo;</p>}
           {f.state === "acted" && f.evidence && (
             <p className="text-xs text-rag-green">
               {f.evidence}
@@ -228,7 +228,7 @@ function CallList({ calls, followUps }: { calls: Call[]; followUps: FollowUp[] }
               <span className="w-12 shrink-0 text-[11px] text-muted-foreground tabular-nums">{shortDate(c.call_date)}</span>
               <span className="min-w-0 flex-1 truncate">{c.title}</span>
               {c.extract_status === "pending" ? (
-                <span className="shrink-0 text-[11px] text-lime">Reading…</span>
+                <span className="shrink-0 text-[11px] text-muted-foreground">Reading…</span>
               ) : c.extract_status === "failed" ? (
                 <span className="shrink-0 text-[11px] text-rag-red" title={c.extract_error ?? undefined}>Couldn&apos;t read</span>
               ) : c.extract_status === "skipped" ? (
@@ -318,7 +318,7 @@ function SourcePicker({ slug, source, suggestions, canAdmin, onLinked }: { slug:
           </div>
         </div>
       )}
-      {msg && <p className={cn("text-xs", msg.ok ? "text-lime" : ask ? "text-muted-foreground" : "text-rag-red")}>{msg.text}</p>}
+      {msg && <p className={cn("text-xs", msg.ok ? "text-rag-green" : ask ? "text-muted-foreground" : "text-rag-red")}>{msg.text}</p>}
       {ask && (
         <div className="flex flex-wrap gap-1.5">
           {ask.options.map((o) => (
@@ -356,7 +356,7 @@ function ManualCall({ slug, onDone }: { slug: string; onDone: () => void }) {
         <Button size="sm" variant="ghost" onClick={onDone}>
           Cancel
         </Button>
-        {msg && <span className={cn("text-xs", msg.ok ? "text-lime" : "text-rag-red")}>{msg.text}</span>}
+        {msg && <span className={cn("text-xs", msg.ok ? "text-rag-green" : "text-rag-red")}>{msg.text}</span>}
       </div>
     </div>
   )

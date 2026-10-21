@@ -1,5 +1,6 @@
 "use client"
 
+import { Check } from "lucide-react"
 import { useState, useTransition } from "react"
 import { PlatformIcon } from "@/components/brand"
 import { fieldClass } from "@/components/field-class"
@@ -109,7 +110,7 @@ export function BriefDialog(props: { testId: string; live: boolean; disabled?: b
                 {step === 0 && (
                   <>
                     <PeoplePicker label="Project lead" people={opts.people} value={leadIds} onChange={setLeadIds} hint="The first one owns the test." />
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-1">
                         <Label htmlFor={`due-${props.testId}`}>Due date</Label>
                         <Input id={`due-${props.testId}`} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
@@ -294,7 +295,7 @@ function NeedsStep({ needs, onChange }: { needs: Needs; onChange: (n: Needs) => 
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="needs-notes">Notes</Label>
           <Textarea id="needs-notes" rows={3} value={needs.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Anything else for the brief" />
@@ -351,7 +352,7 @@ function Stepper({ step, onPick }: { step: number; onPick: (i: number) => void }
                 i < step && "border-primary text-primary",
               )}
             >
-              {i < step ? "✓" : i + 1}
+              {i < step ? <Check className="size-3.5" aria-label="Done" /> : i + 1}
             </span>
             <span className={cn(i !== step && "hidden md:inline")}>{label}</span>
           </button>
@@ -382,7 +383,7 @@ function Review({ rows, comment, tagged, live }: { rows: [string, string][]; com
         {comment ? (
           <p className="max-h-56 overflow-y-auto rounded-md border p-3 text-sm break-words whitespace-pre-line">{highlight(comment, tagged)}</p>
         ) : (
-          <p className="text-sm text-muted-foreground italic">No comment.</p>
+          <p className="text-sm text-muted-foreground">No comment.</p>
         )}
       </div>
       {!live && <p className="rounded-md bg-secondary/60 p-2 text-xs">Test mode: nothing is sent to Notion. You&apos;ll see this as a preview.</p>}

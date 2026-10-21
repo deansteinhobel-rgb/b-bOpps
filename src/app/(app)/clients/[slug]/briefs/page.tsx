@@ -142,7 +142,7 @@ function Avatars({ names }: { names: string[] }) {
 
 function StatusPill({ status }: { status: string | null }) {
   const s = stageOf(status)
-  return <span className={cn("inline-flex max-w-full items-center truncate rounded-full px-2 py-0.5 text-[11px] ring-1", PILL[s.tone])}>{status ?? "No status"}</span>
+  return <span className={cn("inline-flex max-w-full items-center justify-self-start truncate rounded-full px-2 py-0.5 text-[11px] ring-1", PILL[s.tone])}>{status ?? "No status"}</span>
 }
 
 function Line({ b, today, nested }: { b: MirrorItem; today: string; nested?: boolean }) {

@@ -50,7 +50,7 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
   const monthLabel = (m: string) => new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(m))
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <div>
         <Link href="/admin/clients" className="eyebrow hover:text-foreground">
           ← All clients
@@ -125,7 +125,7 @@ export default async function AdminClientPage({ params }: PageProps<"/admin/clie
                 <PlatformLabel platform={a.platform as Platform} /> · {a.account_name ?? a.external_account_id}{" "}
                 <span className="font-normal text-muted-foreground">({a.external_account_id})</span>
               </p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-1">
                   <Label htmlFor={`b-${a.id}`}>Default monthly budget</Label>
                   <Input id={`b-${a.id}`} name="monthly_budget" type="number" min="0" step="1" defaultValue={a.monthly_budget ?? ""} />

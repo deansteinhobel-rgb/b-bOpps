@@ -1,10 +1,10 @@
 "use client"
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import { RefreshCw, Sparkles, XIcon } from "lucide-react"
+import { RefreshCw, XIcon } from "lucide-react"
 import { useCallback, useEffect, useState, useTransition } from "react"
 import { AdThumb } from "@/components/ad-thumb"
-import { PlatformLabel } from "@/components/brand"
+import { PlatformLabel, ClaudeMark } from "@/components/brand"
 import { Hint } from "@/components/hint"
 import { Segmented } from "@/components/segmented"
 import { Button } from "@/components/ui/button"
@@ -66,7 +66,7 @@ export function TestPanel(props: {
   return (
     <DialogPrimitive.Root open={props.open} onOpenChange={props.onOpenChange}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/40 duration-150 supports-backdrop-filter:backdrop-blur-xs data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0" />
+        <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/50 duration-150 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0" />
         <DialogPrimitive.Popup className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l bg-background text-sm shadow-2xl outline-none duration-200 data-closed:animate-out data-closed:slide-out-to-right data-open:animate-in data-open:slide-in-from-right">
           {/* Header */}
           <header className="flex items-start gap-3 border-b px-5 py-4">
@@ -77,7 +77,7 @@ export function TestPanel(props: {
                 <span>{TEST_KINDS[d.kind].label}</span>
                 <span aria-hidden>·</span>
                 <span className="inline-flex items-center gap-1.5 text-rag-green">
-                  <span className="size-1.5 animate-pulse rounded-full bg-rag-green motion-reduce:animate-none" aria-hidden />
+                  <span className="size-1.5 rounded-full bg-rag-green" aria-hidden />
                   Live · day {dayN}
                 </span>
               </div>
@@ -265,7 +265,7 @@ function ClaudeRead({ testId, editable }: { testId: string; editable: boolean })
     <section className="space-y-3 rounded-lg border border-violet/30 bg-violet/5 p-4" aria-label="Claude's read" aria-busy={state === "loading"}>
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-          <Sparkles className="size-4 text-violet" aria-hidden />
+          <ClaudeMark className="size-3.5 text-lime" />
           Claude&apos;s read
         </h3>
         <div className="flex items-center gap-2">

@@ -67,10 +67,13 @@ export function KeywordAdsView(props: {
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          What the market runs for {props.clientName}&apos;s keywords: the Meta Ad Library and LinkedIn Ad Library searched every other Sunday. For each search, the top 30 ads in the library&apos;s own order, and the 3 of those that have run longest, which are usually the ones that work. {props.clientName}&apos;s own ads are left out of the picks. Meta starts an ad&apos;s date again when it&apos;s edited, so its days are a minimum; our reads keep the earliest date we&apos;ve seen.
-          {props.lastReadAt && <span className="text-subtle-foreground"> Last read {when(props.lastReadAt)}.</span>}
-        </p>
+        <div className="max-w-3xl space-y-1">
+          <h2 className="text-2xl">Keyword ads</h2>
+          <p className="text-sm text-muted-foreground">
+            What the market runs for {props.clientName}&apos;s keywords: the Meta Ad Library and LinkedIn Ad Library searched every other Sunday. For each search, the top 30 ads in the library&apos;s own order, and the 3 of those that have run longest, which are usually the ones that work. {props.clientName}&apos;s own ads are left out of the picks. Meta starts an ad&apos;s date again when it&apos;s edited, so its days are a minimum; our reads keep the earliest date we&apos;ve seen.
+            {props.lastReadAt && <span className="text-subtle-foreground"> Last read {when(props.lastReadAt)}.</span>}
+          </p>
+        </div>
         {props.canEdit && (
           <Button size="sm" variant="outline" onClick={read} disabled={pending || !keywords.length}>
             <RefreshCw className={cn(pending && "animate-spin")} /> Read again now
@@ -90,7 +93,7 @@ export function KeywordAdsView(props: {
                     const sum = summaries.find((x) => x.keywordId === k.id && x.source === s)
                     const on = selected?.id === k.id && selected.source === s
                     return (
-                      <li key={`${k.id}-${s}`} className={cn("grid gap-3 px-4 py-3 md:grid-cols-[14rem_1fr]", on && "bg-white/[0.04]")}>
+                      <li key={`${k.id}-${s}`} className={cn("grid gap-4 px-4 py-3 md:grid-cols-[14rem_1fr]", on && "bg-white/[0.04]")}>
                         <Link href={href(k.id, s)} scroll={false} className="flex items-start gap-2 text-sm outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
                           <PlatformIcon platform={SOURCE_PLATFORM[s]} className="mt-0.5" />
                           <span>
