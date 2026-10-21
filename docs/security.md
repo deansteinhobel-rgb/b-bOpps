@@ -58,6 +58,13 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
   - **Integrity guards** (migration 20261020000081): Pour a Sprint suggestions keep Claude's reasoning and origin, and are reviewed and decided only as yourself; runs are started only as yourself, generating; goal values must match the goal's client; a new test can't arrive with a Notion brief or another creator (carry-overs within a client excepted); invites can't be deleted.
   - **Outbound fetches**: Slack snapshot pictures go through `fetchFrom` (our storage and the CSP's logo hosts) with a 5 MB cap; ad images and post pages are read with a byte cap (`readBytes`). Every Windsor read goes through `windsorRows` (`src/lib/windsor/rest.ts`) with a timeout.
   - **Inputs**: brain uploads take type and size from storage, not the browser; chat routes check the posted messages (`chatHistory`); full call re-reads are admin only; only people who can edit the client redo the shared weekly campaign read; the brain refresh returns no raw Notion or database errors.
+- **Campaign builds through the ad platforms' APIs (2026-10-21)**: refresh tokens live in Supabase
+  Vault, readable and writable only by the service role (`ads_api_token` / `set_ads_api_token`);
+  access tokens stay in server memory and are never logged. Each sender has a fixed list of create
+  calls (no generic request, no update, enable or delete) and forces paused statuses; LinkedIn image
+  bytes only go to `*.linkedin.com`. Writes need three switches plus the platform listed
+  (`ADS_API_*`), log before sending, and use idempotency keys so a step is never sent twice. Only
+  admins and GTM leads on the client can build, rate-limited to 20 a day.
 - **Report embeds for Notion** (`/embed/report/<token>`, Dean 2026-09-29: "anyone with the link,
   view only"): the link's token (192 random bits, `report_links`) is the only key. It shows one
   board of one client and nothing else: no session is read or set, no links into the app, and the
@@ -118,7 +125,7 @@ writes off, dry run on); 12 daily scheduled jobs (`vercel.json`), checked end to
 
 
 - [ ] Environment variables marked **Sensitive** (Anthropic, Supabase secret, Notion, Windsor,
-      `CRON_SECRET`, `SLACK_BOT_TOKEN`).
+      `CRON_SECRET`, `SLACK_BOT_TOKEN`, the `*_ADS_CLIENT_SECRET`s, `MICROSOFT_ADS_DEVELOPER_TOKEN`).
 - [ ] **Deployment Protection** on preview deployments (Vercel Authentication).
 - [ ] **Firewall**: rate-limit rules on `/login` and `/api/*`; keep **Attack Challenge Mode**
       handy for an attack in progress. **BotID** on the login and Claude routes (Pro).

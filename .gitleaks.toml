@@ -24,5 +24,6 @@ regex = '''\b(?:ntn_|secret_)[A-Za-z0-9]{40,}\b'''
 keywords = ["ntn_", "secret_"]
 
 [allowlist]
-description = "Examples and lockfiles"
+description = "Examples, lockfiles, and camelCase names the default linkedin-client-id rule takes for an id (linkedInSender)"
 paths = ['''\.env\.example$''', '''pnpm-lock\.yaml$''']
+regexes = ['''^linkedIn[A-Z][A-Za-z]*$''']
