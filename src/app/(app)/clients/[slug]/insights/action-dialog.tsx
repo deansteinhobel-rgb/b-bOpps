@@ -93,8 +93,8 @@ export function ActionDialog(p: {
                 Cancel
               </Button>
               <Button size="sm" disabled={phase === "sending" || !p.canConfirm || p.live === null} onClick={confirm}>
-                {phase === "sending" ? <LoaderCircleIcon className="size-3.5 animate-spin" /> : <PlatformIcon platform={p.platform} className="size-3.5" />}
-                {phase === "sending" ? `Sending to ${name}…` : p.live ? p.confirmLabel : "Log a dry run"}
+                {phase === "sending" || p.live === null ? <LoaderCircleIcon className="size-3.5 animate-spin" /> : <PlatformIcon platform={p.platform} className="size-3.5" />}
+                {phase === "sending" ? `Sending to ${name}…` : p.live === null ? "Checking…" : p.live ? p.confirmLabel : "Log a dry run"}
               </Button>
             </>
           )}
