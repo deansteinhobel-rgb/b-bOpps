@@ -27,7 +27,7 @@ export function SectionNav({ sections }: { sections: { id: string; label: string
   }, [sections])
 
   return (
-    <nav aria-label="Sections" className="sticky top-[57px] z-20 -mx-1 flex gap-1 overflow-x-auto bg-background/90 px-1 py-2 backdrop-blur [scrollbar-width:none] lg:top-0">
+    <nav aria-label="Sections" className="sticky top-[69px] z-20 -mx-2 flex overflow-x-auto bg-background [scrollbar-width:none] lg:top-0">
       {sections.map((s) => (
         <a
           key={s.id}
@@ -35,11 +35,12 @@ export function SectionNav({ sections }: { sections: { id: string; label: string
           aria-current={active === s.id ? "location" : undefined}
           onClick={() => setActive(s.id)}
           className={cn(
-            "rounded-full px-3 py-1 text-xs whitespace-nowrap transition-colors",
-            active === s.id ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+            "flex h-9 items-center rounded-sm px-2 text-[13px] whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            active === s.id ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
         >
-          {s.label}
+          {/* The section being read gets the app's one selection mark, the 1px lime line. */}
+          <span className={cn("flex h-full items-center", active === s.id && "select-line")}>{s.label}</span>
         </a>
       ))}
     </nav>
