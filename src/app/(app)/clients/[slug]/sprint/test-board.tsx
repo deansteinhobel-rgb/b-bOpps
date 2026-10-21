@@ -1,5 +1,6 @@
 import { STAGE_STYLE } from "@/lib/sprints/stage-style"
 import { STAGES, type Stage } from "@/lib/sprints/tests"
+import { CountBadge } from "@/components/filter-tabs"
 import { cn } from "@/lib/utils"
 
 /**
@@ -41,8 +42,8 @@ function StageHeader({ stage, label, hint, count }: { stage: Stage; label: strin
     <div className="space-y-2">
       <div className="flex items-center gap-2 px-1">
         <span aria-hidden className={cn("size-2 shrink-0 rounded-full", STAGE_STYLE[stage].dot)} />
-        <h3 className="text-sm font-semibold whitespace-nowrap">{label}</h3>
-        <span className="rounded-full bg-secondary px-1.5 text-[11px] text-muted-foreground tabular-nums">{count}</span>
+        <h3 className="text-sm font-semibold whitespace-nowrap text-foreground">{label}</h3>
+        <CountBadge>{count}</CountBadge>
         {count > 0 && hint && <span className="ml-auto truncate text-[11px] text-muted-foreground">{hint}</span>}
       </div>
       <div aria-hidden className={cn("h-0.5 rounded-full", STAGE_STYLE[stage].bar)} />

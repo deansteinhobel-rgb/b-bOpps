@@ -51,8 +51,8 @@ export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, 
                 setAll(false)
               }}
               aria-pressed={active}
-              className={cn("surface space-y-3 p-4 text-left transition-colors hover:border-foreground/25", active && "border-foreground/40")}
-              style={active ? { boxShadow: `inset 0 0 0 1px ${PLATFORM_COLOR[p.platform]}` } : undefined}
+              // Picked = one flat tone step and a stronger edge (no colored ring).
+              className={cn("surface space-y-3 p-4 text-left transition-colors hover:border-border-strong", active && "border-border-strong bg-elevated")}
             >
               <span className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2 text-sm font-medium">
@@ -110,7 +110,7 @@ export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, 
           <ul className="divide-y">
             {shown.map((c) => (
               <li key={`${c.platform}|${c.campaignId}`}>
-                <Link href={`/clients/${slug}/reporting/${c.platform}/${encodeURIComponent(c.campaignId)}`} className="grid grid-cols-[minmax(0,1fr)_6.5rem_6.5rem] items-center gap-4 px-4 py-2.5 text-sm hover:bg-secondary/30 sm:grid-cols-[minmax(0,1fr)_10rem_6.5rem_6.5rem]">
+                <Link href={`/clients/${slug}/reporting/${c.platform}/${encodeURIComponent(c.campaignId)}`} className="grid grid-cols-[minmax(0,1fr)_6.5rem_6.5rem] items-center gap-4 px-4 py-2.5 text-sm hover:bg-white/[0.03] sm:grid-cols-[minmax(0,1fr)_10rem_6.5rem_6.5rem]">
                   <span className="flex min-w-0 items-center gap-2">
                     <PlatformIcon platform={c.platform} />
                     <span className="min-w-0">
@@ -138,7 +138,7 @@ export function SpendBreakdown({ slug, currency, targets, platforms, campaigns, 
             ))}
           </ul>
           {list.length > SHOW && (
-            <button type="button" onClick={() => setAll(!all)} className="w-full border-t px-4 py-2.5 text-sm text-muted-foreground hover:bg-secondary/40 hover:text-foreground">
+            <button type="button" onClick={() => setAll(!all)} className="w-full border-t px-4 py-2.5 text-sm text-muted-foreground hover:bg-white/[0.03] hover:text-foreground">
               {all ? "Show fewer" : `Show all ${list.length} campaigns`}
             </button>
           )}

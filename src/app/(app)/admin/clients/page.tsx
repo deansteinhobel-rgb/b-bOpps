@@ -28,8 +28,8 @@ export default async function AdminClientsPage() {
         <ul className="mt-4 divide-y rounded-lg border bg-card">
           {(clients ?? []).map((c) => (
             <li key={c.id}>
-              <Link href={`/admin/clients/${c.slug}`} className="flex items-center justify-between px-4 py-3 text-sm hover:bg-secondary/50">
-                <span className="font-bold">{c.name}</span>
+              <Link href={`/admin/clients/${c.slug}`} className="flex items-center justify-between px-4 py-3 text-sm hover:bg-white/[0.03]">
+                <span className="font-medium text-foreground">{c.name}</span>
                 <span className="text-muted-foreground">
                   Notion: {c.notion_client_option}
                   {!c.active && " · inactive"}

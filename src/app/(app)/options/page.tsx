@@ -72,15 +72,18 @@ export default async function OptionsPage({ searchParams }: PageProps<"/options"
               </>
             )}
           </p>
-          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3 lg:grid-cols-5">
+          {/* One box split by hairlines (no gray fill showing through a short last row). */}
+          <section className="surface overflow-hidden">
+          <dl className="-mt-px -ml-px grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 [&>*]:shadow-[inset_1px_1px_0_var(--border)]">
             {stats.stats.map((s) => (
-              <div key={s.key} className="bg-card px-4 py-4">
-                <dt className="text-xs text-muted-foreground">{s.label}</dt>
-                <dd className="mt-1 text-3xl leading-none tabular-nums font-medium">{s.total}</dd>
+              <div key={s.key} className="p-4">
+                <dt className="text-[13px] text-muted-foreground">{s.label}</dt>
+                <dd className="mt-1 text-2xl font-medium text-foreground tabular-nums">{s.total}</dd>
                 <dd className={cn("mt-2 text-xs tabular-nums", s.last30 ? "text-foreground" : "text-muted-foreground")}>{s.last30 ? `+${s.last30} in the last 30 days` : "None in the last 30 days"}</dd>
               </div>
             ))}
           </dl>
+          </section>
         </div>
       )}
 

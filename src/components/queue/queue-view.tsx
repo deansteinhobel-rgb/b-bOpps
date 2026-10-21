@@ -163,6 +163,7 @@ function QueueRow({ item: i, showClient, canEdit, onGone }: { item: QueueItem; s
     })
   return (
     <li className={cn("group flex flex-wrap items-start gap-x-3 gap-y-2 px-4 py-3 sm:flex-nowrap", pending && "opacity-50")}>
+      {/* Opportunities: a white dot (lime is kept for selection only). */}
       <span className="mt-1.5">{i.tone === "lime" ? <span className="block size-2 rounded-full bg-lime" role="img" aria-label="Opportunity" title="Opportunity" /> : <StatusDot status={TONE[i.tone]} />}</span>
       <div className="min-w-0 flex-1">
         <Link href={i.href} className="flex items-center gap-2 text-sm font-medium hover:underline">
@@ -178,7 +179,8 @@ function QueueRow({ item: i, showClient, canEdit, onGone }: { item: QueueItem; s
             </span>
           )}
           <span>{i.meta}</span>
-          {i.when && <span className={cn("rounded-md px-1.5 leading-5 ring-1 ring-inset", i.when.tone === "red" ? "bg-rag-red-bg text-rag-red ring-rag-red/30" : i.when.tone === "amber" ? "bg-rag-amber-bg text-rag-amber ring-rag-amber/30" : "ring-border")}>{i.when.text}</span>}
+          {/* Due date as colored text, not a filled chip: the dot is the row's one status mark. */}
+          {i.when && <span className={cn(i.when.tone === "red" ? "text-rag-red" : i.when.tone === "amber" ? "text-rag-amber" : "text-body")}>{i.when.text}</span>}
         </p>
       </div>
       <div className="flex w-full shrink-0 items-center gap-0.5 pl-5 sm:w-auto sm:pl-0">

@@ -3,6 +3,7 @@ import { CountBadge } from "@/components/filter-tabs"
 import { fieldClass } from "@/components/field-class"
 import { ClientLogo, PlatformIcon } from "@/components/brand"
 import { PageHeader } from "@/components/page-header"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PLATFORM_LABEL, type Platform } from "@/lib/metrics/types"
 import { createClient } from "@/lib/supabase/server"
@@ -27,10 +28,10 @@ type Row = {
   clients: { name: string; slug: string; logo_url: string | null } | null
 }
 
-const OUTCOMES: { key: Outcome; label: string; dot: string; text: string }[] = [
-  { key: "proven", label: "Proven", dot: "bg-rag-green", text: "text-rag-green" },
-  { key: "disproven", label: "Disproven", dot: "bg-rag-red", text: "text-rag-red" },
-  { key: "inconclusive", label: "Inconclusive", dot: "bg-rag-na", text: "text-rag-na" },
+const OUTCOMES: { key: Outcome; label: string; dot: string }[] = [
+  { key: "proven", label: "Proven", dot: "bg-rag-green" },
+  { key: "disproven", label: "Disproven", dot: "bg-rag-red" },
+  { key: "inconclusive", label: "Inconclusive", dot: "bg-rag-na" },
 ]
 const meta = Object.fromEntries(OUTCOMES.map((o) => [o.key, o])) as Record<Outcome, (typeof OUTCOMES)[number]>
 
@@ -101,9 +102,9 @@ export default async function LearningsPage({ searchParams }: PageProps<"/learni
               </option>
             ))}
           </select>
-          <button type="submit" className="h-9 rounded-md border px-3 text-sm hover:bg-accent">
+          <Button type="submit" variant="outline">
             Apply
-          </button>
+          </Button>
         </form>
       </div>
 
@@ -116,12 +117,13 @@ export default async function LearningsPage({ searchParams }: PageProps<"/learni
           {visible.map((r) => (
             <li key={r.id}>
               <details className="group">
-                <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3.5 transition-colors hover:bg-accent/40 [&::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3.5 transition-colors hover:bg-white/[0.03] [&::-webkit-details-marker]:hidden">
                   <span className={cn("size-2 shrink-0 rounded-full", meta[r.outcome].dot)} aria-hidden />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{r.title}</span>
                     <span className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className={meta[r.outcome].text}>{meta[r.outcome].label}</span>
+                      {/* The dot carries the outcome; the word stays quiet (one status mark per row). */}
+                      <span>{meta[r.outcome].label}</span>
                       {r.recommendation_id && <PourTag />}
                       {(r.findings_worked || r.findings_blockers) && <span className="hidden truncate sm:inline">· {r.findings_worked ?? r.findings_blockers}</span>}
                     </span>
@@ -145,8 +147,8 @@ export default async function LearningsPage({ searchParams }: PageProps<"/learni
                 </summary>
                 <div className="space-y-4 border-t bg-background/40 px-4 py-4 sm:pl-10">
                   <div className="grid gap-4 md:grid-cols-2">
-                    <Finding tone="green" label="What worked" text={r.findings_worked} />
-                    <Finding tone="red" label="Blocker" text={r.findings_blockers} />
+                    <Finding label="What worked" text={r.findings_worked} />
+                    <Finding label="Blocker" text={r.findings_blockers} />
                   </div>
                   <dl className="grid gap-x-8 gap-y-2 text-sm sm:grid-cols-2">
                     {r.hypothesis && <Meta label="Hypothesis" value={r.hypothesis} />}
@@ -185,12 +187,12 @@ function FilterPill({ href, active, label, count, dot }: { href: string; active:
   )
 }
 
-function Finding({ tone, label, text }: { tone: "green" | "red"; label: string; text: string | null }) {
+/** Plain text with a bold lead-in, not a callout with a colored left border (taste sweep). */
+function Finding({ label, text }: { label: string; text: string | null }) {
   return (
-    <div className={cn("rounded-md border-l-2 bg-card px-3 py-2.5", tone === "green" ? "border-l-rag-green" : "border-l-rag-red")}>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn("mt-1 text-sm leading-relaxed", !text && "text-subtle-foreground")}>{text ?? "None recorded"}</p>
-    </div>
+    <p className="text-sm leading-relaxed text-body">
+      <span className="font-medium text-foreground">{label}:</span> <span className={cn(!text && "text-subtle-foreground")}>{text ?? "None recorded"}</span>
+    </p>
   )
 }
 

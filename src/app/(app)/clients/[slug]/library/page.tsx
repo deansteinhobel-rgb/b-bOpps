@@ -21,7 +21,7 @@ export default async function ContentLibraryPage({ params }: PageProps<"/clients
   if (!cfg) {
     return (
       <div className="surface px-6 py-10 text-center">
-        <p className="font-semibold">No content library for {client.name} yet</p>
+        <p className="font-semibold text-foreground">No content library for {client.name} yet</p>
         <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">The content library is set up per client. Camber has one; ask Dean to add {client.name}.</p>
       </div>
     )
@@ -34,9 +34,12 @@ export default async function ContentLibraryPage({ params }: PageProps<"/clients
 
   return (
     <div className="space-y-6">
-      <p className="max-w-3xl text-sm text-muted-foreground">
-        Every live landing page and guide for {client.name}, and the three emails to send someone who engaged with each one. The Matrix shows which pieces promote each other best.
-      </p>
+      <div className="max-w-3xl space-y-1">
+        <h2 className="text-2xl">Content library</h2>
+        <p className="text-sm text-muted-foreground">
+          Every live landing page and guide for {client.name}, and the three emails to send someone who engaged with each one. The Matrix shows which pieces promote each other best.
+        </p>
+      </div>
       <ContentLibrary pieces={pieces} verticals={[...cfg.verticals]} clientSlug={client.slug} canEdit={canEdit(me)} aiEnabled={aiConfigured()} approval={approval} />
     </div>
   )

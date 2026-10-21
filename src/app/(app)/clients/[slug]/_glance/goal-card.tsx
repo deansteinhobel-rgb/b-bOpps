@@ -99,14 +99,14 @@ export function GoalCard({ slug, goal, canEdit }: { slug: string; goal: GoalView
             <span className="text-4xl leading-none tabular-nums font-medium">{goal.value === null ? "–" : fmt(v)}</span>
             <span className="mt-1 text-xs text-muted-foreground tabular-nums">of {t ? fmt(t) : "–"}</span>
           </div>
-          {tip && <span className="absolute top-full left-1/2 z-10 mt-1 w-56 -translate-x-1/2 rounded-md border bg-popover px-2.5 py-1.5 text-center text-xs shadow-lg">{tip}</span>}
+          {tip && <span className="absolute top-full left-1/2 z-10 mt-1 w-56 -translate-x-1/2 rounded-md border bg-popover px-2.5 py-1.5 text-center text-xs shadow-lg">{tip}</span>}{/* taste-skill-ignore: a tooltip is an overlay */}
         </div>
 
         {/* The numbers */}
         <div className="min-w-0 flex-1 space-y-3">
           <div>
-            <p className="text-xs font-medium text-muted-foreground">Main goal · {goal.monthLabel}</p>
-            <h3 className="mt-1 text-xl font-semibold">{goal.name}</h3>
+            <h3 className="text-xl font-semibold">{goal.name}</h3>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">Main goal · {goal.monthLabel}</p>
           </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
             <Stat label="Of target" value={t && goal.value !== null ? `${Math.round((v / t) * 100)}%` : "–"} className={TONE[tone]} />
@@ -133,7 +133,7 @@ export function GoalCard({ slug, goal, canEdit }: { slug: string; goal: GoalView
 
           {canEdit &&
             (editing ? (
-              <div className="flex flex-wrap items-end gap-2 rounded-lg border bg-background/50 p-3">
+              <div className="flex flex-wrap items-end gap-2 rounded-lg border bg-elevated p-3">
                 <label className="text-xs text-muted-foreground">
                   {goal.monthLabel} so far
                   <Input autoFocus inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} className="mt-1 h-8 w-28" onKeyDown={(e) => e.key === "Enter" && save()} />

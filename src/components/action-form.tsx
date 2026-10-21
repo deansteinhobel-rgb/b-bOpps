@@ -50,7 +50,7 @@ export function ActionForm(props: {
   }
 
   return (
-    <div className="space-y-3 rounded-md border bg-secondary/40 p-4">
+    <div className="space-y-3 rounded-lg border p-4">
       {!props.live && (
         <p className="text-xs text-muted-foreground">
           <strong className="text-foreground">Test mode.</strong> Notion writes are switched off, so this records what would be created and sends nothing to Notion.

@@ -154,7 +154,7 @@ export function InsightFeed(props: {
               }}
               aria-pressed={active}
               // A category is also the list's filter: the picked one gets a tone step and the one selection mark.
-              className={cn("bg-card px-4 py-3.5 text-left transition-colors outline-none hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset", active && "bg-elevated shadow-[inset_0_-1px_0_var(--lime)]")}
+              className={cn("bg-card px-4 py-3.5 text-left transition-colors outline-none hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset", active && "bg-elevated select-line")}
             >
               <span className="text-[13px] text-muted-foreground">{CATEGORY[c].label}</span>
               <span className="mt-1 block text-2xl leading-none font-medium tabular-nums">{byCategory[c].length}</span>
@@ -434,8 +434,9 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
                     {x.flag && (
                       <span
                         className={cn(
-                          "ml-2 rounded-full border px-1.5 py-px text-[11px] font-medium whitespace-nowrap",
-                          x.flagTone === "good" ? "border-rag-green/40 bg-rag-green/10 text-rag-green" : x.flagTone === "bad" ? "border-rag-red/40 bg-rag-red/10 text-rag-red" : "border-rag-amber/40 bg-rag-amber/10 text-rag-amber",
+                          // An outlined chip; the tone rides on the text only (no tinted fill).
+                          "ml-2 rounded-full border border-border-strong px-1.5 py-px text-[11px] font-medium whitespace-nowrap",
+                          x.flagTone === "good" ? "text-rag-green" : x.flagTone === "bad" ? "text-rag-red" : "text-rag-amber",
                         )}
                       >
                         {x.flag}
@@ -779,7 +780,7 @@ function BriefForm(props: {
   const [due, setDue] = useState(props.defaults.dueDate)
   const [description, setDescription] = useState(props.defaults.description)
   return (
-    <div className="grid gap-4 rounded-lg border bg-background/60 p-4 sm:grid-cols-2">
+    <div className="grid gap-4 rounded-lg border bg-elevated p-4 sm:grid-cols-2">
       <p className="text-sm font-medium sm:col-span-2">Brief the team: a Notion action on the Master Production board</p>
       {!props.live && (
         <p className="text-xs text-muted-foreground sm:col-span-2">
@@ -824,7 +825,7 @@ function TestForm(props: {
   const [owner, setOwner] = useState(props.owners.find((o) => o.onTeam && o.id)?.id ?? "")
   const [deadline, setDeadline] = useState(props.defaults.deadline)
   return (
-    <div className="grid gap-4 rounded-lg border bg-background/60 p-4 sm:grid-cols-2">
+    <div className="grid gap-4 rounded-lg border bg-elevated p-4 sm:grid-cols-2">
       <p className="text-sm font-medium sm:col-span-2">Plan it as a test in Sprint {props.sprintNumber}</p>
       <Field label="What we're testing" className="sm:col-span-2">
         <Input value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -857,7 +858,7 @@ function TestForm(props: {
 function DismissForm({ pending, onDismiss, onCancel }: { pending: boolean; onDismiss: (note: string) => void; onCancel: () => void }) {
   const [note, setNote] = useState("")
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-background/60 p-3">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-elevated p-3">
       <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Why not? (optional, helps us tune the rules)" className="h-8 min-w-0 flex-1" autoFocus />
       <Button size="sm" variant="outline" disabled={pending} onClick={() => onDismiss(note)}>
         Dismiss

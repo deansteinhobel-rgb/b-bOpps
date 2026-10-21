@@ -45,7 +45,7 @@ export function ApproveDialog({ p, byId, clientSlug, setup, disabled }: { p: Lib
             {!setup.live && " Test mode is on, so it's logged and nothing is sent to Notion."}
           </DialogDescription>
         </DialogHeader>
-        {error && <p className="rounded-md bg-rag-red-bg px-3 py-2 text-sm text-rag-red">{error}</p>}
+        {error && <p className="text-sm text-rag-red">{error}</p>}
         {setup.leads.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nobody on this client&apos;s team list is linked to a Notion user yet, so the brief has no one to lead it. An admin can link people in Admin → People.</p>
         ) : (

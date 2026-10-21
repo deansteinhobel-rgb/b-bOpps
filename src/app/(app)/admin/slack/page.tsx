@@ -14,7 +14,8 @@ import { SendNowButton } from "./send-button"
 
 export const metadata = { title: "Slack reports" }
 
-const EMOJI: Record<string, string> = { large_green_circle: "🟢", large_orange_circle: "🟠", red_circle: "🔴", arrow_up: "⬆️", arrow_down: "⬇️", hourglass: "⌛" }
+// Slack's own emoji, previewed as Slack shows them (kept on purpose).
+const EMOJI: Record<string, string> = { large_green_circle: "🟢", large_orange_circle: "🟠", red_circle: "🔴", arrow_up: "⬆️", arrow_down: "⬇️", hourglass: "⌛" } // taste-skill-ignore
 
 /** Slack mrkdwn as it will look: *bold*, _italic_, <link|label>, the emoji we use, escaped &, < and >. */
 function Mrkdwn({ text }: { text: string }) {

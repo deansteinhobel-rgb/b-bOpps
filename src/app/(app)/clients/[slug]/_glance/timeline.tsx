@@ -17,9 +17,10 @@ const SOURCES: { value: SourceFilter; label: string }[] = [
   { value: "app", label: "In the app" },
 ]
 const SOURCE_BADGE: Record<TimelineSource, { label: string; cls: string }> = {
-  team: { label: "Team log", cls: "border-white/30 text-foreground" },
-  platform: { label: "Platform", cls: "border-foreground/15 text-muted-foreground" },
-  app: { label: "App", cls: "border-violet/40 bg-violet/10 text-violet" },
+  // Outlined neutral chips: the source is a label, not a status, so no tinted fills.
+  team: { label: "Team log", cls: "border-border-strong text-foreground" },
+  platform: { label: "Platform", cls: "border-border text-muted-foreground" },
+  app: { label: "App", cls: "border-border-strong text-body" },
 }
 const PAGE = 60
 
@@ -112,7 +113,7 @@ export function Timeline({ entries, pageSize = PAGE }: { entries: TimelineEntry[
       </ol>
 
       {shown.length > limit && (
-        <button type="button" onClick={() => setLimit(limit + pageSize)} className="w-full border-t px-5 py-3 text-sm text-muted-foreground hover:bg-secondary/40 hover:text-foreground">
+        <button type="button" onClick={() => setLimit(limit + pageSize)} className="w-full border-t px-5 py-3 text-sm text-muted-foreground hover:bg-white/[0.03] hover:text-foreground">
           Show more ({shown.length - limit} older)
         </button>
       )}
@@ -131,10 +132,10 @@ function Entry({ e }: { e: TimelineEntry }) {
         <span className="flex flex-wrap items-center gap-2 text-sm leading-snug">
           <span className="font-medium">{e.title}</span>
           <span className={cn("rounded-full border px-1.5 py-px text-[11px]", badge.cls)}>{e.source === "platform" ? e.kind : badge.label}</span>
-          {e.bulk && <span className="rounded-full border border-rag-amber/40 bg-rag-amber/10 px-1.5 py-px text-[11px] text-rag-amber">Bulk</span>}
+          {e.bulk && <span className="rounded-full border border-border-strong px-1.5 py-px text-[11px] text-rag-amber">Bulk</span>}
         </span>
         {meta.length > 0 && <span className="block truncate text-xs text-muted-foreground">{meta.join(" · ")}</span>}
-        {e.detail && <span className="block text-xs text-foreground/75">{e.detail}</span>}
+        {e.detail && <span className="block text-xs text-body">{e.detail}</span>}
         {e.campaigns && e.campaigns.length > 1 && (
           <details className="text-xs text-muted-foreground">
             <summary className="cursor-pointer select-none hover:text-foreground">{e.campaigns.length} campaigns</summary>
@@ -144,5 +145,5 @@ function Entry({ e }: { e: TimelineEntry }) {
       </span>
     </div>
   )
-  return <li>{e.href ? <Link href={e.href} className="block hover:bg-secondary/30">{body}</Link> : body}</li>
+  return <li>{e.href ? <Link href={e.href} className="block hover:bg-white/[0.03]">{body}</Link> : body}</li>
 }

@@ -184,7 +184,6 @@ function AdCard({ ad, competitor, today, isNew }: { ad: AdRow; competitor: strin
     <button type="button" onClick={open} aria-haspopup="dialog" className="group/card flex w-full flex-col gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {ad.src ? (
         <span className="relative block aspect-square w-full overflow-hidden rounded-md border bg-elevated transition-colors group-hover/card:border-foreground/30">
-          <img src={ad.src} alt="" aria-hidden loading="lazy" className="absolute inset-0 size-full scale-110 object-cover opacity-40 blur-xl" />
           <img src={ad.src} alt={ad.headline ?? `${competitor} ad`} loading="lazy" className="relative size-full object-contain" />
         </span>
       ) : (
@@ -221,7 +220,7 @@ function AdPanel({ ads, names, today }: { ads: AdRow[]; names: Map<string, strin
     <DialogPrimitive.Root open={!!ad} onOpenChange={(o) => !o && close()}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/50 duration-150 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0" />
-        <DialogPrimitive.Popup className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l bg-background text-sm shadow-2xl outline-none duration-200 data-closed:animate-out data-closed:slide-out-to-right data-open:animate-in data-open:slide-in-from-right">
+        <DialogPrimitive.Popup className="fixed inset-y-0 right-0 z-50 flex w-full max-w-2xl flex-col border-l bg-background text-sm shadow-2xl outline-none duration-200 data-closed:animate-out data-closed:slide-out-to-right data-open:animate-in data-open:slide-in-from-right">{/* taste-skill-ignore: a real overlay (side panel) */}
           {ad && (
             <>
               <header className="flex items-start gap-3 border-b px-5 py-4">
@@ -296,10 +295,11 @@ function ThemVsUs({ ads, ours, clientName }: { ads: AdRow[]; ours: OurLabels[]; 
           </>
         }
       />
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* One box split into columns, so the three lists never end at different heights. */}
+      <div className="surface grid divide-y md:grid-cols-3 md:divide-x md:divide-y-0">
         {groups.map((g) => (
-          <div key={g.title} className="surface space-y-3 p-4">
-            <h3 className="text-sm font-semibold">{g.title}</h3>
+          <div key={g.title} className="space-y-3 p-4">
+            <h3 className="text-sm font-semibold text-foreground">{g.title}</h3>
             <ul className="space-y-2.5">
               {g.rows.map((r) => (
                 <li key={r.value} className="space-y-1">
@@ -374,9 +374,9 @@ function ManageCompetitors({ slug, competitors, canEdit }: { slug: string; compe
                 </div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
                   <dt className="inline-flex items-center gap-1.5 text-muted-foreground"><PlatformIcon platform="meta" className="size-3.5" /> Meta</dt>
-                  <dd className="font-mono text-body">{c.meta_page_id ?? "–"}</dd>
+                  <dd className="font-mono text-body">{c.meta_page_id ?? "–"}</dd>{/* taste-skill-ignore: ids */}
                   <dt className="inline-flex items-center gap-1.5 text-muted-foreground"><PlatformIcon platform="google_ads" className="size-3.5" /> Google</dt>
-                  <dd className="font-mono text-body">{c.google_advertiser_ids.join(", ") || "–"}</dd>
+                  <dd className="font-mono text-body">{c.google_advertiser_ids.join(", ") || "–"}</dd>{/* taste-skill-ignore: ids */}
                   <dt className="inline-flex items-center gap-1.5 text-muted-foreground"><PlatformIcon platform="linkedin" className="size-3.5" /> LinkedIn</dt>
                   <dd className="text-body">{c.linkedin_advertiser ?? "–"}</dd>
                 </dl>
@@ -413,7 +413,7 @@ function CompetitorForm({ slug, id, initial, onDone }: { slug: string; id: strin
   const field = (key: keyof CompetitorInput, label: string, hint: string, mono = false) => (
     <label className="space-y-1">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <input value={v[key]} onChange={(e) => setV({ ...v, [key]: e.target.value })} className={cn("h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:border-foreground/30", mono && "font-mono text-[13px]")} />
+      <input value={v[key]} onChange={(e) => setV({ ...v, [key]: e.target.value })} className={cn("h-8 w-full rounded-md border bg-background px-2.5 text-sm outline-none focus:border-foreground/30", mono && "font-mono text-[13px]")} />{/* taste-skill-ignore: ids */}
       <span className="block text-[11px] text-subtle-foreground">{hint}</span>
     </label>
   )

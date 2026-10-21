@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronDown } from "lucide-react"
+import { Check, ChevronDown } from "lucide-react"
 import { fieldClass } from "@/components/field-class"
+import { CountBadge } from "@/components/filter-tabs"
 import { PlatformIcon, PlatformLabel, type AnyPlatform } from "@/components/brand"
 import { Sparkle } from "@/components/fx/sparkle"
 import { Button } from "@/components/ui/button"
@@ -61,12 +62,13 @@ const firstSentence = (t: string | null) => (t ? (t.match(/^.*?[.!?](\s|$)/)?.[0
 const summaryOf = (r: Recommendation) => withSymbols(r.summary ?? firstSentence(r.why_data) ?? "")
 
 function tags(r: Recommendation, rank: number) {
+  // Small outlined neutral chips (taste sweep): the words carry the meaning, not a color each.
   const out: { label: string; cls: string }[] = []
-  if (rank === 0) out.push({ label: "Top pick", cls: "border-white/40 text-foreground" })
-  if (r.effort === "low" && (r.impact ?? r.confidence) !== "low") out.push({ label: "Quick win", cls: "border-foreground/20 text-foreground" })
-  if (r.confidence === "low" || !(CONNECTED.includes(r.platform) || r.platform === "several")) out.push({ label: "Bold bet", cls: "border-pink/40 text-pink" })
-  // Follows up something said on a client call (the same pink as the test's "From a call" tag).
-  if (r.call_commitment_id) out.push({ label: "From a call", cls: "border-[#f0a6ca]/40 bg-[#f0a6ca]/10 text-[#f0a6ca]" })
+  if (rank === 0) out.push({ label: "Top pick", cls: "border-border-strong text-foreground" })
+  if (r.effort === "low" && (r.impact ?? r.confidence) !== "low") out.push({ label: "Quick win", cls: "border-border-strong text-body" })
+  if (r.confidence === "low" || !(CONNECTED.includes(r.platform) || r.platform === "several")) out.push({ label: "Bold bet", cls: "border-border-strong text-body" })
+  // Follows up something said on a client call.
+  if (r.call_commitment_id) out.push({ label: "From a call", cls: "border-border-strong text-body" })
   return out
 }
 
@@ -184,7 +186,7 @@ export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady
       <>
           {/* Queue tabs and progress */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-2.5">
-            <div role="tablist" className="flex gap-1 text-sm">
+            <div role="tablist" className="flex gap-5 text-sm">
               {(
                 [
                   ["open", "To review", lists.open.length],
@@ -197,9 +199,9 @@ export function AiPanel(props: { sprintId: string; canGenerate: boolean; aiReady
                   role="tab"
                   aria-selected={tab === k}
                   onClick={() => setTab(k)}
-                  className={cn("rounded-md px-3 py-1.5 transition-colors", tab === k ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground")}
+                  className={cn("inline-flex items-center gap-1.5 py-1.5 transition-colors", tab === k ? "select-line font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}
                 >
-                  {label} <span className="ml-1 text-xs tabular-nums text-muted-foreground">{n}</span>
+                  {label} <CountBadge active={tab === k}>{n}</CountBadge>
                 </button>
               ))}
             </div>
@@ -261,7 +263,7 @@ function PourHero({ canGenerate, aiReady, busy, onPour, error, again, note }: { 
       <div aria-hidden className="pour-border absolute top-1/2 left-1/2 -z-10 size-[250%] -translate-x-1/2 -translate-y-1/2 opacity-60 transition-opacity duration-500 group-hover/pour:opacity-100" />
       <div className="relative overflow-hidden rounded-[11px] bg-card">
         <div aria-hidden className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-lime/10 blur-3xl transition-colors duration-700 group-hover/pour:bg-lime/20" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 size-64 rounded-full bg-violet-400/10 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 size-64 rounded-full bg-violet-400/10 blur-3xl" />{/* taste-skill-ignore: Dean's Pour a Sprint banner, kept as is */}
         <div className="relative flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:gap-6 sm:px-7">
           <WinePour progress={fill} pouring={false} hoverPour overflow={overflow} className="hidden h-32 w-24 shrink-0 text-foreground sm:block" />
           <div className="min-w-0 flex-1 space-y-2">
@@ -337,11 +339,11 @@ function PourHistory({ rows, active, onPick, onOpenSprint }: { rows: PourHistory
             )
             if (!h.total) return <tr key={h.id} className="text-muted-foreground">{cells}</tr>
             return h.thisSprint ? (
-              <tr key={h.id} onClick={() => onPick(h.id)} className={cn("cursor-pointer transition-colors hover:bg-accent/40", h.id === active && "bg-accent/50")} title="Show this pour's suggestions">
+              <tr key={h.id} onClick={() => onPick(h.id)} className={cn("cursor-pointer transition-colors hover:bg-white/[0.03]", h.id === active && "bg-elevated")} title="Show this pour's suggestions">
                 {cells}
               </tr>
             ) : (
-              <tr key={h.id} onClick={() => onOpenSprint(h.sprintNumber)} className="cursor-pointer transition-colors hover:bg-accent/40" title={`Open Sprint ${h.sprintNumber}`}>
+              <tr key={h.id} onClick={() => onOpenSprint(h.sprintNumber)} className="cursor-pointer transition-colors hover:bg-white/[0.03]" title={`Open Sprint ${h.sprintNumber}`}>
                 {cells}
               </tr>
             )
@@ -402,7 +404,7 @@ function Drips({ active }: { active: boolean }) {
         </svg>
       ))}
       {/* The puddle on the heading */}
-      <svg viewBox="0 0 48 10" className={cn("absolute -bottom-2 left-1/2 h-2.5 w-12 -translate-x-1/2 origin-center transition-transform duration-[1800ms] ease-out", active ? "scale-100" : "scale-0")}>
+      <svg viewBox="0 0 48 10" className={cn("absolute -bottom-2 left-1/2 h-2.5 w-12 -translate-x-1/2 origin-center transition-transform duration-[1800ms] ease-out", active ? "scale-100" : "scale-0")}>{/* taste-skill-ignore: the puddle grows from nothing (Pour banner) */}
         <path d="M3 6 C3 2.5 10 1.5 17 2.6 C22 1 31 1.2 36 2.8 C42 2.2 46 4 45 6.4 C44 8.6 36 8.8 30 8.2 C24 9.4 12 9.2 7 8.4 C4 8 3 7.4 3 6Z" fill="#efe59a" opacity="0.9" />
         <ellipse cx="14" cy="4" rx="4" ry="1" fill="#fff" opacity="0.35" />
       </svg>
@@ -419,7 +421,7 @@ function PourButton({ children, onClick, disabled, size = "lg" }: { children: Re
         onClick={onClick}
         disabled={disabled}
         className={cn(
-          "group/btn relative isolate inline-flex items-center gap-2 overflow-hidden rounded-full bg-lime font-medium text-[#0a0a0a] transition-[box-shadow,transform] duration-300 hover:shadow-[0_0_32px_-6px_rgba(228,255,26,0.7)] focus-visible:ring-2 focus-visible:ring-lime/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50",
+          "group/btn relative isolate inline-flex items-center gap-2 overflow-hidden rounded-full bg-lime font-medium text-[#0a0a0a] transition-[box-shadow,transform] duration-300 hover:shadow-[0_0_32px_-6px_rgba(228,255,26,0.7)] focus-visible:ring-2 focus-visible:ring-lime/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50", // taste-skill-ignore: PourButton, kept as is
           size === "lg" ? "h-11 px-6 text-sm" : "h-9 px-4 text-sm",
         )}
       >
@@ -453,24 +455,25 @@ function QueueRow({ rec: r, rank, tab, active, earlier, onClick }: { rec: Recomm
         type="button"
         onClick={onClick}
         aria-current={active}
-        className={cn("relative flex w-full gap-3 px-4 py-3.5 text-left transition-colors", active ? "bg-accent/70" : "hover:bg-accent/30")}
+        className={cn("relative flex w-full gap-3 px-4 py-3.5 text-left transition-colors", active ? "bg-elevated" : "hover:bg-white/[0.03]")}
       >
-        {active && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-lime" aria-hidden />}
+        {/* The selection mark: a 1px lime line. */}
+        {active && <span className="absolute inset-y-2 left-0 w-px bg-lime" aria-hidden />}
         <span className={cn("mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border text-[11px] tabular-nums", tab === "open" && rank === 0 ? "border-white/30 text-foreground" : "text-muted-foreground")}>
           {rank + 1}
         </span>
         <span className="min-w-0 flex-1 space-y-1">
           <span className="flex items-start gap-2">
             <PlatformIcon platform={r.platform === "several" ? null : (r.platform as AnyPlatform)} className="mt-0.5 size-3.5 shrink-0" />
-            <span className="line-clamp-2 text-sm font-medium leading-snug">{withSymbols(r.title)}</span>
+            <span className="line-clamp-2 text-sm font-medium leading-snug text-foreground">{withSymbols(r.title)}</span>
           </span>
           <span className="line-clamp-1 text-xs text-muted-foreground">{summaryOf(r)}</span>
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-[11px] text-muted-foreground">
             {(r.impact ?? r.confidence) && <Meter label="impact" level={(r.impact ?? r.confidence)!} />}
             {r.effort && <span>{cap(r.effort)} effort</span>}
             {r.status === "reviewed" && (
-              <span className="inline-flex items-center gap-1 text-lime">
-                <span className="size-1.5 rounded-full bg-lime" /> Reviewed
+              <span className="inline-flex items-center gap-1 text-foreground">
+                <Check className="size-3" aria-hidden /> Reviewed
               </span>
             )}
             {earlier && <span>Earlier pour</span>}
@@ -511,9 +514,9 @@ function Detail({ rec: r, rank, tab, canEdit, owners, defaultDeadline, currency 
               </span>
             )}
             {tab === "open" && tags(r, rank).map((t) => <span key={t.label} className={cn("rounded-full border px-2 py-0.5", t.cls)}>{t.label}</span>)}
-            {r.status === "reviewed" && <span className="rounded-full border border-white/30 px-2 py-0.5 text-foreground">Reviewed</span>}
+            {r.status === "reviewed" && <span className="rounded-full border border-border-strong px-2 py-0.5 text-foreground">Reviewed</span>}
           </div>
-          <h3 className="text-xl font-semibold leading-snug">{withSymbols(r.title)}</h3>
+          <h3 className="text-xl font-semibold leading-snug text-foreground">{withSymbols(r.title)}</h3>
           <p className="text-sm text-muted-foreground">{summaryOf(r)}</p>
         </div>
 
@@ -526,14 +529,14 @@ function Detail({ rec: r, rank, tab, canEdit, owners, defaultDeadline, currency 
               <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-3">
                 {r.evidence.map((e) => (
                   <div key={e.label} className="bg-card px-3.5 py-3">
-                    <dd className="text-2xl leading-none tabular-nums font-medium">{withSymbols(e.value)}</dd>
+                    <dd className="text-2xl leading-none tabular-nums font-medium text-foreground">{withSymbols(e.value)}</dd>
                     <dt className="mt-1.5 text-[11px] text-muted-foreground">{e.label}</dt>
                   </div>
                 ))}
               </dl>
             )}
 
-            <div className="grid gap-4 rounded-lg border-l-2 border-lime/60 bg-background/50 py-3 pr-4 pl-4 sm:grid-cols-2">
+            <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
               <div>
                 <p className="text-xs text-subtle-foreground">Expected impact</p>
                 <p className="mt-1 text-sm">{r.expected_impact ? withSymbols(r.expected_impact) : `${cap(r.impact ?? r.confidence ?? "medium")} impact`}</p>
@@ -561,7 +564,7 @@ function Detail({ rec: r, rank, tab, canEdit, owners, defaultDeadline, currency 
                   {r.assets.length > 0 && (
                     <p className="mt-2 flex flex-wrap gap-1">
                       {r.assets.map((a) => (
-                        <span key={a} className="rounded border px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                        <span key={a} className="rounded-full border border-border-strong px-2 py-0.5 text-[11px] text-body">
                           {ASSETS[a] ?? a}
                         </span>
                       ))}
@@ -575,7 +578,7 @@ function Detail({ rec: r, rank, tab, canEdit, owners, defaultDeadline, currency 
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[11px] text-subtle-foreground">Sources</span>
                 {r.sources.map((s) => (
-                  <a key={s.url} href={s.url} target="_blank" rel="noreferrer" title={s.title} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground hover:border-foreground/30 hover:text-foreground">
+                  <a key={s.url} href={s.url} target="_blank" rel="noreferrer" title={s.title} className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground hover:border-border-strong hover:text-foreground">
                     {/* eslint-disable-next-line @next/next/no-img-element -- tiny favicon from Google's public service */}
                     <img src={`https://www.google.com/s2/favicons?domain=${hostOf(s.url)}&sz=32`} alt="" className="size-3 rounded-sm" />
                     {hostOf(s.url)}
@@ -584,7 +587,7 @@ function Detail({ rec: r, rank, tab, canEdit, owners, defaultDeadline, currency 
               </div>
             )}
 
-            {r.status === "rejected" && r.reject_reason && <p className="rounded-md border border-rag-red/30 px-3 py-2 text-sm text-rag-red">Rejected: {r.reject_reason}</p>}
+            {r.status === "rejected" && r.reject_reason && <p className="text-sm text-body"><span className="font-semibold text-rag-red">Rejected:</span> {r.reject_reason}</p>}
             {r.status === "approved" && r.sprint_test_id && (
               <a href={`#test-${r.sprint_test_id}`} className="inline-block text-sm text-rag-green underline">
                 Planned as a test. See it on the board ↓
@@ -682,8 +685,8 @@ function ApproveForm({ owners, defaultDeadline, pending, onApprove, onCancel }: 
   const [owner, setOwner] = useState(owners.find((o) => o.onTeam && o.id)?.id ?? "")
   const [deadline, setDeadline] = useState(defaultDeadline)
   return (
-    <div className="grid gap-4 rounded-lg border bg-background/60 p-4 sm:grid-cols-2">
-      <p className="text-sm font-medium sm:col-span-2">Add it to this sprint&apos;s plan</p>
+    <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2">
+      <p className="text-sm font-medium text-foreground sm:col-span-2">Add it to this sprint&apos;s plan</p>
       <Field label="Owner">
         <select className={fieldClass} value={owner} onChange={(e) => setOwner(e.target.value)}>
           <option value="">No owner yet</option>
@@ -717,7 +720,7 @@ function ApproveForm({ owners, defaultDeadline, pending, onApprove, onCancel }: 
 function RejectForm({ pending, onReject, onCancel }: { pending: boolean; onReject: (reason: string) => void; onCancel: () => void }) {
   const [reason, setReason] = useState("")
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-background/60 p-3">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
       <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why not? Claude reads this next time." className="h-8 min-w-0 flex-1" autoFocus />
       <Button size="sm" variant="outline" disabled={pending || !reason.trim()} onClick={() => onReject(reason)}>
         Reject
@@ -733,8 +736,8 @@ function MarketNotes({ run }: { run: AiRun }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="border-b">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 px-5 py-2.5 text-left hover:bg-accent/30">
-        <span className="shrink-0 text-xs font-semibold">Tasting notes</span>
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="flex w-full items-center gap-3 px-5 py-2.5 text-left hover:bg-white/[0.03]">
+        <span className="shrink-0 text-xs font-semibold text-foreground">Tasting notes</span>
         <span className={cn("min-w-0 flex-1 text-xs text-muted-foreground", !open && "truncate")}>{withSymbols(run.market_summary ?? "")}</span>
         <span className="shrink-0 text-[11px] text-muted-foreground">{run.news.length} platform updates</span>
         <ChevronDown className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} aria-hidden />
@@ -747,7 +750,7 @@ function MarketNotes({ run }: { run: AiRun }) {
                 {n.platform}
                 {n.date ? ` · ${n.date}` : ""}
               </p>
-              <a href={n.url} target="_blank" rel="noreferrer" className="mt-0.5 block font-medium leading-snug hover:underline">
+              <a href={n.url} target="_blank" rel="noreferrer" className="mt-0.5 block font-medium leading-snug text-foreground hover:underline">
                 {withSymbols(n.headline)}
               </a>
               <p className="mt-1 text-xs text-muted-foreground">{withSymbols(n.detail)}</p>
@@ -762,7 +765,7 @@ function MarketNotes({ run }: { run: AiRun }) {
 function Section({ title, children, defaultOpen = false }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   return (
     <details open={defaultOpen} className="group">
-      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-sm font-medium [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
         {title}
         <ChevronDown className="size-3.5 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
       </summary>
@@ -779,7 +782,7 @@ function Meter({ label, level, labelFirst = false }: { label: string; level: Lev
       {labelFirst && <span>{label}</span>}
       <span className="inline-flex items-end gap-0.5" aria-hidden>
         {[1, 2, 3].map((i) => (
-          <span key={i} className={cn("w-[3px] rounded-sm", i <= n ? "bg-lime" : "bg-foreground/15")} style={{ height: 4 + i * 3 }} />
+          <span key={i} className={cn("w-[3px] rounded-sm", i <= n ? "bg-foreground" : "bg-foreground/15")} style={{ height: 4 + i * 3 }} />
         ))}
       </span>
       {labelFirst && <span className="sr-only">{cap(level)}</span>}

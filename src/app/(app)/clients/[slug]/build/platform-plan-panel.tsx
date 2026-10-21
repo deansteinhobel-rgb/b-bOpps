@@ -68,10 +68,10 @@ export function PlatformPlanPanel(p: PlatformPanelProps & { row: PlatformPlanRow
     <section className="surface overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
         <div className="min-w-0">
-          <div className="eyebrow">
-            {BUILD_PLATFORM_LABEL[row.platform]} · {platformPresetByKey(row.preset)?.label ?? row.preset}
-          </div>
           <h2 className="truncate text-xl">{row.plan?.draft.campaign.name ?? "New campaign"}</h2>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">
+            {BUILD_PLATFORM_LABEL[row.platform]} · {platformPresetByKey(row.preset)?.label ?? row.preset}
+          </p>
         </div>
         <Button variant="outline" size="sm" onClick={p.onClose}>
           New campaign
@@ -445,7 +445,7 @@ function SearchAdCard({ ad, onChange }: { ad: SearchAd; onChange: (patch: Partia
         </span>
         {ad.fromProposal && <span className="pill">Proposal</span>}
         {tooLong && <span className="pill text-rag-red">Too long</span>}
-        <button type="button" onClick={() => setEditing(!editing)} aria-label={editing ? "Done editing the ad" : "Edit the ad"} aria-expanded={editing} className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-white/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-lime focus-visible:outline-none">
+        <button type="button" onClick={() => setEditing(!editing)} aria-label={editing ? "Done editing the ad" : "Edit the ad"} aria-expanded={editing} className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-white/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
           {editing ? <CheckIcon className="size-3.5" aria-hidden /> : <Pencil className="size-3.5" aria-hidden />}
         </button>
       </div>
@@ -744,7 +744,7 @@ function MetaAdCard({ slug, ad, lead, onChange }: { slug: string; ad: MetaAd; le
         </span>
         {ad.fromProposal && <span className="pill">Proposal</span>}
         <span className="pill">{image ? "Single image" : `${words(ad.format)}: build in Ads Manager`}</span>
-        <button type="button" onClick={() => setEditing(!editing)} aria-label={editing ? `Done editing ${ad.name}` : `Edit ${ad.name}`} aria-expanded={editing} className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-white/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-lime focus-visible:outline-none">
+        <button type="button" onClick={() => setEditing(!editing)} aria-label={editing ? `Done editing ${ad.name}` : `Edit ${ad.name}`} aria-expanded={editing} className="grid size-7 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-white/[0.06] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
           {editing ? <CheckIcon className="size-3.5" aria-hidden /> : <Pencil className="size-3.5" aria-hidden />}
         </button>
       </div>
@@ -778,7 +778,7 @@ function MetaAdCard({ slug, ad, lead, onChange }: { slug: string; ad: MetaAd; le
         <div className="flex flex-1 flex-col">
           {ad.message && <p className="line-clamp-3 px-3 py-2.5 text-[13px] whitespace-pre-line text-body">{ad.message}</p>}
           {image ? <ImageSlot slug={slug} path={ad.imagePath} onChange={(imagePath) => onChange({ imagePath })} flush /> : <p className="border-y px-3 py-6 text-center text-xs text-muted-foreground">{ad.creativeBrief || words(ad.format)}</p>}
-          <div className="mt-auto flex items-center gap-3 bg-white/[0.03] px-3 py-2.5">
+          <div className="mt-auto flex items-center gap-3 bg-elevated px-3 py-2.5">
             <span className="line-clamp-2 min-w-0 flex-1 text-[13px] font-semibold text-foreground">{ad.headline || <span className="font-normal text-muted-foreground">No headline</span>}</span>
             <span className="shrink-0 rounded-full border border-border-strong px-3 py-1 text-xs font-medium text-foreground">{words(ad.callToAction)}</span>
           </div>
@@ -887,7 +887,7 @@ function RedditEditor({ draft, m, onChange }: { draft: RedditDraft; m: (n: numbe
                   {ad.fromProposal && <span className="pill">Proposal</span>}
                 </div>
                 {(ad.headline || ad.body) && (
-                  <div className="rounded-md bg-white/[0.03] px-3 py-2 text-[13px]">
+                  <div className="rounded-md bg-elevated px-3 py-2 text-[13px]">
                     <p className="font-semibold text-foreground">{ad.headline}</p>
                     {ad.body && <p className="mt-1 line-clamp-4 whitespace-pre-line text-body">{ad.body}</p>}
                   </div>

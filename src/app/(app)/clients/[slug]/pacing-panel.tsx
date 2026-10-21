@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { fieldClass } from "@/components/field-class"
 import { PlatformIcon, PlatformLabel } from "@/components/brand"
 import { Sparkle } from "@/components/fx/sparkle"
+import { FilterChip } from "@/components/segmented"
 import { StatusDot } from "@/components/status-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -85,16 +86,11 @@ export function PacingPanel(props: { platforms: PlatformPacing[]; campaigns: Cam
             <option value="campaign">By campaign</option>
           </select>
           {mode === "campaign" && (
-            <div className="flex flex-wrap gap-1">
+            <div className="flex flex-wrap gap-0.5" role="radiogroup" aria-label="Platform">
               {(["all", ...platformsHere] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setFilter(p)}
-                  className={cn("inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs", filter === p ? "border-foreground/25 bg-accent" : "text-muted-foreground hover:text-foreground")}
-                >
+                <FilterChip key={p} active={filter === p} onClick={() => setFilter(p)}>
                   {p === "all" ? "All" : <PlatformLabel platform={p} />}
-                </button>
+                </FilterChip>
               ))}
             </div>
           )}
@@ -113,7 +109,7 @@ export function PacingPanel(props: { platforms: PlatformPacing[]; campaigns: Cam
         {rows.length === 0 && <li className="px-4 py-8 text-center text-sm text-muted-foreground">No campaigns with spend this month.</li>}
       </ul>
       {mode === "campaign" && campaignRows.length > 12 && (
-        <button type="button" onClick={() => setShowAll((s) => !s)} className="w-full border-t px-4 py-2.5 text-xs text-muted-foreground hover:bg-accent/40 hover:text-foreground">
+        <button type="button" onClick={() => setShowAll((s) => !s)} className="w-full border-t px-4 py-2.5 text-xs text-muted-foreground transition-colors hover:bg-white/[0.03] hover:text-foreground">
           {showAll ? "Show fewer" : `Show all ${campaignRows.length} campaigns`}
         </button>
       )}
@@ -177,7 +173,7 @@ function PacingRow({ row: r, currency, canEdit, clientSlug, month, monthLabel }:
           </div>
           {r.status !== "no_budget" && <StatusDot status={r.status} className="size-2.5" />}
           {canEdit && (
-            <button type="button" onClick={() => setEditing((e) => !e)} className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
+            <button type="button" onClick={() => setEditing((e) => !e)} className="rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
               {r.budget ? "Edit" : "Set"}
             </button>
           )}
@@ -185,7 +181,7 @@ function PacingRow({ row: r, currency, canEdit, clientSlug, month, monthLabel }:
       </div>
 
       {editing && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border bg-background/60 p-3 md:ml-[15rem]">
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-md border p-3 md:ml-[15rem]">
           <label htmlFor={`b-${r.key}`} className="text-xs text-muted-foreground">
             {monthLabel} budget ({currencySymbol(currency)})
           </label>

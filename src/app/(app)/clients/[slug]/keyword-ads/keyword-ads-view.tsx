@@ -128,8 +128,10 @@ export function KeywordAdsView(props: {
               kw.sources.length > 1 && (
                 <div className="flex gap-1">
                   {(kw.sources as KeywordSource[]).map((s) => (
-                    <Link key={s} href={href(kw.id, s)} scroll={false} className={cn("inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[13px]", s === selected.source ? "bg-white/[0.08] font-medium text-foreground" : "text-body hover:bg-white/[0.04]")}>
-                      <PlatformIcon platform={SOURCE_PLATFORM[s]} /> {SOURCE_LABEL[s]}
+                    <Link key={s} href={href(kw.id, s)} scroll={false} aria-current={s === selected.source ? "true" : undefined} className={cn("inline-flex h-8 items-center rounded-sm px-2 text-[13px] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring", s === selected.source ? "font-medium text-foreground" : "text-muted-foreground hover:text-foreground")}>
+                      <span className={cn("inline-flex h-full items-center gap-1.5", s === selected.source && "select-line")}>
+                        <PlatformIcon platform={SOURCE_PLATFORM[s]} /> {SOURCE_LABEL[s]}
+                      </span>
                     </Link>
                   ))}
                 </div>
@@ -162,7 +164,6 @@ export function KeywordAdsView(props: {
 function Creative({ ad, className }: { ad: KeywordAdView; className?: string }) {
   return ad.src ? (
     <span className={cn("relative block overflow-hidden rounded-md border bg-elevated", className)}>
-      <img src={ad.src} alt="" aria-hidden loading="lazy" className="absolute inset-0 size-full scale-110 object-cover opacity-40 blur-xl" />
       <img src={ad.src} alt={ad.headline ?? `${ad.advertiser ?? "An advertiser"}'s ad`} loading="lazy" className="relative size-full object-contain" />
     </span>
   ) : (
@@ -197,7 +198,7 @@ function AdCard({ ad, rank, today, pick }: { ad: KeywordAdView; rank: number; to
       className={cn("group flex w-full flex-col gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring", off && "opacity-45 hover:opacity-100")}
     >
       <span className="relative block">
-        <Creative ad={ad} className={cn("aspect-square w-full transition-colors group-hover:border-foreground/30", pick && "border-lime/60")} />
+        <Creative ad={ad} className={cn("aspect-square w-full transition-colors group-hover:border-foreground/30", pick && "border-border-strong")} />
         <span className="absolute top-1.5 left-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[11px] font-medium text-foreground tabular-nums">#{rank}</span>
       </span>
       <span className="flex items-center gap-1.5 text-[13px]">

@@ -133,7 +133,7 @@ export default async function ChecksPage({ params, searchParams }: PageProps<"/c
           <ul className="surface mt-3 divide-y overflow-hidden">
             {history.map((h) => (
               <li key={h.id}>
-                <Link href={`/clients/${slug}/checks?run=${h.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-accent/50">
+                <Link href={`/clients/${slug}/checks?run=${h.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-white/[0.03]">
                   <span>
                     {h.cadence === "weekly" ? "Week of" : "Month of"} {longDate(h.period_start)}
                   </span>

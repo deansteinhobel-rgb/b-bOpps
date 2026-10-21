@@ -75,7 +75,7 @@ export default async function ClientsPage() {
 function CardShell({ href, children }: { href: string | null; children: React.ReactNode }) {
   const cls = "group surface flex flex-col gap-5 p-5 transition-colors"
   return href ? (
-    <Link href={href} className={cn(cls, "outline-none hover:border-foreground/20 focus-visible:ring-2 focus-visible:ring-ring")}>
+    <Link href={href} className={cn(cls, "outline-none hover:border-border-strong focus-visible:ring-2 focus-visible:ring-ring")}>
       {children}
     </Link>
   ) : (
@@ -153,8 +153,9 @@ function Spend({ card: c }: { card: ClientCard }) {
 function FunnelBlock({ card: c }: { card: ClientCard }) {
   return (
     <section>
-      <BlockTitle trailing={c.funnel.sample && <span className="rounded px-1.5 text-xs leading-5 text-muted-foreground ring-1 ring-white/10 ring-inset" title="Made-up numbers until the CRM is connected">Sample</span>}>Funnel this month</BlockTitle>
-      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-white/[0.06]">
+      <BlockTitle trailing={c.funnel.sample && <span className="rounded-full border border-border-strong px-2 text-[11px] leading-5 text-muted-foreground" title="Made-up numbers until the CRM is connected">Sample</span>}>Funnel this month</BlockTitle>
+      {/* Cells split by hairlines inside the card, not a box inside the box (taste sweep 2026-10-21). */}
+      <div className="grid grid-cols-3 divide-x divide-border">
         {c.funnel.metrics.map((m) => (
           <FunnelCell key={m.key} metric={m} pace={c.monthPace} currency={c.currency} />
         ))}
@@ -167,10 +168,10 @@ function FunnelCell({ metric: m, pace, currency }: { metric: FunnelMetric; pace:
   const p = paceOf(m.value, m.target, pace)
   const fmt = (v: number) => (m.money ? compactMoney(v, currency) : whole(v))
   return (
-    <div className="min-w-0 space-y-2 bg-card px-3 py-3" title={`${m.hint}: ${fmt(m.value)} of ${fmt(m.target)}, ${p.words.toLowerCase()}${p.words === "On pace" ? "" : " of pace"}`}>
+    <div className="min-w-0 space-y-2 px-3 first:pl-0 last:pr-0" title={`${m.hint}: ${fmt(m.value)} of ${fmt(m.target)}, ${p.words.toLowerCase()}${p.words === "On pace" ? "" : " of pace"}`}>
       <p className="text-xs text-muted-foreground">{m.label}</p>
       <div className="tabular-nums">
-        <p className="truncate text-xl leading-7 font-semibold">{fmt(m.value)}</p>
+        <p className="truncate text-xl leading-7 font-medium">{fmt(m.value)}</p>
         <p className="truncate text-xs text-muted-foreground">of {fmt(m.target)}</p>
       </div>
       <Bar share={m.value / m.target} pace={pace} tone={FILL[p.tone]} />

@@ -143,10 +143,10 @@ function EditDialog(p: { slug: string; platform: OtherPlatform; currency: string
     <Dialog open onOpenChange={(o) => !o && p.onClose()}>
       <DialogContent className="grid-cols-[minmax(0,1fr)] gap-4 p-6 sm:max-w-lg">
         <div className="space-y-1 pr-8">
-          <p className="text-xs text-muted-foreground">{platformName}</p>
           <DialogTitle className="truncate font-sans text-lg font-semibold" title={p.campaign.name}>
             {p.campaign.name}
           </DialogTitle>
+          <p className="text-[13px] text-muted-foreground">{platformName}</p>
         </div>
         <Field label="Change" id="pe-kind">
           <select

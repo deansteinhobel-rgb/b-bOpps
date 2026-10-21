@@ -1,6 +1,6 @@
 "use client"
 
-import { Building2, FileText, Film, Image as ImageIcon, Megaphone, Repeat, Sparkles, Target, UserRound } from "lucide-react"
+import { Building2, FileText, Film, Image as ImageIcon, Megaphone, MousePointerClick, Repeat, Target, UserRound } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { fieldClass } from "@/components/field-class"
@@ -29,7 +29,8 @@ export type PlatformBuilderProps = Omit<PlatformPanelProps, "builds"> & {
   tests: { id: string; title: string }[]
 }
 
-const ICONS: Record<Preset["icon"], typeof Megaphone> = { megaphone: Megaphone, image: ImageIcon, file: FileText, film: Film, user: UserRound, target: Target, repeat: Repeat, building: Building2, sparkles: Sparkles }
+// The "sparkles" presets (website conversions, brand search) get a plain click icon: sparkles read as "AI".
+const ICONS: Record<Preset["icon"], typeof Megaphone> = { megaphone: Megaphone, image: ImageIcon, file: FileText, film: Film, user: UserRound, target: Target, repeat: Repeat, building: Building2, sparkles: MousePointerClick }
 
 const setParam = (key: string, value: string | null) => {
   const url = new URL(window.location.href)
@@ -54,7 +55,12 @@ export function PlatformBuilder(p: PlatformBuilderProps) {
   const name = BUILD_PLATFORM_LABEL[p.platform]
   return (
     <div className="space-y-8">
-      {!p.buildLive && <p className="rounded-md bg-rag-amber-bg px-3 py-2 text-[13px] text-rag-amber">Test mode: builds and edits are dry runs. Nothing reaches {name}.</p>}
+      {!p.buildLive && (
+        <p className="flex items-center gap-2 text-[13px] text-body">
+          <span className="size-2 shrink-0 rounded-full bg-rag-amber" aria-hidden />
+          Test mode: builds and edits are dry runs. Nothing reaches {name}.
+        </p>
+      )}
       {active ? <PlatformPlanPanel key={active.id} {...p} row={active} onClose={() => open(null)} /> : <NewPlatformCampaign key={p.platform} {...p} onStarted={open} />}
       <PlatformCampaigns slug={p.slug} platform={p.platform} currency={p.currency} canEdit={p.canBuild} editLive={p.editLive} />
       <PastPlans plans={p.plans} builds={p.builds} activeId={activeId} onOpen={open} />
@@ -101,7 +107,7 @@ function NewPlatformCampaign(p: PlatformBuilderProps & { onStarted: (id: string)
               onClick={() => setPreset(x.key)}
               aria-pressed={on}
               title={x.description}
-              className={cn("surface flex items-center gap-3 px-4 py-3 text-left transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime", on && "border-white/60 bg-white/[0.04]")}
+              className={cn("surface flex items-center gap-3 px-4 py-3 text-left transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", on && "border-white/60 bg-white/[0.04]")}
             >
               <Icon className={cn("size-5 shrink-0", on ? "text-foreground" : "text-muted-foreground")} aria-hidden />
               <span className="min-w-0 text-sm font-medium text-foreground">{x.label}</span>
@@ -163,7 +169,7 @@ function PastPlans({ plans, builds, activeId, onOpen }: { plans: PlatformPlanRow
           const build = builds.find((b) => b.id === x.buildId)
           return (
             <li key={x.id}>
-              <button type="button" onClick={() => onOpen(x.id)} className={cn("flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03]", x.id === activeId && "bg-white/[0.05]")}>
+              <button type="button" onClick={() => onOpen(x.id)} className={cn("flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.03]", x.id === activeId && "bg-elevated")}>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-foreground">{x.plan?.draft.campaign.name ?? platformPresetByKey(x.preset)?.label ?? x.preset}</span>
                   <span className="block truncate text-xs text-muted-foreground">

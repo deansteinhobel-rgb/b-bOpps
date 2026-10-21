@@ -36,7 +36,7 @@ export default async function PeoplePage() {
               <Link href={`/people/${p.id}`} className="flex min-w-0 items-center gap-3 hover:underline">
                 <Avatar name={p.full_name ?? p.email} url={p.avatar_url} />
                 <span className="min-w-0">
-                  <strong>{p.full_name ?? p.email}</strong> <span className="text-muted-foreground">{p.email}</span>
+                  <span className="font-medium text-foreground">{p.full_name ?? p.email}</span> <span className="text-muted-foreground">{p.email}</span>
                   {!p.notion_user_id && <span className="ml-2 text-xs text-rag-amber">no Notion user</span>}
                   <span className="block text-xs text-muted-foreground">{lastActive(p.last_seen_at)}</span>
                 </span>
@@ -67,7 +67,7 @@ export default async function PeoplePage() {
           {(invites ?? []).map((i) => (
             <li key={i.email} className="flex flex-wrap justify-between gap-2 px-4 py-2">
               <span>
-                <strong>{i.full_name ?? i.email}</strong> <span className="text-muted-foreground">{i.email}</span>
+                <span className="font-medium text-foreground">{i.full_name ?? i.email}</span> <span className="text-muted-foreground">{i.email}</span>
               </span>
               <span className="text-muted-foreground">
                 {ROLE_LABEL[i.role as AppRole]} · Notion: {i.notion_user_id ? (notionName.get(i.notion_user_id) ?? "linked") : "not linked"} ·{" "}

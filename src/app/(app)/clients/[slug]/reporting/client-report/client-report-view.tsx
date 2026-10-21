@@ -74,8 +74,8 @@ export function ClientReportView({ data: d, client, currency, note, hrefFor }: {
           {tiles.map((t, i) => (
             // Five tiles (Google Ads has no leads): stretch one so the grid has no gap.
             <div key={t.label} className={cn("bg-card px-5 py-5", tiles.length === 5 && i === 0 && "col-span-2 sm:col-span-1", tiles.length === 5 && i === 4 && "sm:col-span-2")}>
-              <dt className="text-[13px] font-medium">{t.label}</dt>
-              <dd className="mt-2 text-3xl leading-none tabular-nums font-medium">{t.show(t.now)}</dd>
+              <dt className="text-[13px] text-muted-foreground">{t.label}</dt>
+              <dd className="mt-2 text-2xl leading-none tabular-nums font-medium">{t.show(t.now)}</dd>
               {compare && (
                 <dd className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground">
                   <Chip now={t.now} prev={t.prev} better={t.better} />
@@ -149,7 +149,7 @@ export function ClientReportView({ data: d, client, currency, note, hrefFor }: {
         <ul className="mt-3 max-w-3xl space-y-2 text-[15px] leading-relaxed text-body">
           {d.summary.map((s) => (
             <li key={s} className="flex gap-3">
-              <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-lime" aria-hidden />
+              <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-subtle-foreground" aria-hidden />
               <span>{s}</span>
             </li>
           ))}
@@ -185,10 +185,11 @@ function AdCards({ title, caption, ads, empty, data: d, currency, tone, highligh
               { label: "Spend", value: m(a.spend), key: false },
             ]
             return (
-              <li key={adKey(a)} className="flex flex-col overflow-hidden rounded-xl border bg-background/40">
+              <li key={adKey(a)} className="flex flex-col overflow-hidden rounded-lg border">
                 <div className="relative">
                   <AdThumb preview={d.previews[adKey(a)]} alt={name} size="card" className="rounded-none border-0 border-b" />
-                  <span className={cn("absolute top-2 left-2 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums", tone === "good" ? "bg-rag-green text-black" : "bg-rag-red text-black")}>{i + 1}</span>
+                  {/* A neutral rank: the section heading and the colored figures already say good or weak. */}
+                  <span className="absolute top-2 left-2 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-ink tabular-nums">{i + 1}</span>
                 </div>
                 <div className="flex flex-1 flex-col gap-3 p-4">
                   <div className="min-w-0">
@@ -246,7 +247,7 @@ function GoalBlock({ goal }: { goal: ReportGoal }) {
                     ? `${Math.round(share * 100)}% of the target.`
                     : ""
           return (
-            <li key={x.month} className="rounded-xl border bg-background/40 p-4">
+            <li key={x.month} className="rounded-lg border p-4">
               <p className="text-[13px] text-muted-foreground">
                 {x.label}
                 {x.inProgress ? " so far" : ""}
@@ -375,10 +376,10 @@ function AssetColumn({ title, list, section: s, currency, tone, empty }: { title
       {list.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <ol className="mt-2 divide-y rounded-xl border bg-background/40">
+        <ol className="mt-2 divide-y rounded-lg border">
           {list.map((p, i) => (
             <li key={p.asset.key} className="flex items-center gap-3 px-3 py-3">
-              <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums", tone === "good" ? "bg-rag-green text-black" : "bg-rag-red text-black")}>{i + 1}</span>
+              <span className="w-4 shrink-0 text-right text-sm text-muted-foreground tabular-nums">{i + 1}</span>
               {/* eslint-disable-next-line @next/next/no-img-element -- Google-hosted asset images (in the CSP) */}
               {p.asset.imageUrl && <img src={p.asset.imageUrl} alt={`${s.one} ${i + 1}`} loading="lazy" referrerPolicy="no-referrer" className="h-14 w-20 shrink-0 rounded-md border bg-elevated object-contain" />}
               <span className="min-w-0 flex-1">
