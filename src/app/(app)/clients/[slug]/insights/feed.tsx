@@ -517,7 +517,7 @@ function InsightDetail({ i, campaignHref, ...p }: Omit<RowProps, "insight" | "op
           }
         />
       )}
-      {excludeFacet && <ExcludeDialog slug={p.slug} insightKey={i.key} items={excludeItems} open={dialog === "exclude"} onOpenChange={(o) => setDialog(o ? "exclude" : null)} />}
+      {excludeFacet && <ExcludeDialog slug={p.slug} insightKey={i.key} facet={excludeFacet} items={excludeItems} open={dialog === "exclude"} onOpenChange={(o) => setDialog(o ? "exclude" : null)} />}
       {offerPause && <PauseDialog slug={p.slug} insightKey={i.key} campaignName={i.campaignName} open={dialog === "pause"} onOpenChange={(o) => setDialog(o ? "pause" : null)} />}
       {panel === "dismiss" && <DismissForm pending={pending} onCancel={() => setPanel(null)} onDismiss={(note) => {
             log("dismissed", { note })

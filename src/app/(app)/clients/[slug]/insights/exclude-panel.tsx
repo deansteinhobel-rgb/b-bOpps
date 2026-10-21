@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { fieldClass } from "@/components/field-class"
-import { FACET_WORDS } from "@/lib/ads-api/exclusions"
+import { FACET_WORDS, type ExcludeFacet } from "@/lib/ads-api/exclusions"
 import { cn } from "@/lib/utils"
 import { ActionDialog } from "./action-dialog"
 import { planLinkedInExclusion, sendLinkedInExclusion, type ExclusionPlan } from "./exclude-actions"
@@ -14,7 +14,7 @@ import { pauseFromInsight, planPauseFromInsight, type PausePlan } from "./pause-
  * change on each campaign (read from LinkedIn, nothing sent), companies matched to their LinkedIn
  * page, then one click to send and a done or failed state. Live only when the edit switches are on.
  */
-export function ExcludeDialog({ slug, insightKey, items, open, onOpenChange }: { slug: string; insightKey: string; items: string[]; open: boolean; onOpenChange: (open: boolean) => void }) {
+export function ExcludeDialog({ slug, insightKey, facet, items, open, onOpenChange }: { slug: string; insightKey: string; facet: ExcludeFacet; items: string[]; open: boolean; onOpenChange: (open: boolean) => void }) {
   const router = useRouter()
   const [plan, setPlan] = useState<ExclusionPlan | null>(null)
   const [urns, setUrns] = useState<Record<string, string>>({})
@@ -39,8 +39,8 @@ export function ExcludeDialog({ slug, insightKey, items, open, onOpenChange }: {
   }, [open, slug, insightKey, items])
 
   const ready = plan?.ok ? plan : null
-  const companies = ready?.facet === "employers"
-  const words = FACET_WORDS[ready?.facet ?? "seniorities"]
+  const companies = facet === "employers"
+  const words = FACET_WORDS[facet]
   const unpicked = ready && companies && ready.connected ? ready.values.filter((v) => !urns[v.label]).length : 0
   const sendable = ready ? ready.campaigns.filter((c) => !c.error) : []
 
