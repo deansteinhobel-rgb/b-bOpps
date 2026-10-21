@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import type { TextAd } from "@/lib/previews"
 import type { Platform } from "./client"
 import { sniffImageType } from "@/lib/image-type"
+import { postPageImage } from "./linkedin-post"
 import { windsorRows } from "./rest"
 
 /**
@@ -158,22 +159,20 @@ export async function readBytes(res: Response, max: number, tooLarge = "Response
   return out
 }
 
-const OG_IMAGE = /<meta\s+(?:property|name)="(?:og:image|twitter:image)"\s+content="([^"]+)"/i
 /**
- * The image on a public LinkedIn post page (its og:image), for thought leader ads Windsor has no
- * thumbnail for. Only LinkedIn's own image hosts are accepted. Null when the page has none (a
- * private post, or LinkedIn asking to sign in).
+ * The image on a public LinkedIn post page, for thought leader ads Windsor has no thumbnail for and
+ * document ads (Windsor's thumbnail is LinkedIn's generic document tile): a document's first page,
+ * else the og:image (`postPageImage`). Null when the page has none (a private post, or LinkedIn
+ * asking to sign in).
  */
-export async function postImage(postLink: string): Promise<string | null> {
+export async function postImage(postLink: string): Promise<{ url: string; cover: boolean } | null> {
   const res = await fetchFrom(POST_HOSTS, postLink, {
     headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36", accept: "text/html" },
     signal: AbortSignal.timeout(15_000),
     cache: "no-store",
   })
   if (!res.ok) return null
-  const m = new TextDecoder().decode(await readBytes(res, 3_000_000, "Post page is too large")).match(OG_IMAGE)
-  const url = m?.[1].replaceAll("&amp;", "&")
-  return url && /^https:\/\/([a-z0-9-]+\.)*licdn\.com\//i.test(url) ? url : null
+  return postPageImage(new TextDecoder().decode(await readBytes(res, 3_000_000, "Post page is too large")))
 }
 
 /** Copies an image into our bucket. Returns the stored path and type, or throws. */
@@ -195,6 +194,53 @@ export async function copyImage(url: string, path: string, hosts: readonly strin
 }
 
 const safe = (s: string) => s.replace(/[^a-zA-Z0-9_-]/g, "_")
+const COVER_SUFFIX = "_cover"
+
+/**
+ * LinkedIn document ads: swaps Windsor's generic document tile for the document's first page, read
+ * from the ad's public post page (Dean, 2026-10-21). Each ad is done once: the cover is stored as
+ * <ad>_cover, and a page without one sets copy_error so it isn't asked again (adding a post link by
+ * hand clears it). The old file stays in the bucket. `pauseMs` spaces out requests to LinkedIn.
+ */
+export async function copyDocumentCovers(opts: { clientId?: string; externalAccountId?: string; max: number; pauseMs?: number }) {
+  const db = createAdminClient()
+  let q = db
+    .from("ad_creatives")
+    .select("id, client_id, ad_id, preview_link, manual_post_link")
+    .eq("platform", "linkedin")
+    .eq("ad_type", "NATIVE_DOCUMENT")
+    .is("copy_error", null)
+    .or("preview_link.not.is.null,manual_post_link.not.is.null")
+    .or(`storage_path.is.null,storage_path.not.like.*${COVER_SUFFIX}.*`)
+    .order("seen_at", { ascending: false })
+    .limit(Math.max(opts.max, 0))
+  if (opts.clientId) q = q.eq("client_id", opts.clientId)
+  if (opts.externalAccountId) q = q.eq("external_account_id", opts.externalAccountId)
+  const { data, error } = await q
+  if (error) throw new Error(error.message)
+  let copied = 0
+  let failed = 0
+  for (const [i, c] of (data ?? []).entries()) {
+    if (i && opts.pauseMs) await new Promise((r) => setTimeout(r, opts.pauseMs))
+    try {
+      const link = (c.manual_post_link ?? c.preview_link)!
+      let img = await postImage(link)
+      // LinkedIn sometimes answers with a sign-in wall (2 of 58 in the first backfill); one more try.
+      if (!img?.cover) {
+        await new Promise((r) => setTimeout(r, 5000))
+        img = await postImage(link)
+      }
+      if (!img?.cover) throw new Error("No document pages on the post page (private post, or LinkedIn asked to sign in)")
+      const stored = await copyImage(img.url, `${c.client_id}/linkedin/${safe(c.ad_id)}${COVER_SUFFIX}`)
+      await db.from("ad_creatives").update({ ...stored, copied_at: new Date().toISOString() }).eq("id", c.id)
+      copied++
+    } catch (e) {
+      await db.from("ad_creatives").update({ copy_error: (e as Error).message.slice(0, 300) }).eq("id", c.id)
+      failed++
+    }
+  }
+  return { checked: data?.length ?? 0, copied, failed }
+}
 
 /** Finds the image on a LinkedIn post page and keeps our copy of it on the ad_creatives row. */
 export async function copyPostImage(creativeId: string, postLink: string, path: string): Promise<{ ok: boolean; error?: string }> {
@@ -202,8 +248,9 @@ export async function copyPostImage(creativeId: string, postLink: string, path: 
   try {
     const img = await postImage(postLink)
     if (!img) throw new Error("No image on the post page (private post, or LinkedIn asked to sign in)")
-    const stored = await copyImage(img, path)
-    await db.from("ad_creatives").update({ ...stored, source_url: img, copied_at: new Date().toISOString(), copy_error: null }).eq("id", creativeId)
+    // A document's cover is kept as <ad>_cover, which tells copyDocumentCovers it's done.
+    const stored = await copyImage(img.url, img.cover ? `${path}${COVER_SUFFIX}` : path)
+    await db.from("ad_creatives").update({ ...stored, source_url: img.url, copied_at: new Date().toISOString(), copy_error: null }).eq("id", creativeId)
     return { ok: true }
   } catch (e) {
     const error = (e as Error).message.slice(0, 300)
@@ -278,6 +325,14 @@ export async function syncCreatives(opts: { clientId?: string; accountId?: strin
           else failed++
           budget--
         }
+      }
+      // Document ads: the document's first page in place of LinkedIn's generic tile. A few a run (the
+      // cron has 60s); new document ads are rare and `pnpm covers:documents` does a backlog.
+      if (account.platform === "linkedin" && budget > 0) {
+        const covers = await copyDocumentCovers({ externalAccountId: account.external_account_id, max: Math.min(budget, 5), pauseMs: 500 })
+        copied += covers.copied
+        failed += covers.failed
+        budget -= covers.checked
       }
       results.push({ account: label, ads: previews.length, copied, failed })
     } catch (e) {
