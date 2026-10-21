@@ -16,3 +16,6 @@ public/fonts/
 
 # Personal Claude Code settings (each developer has their own)
 .claude/settings.local.json
+
+# design-taste-frontend skill working files
+.taste-skill/
