@@ -30,6 +30,22 @@ const MAX_CAMPAIGNS = 12
 const MAX_COMPANIES = 25
 const MIN_AUDIENCE = 300
 const CLOSED = /^(archived|canceled|cancelled|completed|removed)$/i
+/** LinkedIn reads at once: quick enough for 25 companies on 12 campaigns, well under LinkedIn's limits. */
+const LINKEDIN_AT_ONCE = 4
+
+/** Runs fn over items, a few at a time, keeping the order. */
+async function inPool<T, R>(items: T[], size: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length)
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) {
+      const n = next++
+      out[n] = await fn(items[n])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(size, items.length) }, worker))
+  return out
+}
 
 export type ExclusionValue = { label: string; urn: string | null; candidates: { name: string; urn: string }[] }
 export type ExclusionCampaign = { id: string; name: string; items: string[]; lines: string[]; audience: number | null; error?: string }
@@ -72,58 +88,46 @@ export async function planLinkedInExclusion(slug: string, key: string, items: st
   if (c.error) return { ok: false, error: c.error }
 
   let connected = true
-  const values: ExclusionValue[] = []
+  let values: ExclusionValue[]
   if (c.facet === "seniorities") {
-    for (const x of c.chosen) values.push({ label: x.label, urn: seniorityUrn(x.label), candidates: [] })
+    values = c.chosen.map((x) => ({ label: x.label, urn: seniorityUrn(x.label), candidates: [] }))
   } else {
     const limited = await rateLimit(c.supabase, "targeting_lookup")
     if (limited) return { ok: false, error: limited }
-    for (const x of c.chosen) {
-      if (!connected) {
-        values.push({ label: x.label, urn: null, candidates: [] })
-        continue
-      }
+    values = await inPool(c.chosen, LINKEDIN_AT_ONCE, async (x): Promise<ExclusionValue> => {
+      if (!connected) return { label: x.label, urn: null, candidates: [] }
       try {
-        values.push({ label: x.label, ...matchCompany(x.label, await targetingTypeahead("employers", x.label)) })
+        return { label: x.label, ...matchCompany(x.label, await targetingTypeahead("employers", x.label)) }
       } catch (e) {
         // One name LinkedIn can't look up shouldn't stop the rest: it's left out, shown as not found.
         if (linkedInNotConnected(e)) connected = false
-        values.push({ label: x.label, urn: null, candidates: [] })
+        return { label: x.label, urn: null, candidates: [] }
       }
-    }
+    })
   }
 
   const byLabel = new Map(values.map((v) => [v.label, v]))
-  const campaigns: ExclusionCampaign[] = []
-  for (const [id, ids] of targets(c.insight, c.facet, c.chosen).slice(0, MAX_CAMPAIGNS)) {
+  const rows = await inPool(targets(c.insight, c.facet, c.chosen).slice(0, MAX_CAMPAIGNS), LINKEDIN_AT_ONCE, async ([id, ids]): Promise<ExclusionCampaign | null> => {
     const campaign = await linkedInCampaignOf(c.client.id, id)
-    if (!campaign) continue
+    if (!campaign) return null
     const labels = c.chosen.filter((x) => ids.includes(x.id)).map((x) => x.label)
     const row: ExclusionCampaign = { id, name: campaign.name, items: labels, lines: [], audience: null }
-    if (campaign.status && CLOSED.test(campaign.status)) {
-      campaigns.push({ ...row, error: `The campaign is ${campaign.status.toLowerCase()}: nothing to change.` })
-      continue
-    }
+    if (campaign.status && CLOSED.test(campaign.status)) return { ...row, error: `The campaign is ${campaign.status.toLowerCase()}: nothing to change.` }
     const vals = labels.map((l) => byLabel.get(l)!).filter((v) => v.urn).map((v) => ({ urn: v.urn!, name: v.label }))
-    if (!connected) {
-      campaigns.push({ ...row, lines: [`Would exclude: ${labels.join(", ")}`] })
-      continue
-    }
+    if (!connected) return { ...row, lines: [`Would exclude: ${labels.join(", ")}`] }
     try {
       const r = await readCampaign(campaign.accountId, id)
-      if (!vals.length) {
-        campaigns.push({ ...row, error: "Pick the LinkedIn company for each name first." })
-        continue
-      }
+      if (!vals.length) return { ...row, error: "Pick the LinkedIn company for each name first." }
       const { targeting, added, already } = withExclusions(r.targetingCriteria, c.facet, vals)
       row.lines = [`Exclude: + ${added.map((v) => v.name).join(", ")}`, ...(already.length ? [`Already excluded: ${already.map((v) => v.name).join(", ")}`] : [])]
       row.audience = await linkedInAudienceCount(targeting).catch(() => null)
-      campaigns.push(row)
+      return row
     } catch (e) {
       if (linkedInNotConnected(e)) connected = false
-      campaigns.push({ ...row, lines: [`Would exclude: ${labels.join(", ")}`], error: linkedInNotConnected(e) ? undefined : (e as Error).message })
+      return { ...row, lines: [`Would exclude: ${labels.join(", ")}`], error: linkedInNotConnected(e) ? undefined : (e as Error).message }
     }
-  }
+  })
+  const campaigns = rows.filter((r): r is ExclusionCampaign => r !== null)
   if (!campaigns.length) return { ok: false, error: "None of the campaigns behind this are this client's LinkedIn campaigns." }
   return { ok: true, facet: c.facet, live: c.reason === null && connected, reason: connected ? c.reason : "LinkedIn isn't connected to Lumaux yet (pnpm ads:connect linkedin): this will be a dry run.", connected, values, campaigns }
 }

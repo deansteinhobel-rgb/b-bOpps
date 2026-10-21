@@ -109,6 +109,8 @@ export async function runEdit(
   } catch (e) {
     const message = (e as Error).message
     await deps.store.finishLog(logged.id, { success: false, response: { error: message } })
-    return { ok: false, live: true, lines, error: `${message}. Check LinkedIn Campaign Manager: the change may or may not have gone through.`, logId: logged.id }
+    // LinkedIn's errors arrive explained (linkedin-errors.ts); anything else is an unknown outcome.
+    const explained = /Nothing was changed|may or may not have gone through/.test(message)
+    return { ok: false, live: true, lines, error: explained ? message : `${message}. Check LinkedIn Campaign Manager: the change may or may not have gone through.`, logId: logged.id }
   }
 }

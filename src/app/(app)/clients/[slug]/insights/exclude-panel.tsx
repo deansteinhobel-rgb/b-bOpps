@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { LoaderCircleIcon } from "lucide-react"
 import { fieldClass } from "@/components/field-class"
 import { FACET_WORDS, type ExcludeFacet } from "@/lib/ads-api/exclusions"
 import { cn } from "@/lib/utils"
@@ -50,7 +51,7 @@ export function ExcludeDialog({ slug, insightKey, facet, items, open, onOpenChan
       onOpenChange={onOpenChange}
       platform="linkedin"
       title={`Exclude ${items.length === 1 ? words.one : words.many}`}
-      live={ready ? ready.live : plan ? false : null}
+      live={ready ? ready.live : null}
       reason={ready?.reason}
       confirmLabel={`Exclude on ${sendable.length} campaign${sendable.length === 1 ? "" : "s"}`}
       canConfirm={Boolean(ready) && sendable.length > 0 && !(ready && unpicked === ready.values.length && companies)}
@@ -61,7 +62,7 @@ export function ExcludeDialog({ slug, insightKey, facet, items, open, onOpenChan
       }}
     >
       {!plan ? (
-        <p className="text-muted-foreground">Reading the campaigns from LinkedIn…</p>
+        <Reading what={`${items.length} ${items.length === 1 ? words.one : words.many} and the campaigns they're on`} />
       ) : !plan.ok ? (
         <p className="text-rag-red">{plan.error}</p>
       ) : (
@@ -121,6 +122,26 @@ export function ExcludeDialog({ slug, insightKey, facet, items, open, onOpenChan
   )
 }
 
+/** The loading state: what's being read, and rows standing in for the campaigns. */
+function Reading({ what }: { what: string }) {
+  return (
+    <div className="space-y-3" role="status" aria-live="polite">
+      <p className="flex items-center gap-2 text-muted-foreground">
+        <LoaderCircleIcon className="size-4 animate-spin" />
+        Reading {what} from LinkedIn…
+      </p>
+      <div className="divide-y rounded-lg border" aria-hidden>
+        {[0, 1].map((n) => (
+          <div key={n} className="space-y-2 px-3 py-3">
+            <div className="h-3.5 w-2/3 animate-pulse rounded bg-white/10" />
+            <div className="h-3 w-1/3 animate-pulse rounded bg-white/5" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** "Pause in LinkedIn" on a cost per result or no-results recommendation, in the same pop-up. */
 export function PauseDialog({ slug, insightKey, campaignName, open, onOpenChange }: { slug: string; insightKey: string; campaignName: string | null; open: boolean; onOpenChange: (open: boolean) => void }) {
   const router = useRouter()
@@ -146,7 +167,7 @@ export function PauseDialog({ slug, insightKey, campaignName, open, onOpenChange
       onOpenChange={onOpenChange}
       platform="linkedin"
       title="Pause the campaign"
-      live={ready ? ready.live : plan ? false : null}
+      live={ready ? ready.live : null}
       reason={ready?.reason}
       confirmLabel="Pause in LinkedIn"
       canConfirm={Boolean(ready)}
@@ -157,7 +178,7 @@ export function PauseDialog({ slug, insightKey, campaignName, open, onOpenChange
       }}
     >
       {!plan ? (
-        <p className="text-muted-foreground">Reading the campaign from LinkedIn…</p>
+        <Reading what="the campaign" />
       ) : !plan.ok ? (
         <p className="text-rag-red">{plan.error}</p>
       ) : (
