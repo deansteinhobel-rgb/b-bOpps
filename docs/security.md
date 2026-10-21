@@ -58,6 +58,11 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
   - **Integrity guards** (migration 20261020000081): Pour a Sprint suggestions keep Claude's reasoning and origin, and are reviewed and decided only as yourself; runs are started only as yourself, generating; goal values must match the goal's client; a new test can't arrive with a Notion brief or another creator (carry-overs within a client excepted); invites can't be deleted.
   - **Outbound fetches**: Slack snapshot pictures go through `fetchFrom` (our storage and the CSP's logo hosts) with a 5 MB cap; ad images and post pages are read with a byte cap (`readBytes`). Every Windsor read goes through `windsorRows` (`src/lib/windsor/rest.ts`) with a timeout.
   - **Inputs**: brain uploads take type and size from storage, not the browser; chat routes check the posted messages (`chatHistory`); full call re-reads are admin only; only people who can edit the client redo the shared weekly campaign read; the brain refresh returns no raw Notion or database errors.
+- **Change log (2026-10-21)**: every insert, update or delete a person makes is recorded by a trigger
+  (`log_change()`, security definer) in `change_log`, which nobody can write, edit or delete. The
+  server names the person it acts for with the `x-lumaux-actor` header, trusted only for the service
+  role (signed-in users can't claim to be someone else: their own `auth.uid()` always wins). Team
+  reads its clients' rows, admins read all (Admin → Activity).
 - **Campaign builds through the ad platforms' APIs (2026-10-21)**: refresh tokens live in Supabase
   Vault, readable and writable only by the service role (`ads_api_token` / `set_ads_api_token`);
   access tokens stay in server memory and are never logged. Each sender has a fixed list of create

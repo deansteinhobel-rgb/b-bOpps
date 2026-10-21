@@ -192,7 +192,7 @@ export async function addPiece(raw: z.input<typeof AddPiece>): Promise<Result & 
 
   const claude = verifySuggestion(client.id, d.suggestion)
   const claudeId = (t: string | null) => (t && t !== "handoff" ? (idByCode.get(t) ?? null) : null)
-  const db = createAdminClient()
+  const db = createAdminClient(me?.id)
   const now = new Date().toISOString()
   const emails = d.sequence
     .filter((e) => e.target || e.angle.trim())
@@ -288,7 +288,7 @@ export async function approveSequence(raw: z.input<typeof Approve>): Promise<Res
 
   // Approval is the server's (guard trigger); access was checked above through RLS. The round only
   // moves on from the one we read, so a double click can't approve twice.
-  const { error } = await createAdminClient()
+  const { error } = await createAdminClient(me?.id)
     .from("content_pieces")
     .update({ seq_status: "approved", reapproval: false, approved_at: new Date().toISOString(), approved_by_profile_id: me.id, approval_round: round, updated_by_profile_id: me.id })
     .eq("id", piece.id)

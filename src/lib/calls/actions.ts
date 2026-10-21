@@ -70,7 +70,7 @@ export async function linkCallNotes(slug: string, link: string, option?: string)
     )
     if (owner) return fail(`The "${pick}" calls in "${src.title}" are ${owner.name}'s. Pick ${client.name}'s own Client option.`)
   }
-  const { error } = await createAdminClient()
+  const { error } = await createAdminClient(me?.id)
     .from("clients")
     .update({ call_notes_notion_id: src.id, call_notes_kind: src.kind, call_notes_client_option: pick, call_notes_title: src.title, call_notes_checked_at: null })
     .eq("id", client.id)
@@ -98,7 +98,7 @@ export async function addManualCall(slug: string, raw: z.input<typeof Manual>): 
   // Each call is an Opus read (security audit 2026-10, M2).
   const limited = await rateLimit(supabase, "manual_call")
   if (limited) return fail(limited)
-  const { data: call, error } = await createAdminClient()
+  const { data: call, error } = await createAdminClient(me?.id)
     .from("client_calls")
     .insert({ client_id: client.id, source: "manual", title: p.data.title, call_date: p.data.date, content: p.data.text, content_chars: p.data.text.length, synced_at: new Date().toISOString(), created_by_profile_id: me.id })
     .select("id")

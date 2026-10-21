@@ -60,7 +60,7 @@ export async function saveCampaignBuild(me: Profile, input: SaveInput): Promise<
   const c = check(input.platform, input.spec, loaded.ctx, input.accountId, loaded.client.currency)
   if (!c.ok) return { check: c }
 
-  const { data, error } = await createAdminClient()
+  const { data, error } = await createAdminClient(me.id)
     .from("campaign_builds")
     .insert({
       client_id: input.clientId,
@@ -111,7 +111,7 @@ export async function sendCampaignBuild(me: Profile, buildId: string): Promise<R
 
   const ids = (build.created_ids ?? {}) as Record<string, string>
   const result = await runBuild(
-    { store: buildStore(), sender, env },
+    { store: buildStore(me.id), sender, env },
     { id: build.id, platform, external_account_id: build.external_account_id, created_ids: ids, client: { id: loaded.client.id, slug: loaded.client.slug } },
     c.steps,
     me,

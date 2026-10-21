@@ -584,6 +584,57 @@ export type Database = {
           },
         ]
       }
+      change_log: {
+        Row: {
+          at: string
+          changes: Json
+          client_id: string | null
+          id: number
+          label: string | null
+          op: string
+          profile_id: string
+          row_id: string | null
+          table_name: string
+        }
+        Insert: {
+          at?: string
+          changes?: Json
+          client_id?: string | null
+          id?: never
+          label?: string | null
+          op: string
+          profile_id: string
+          row_id?: string | null
+          table_name: string
+        }
+        Update: {
+          at?: string
+          changes?: Json
+          client_id?: string | null
+          id?: never
+          label?: string | null
+          op?: string
+          profile_id?: string
+          row_id?: string | null
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "change_log_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "change_log_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       check_definitions: {
         Row: {
           active: boolean
@@ -4357,6 +4408,8 @@ export type Database = {
       can_edit_client: { Args: { cid: string }; Returns: boolean }
       can_run_content_ideas: { Args: { cid: string }; Returns: boolean }
       can_share_reports: { Args: { cid: string }; Returns: boolean }
+      change_actor: { Args: never; Returns: string }
+      change_value: { Args: { v: Json }; Returns: Json }
       client_campaigns: {
         Args: { p_client: string; p_from: string }
         Returns: {

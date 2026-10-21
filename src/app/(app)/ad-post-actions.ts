@@ -35,7 +35,7 @@ export async function addAdPostLink(input: { clientId: string; key: string; link
   const limited = await rateLimit(supabase, "ad_post_link")
   if (limited) return { ok: false, message: limited }
 
-  const { error } = await createAdminClient()
+  const { error } = await createAdminClient(me?.id)
     .from("ad_creatives")
     .update({ manual_post_link: link, manual_post_link_by: me.id, manual_post_link_at: new Date().toISOString(), copy_error: null })
     .eq("id", row.id)

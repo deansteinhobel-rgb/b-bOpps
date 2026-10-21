@@ -3,9 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { toJson } from "@/lib/supabase/db"
 import type { BuildStore } from "./build"
 
-/** The runner's database calls, with the admin client (builds and the write log are server-written). */
-export function buildStore(): BuildStore {
-  const db = createAdminClient()
+/** The runner's database calls, with the admin client (builds and the write log are server-written), as `actorId` for the change log. */
+export function buildStore(actorId?: string): BuildStore {
+  const db = createAdminClient(actorId)
   return {
     async claim(buildId) {
       const { data } = await db

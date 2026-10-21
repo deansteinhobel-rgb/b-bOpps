@@ -76,7 +76,7 @@ export async function finishUpload(slug: string, path: string, name: string): Pr
   const { clientId } = await clientFor(slug)
   // Exactly the shape startUpload makes (<client id>/<time>-<safe name>): no "..", no other folders (Aikido, path traversal).
   if (!clientId || !isClientFilePath(path, clientId)) return fail("This upload isn't available to you.")
-  const db = createAdminClient()
+  const db = createAdminClient(me?.id)
   const folder = path.slice(0, path.lastIndexOf("/"))
   const file = path.slice(path.lastIndexOf("/") + 1)
   const { data: found } = await db.storage.from(FILE_BUCKET).list(folder, { search: file })
@@ -93,11 +93,12 @@ export async function finishUpload(slug: string, path: string, name: string): Pr
 }
 
 export async function removeFile(slug: string, id: string): Promise<BrainResult> {
-  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
+  const me = await getProfile()
+  if (!canEdit(me)) return fail(VIEW_ONLY)
   const { clientId } = await clientFor(slug)
   if (!clientId) return fail("This client isn't available to you.")
   // The stored file stays (no deletes); it just stops counting.
-  const { error } = await createAdminClient().from("client_knowledge").update({ removed_at: new Date().toISOString() }).eq("id", id).eq("client_id", clientId).eq("source", "file")
+  const { error } = await createAdminClient(me?.id).from("client_knowledge").update({ removed_at: new Date().toISOString() }).eq("id", id).eq("client_id", clientId).eq("source", "file")
   if (error) return fail("Couldn't remove it.")
   refresh(slug)
   return { ok: true }
@@ -105,10 +106,11 @@ export async function removeFile(slug: string, id: string): Promise<BrainResult>
 
 /** Tick or untick an HQ page or Content Bank entry. Ticking reads it straight away (read only). Anyone who can edit the client. */
 export async function setHqPageIncluded(slug: string, id: string, include: boolean): Promise<BrainResult> {
-  if (!canEdit(await getProfile())) return fail(VIEW_ONLY)
+  const me = await getProfile()
+  if (!canEdit(me)) return fail(VIEW_ONLY)
   const { clientId } = await clientFor(slug)
   if (!clientId) return fail("This client isn't available to you.")
-  const db = createAdminClient()
+  const db = createAdminClient(me?.id)
   const { data: row, error } = await db.from("client_knowledge").update({ include, updated_at: new Date().toISOString() }).eq("id", id).eq("client_id", clientId).eq("source", "notion").select("content, notion_collection").single()
   if (error) return fail("Couldn't save.")
   if (include && !row?.content) {
