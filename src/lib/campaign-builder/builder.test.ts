@@ -6,7 +6,7 @@ import { checkGuardrails, rulesFor, type PlaybookRule } from "./guardrails"
 import { knownUrn, plan as planSchema, planToSpec, unresolved, UNRESOLVED, type Plan } from "./plan-schema"
 import { isAbxCampaign } from "./presets"
 import { cleanPlaybook } from "./playbook"
-import { hasNotionLink, notionPageIdIn } from "./proposal-link"
+import { hasNotionLink, notionPageIdIn, titleNamesClient } from "./proposal-link"
 
 const ctx: BuildContext = { website: "https://www.camber.health", monthBudget: 20_000, spentThisMonth: 9_000, today: "2026-10-21", clientId: "11111111-1111-1111-1111-111111111111" }
 
@@ -166,5 +166,17 @@ describe("Notion proposal links on notion.com", () => {
     expect(hasNotionLink("https://app.notion.com/p/bordeauxandburgundy")).toBe(true)
     expect(notionPageIdIn("https://app.notion.com/p/bordeauxandburgundy")).toBeNull()
     expect(hasNotionLink("3 single image ads")).toBe(false)
+  })
+})
+
+describe("proposal titles that name the client", () => {
+  it("matches whole words of the name or Notion option", () => {
+    expect(titleNamesClient("New SUD funding: can your billing scale with your footprint? | Camber", ["Camber", "Camber"])).toBe(true)
+    expect(titleNamesClient("Proposal - Paid Search - DNSFilter", ["DNSFilter", null])).toBe(true)
+    expect(titleNamesClient("Star Global | Q4 proposal", ["Star", "Star Global"])).toBe(true)
+  })
+  it("doesn't match part of a word or another client", () => {
+    expect(titleNamesClient("Startup launch proposal", ["Star", "Star Global"])).toBe(false)
+    expect(titleNamesClient("Proposal | Filevine", ["Camber", "Camber"])).toBe(false)
   })
 })

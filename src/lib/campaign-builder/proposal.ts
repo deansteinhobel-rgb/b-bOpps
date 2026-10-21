@@ -4,6 +4,7 @@ import { APIErrorCode, isNotionClientError } from "@notionhq/client"
 import { sniffImageType } from "@/lib/image-type"
 import { insideOtherClient, normId, otherClientsNotion } from "@/lib/knowledge/boundaries"
 import { notion, pageText, rt, type Block, type RichText } from "@/lib/knowledge/notion-hq"
+import { titleNamesClient } from "./proposal-link"
 import { throttled } from "@/lib/notion/throttle"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fetchFrom, readBytes } from "@/lib/windsor/creatives"
@@ -11,8 +12,9 @@ import type { ProposalSource } from "./plan-schema"
 
 /**
  * A proposal shared as a Notion link (Dean, 2026-10-21): the planner uses its ad copy and images.
- * READ ONLY, through the guarded client. Only pages under the client's own GTM HQ are read (the HQ
- * is already a reading exception; nothing else in Notion is), never one inside another client's tree.
+ * READ ONLY, through the guarded client. Never a page inside another client's tree. Pages under the
+ * client's own GTM HQ are read, and so are pages elsewhere whose title names the client (Dean,
+ * 2026-10-21: proposals often live outside the HQ, e.g. "… | Camber").
  * Image files are copied into campaign-assets at <client_id>/<uuid>.<ext>, like an upload, so the
  * build sends our copy. Anything that can't be used is said in words with how to fix it.
  */
@@ -30,7 +32,7 @@ type ImageBlock = { type: "file" | "external" | "file_upload"; file?: { url: str
 
 export async function readProposal(clientId: string, link: { id: string; url: string }, reuse: ProposalSource | null): Promise<{ source: ProposalSource; text: string }> {
   const db = createAdminClient()
-  const { data: client } = await db.from("clients").select("name, notion_hq_page_id").eq("id", clientId).single()
+  const { data: client } = await db.from("clients").select("name, notion_client_option, notion_hq_page_id").eq("id", clientId).single()
   if (!client) throw new Error("Client not found.")
   const n = notion()
 
@@ -41,7 +43,7 @@ export async function readProposal(clientId: string, link: { id: string; url: st
     title = rt(t?.title).trim() || title
   } catch (e) {
     if (isNotionClientError(e) && (e.code === APIErrorCode.ObjectNotFound || e.code === APIErrorCode.RestrictedResource))
-      throw new ProposalError(`Lumaux can't open the Notion proposal. Check the link is a page (not a database view), and that the page sits under ${client.name}'s GTM HQ, which Lumaux's Notion connection can read. Then plan again.`)
+      throw new ProposalError(`Lumaux can't open the Notion proposal. Check the link is a page (not a database view), and that it's shared with Lumaux's Notion connection (••• › Connections). Then plan again.`)
     if (isNotionClientError(e) && e.code === APIErrorCode.ValidationError) throw new ProposalError("That Notion link isn't a page. Open the proposal page itself and copy its link.")
     throw e
   }
@@ -49,10 +51,10 @@ export async function readProposal(clientId: string, link: { id: string; url: st
   // Isolation first: never another client's page, and only pages under this client's own HQ.
   const others = await otherClientsNotion(clientId)
   if (await insideOtherClient(n, link.id, others)) throw new ProposalError(`"${title}" sits under another client's HQ in Notion, so Lumaux won't read it for ${client.name}.`)
-  if (!client.notion_hq_page_id) throw new ProposalError(`${client.name} has no GTM HQ linked in Lumaux, and proposals are only read from the client's HQ. Link the HQ on Admin › client, or paste the proposal's text instead.`)
-  const hq = normId(client.notion_hq_page_id)
-  if (normId(link.id) !== hq && !(await insideOtherClient(n, link.id, new Set([hq]))))
-    throw new ProposalError(`"${title}" isn't under ${client.name}'s GTM HQ in Notion, and Lumaux only reads proposals from there. Move the page (or a copy) into the HQ, or paste its text instead.`)
+  const hq = client.notion_hq_page_id ? normId(client.notion_hq_page_id) : null
+  const inHq = hq !== null && (normId(link.id) === hq || (await insideOtherClient(n, link.id, new Set([hq]))))
+  if (!inHq && !titleNamesClient(title, [client.name, client.notion_client_option]))
+    throw new ProposalError(`"${title}" isn't under ${client.name}'s GTM HQ in Notion and its title doesn't name ${client.name}, so Lumaux won't read it for them. Add "${client.name}" to the page title (or move it into the HQ), then plan again.`)
 
   // The text, with each image numbered where it sits so Claude can match images to ads.
   const found: { n: number; caption: string; block: ImageBlock }[] = []

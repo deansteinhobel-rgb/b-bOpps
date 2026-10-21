@@ -29,3 +29,16 @@ export function notionPageIdIn(text: string | null | undefined): { id: string; u
 
 /** A Notion link with no page id in it (a workspace or a view): the planner stops instead of guessing. */
 export const hasNotionLink = (text: string | null | undefined) => (text ?? "").match(LINK) !== null
+
+/**
+ * Whether a proposal's title names the client (Dean, 2026-10-21: a proposal outside the client's HQ
+ * is read when it isn't inside another client's tree and its title names the client). Whole words,
+ * case and spacing ignored, against the client's name and its Notion option ("Star Global").
+ */
+export function titleNamesClient(title: string, names: (string | null | undefined)[]): boolean {
+  const t = ` ${title.toLowerCase().replace(/[^a-z0-9]+/g, " ")} `
+  return names.some((n) => {
+    const w = (n ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
+    return w.length >= 3 && t.includes(` ${w} `)
+  })
+}
