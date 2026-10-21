@@ -14,7 +14,8 @@
 export const ADS_API_PLATFORMS = ["linkedin", "google_ads", "meta", "reddit", "microsoft_ads"] as const
 export type AdsApiPlatform = (typeof ADS_API_PLATFORMS)[number]
 
-export type AdsApiEnv = { writesEnabled: boolean; dryRun: boolean; platforms: string[]; liveClients: string[] | null }
+/** `forced`: the person asked for a dry run, whatever the switches say. */
+export type AdsApiEnv = { writesEnabled: boolean; dryRun: boolean; platforms: string[]; liveClients: string[] | null; forced?: boolean }
 
 const list = (raw: string | undefined) =>
   (raw ?? "")
@@ -45,6 +46,7 @@ export const adsApiEditsEnabled = (env: Record<string, string | undefined> = pro
 
 /** Why a write would be a dry run, or null when it would really be sent. */
 export function dryRunReason(env: AdsApiEnv, platform: AdsApiPlatform, clientSlug: string): string | null {
+  if (env.forced) return dryRunReason({ ...env, forced: false }, platform, clientSlug) ?? "Dry run, as asked: nothing was sent"
   if (!env.writesEnabled || env.dryRun) return "ADS_API_WRITES_ENABLED/ADS_API_DRY_RUN: nothing was sent"
   if (!env.platforms.includes(platform)) return `ADS_API_PLATFORMS: live writes are off for ${platform}, nothing was sent`
   if (env.liveClients && !env.liveClients.includes(clientSlug.toLowerCase())) return "ADS_API_LIVE_CLIENTS: live writes are off for this client, nothing was sent"

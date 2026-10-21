@@ -23,6 +23,7 @@ import {
   type PlatformPlan,
   type RedditDraft,
 } from "@/lib/campaign-builder/platform-plan"
+import { conversionKey, fromConversionKey } from "@/lib/ads-api/meta-ids"
 import { META_CTAS, META_GOALS, META_OBJECTIVES } from "@/lib/ads-api/spec-platforms"
 import { money, shortDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -556,20 +557,17 @@ function MetaEditor({ slug, accountId, draft, m, onChange }: { slug: string; acc
               <select
                 aria-label="Conversion"
                 className={fieldClass}
-                value={s.pixel ? `${s.pixel.pixelId}|${s.pixel.event}` : ""}
-                onChange={(e) => {
-                  const [pixelId, event] = e.target.value.split("|")
-                  setSet({ pixel: pixelId && event ? { pixelId, event } : null })
-                }}
+                value={s.pixel ? conversionKey(s.pixel) : ""}
+                onChange={(e) => setSet({ pixel: fromConversionKey(e.target.value) })}
               >
-                <option value="">Pick a pixel event…</option>
-                {(ok?.pixels ?? []).flatMap((px) =>
-                  px.events.map((ev) => (
-                    <option key={`${px.id}|${ev}`} value={`${px.id}|${ev}`}>
-                      {ev} · pixel {px.id}
-                    </option>
-                  )),
-                )}
+                <option value="">Pick a conversion…</option>
+                {(ok?.conversions ?? []).map((c) => (
+                  <option key={conversionKey(c)} value={conversionKey(c)}>
+                    {c.event}
+                    {c.customConversionId ? " (custom conversion)" : ""} · pixel {c.pixelId}
+                  </option>
+                ))}
+                {s.pixel && !ok?.conversions.some((c) => conversionKey(c) === conversionKey(s.pixel!)) && <option value={conversionKey(s.pixel)}>{s.pixel.event}</option>}
               </select>
             </Setting>
           )}

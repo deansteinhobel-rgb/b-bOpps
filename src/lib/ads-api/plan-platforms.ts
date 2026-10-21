@@ -82,7 +82,9 @@ export function metaSteps(spec: MetaSpec): BuildStep[] {
   const promoted = lead
     ? { page_id: spec.pageId }
     : s.pixel
-      ? STANDARD_EVENTS.has(s.pixel.event.toUpperCase())
+      ? s.pixel.customConversionId
+        ? { pixel_id: s.pixel.pixelId, custom_event_type: "OTHER", custom_conversion_id: s.pixel.customConversionId }
+        : STANDARD_EVENTS.has(s.pixel.event.toUpperCase())
         ? { pixel_id: s.pixel.pixelId, custom_event_type: s.pixel.event.toUpperCase() }
         : { pixel_id: s.pixel.pixelId, custom_event_type: "OTHER", custom_event_str: s.pixel.event }
       : null

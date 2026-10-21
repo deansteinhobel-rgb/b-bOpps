@@ -6,7 +6,7 @@ import { getProfile } from "@/lib/auth"
 import { canBuildCampaigns } from "@/lib/ads-api/access"
 import type { RunResult } from "@/lib/ads-api/build"
 import type { PlatformChange, PlatformEditResult } from "@/lib/ads-api/platform-edit"
-import { applyEdit, platformAccount, previewEdit, targetingObject, type EditPreview } from "@/lib/ads-api/platform-edit-service"
+import { applyEdit, platformAccount, previewEdit, type EditPreview } from "@/lib/ads-api/platform-edit-service"
 import { saveCampaignBuild, sendCampaignBuild } from "@/lib/ads-api/service"
 import type { Check } from "@/lib/ads-api/spec"
 import { draftName, draftToSpec, platformPlan, type OtherPlatform, type PlatformPlan } from "@/lib/campaign-builder/platform-plan"
@@ -14,7 +14,8 @@ import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { toJson } from "@/lib/supabase/db"
 import { createClient } from "@/lib/supabase/server"
-import { windsorRows } from "@/lib/windsor/rest"
+import { readMetaAccount, type MetaAccountRead } from "@/lib/ads-api/meta-account"
+import type { MetaConversion } from "@/lib/ads-api/meta-ids"
 
 // Planning › Campaign builder for Google Ads, Meta, Reddit and Microsoft Ads (Dean, 2026-10-21).
 // Every action checks who you are, and that the client, account and campaign are this client's,
@@ -147,7 +148,7 @@ export async function applyPlatformEdit(slug: string, platform: OtherPlatform, c
 }
 
 export type MetaAssets =
-  | { pages: { id: string; name?: string }[]; pixels: { id: string; events: string[] }[]; adSets: { id: string; name: string; campaign: string; summary: string; customAudiences: { id: string; name: string }[] }[] }
+  | { pages: { id: string; name?: string }[]; conversions: MetaConversion[]; adSets: { id: string; name: string; campaign: string; summary: string; customAudiences: { id: string; name: string }[] }[] }
   | { error: string }
 
 /**
@@ -163,30 +164,11 @@ export async function metaAccountAssets(slug: string, accountId: string): Promis
   if (limited) return { error: limited }
   const to = new Date().toISOString().slice(0, 10)
   const from = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10)
-  let rows: Record<string, unknown>[]
+  let read: MetaAccountRead
   try {
-    rows = await windsorRows(account.connector, accountId, ["adset_id", "adset_name", "campaign", "adset_promoted_object", "adset_targeting", "spend"], from, to, { timeoutMs: 90_000 })
+    read = await readMetaAccount(account.connector, accountId, from, to)
   } catch (e) {
     return { error: `Couldn't read the account from Windsor: ${(e as Error).message}` }
-  }
-  const pages = new Set<string>()
-  const pixels = new Map<string, Set<string>>()
-  const adSets = new Map<string, { id: string; name: string; campaign: string; spend: number; targeting: Record<string, unknown> | null }>()
-  for (const r of rows) {
-    const promoted = targetingObject(r.adset_promoted_object)
-    if (promoted?.page_id) pages.add(String(promoted.page_id))
-    if (promoted?.pixel_id) {
-      const events = pixels.get(String(promoted.pixel_id)) ?? new Set<string>()
-      const event = String(promoted.custom_event_str ?? promoted.custom_event_type ?? "")
-      if (event && event !== "OTHER") events.add(event)
-      pixels.set(String(promoted.pixel_id), events)
-    }
-    const id = String(r.adset_id ?? "")
-    if (!/^\d+$/.test(id)) continue
-    const a = adSets.get(id) ?? { id, name: String(r.adset_name ?? id), campaign: String(r.campaign ?? ""), spend: 0, targeting: null }
-    a.spend += Number(r.spend) || 0
-    a.targeting = targetingObject(r.adset_targeting) ?? a.targeting
-    adSets.set(id, a)
   }
   const audiencesOf = (t: Record<string, unknown> | null, key: string) =>
     (Array.isArray(t?.[key]) ? (t[key] as { id?: unknown; name?: unknown }[]) : []).filter((x) => x?.id).map((x) => ({ id: String(x.id), name: String(x.name ?? x.id) }))
@@ -202,11 +184,10 @@ export async function metaAccountAssets(slug: string, accountId: string): Promis
     return parts.join(" · ")
   }
   return {
-    pages: [...pages].map((id) => ({ id })),
-    pixels: [...pixels.entries()].map(([id, events]) => ({ id, events: [...events] })),
-    adSets: [...adSets.values()]
+    pages: read.pages.map((id) => ({ id })),
+    conversions: read.conversions,
+    adSets: read.adSets
       .filter((a) => a.targeting)
-      .sort((a, b) => b.spend - a.spend)
       .slice(0, 40)
       .map((a) => ({ id: a.id, name: a.name, campaign: a.campaign, summary: summary(a.targeting), customAudiences: audiencesOf(a.targeting, "custom_audiences") })),
   }

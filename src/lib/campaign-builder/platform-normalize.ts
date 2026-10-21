@@ -191,7 +191,8 @@ function metaDraft(d: Record<string, unknown>, meta: MetaIds | null, proposal: P
   const s = isObj(d.adSet) ? d.adSet : {}
   const t = isObj(s.targeting) ? s.targeting : {}
   const px = isObj(s.pixel) ? { pixelId: text(s.pixel.pixelId), event: text(s.pixel.event) } : null
-  const pixel = px && meta?.pixels.some((p) => p.pixelId === px.pixelId && p.event === px.event) ? px : null
+  // The account's own conversion, so a custom conversion keeps its id.
+  const pixel = (px && meta?.pixels.find((p) => p.pixelId === px.pixelId && p.event === px.event)) || null
   if (px && !pixel) notes.push("Claude suggested a pixel or event the account doesn't use, so it was left out. Pick it on the plan.")
   const base = meta?.adSets.find((a) => a.id === text(t.baseAdSetId)) ?? null
   if (text(t.baseAdSetId) && !base) notes.push("Claude named an ad set to copy the audience from that isn't one of the account's, so the audience starts fresh.")

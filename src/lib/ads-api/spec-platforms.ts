@@ -151,8 +151,8 @@ export const metaSpec = z.object({
     startDate: date,
     endDate: date.optional(),
     optimizationGoal: z.enum(META_GOALS),
-    /** Website conversions: the pixel and event the ad set optimizes for. */
-    pixel: z.object({ pixelId: z.string().regex(/^\d+$/), event: z.string().min(1).max(100) }).optional(),
+    /** Website conversions: the pixel and event the ad set optimizes for (a custom conversion by its id). */
+    pixel: z.object({ pixelId: z.string().regex(/^\d+$/), event: z.string().min(1).max(100), customConversionId: z.string().regex(/^\d+$/).optional() }).optional(),
     targeting: z.object({
       /** The account's ad set this one's targeting starts from (custom audiences, exclusions, interests). */
       baseAdSetId: z.string().regex(/^\d+$/).optional(),
@@ -230,6 +230,8 @@ export function metaTargeting(t: MetaSpec["adSet"]["targeting"]): Record<string,
   // Meta refuses a targeting that mixes the base's own placement or location shape with ours.
   delete base.publisher_platforms
   delete base.audience_network_positions
+  // Ad sets read back from Meta carry age_range beside age_min / age_max; ours are set below.
+  delete base.age_range
   const geo = (base.geo_locations as Record<string, unknown> | undefined) ?? {}
   const ids = (list: { id: string }[]) => list.map((a) => ({ id: a.id }))
   const merged = (key: "custom_audiences" | "excluded_custom_audiences", extra: { id: string }[]) => {

@@ -3,7 +3,8 @@ import type { Db } from "@/lib/supabase/db"
 import { dataRanges } from "@/lib/metrics/data-range"
 import { addDays } from "@/lib/metrics/ads"
 import { rpcAll } from "@/lib/supabase/rpc-all"
-import { windsorRows } from "@/lib/windsor/rest"
+import { readMetaAccount } from "@/lib/ads-api/meta-account"
+import { conversionKey, type MetaConversion } from "@/lib/ads-api/meta-ids"
 import { parseMetaTargeting } from "@/lib/windsor/settings-parse"
 import type { HistoryCampaign } from "./history"
 import { BUILD_PLATFORM_LABEL, type OtherPlatform } from "./platform-plan"
@@ -23,8 +24,8 @@ const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim
 /** The Meta ids a plan may use: only what the account's own ad sets already use. */
 export type MetaIds = {
   pages: string[]
-  pixels: { pixelId: string; event: string }[]
-  adSets: { id: string; name: string; campaign: string; spend: number; results: number; audience: string }[]
+  pixels: MetaConversion[]
+  adSets: { id: string; name: string; campaign: string; spend: number; audience: string }[]
 }
 
 export type PlatformHistory = { platform: OtherPlatform; from: string; to: string; campaigns: HistoryCampaign[]; meta: MetaIds | null }
@@ -63,47 +64,40 @@ export async function platformHistory(db: Db, clientId: string, platform: OtherP
     byId.set(id, c)
   }
   const campaigns = [...byId.values()].filter((c) => c.spend > 0).sort((a, b) => b.spend30 - a.spend30 || b.spend - a.spend)
-  return { platform, from, to, campaigns, meta: p === "meta" ? await metaIds(db, clientId, to).catch(() => ({ pages: [], pixels: [], adSets: [] })) : null }
+  return { platform, from, to, campaigns, meta:
+      p === "meta"
+        ? await metaIds(db, clientId, to).catch((e) => {
+            console.error("[platform-history] Meta ids", clientId, e)
+            return { pages: [], pixels: [], adSets: [] }
+          })
+        : null }
 }
 
-/** Page and pixel ids from the account's ad sets (Windsor, 30 days), and each ad set's audience. */
+/**
+ * The pages, conversions and ad sets the Meta account already uses (Windsor, 30 days, read only;
+ * readMetaAccount), each ad set with its audience. Ad set results aren't read: Windsor's Meta
+ * connector breaks when an actions field comes with spend, so the campaigns above carry results.
+ */
 async function metaIds(db: Db, clientId: string, to: string): Promise<MetaIds> {
   const [{ data: accounts }, { data: settings }] = await Promise.all([
     db.from("client_platform_accounts").select("external_account_id, windsor_connector").eq("client_id", clientId).eq("platform", "meta").eq("active", true),
     db.from("platform_settings").select("entity_id, settings").eq("client_id", clientId).eq("platform", "meta").eq("level", "adset"),
   ])
-  const pages = new Set<string>()
-  const pixels = new Map<string, { pixelId: string; event: string }>()
-  const adSets = new Map<string, MetaIds["adSets"][number]>()
   const audienceOf = new Map((settings ?? []).map((s) => [s.entity_id, s.settings as Record<string, unknown>]))
+  const pages: string[] = []
+  const pixels = new Map<string, MetaConversion>()
+  const adSets: MetaIds["adSets"] = []
   for (const a of accounts ?? []) {
-    const rows = await windsorRows(a.windsor_connector, a.external_account_id, ["adset_id", "adset_name", "campaign", "adset_promoted_object", "adset_targeting", "spend", "actions_lead"], addDays(to, -29), to, { timeoutMs: 60_000, label: "meta ad sets" })
-    for (const r of rows) {
-      const id = str(r.adset_id)
-      if (!id) continue
-      let promoted: Record<string, unknown> = {}
-      try {
-        promoted = typeof r.adset_promoted_object === "string" ? (JSON.parse(r.adset_promoted_object) as Record<string, unknown>) : ((r.adset_promoted_object as Record<string, unknown>) ?? {})
-      } catch {
-        promoted = {}
-      }
-      if (/^\d+$/.test(str(promoted.page_id))) pages.add(str(promoted.page_id))
-      if (/^\d+$/.test(str(promoted.pixel_id))) {
-        const event = str(promoted.custom_event_str) || str(promoted.custom_event_type)
-        if (event) pixels.set(`${promoted.pixel_id}|${event}`, { pixelId: str(promoted.pixel_id), event })
-      }
-      const e = adSets.get(id) ?? { id, name: str(r.adset_name) || id, campaign: str(r.campaign), spend: 0, results: 0, audience: "" }
-      e.spend += num(r.spend)
-      e.results += num(r.actions_lead)
-      if (!e.audience && r.adset_targeting) e.audience = audienceSummary(parseMetaTargeting(r.adset_targeting), r.adset_targeting)
-      adSets.set(id, e)
+    const read = await readMetaAccount(a.windsor_connector, a.external_account_id, addDays(to, -29), to)
+    for (const p of read.pages) if (!pages.includes(p)) pages.push(p)
+    for (const c of read.conversions) pixels.set(conversionKey(c), c)
+    for (const s of read.adSets) {
+      if (s.spend <= 0) continue
+      const stored = audienceOf.get(s.id)
+      adSets.push({ id: s.id, name: s.name, campaign: s.campaign, spend: s.spend, audience: s.targeting ? audienceSummary(parseMetaTargeting(s.targeting), s.targeting) : stored ? audienceSummary(parseMetaTargeting(null), null, stored) : "not read" })
     }
   }
-  for (const e of adSets.values()) {
-    const s = audienceOf.get(e.id)
-    if (!e.audience && s) e.audience = audienceSummary(parseMetaTargeting(null), null, s)
-  }
-  return { pages: [...pages], pixels: [...pixels.values()], adSets: [...adSets.values()].filter((a) => a.spend > 0).sort((a, b) => b.spend - a.spend).slice(0, 25) }
+  return { pages, pixels: [...pixels.values()], adSets: adSets.sort((a, b) => b.spend - a.spend).slice(0, 25) }
 }
 
 function audienceSummary(t: ReturnType<typeof parseMetaTargeting>, raw: unknown, stored?: Record<string, unknown>): string {
@@ -217,10 +211,10 @@ function metaExtras(m: MetaIds | null, money: (n: number) => string): string[] {
     ``,
     `## Meta ids the account already uses (use ONLY these; never invent an id)`,
     `Facebook pages: ${m.pages.length ? m.pages.join(", ") : "(none found: leave pageId null)"}`,
-    `Pixels and events: ${m.pixels.length ? m.pixels.map((p) => `${p.pixelId} "${p.event}"`).join("; ") : "(none found)"}`,
+    `Conversions (pixel, event${m.pixels.some((p) => p.customConversionId) ? ", custom conversion" : ""}): ${m.pixels.length ? m.pixels.map((p) => `${p.pixelId} "${p.event}"${p.customConversionId ? ` (custom conversion ${p.customConversionId})` : ""}`).join("; ") : "(none found)"}`,
     ``,
-    `## Ad sets with spend in the last 30 days (id | name | campaign | spend | leads | audience): baseAdSetId must be one of these ids`,
-    ...(m.adSets.length ? m.adSets.map((a) => `- ${a.id} | ${a.name} | ${a.campaign} | ${money(a.spend)} | ${Math.round(a.results)} | ${a.audience}`) : ["(none)"]),
+    `## Ad sets with spend in the last 30 days (id | name | campaign | spend | audience; results are on the campaigns above): baseAdSetId must be one of these ids`,
+    ...(m.adSets.length ? m.adSets.map((a) => `- ${a.id} | ${a.name} | ${a.campaign} | ${money(a.spend)} | ${a.audience}`) : ["(none)"]),
   ]
 }
 

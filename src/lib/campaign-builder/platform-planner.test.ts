@@ -8,7 +8,7 @@ import type { ProposalSource } from "./plan-schema"
 const META: MetaIds = {
   pages: ["699339163533807"],
   pixels: [{ pixelId: "300641693796955", event: "Sales Qualified Opportunity" }],
-  adSets: [{ id: "120250304395470484", name: "MSP | Lookalike 1%", campaign: "MSP leads", spend: 1200, results: 9, audience: "US 25-65; lookalikes: LAL 1% leads" }],
+  adSets: [{ id: "120250304395470484", name: "MSP | Lookalike 1%", campaign: "MSP leads", spend: 1200, audience: "US 25-65; lookalikes: LAL 1% leads" }],
 }
 
 const why = { summary: "Search for DNS filtering.", rationale: [{ point: "Terms convert", source: "history" }], success: "Under $300 a trial" }

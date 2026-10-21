@@ -29,7 +29,7 @@ const meta = {
     optimizationGoal: "LEAD_GENERATION",
     targeting: {
       baseAdSetId: "120250304395470484",
-      base: { geo_locations: { countries: ["GB"], location_types: ["home", "recent"] }, custom_audiences: [{ id: "111", name: "Lookalike" }], publisher_platforms: ["facebook", "audience_network"], flexible_spec: [{ interests: [{ id: "6003", name: "IT" }] }] },
+      base: { geo_locations: { countries: ["GB"], location_types: ["home", "recent"] }, age_range: [18, 65], custom_audiences: [{ id: "111", name: "Lookalike" }], publisher_platforms: ["facebook", "audience_network"], flexible_spec: [{ interests: [{ id: "6003", name: "IT" }] }] },
       countries: ["US"],
       customAudiences: [{ id: "222", name: "Trial signups" }],
       excludedAudiences: [{ id: "333", name: "Customers" }],
@@ -112,6 +112,8 @@ describe("Meta builds", () => {
     expect(t.flexible_spec).toEqual(meta.adSet.targeting.base.flexible_spec)
     expect(t.publisher_platforms).toEqual(["facebook", "instagram"])
     expect(t.targeting_automation).toEqual({ advantage_audience: 0 })
+    expect(t.age_range).toBeUndefined()
+    expect([t.age_min, t.age_max]).toEqual([25, 65])
   })
   it("send a paused campaign, ad set and lead ads that open the form", () => {
     const steps = metaSteps(checkMeta(meta, ctx).spec!)

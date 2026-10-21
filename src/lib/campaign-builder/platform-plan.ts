@@ -87,7 +87,7 @@ export const metaDraft = z.object({
     startDate: date,
     endDate: date.nullable().default(null),
     optimizationGoal: z.enum(META_GOALS),
-    pixel: z.object({ pixelId: z.string().regex(/^\d+$/), event: z.string().min(1).max(100) }).nullable().default(null),
+    pixel: z.object({ pixelId: z.string().regex(/^\d+$/), event: z.string().min(1).max(100), customConversionId: z.string().regex(/^\d+$/).optional() }).nullable().default(null),
     targeting: z.object({
       baseAdSetId: z.string().regex(/^\d+$/).nullable().default(null),
       baseAdSetName: z.string().max(255).default(""),

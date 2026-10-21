@@ -159,7 +159,7 @@ export async function sendCampaignBuild(me: Profile, buildId: string, opts: { dr
   const c = check(platform, build.spec, loaded.ctx, build.external_account_id, loaded.client.currency, await guardrails(build.client_id, platform, build.mode as BuilderMode))
   if (!c.ok || !c.steps) return { ...refuse(c.errors.join(" ")), check: c }
 
-  const env = opts.dryRun ? { ...adsApiEnv(), writesEnabled: false } : adsApiEnv()
+  const env = { ...adsApiEnv(), forced: Boolean(opts.dryRun) }
   const live = dryRunReason(env, platform, loaded.client.slug) === null
   let sender: Sender | null = null
   if (live) {
