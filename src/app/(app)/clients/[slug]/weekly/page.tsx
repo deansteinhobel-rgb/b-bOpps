@@ -6,7 +6,6 @@ import { londonToday } from "@/lib/checks/periods"
 import { addDays } from "@/lib/metrics/ads"
 import { lastWeek } from "@/lib/reports/weekly"
 import { loadWeeklyRead } from "@/lib/reports/weekly-read"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { loadGoals } from "../_glance/glance-data"
 import { GoalsRow } from "../_read/goals-row"
@@ -41,8 +40,8 @@ export default async function WeeklyReadPage({ params, searchParams }: PageProps
 }
 
 async function WeeklyRead({ supabase, client, week, abx }: { supabase: Awaited<ReturnType<typeof createClient>>; client: { id: string; slug: string; monthly_kpi_target: number | string | null }; week: { from: string; to: string }; abx: boolean }) {
-  // Access confirmed above (client loaded through RLS), so the secret key is safe to read with.
-  const [read, goals, me] = await Promise.all([loadWeeklyRead(createAdminClient(), supabase, client, { kind: "week", ...week }), loadGoals(supabase, client.id, week.to), getProfile()])
+  // Access confirmed above (client loaded through RLS); the read uses the secret key for its numbers.
+  const [read, goals, me] = await Promise.all([loadWeeklyRead(supabase, client, { kind: "week", ...week }), loadGoals(supabase, client.id, week.to), getProfile()])
   if (!read) return <p className="text-sm text-muted-foreground">No ad data for this client yet.</p>
   const latest = lastWeek(londonToday()).from
   return (

@@ -6,7 +6,6 @@ import { canEdit, getProfile } from "@/lib/auth"
 import { londonToday } from "@/lib/checks/periods"
 import { loadWeeklyRead } from "@/lib/reports/weekly-read"
 import { sprintOf } from "@/lib/sprints/periods"
-import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { GlanceCards } from "./_glance/glance-cards"
 import { loadGoals } from "./_glance/glance-data"
@@ -35,8 +34,8 @@ export default async function SummaryPage({ params, searchParams }: PageProps<"/
 
 async function MonthRead({ supabase, client, abx }: { supabase: Awaited<ReturnType<typeof createClient>>; client: { id: string; slug: string; name: string; currency: string; monthly_kpi_target: number | string | null }; abx: boolean }) {
   const today = londonToday()
-  // Access confirmed above (client loaded through RLS), so the secret key is safe to read with.
-  const [read, goals, me] = await Promise.all([loadWeeklyRead(createAdminClient(), supabase, client, { kind: "month" }), loadGoals(supabase, client.id, today), getProfile()])
+  // Access confirmed above (client loaded through RLS); the read uses the secret key for its numbers.
+  const [read, goals, me] = await Promise.all([loadWeeklyRead(supabase, client, { kind: "month" }), loadGoals(supabase, client.id, today), getProfile()])
   const goalsRow = <GoalsRow slug={client.slug} goals={goals} canEdit={canEdit(me)} />
   const cards = (
     <section className="grid gap-3 lg:grid-cols-2">

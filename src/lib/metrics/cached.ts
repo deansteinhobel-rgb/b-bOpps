@@ -27,25 +27,25 @@ const SHAPE = "v6"
 const CODE = codeFingerprint(getOverview, getPacing, getPerformance, loadInsightInputs, getInsights)
 
 /** When the client's synced data last changed (one small query, outside the cache). */
-async function stamp(clientId: string) {
+export async function dataStamp(clientId: string) {
   const { data } = await createAdminClient().rpc("client_data_stamp", { p_client: clientId })
   return String(data ?? "none")
 }
 const opts = (clientId: string) => ({ tags: ["windsor", windsorTag(clientId)], revalidate: TTL })
 
 export const cachedOverview = async (clientId: string) =>
-  unstable_cache(() => getOverview(createAdminClient(), clientId), ["overview", SHAPE, CODE, clientId, await stamp(clientId)], opts(clientId))()
+  unstable_cache(() => getOverview(createAdminClient(), clientId), ["overview", SHAPE, CODE, clientId, await dataStamp(clientId)], opts(clientId))()
 
 export const cachedPacing = async (clientId: string) =>
-  unstable_cache(() => getPacing(createAdminClient(), clientId), ["pacing", SHAPE, CODE, clientId, await stamp(clientId)], opts(clientId))()
+  unstable_cache(() => getPacing(createAdminClient(), clientId), ["pacing", SHAPE, CODE, clientId, await dataStamp(clientId)], opts(clientId))()
 
 export const cachedPerformance = async (clientId: string, range: RangeSpec, platform: Platform | null, campaignId: string | null = null, segment: { key: string; defs: SegmentDef[] } | null = null) =>
   unstable_cache(
     () => getPerformance(createAdminClient(), clientId, { range, platform, campaignId, segment }),
-    ["performance", SHAPE, CODE, clientId, await stamp(clientId), encodeRange(range), platform ?? "all", campaignId ?? "", segment ? `${segment.key}|${segmentsFingerprint(segment.defs)}` : ""],
+    ["performance", SHAPE, CODE, clientId, await dataStamp(clientId), encodeRange(range), platform ?? "all", campaignId ?? "", segment ? `${segment.key}|${segmentsFingerprint(segment.defs)}` : ""],
     opts(clientId),
   )()
 
 /** The insight rules' output (Performance phase 3). The team's done / snooze / dismiss log is read live, not cached. */
 export const cachedInsights = async (clientId: string) =>
-  unstable_cache(() => getInsights(createAdminClient(), clientId), ["insights", SHAPE, CODE, RULES_FINGERPRINT, clientId, await stamp(clientId)], opts(clientId))()
+  unstable_cache(() => getInsights(createAdminClient(), clientId), ["insights", SHAPE, CODE, RULES_FINGERPRINT, clientId, await dataStamp(clientId)], opts(clientId))()
