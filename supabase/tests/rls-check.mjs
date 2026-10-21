@@ -596,7 +596,8 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
   const changed = await as(dean, () => q("update public.campaign_builds set status = 'created' returning id"))
   const dels = await as(dean, () => q("delete from public.campaign_builds returning id"))
   console.log(changed.length === 0 && dels.length === 0 ? "campaign builds can't be changed or deleted by users: OK" : "FAIL: campaign build changed or deleted")
-  try { await q(`insert into public.campaign_builds (client_id, platform, external_account_id, name, spec) values ('${camber}', 'meta', '123', 'x', '{}')`); console.log("FAIL: build on an unsupported platform") } catch { console.log("campaign builds: LinkedIn and Reddit only: OK") }
+  // Every ad platform can be built on since 2026-10-21 (migration 20261022000090); anything else is refused.
+  try { await q(`insert into public.campaign_builds (client_id, platform, external_account_id, name, spec) values ('${camber}', 'tiktok', '123', 'x', '{}')`); console.log("FAIL: build on an unsupported platform") } catch { console.log("campaign builds: known platforms only: OK") }
   await q("select public.set_ads_api_token('linkedin', 'first')")
   await q("select public.set_ads_api_token('linkedin', 'second')")
   const tok = await q("select public.ads_api_token('linkedin') as t")
