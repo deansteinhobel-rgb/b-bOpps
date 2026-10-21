@@ -7,22 +7,25 @@
  *   pnpm ads:connect reddit | linkedin | microsoft
  *
  * Sign in as the person whose access the app should use (they need access to every client's ad
- * account). Each app must list http://localhost:8765/callback as a redirect URI first. Never print
- * the tokens: they're as good as a password.
+ * account). Each app must list http://localhost:8765/callback as a redirect URI first. The token goes
+ * to Supabase Vault (where the app reads it) and to .env.local as a backup. Never print the tokens:
+ * they're as good as a password.
  */
 import { execFile } from "node:child_process"
 import { randomBytes } from "node:crypto"
 import { readFileSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"
+import { createClient } from "@supabase/supabase-js"
 
 const REDIRECT = "http://localhost:8765/callback"
 const ENV_FILE = ".env.local"
-const LINKEDIN_VERSION = "202609"
+const LINKEDIN_VERSION = "202610"
 
 type Platform = {
   authorize: (state: string) => string
   exchange: (code: string) => Promise<Record<string, unknown>>
   refreshKey: string
+  vaultName: string
   check: (accessToken: string) => Promise<string>
 }
 
@@ -64,6 +67,7 @@ const PLATFORMS: Record<string, Platform> = {
         },
       ),
     refreshKey: "REDDIT_ADS_REFRESH_TOKEN",
+    vaultName: "reddit",
     check: async (token) => {
       const response = await fetch("https://ads-api.reddit.com/api/v3/me/businesses", {
         headers: { Authorization: `Bearer ${token}`, "User-Agent": "lumaux/1.0 by Bordeaux & Burgundy" },
@@ -91,6 +95,7 @@ const PLATFORMS: Record<string, Platform> = {
         client_secret: env("LINKEDIN_ADS_CLIENT_SECRET"),
       }),
     refreshKey: "LINKEDIN_ADS_REFRESH_TOKEN",
+    vaultName: "linkedin",
     check: async (token) => {
       const response = await fetch("https://api.linkedin.com/rest/adAccounts?q=search&count=100", {
         headers: { Authorization: `Bearer ${token}`, "LinkedIn-Version": LINKEDIN_VERSION, "X-Restli-Protocol-Version": "2.0.0" },
@@ -121,8 +126,24 @@ const PLATFORMS: Record<string, Platform> = {
         scope: "https://ads.microsoft.com/msads.manage offline_access",
       }),
     refreshKey: "MICROSOFT_ADS_REFRESH_TOKEN",
-    // The account list needs the SOAP Customer Management service; a token is enough proof for now.
-    check: async () => `Microsoft token received (developer token ${process.env.MICROSOFT_ADS_DEVELOPER_TOKEN ? "set" : "missing"})`,
+    vaultName: "microsoft_ads",
+    // Customer Management (REST): who signed in, and the customers and accounts they can reach.
+    check: async (token) => {
+      const headers = { Authorization: `Bearer ${token}`, DeveloperToken: env("MICROSOFT_ADS_DEVELOPER_TOKEN"), "Content-Type": "application/json" }
+      const base = "https://clientcenter.api.bingads.microsoft.com/CustomerManagement/v13"
+      const user = await fetch(`${base}/User/Query`, { method: "POST", headers, body: JSON.stringify({ UserId: null }) })
+      const u = (await user.json().catch(() => ({}))) as { User?: { Id?: number }; CustomerRoles?: { CustomerId: number }[] }
+      if (!user.ok || !u.User?.Id) return `Microsoft token works, but GetUser answered ${user.status} (is the developer token approved for production?)`
+      const search = await fetch(`${base}/Accounts/Search`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ Predicates: [{ Field: "UserId", Operator: "Equals", Value: String(u.User.Id) }], PageInfo: { Index: 0, Size: 100 } }),
+      })
+      const a = (await search.json().catch(() => ({}))) as { Accounts?: { Id: number; Name: string; ParentCustomerId: number; CurrencyCode?: string }[] }
+      const customers = [...new Set((u.CustomerRoles ?? []).map((r) => r.CustomerId))].join(", ") || "none"
+      const accounts = (a.Accounts ?? []).map((x) => `${x.Name} (account ${x.Id}, customer ${x.ParentCustomerId}${x.CurrencyCode ? `, ${x.CurrencyCode}` : ""})`).join("; ") || "none"
+      return `Microsoft customers: ${customers}. Accounts: ${accounts}. Put the manager customer in MICROSOFT_ADS_CUSTOMER_ID.`
+    },
   },
 }
 
@@ -133,6 +154,24 @@ function saveEnv(key: string, value: string) {
   if (at >= 0) lines[at] = `${key}=${value}`
   else lines.push(`${key}=${value}`)
   writeFileSync(ENV_FILE, lines.join("\n"))
+}
+
+/** Stores the token in Vault for the app (needs migration 20261021000086). Returns a note for the summary. */
+async function saveToVault(name: string, token: string, expiresIn?: number) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SECRET_KEY
+  if (!url || !key) return " (not in Vault: Supabase keys missing)"
+  const db = createClient(url, key, { auth: { persistSession: false } })
+  const { error } = await db.rpc("set_ads_api_token", { p_platform: name, p_token: token })
+  if (error) return ` (not in Vault yet: ${error.message})`
+  const now = new Date()
+  await db.from("ads_api_connections").upsert({
+    platform: name,
+    connected_at: now.toISOString(),
+    refresh_expires_at: expiresIn ? new Date(now.getTime() + expiresIn * 1000).toISOString() : null,
+    updated_at: now.toISOString(),
+  })
+  return " and in Supabase Vault"
 }
 
 function openBrowser(url: string) {
@@ -175,8 +214,9 @@ const server = createServer(async (request, response) => {
       )
     }
     saveEnv(platform.refreshKey, refresh)
+    const vault = await saveToVault(platform.vaultName, refresh, Number(tokens.refresh_token_expires_in) || undefined)
     const check = await platform.check(String(tokens.access_token ?? ""))
-    finish(`Saved ${platform.refreshKey} in ${ENV_FILE}. ${check}`, true)
+    finish(`Saved ${platform.refreshKey} in ${ENV_FILE}${vault}. ${check}`, true)
   } catch (e) {
     finish(e instanceof Error ? e.message : String(e), false)
   }

@@ -34,6 +34,13 @@ await db.exec(`
   create schema cron;
   create table cron.job (jobname text primary key, schedule text, command text);
   create function cron.schedule(jobname text, schedule text, command text) returns bigint language sql as $$ insert into cron.job values (jobname, schedule, command) on conflict (jobname) do update set schedule = excluded.schedule, command = excluded.command; select 1::bigint $$;
+  -- Supabase Vault: plain text here (the real one encrypts)
+  create role service_role;
+  create schema vault;
+  create table vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, secret text, description text);
+  create view vault.decrypted_secrets as select id, name, secret as decrypted_secret from vault.secrets;
+  create function vault.create_secret(new_secret text, new_name text, new_description text) returns uuid language sql as $$ insert into vault.secrets (name, secret, description) values (new_name, new_secret, new_description) returning id $$;
+  create function vault.update_secret(secret_id uuid, new_secret text) returns void language sql as $$ update vault.secrets set secret = new_secret where id = secret_id $$;
 `)
 const dir = new URL("../migrations/", import.meta.url)
 const sql = fs.readdirSync(dir).filter((f) => f.endsWith(".sql")).sort().map((f) => fs.readFileSync(new URL(f, dir), "utf8")).join("\n")
@@ -566,4 +573,27 @@ try { await q(`update public.clients set regions = '{mars}' where id = '11111111
     ...(await as("aaaaaaaa-0000-0000-0000-000000000001", () => q("delete from public.competitor_keywords returning id"))),
   ]
   console.log(dels.length === 0 ? "keywords and keyword ads can't be deleted: OK" : "FAIL: keyword data deleted")
+}
+// Campaign builds (2026-10-21): server-written, client-scoped reads, never deleted. The ad platform
+// refresh tokens in Vault are for the server only.
+{
+  const camber = "11111111-1111-1111-1111-111111111111"
+  const andrea = "aaaaaaaa-0000-0000-0000-000000000002"
+  const danny = "aaaaaaaa-0000-0000-0000-000000000003"
+  const dean = "aaaaaaaa-0000-0000-0000-000000000001"
+  await q(`insert into public.campaign_builds (client_id, platform, external_account_id, name, spec) values ('${camber}', 'linkedin', '123', 'Test build', '{}')`)
+  const team = await as(andrea, () => q("select id from public.campaign_builds"))
+  const other = await as(danny, () => q("select id from public.campaign_builds"))
+  console.log(team.length === 1 && other.length === 0 ? "campaign builds: the team reads, other teams don't: OK" : "FAIL: campaign builds visibility")
+  try { await as(dean, () => q(`insert into public.campaign_builds (client_id, platform, external_account_id, name, spec) values ('${camber}', 'linkedin', '123', 'x', '{}')`)); console.log("FAIL: a signed-in user wrote a campaign build") } catch { console.log("campaign builds are server-written: OK") }
+  const changed = await as(dean, () => q("update public.campaign_builds set status = 'created' returning id"))
+  const dels = await as(dean, () => q("delete from public.campaign_builds returning id"))
+  console.log(changed.length === 0 && dels.length === 0 ? "campaign builds can't be changed or deleted by users: OK" : "FAIL: campaign build changed or deleted")
+  try { await q(`insert into public.campaign_builds (client_id, platform, external_account_id, name, spec) values ('${camber}', 'meta', '123', 'x', '{}')`); console.log("FAIL: build on an unsupported platform") } catch { console.log("campaign builds: LinkedIn and Reddit only: OK") }
+  await q("select public.set_ads_api_token('linkedin', 'first')")
+  await q("select public.set_ads_api_token('linkedin', 'second')")
+  const tok = await q("select public.ads_api_token('linkedin') as t")
+  console.log(tok[0].t === "second" ? "ads api tokens: stored and replaced in Vault: OK" : "FAIL: Vault token store")
+  try { await as(dean, () => q("select public.ads_api_token('linkedin')")); console.log("FAIL: a signed-in user read an ads token") } catch { console.log("ads api tokens: users can't read them: OK") }
+  try { await as(dean, () => q("select public.set_ads_api_token('linkedin', 'x')")); console.log("FAIL: a signed-in user stored an ads token") } catch { console.log("ads api tokens: users can't store them: OK") }
 }
