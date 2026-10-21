@@ -2,6 +2,7 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { PlatformRefused, type BuildOperation, type Sender } from "./build"
 import type { EditSender } from "./edit"
+import { explainLinkedIn, explainLinkedInRead } from "./linkedin-errors"
 import { accessToken } from "./tokens"
 
 /**
@@ -30,7 +31,7 @@ function headers(token: string) {
 /** A 4xx means LinkedIn refused and nothing was made; anything else is an unknown outcome. */
 async function fail(response: Response, what: string): Promise<never> {
   const body = (await response.json().catch(() => null)) as { message?: string } | null
-  const message = `LinkedIn ${what}: ${response.status} ${body?.message ?? response.statusText}`
+  const message = `${what}: ${explainLinkedIn(response.status, body?.message ?? response.statusText)}`
   if (response.status >= 400 && response.status < 500) throw new PlatformRefused(message, body)
   throw new Error(message)
 }
@@ -122,12 +123,25 @@ export function linkedInEditSender(deps: { token: () => Promise<string>; fetch?:
   }
 }
 
-/** Read only: how many members a targeting reaches. LinkedIn reports 0 under its minimum of 300. */
+/**
+ * Read only: how many members a targeting reaches. LinkedIn reports 0 under its minimum of 300.
+ * Sent as a tunneled POST (X-HTTP-Method-Override: GET, the query in the body): ABM targeting with
+ * big company and contact lists made the URL too long, and LinkedIn answered 414 / 431 (Camber,
+ * 2026-10-21: a 9,684-character query).
+ */
 export async function linkedInAudienceCount(targetingCriteria: unknown, deps: { token: () => Promise<string>; fetch?: Fetcher } = { token: () => accessToken("linkedin") }) {
   const token = await deps.token()
   const query = `q=targetingCriteriaV2&targetingCriteria=${restli(targetingCriteria)}`
-  const response = await (deps.fetch ?? fetch)(`${API}/audienceCounts?${query}`, { headers: headers(token), signal: AbortSignal.timeout(20_000) })
-  if (!response.ok) throw new Error(`LinkedIn audience count: ${response.status}`)
+  const response = await (deps.fetch ?? fetch)(`${API}/audienceCounts`, {
+    method: "POST",
+    headers: { ...headers(token), "Content-Type": "application/x-www-form-urlencoded", "X-HTTP-Method-Override": "GET" },
+    body: query,
+    signal: AbortSignal.timeout(20_000),
+  })
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { message?: string } | null
+    throw new Error(`Couldn't check the audience size. ${explainLinkedInRead(response.status, body?.message ?? response.statusText)}`)
+  }
   const json = (await response.json()) as { elements?: { total?: number }[] }
   return json.elements?.[0]?.total ?? 0
 }

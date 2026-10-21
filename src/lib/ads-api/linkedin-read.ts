@@ -1,5 +1,6 @@
 import "server-only"
 import { LINKEDIN_VERSION, restli, restliEncode } from "./linkedin"
+import { explainLinkedInRead } from "./linkedin-errors"
 import { accessToken } from "./tokens"
 
 /**
@@ -21,7 +22,7 @@ async function get<T>(path: string, deps: ReadDeps = {}): Promise<T> {
   })
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as { message?: string } | null
-    throw new Error(`LinkedIn ${response.status}: ${body?.message ?? response.statusText}`)
+    throw new Error(explainLinkedInRead(response.status, body?.message ?? response.statusText))
   }
   return (await response.json()) as T
 }

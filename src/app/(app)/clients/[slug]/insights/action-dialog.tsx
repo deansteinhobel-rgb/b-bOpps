@@ -67,7 +67,12 @@ export function ActionDialog(p: {
             )}
           </DialogTitle>
           <DialogDescription>
-            {p.live ? `This changes the campaign in ${name}.` : (p.reason ?? `Nothing will be sent to ${name}; the change is only logged.`)} Every change is logged with the value before it, in Admin → Activity.
+            {p.live === null
+              ? `Lumaux reads the campaign from ${name} first. Nothing changes until you confirm.`
+              : p.live
+                ? `This changes the campaign in ${name}.`
+                : (p.reason ?? `Nothing will be sent to ${name}; the change is only logged.`)}{" "}
+            Every change is logged with the value before it, in Admin → Activity.
           </DialogDescription>
         </DialogHeader>
 

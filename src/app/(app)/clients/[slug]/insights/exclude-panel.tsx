@@ -50,7 +50,7 @@ export function ExcludeDialog({ slug, insightKey, facet, items, open, onOpenChan
       onOpenChange={onOpenChange}
       platform="linkedin"
       title={`Exclude ${items.length === 1 ? words.one : words.many}`}
-      live={ready ? ready.live : plan ? false : null}
+      live={ready ? ready.live : null}
       reason={ready?.reason}
       confirmLabel={`Exclude on ${sendable.length} campaign${sendable.length === 1 ? "" : "s"}`}
       canConfirm={Boolean(ready) && sendable.length > 0 && !(ready && unpicked === ready.values.length && companies)}
@@ -146,7 +146,7 @@ export function PauseDialog({ slug, insightKey, campaignName, open, onOpenChange
       onOpenChange={onOpenChange}
       platform="linkedin"
       title="Pause the campaign"
-      live={ready ? ready.live : plan ? false : null}
+      live={ready ? ready.live : null}
       reason={ready?.reason}
       confirmLabel="Pause in LinkedIn"
       canConfirm={Boolean(ready)}
