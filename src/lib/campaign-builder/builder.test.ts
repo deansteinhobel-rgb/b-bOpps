@@ -6,7 +6,7 @@ import { checkGuardrails, rulesFor, type PlaybookRule } from "./guardrails"
 import { knownUrn, plan as planSchema, planToSpec, unresolved, UNRESOLVED, type Plan } from "./plan-schema"
 import { isAbxCampaign } from "./presets"
 import { cleanPlaybook } from "./playbook"
-import { notionPageIdIn } from "./proposal-link"
+import { hasNotionLink, notionPageIdIn, titleNamesClient } from "./proposal-link"
 
 const ctx: BuildContext = { website: "https://www.camber.health", monthBudget: 20_000, spentThisMonth: 9_000, today: "2026-10-21", clientId: "11111111-1111-1111-1111-111111111111" }
 
@@ -154,5 +154,29 @@ describe("Notion proposal links", () => {
     expect(notionPageIdIn("Proposal: 3 single image ads, $60 a day")).toBeNull()
     expect(notionPageIdIn("https://example.com/2716e9bb19588036bc5fe7bc7c46b71e")).toBeNull()
     expect(notionPageIdIn(null)).toBeNull()
+  })
+})
+
+describe("Notion proposal links on notion.com", () => {
+  it("reads app.notion.com/p/ links", () => {
+    expect(notionPageIdIn("https://app.notion.com/p/bordeauxandburgundy/Proposal-Paid-Search-Display-NASDAQ-Luminate-Campaign-DNSFilter-db26e9bb195882518a4501c73ccad0eb")?.id).toBe("db26e9bb-1958-8251-8a45-01c73ccad0eb")
+    expect(notionPageIdIn("https://www.notion.com/bordeauxandburgundy/New-SUD-funding-9fa6e9bb1958835a929b81fddb9d292e?pvs=4")?.id).toBe("9fa6e9bb-1958-835a-929b-81fddb9d292e")
+  })
+  it("spots a Notion link without a page in it", () => {
+    expect(hasNotionLink("https://app.notion.com/p/bordeauxandburgundy")).toBe(true)
+    expect(notionPageIdIn("https://app.notion.com/p/bordeauxandburgundy")).toBeNull()
+    expect(hasNotionLink("3 single image ads")).toBe(false)
+  })
+})
+
+describe("proposal titles that name the client", () => {
+  it("matches whole words of the name or Notion option", () => {
+    expect(titleNamesClient("New SUD funding: can your billing scale with your footprint? | Camber", ["Camber", "Camber"])).toBe(true)
+    expect(titleNamesClient("Proposal - Paid Search - DNSFilter", ["DNSFilter", null])).toBe(true)
+    expect(titleNamesClient("Star Global | Q4 proposal", ["Star", "Star Global"])).toBe(true)
+  })
+  it("doesn't match part of a word or another client", () => {
+    expect(titleNamesClient("Startup launch proposal", ["Star", "Star Global"])).toBe(false)
+    expect(titleNamesClient("Proposal | Filevine", ["Camber", "Camber"])).toBe(false)
   })
 })
