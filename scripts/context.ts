@@ -30,7 +30,9 @@ type Entry = {
 }
 type Row = { id: number; area: string; kind: string; title: string; body: string; files: string[]; decided_on: string | null }
 
-const url = process.env.CONTEXT_SUPABASE_URL
+// The project's URL, or just its ref ("zczn…"), which is all the dashboard shows at first.
+const ref = process.env.CONTEXT_SUPABASE_URL?.trim()
+const url = ref && !ref.startsWith("http") ? `https://${ref}.supabase.co` : ref
 const key = process.env.CONTEXT_SUPABASE_SECRET_KEY
 if (!url || !key) {
   console.error("Set CONTEXT_SUPABASE_URL and CONTEXT_SUPABASE_SECRET_KEY in .env.local (the context bank's own Supabase project).")
