@@ -25,7 +25,9 @@ cd lumaux
 corepack pnpm install
 ```
 
-1. Create `.env.local` from `.env.example` and paste in the values from the password manager.
+1. Create `.env.local` from `.env.example` and paste in the values from the password manager,
+   including `CONTEXT_SUPABASE_URL` and `CONTEXT_SUPABASE_SECRET_KEY`: Claude Code reads Lumaux's
+   decisions and feature notes from the context bank (`context-bank/README.md`), not from `CLAUDE.md`.
 2. **Check the safety switches** in your `.env.local`. They must read exactly:
    ```
    NOTION_WRITES_ENABLED=false
