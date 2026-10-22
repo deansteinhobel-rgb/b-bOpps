@@ -35,7 +35,8 @@
     "sync:settings": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-settings.ts",
     "ideas:content": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/content-ideas.ts",
     "sync:calls": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/sync-calls.ts",
-    "label": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/label.ts"
+    "label": "tsx --conditions=react-server --tsconfig tsconfig.json --env-file=.env.local scripts/label.ts",
+    "context": "tsx --env-file-if-exists=.env.local scripts/context.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
