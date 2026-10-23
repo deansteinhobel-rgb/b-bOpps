@@ -80,6 +80,34 @@ export const brief = z.object({
 })
 export type CampaignBrief = z.infer<typeof brief>
 
+/**
+ * Parses Claude's brief, trimming any text or list that runs over its limit instead of failing:
+ * asking Claude to resubmit a whole brief doubles a run (about 4 minutes), close to the 5-minute
+ * limit on Vercel. Anything else that doesn't fit still fails.
+ */
+export function parseBrief(input: unknown) {
+  const value: unknown = structuredClone(input)
+  for (let pass = 0; pass < 4; pass++) {
+    const r = brief.safeParse(value)
+    if (r.success || !value || typeof value !== "object") return r
+    let fixed = false
+    for (const issue of r.error.issues) {
+      if (issue.code !== "too_big" || !issue.path.length) continue
+      const parent = issue.path.slice(0, -1).reduce<unknown>((o, k) => (o as Record<PropertyKey, unknown> | undefined)?.[k], value) as Record<PropertyKey, unknown> | undefined
+      const key = issue.path.at(-1)!
+      const v = parent?.[key]
+      const max = Number(issue.maximum)
+      if (typeof v === "string") parent![key] = v.slice(0, max - 1).trimEnd() + "…"
+      else if (Array.isArray(v)) parent![key] = v.slice(0, max)
+      else if (typeof v === "number") parent![key] = max
+      else continue
+      fixed = true
+    }
+    if (!fixed) return r
+  }
+  return brief.safeParse(value)
+}
+
 export const question = z.object({
   id: z.string().regex(/^[a-z0-9_]{1,40}$/),
   question: short(300),

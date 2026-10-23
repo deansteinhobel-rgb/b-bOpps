@@ -9,7 +9,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import type { Json } from "@/lib/supabase/database.types"
 import { fromJson, toJson, type Db } from "@/lib/supabase/db"
 import { attachmentBlocks } from "./attachments"
-import { attachment, brief as briefSchema, question as questionSchema, type BriefQuestion, type CampaignBrief } from "./schema"
+import { attachment, brief as briefSchema, parseBrief, question as questionSchema, type BriefQuestion, type CampaignBrief } from "./schema"
 
 /**
  * Planning › Generate a campaign brief (Dean, 2026-10-23). Two runs, both in the background (the
@@ -185,15 +185,16 @@ export async function runWrite(briefId: string, by: string) {
       row.mode === "review" ? `Review the attached plan and write the improved brief, then call submit_brief.` : `Write the campaign brief, then call submit_brief.`,
     ].join("\n")
     let r = await call(SUBMIT, today, await content(row, prompt), 32000)
-    let parsed = briefSchema.safeParse(r.input)
+    let parsed = parseBrief(r.input)
     if (!parsed.success) {
-      // One more go with what was wrong.
+      // One more go with what was wrong (overlong text is trimmed above, so this is rare).
       const issues = parsed.error.issues.slice(0, 8).map((e) => `${e.path.join(".")}: ${e.message}`).join("; ")
+      console.warn("[campaign-brief] brief didn't fit, asking again", briefId, issues)
       const retry: Anthropic.MessageParam[] = [...r.messages, { role: "assistant", content: r.msg.content }, { role: "user", content: [{ type: "tool_result", tool_use_id: r.use.id, is_error: true, content: `The brief didn't fit the format: ${issues}. Fix it and call submit_brief again.` }] }]
       const msg = await claude().messages.stream({ model: MODEL, max_tokens: 32000, thinking: { type: "adaptive" }, system: system(today), tools: [SUBMIT], tool_choice: { type: "auto" }, messages: retry }).finalMessage()
       const use = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === SUBMIT.name)
       r = { ...r, usage: { input_tokens: r.usage.input_tokens + msg.usage.input_tokens, output_tokens: r.usage.output_tokens + msg.usage.output_tokens } }
-      parsed = briefSchema.safeParse(use?.input)
+      parsed = parseBrief(use?.input)
     }
     if (!parsed.success) throw new Error("Claude didn't return the brief in the right format.")
     const clean = JSON.parse(withSymbols(JSON.stringify(parsed.data))) as CampaignBrief

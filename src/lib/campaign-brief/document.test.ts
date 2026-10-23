@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { boldRuns, briefBlocks, docxFileName } from "./document"
 import { MAX_NOTION_BLOCKS, notionChildren } from "./notion"
-import { brief, totalAds, type CampaignBrief } from "./schema"
+import { brief, parseBrief, totalAds, type CampaignBrief } from "./schema"
 
 const sample: CampaignBrief = brief.parse({
   title: "MSP partners",
@@ -70,5 +70,23 @@ describe("campaign brief as Notion blocks", () => {
     const cut = notionChildren(many, "https://app/x") as { paragraph?: { rich_text: { text: { content: string } }[] } }[]
     expect(cut).toHaveLength(MAX_NOTION_BLOCKS)
     expect(cut.at(-1)!.paragraph!.rich_text.map((r) => r.text.content).join("")).toContain("https://app/x")
+  })
+})
+
+describe("parseBrief", () => {
+  it("trims overlong text and lists instead of failing", () => {
+    const raw = { ...sample, summary: "x".repeat(700), risks: ["a", "b", "c", "d", "e", "f", "g", "h"], channels: [{ ...sample.channels[0], adTypes: [{ format: "Single image", quantity: 2, specs: "s".repeat(500) }] }] }
+    const r = parseBrief(raw)
+    expect(r.success).toBe(true)
+    expect(r.data!.summary).toHaveLength(600)
+    expect(r.data!.summary.endsWith("…")).toBe(true)
+    expect(r.data!.risks).toHaveLength(6)
+    expect(r.data!.channels[0].adTypes[0].specs).toHaveLength(400)
+  })
+
+  it("still fails on a missing required field", () => {
+    const noChannels: Partial<CampaignBrief> = { ...sample }
+    delete noChannels.channels
+    expect(parseBrief(noChannels).success).toBe(false)
   })
 })
