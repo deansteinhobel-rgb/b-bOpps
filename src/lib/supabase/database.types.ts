@@ -597,12 +597,14 @@ export type Database = {
           answers: Json
           archived_at: string | null
           archived_by: string | null
+          attachments: Json
           brief: Json | null
           client_id: string
           created_at: string
           created_by: string | null
           error: string | null
           id: string
+          mode: string
           model: string | null
           notes: string | null
           notion_page_id: string | null
@@ -619,12 +621,14 @@ export type Database = {
           answers?: Json
           archived_at?: string | null
           archived_by?: string | null
+          attachments?: Json
           brief?: Json | null
           client_id: string
           created_at?: string
           created_by?: string | null
           error?: string | null
           id?: string
+          mode?: string
           model?: string | null
           notes?: string | null
           notion_page_id?: string | null
@@ -641,12 +645,14 @@ export type Database = {
           answers?: Json
           archived_at?: string | null
           archived_by?: string | null
+          attachments?: Json
           brief?: Json | null
           client_id?: string
           created_at?: string
           created_by?: string | null
           error?: string | null
           id?: string
+          mode?: string
           model?: string | null
           notes?: string | null
           notion_page_id?: string | null

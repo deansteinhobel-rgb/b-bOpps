@@ -1,26 +1,30 @@
 "use client"
 
-import { AlertTriangle, ArrowLeft, Check as CheckIcon, Download, ExternalLink } from "lucide-react"
+import { createClient as createSupabase } from "@supabase/supabase-js"
+import { AlertTriangle, ArrowLeft, Check as CheckIcon, Download, ExternalLink, FileText, Paperclip, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Fragment, useEffect, useRef, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { fieldClass } from "@/components/field-class"
 import { Spinner } from "@/components/loading"
+import { Segmented } from "@/components/segmented"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { boldRuns, briefBlocks, type DocBlock } from "@/lib/campaign-brief/document"
-import { notionBriefTitle, totalAds, type BriefQuestion, type BriefStatus, type CampaignBrief } from "@/lib/campaign-brief/schema"
+import { ATTACH_ACCEPT, ATTACH_TYPES, attachType, MAX_ATTACH_BYTES, MAX_ATTACHMENTS, notionBriefTitle, totalAds, type Attachment, type BriefMode, type BriefQuestion, type BriefStatus, type CampaignBrief } from "@/lib/campaign-brief/schema"
 import { shortDate } from "@/lib/format"
 import { PRIORITIES, type Priority } from "@/lib/notion/config"
 import { cn } from "@/lib/utils"
-import { archiveBrief, sendBriefToNotion } from "./actions"
+import { archiveBrief, sendBriefToNotion, startBriefUpload } from "./actions"
 
 export type BriefRow = {
   id: string
   request: string
   notes: string | null
+  mode: BriefMode
+  attachments: Attachment[]
   status: BriefStatus
   questions: BriefQuestion[]
   answers: Record<string, string>
@@ -90,23 +94,54 @@ export function BriefGenerator(p: Props) {
   )
 }
 
+const MODES: { value: BriefMode; label: string }[] = [
+  { value: "new", label: "Write a new brief" },
+  { value: "review", label: "Review what we have" },
+]
+
 function NewBrief(p: Props & { onStarted: (id: string) => void }) {
+  const [mode, setMode] = useState<BriefMode>("new")
   const [request, setRequest] = useState("")
   const [notes, setNotes] = useState("")
   const [showNotes, setShowNotes] = useState(false)
+  const [files, setFiles] = useState<{ path: string; name: string }[]>([])
+  const [uploading, setUploading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const input = useRef<HTMLInputElement>(null)
   const router = useRouter()
+  const review = mode === "review"
   const disabled = !p.canEdit ? "You have view access" : !p.aiReady ? "Claude isn't set up (ANTHROPIC_API_KEY)" : null
+  const missingPlan = review && !files.length && !notes.trim()
+
+  // Uploads straight away to the client's private folder; the brief only records it on Generate.
+  const attach = async (file: File) => {
+    setError(null)
+    const type = attachType(file)
+    if (!ATTACH_TYPES[type]) return setError("PDF, Word, TXT, MD or CSV only.")
+    if (file.size > MAX_ATTACH_BYTES) return setError("Files must be under 10 MB.")
+    setUploading(true)
+    const s = await startBriefUpload({ clientSlug: p.slug, name: file.name, type, size: file.size })
+    if (!s.ok) {
+      setUploading(false)
+      return setError(s.message)
+    }
+    const sb = createSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!)
+    const { error: upErr } = await sb.storage.from("client-files").uploadToSignedUrl(s.path, s.token, file, { contentType: type })
+    setUploading(false)
+    if (upErr) return setError("The upload failed. Try again.")
+    setFiles((f) => [...f, { path: s.path, name: file.name }])
+  }
 
   const start = async () => {
     setBusy(true)
     setError(null)
-    const r = await post({ slug: p.slug, request, notes })
+    const r = await post({ slug: p.slug, request, notes, mode, files })
     setBusy(false)
     if (!r.briefId) return setError(r.error ?? "Couldn't start the brief.")
     setRequest("")
     setNotes("")
+    setFiles([])
     p.onStarted(r.briefId)
     router.refresh()
   }
@@ -114,31 +149,82 @@ function NewBrief(p: Props & { onStarted: (id: string) => void }) {
   return (
     <section className="surface space-y-3 p-4">
       <h2 className="text-xl">New brief</h2>
+      <Segmented label="What Claude does" value={mode} options={MODES} onChange={setMode} tone="quiet" />
       <label className="block space-y-1.5 text-xs text-muted-foreground">
-        What&apos;s the campaign for?
+        {review ? "What should Claude check?" : <>What&apos;s the campaign for?</>}
         <Textarea
           value={request}
           onChange={(e) => setRequest(e.target.value)}
           rows={4}
           maxLength={4000}
-          placeholder={`e.g. An MSP campaign for ${p.clientName}: get managed service providers to sign up as partners`}
+          placeholder={review ? "e.g. Our Q4 MSP plan: is the channel mix and budget right, and what tests are we missing?" : `e.g. An MSP campaign for ${p.clientName}: get managed service providers to sign up as partners`}
           className="text-sm text-foreground"
         />
       </label>
-      {showNotes ? (
+
+      <div className="space-y-2">
+        {files.length > 0 && (
+          <ul className="space-y-1.5">
+            {files.map((f) => (
+              <li key={f.path} className="flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-[13px] text-foreground">
+                <FileText className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="min-w-0 flex-1 truncate">{f.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setFiles(files.filter((x) => x.path !== f.path))}
+                  aria-label={`Remove ${f.name}`}
+                  className="rounded text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-lime focus-visible:outline-none"
+                >
+                  <X className="size-3.5" aria-hidden />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <button
+            type="button"
+            onClick={() => input.current?.click()}
+            disabled={uploading || files.length >= MAX_ATTACHMENTS || Boolean(disabled)}
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline disabled:opacity-50 disabled:hover:no-underline"
+          >
+            <Paperclip className="size-3.5" aria-hidden />
+            {uploading ? "Uploading…" : review ? "Attach the plan or brief" : "Attach a file"}
+          </button>
+          {!showNotes && (
+            <button type="button" onClick={() => setShowNotes(true)} className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+              {review ? "Or paste it" : "Add notes or paste a proposal"}
+            </button>
+          )}
+        </div>
+        <p className="text-[11px] text-muted-foreground">PDF, Word, TXT, MD or CSV, up to 10 MB, {MAX_ATTACHMENTS} files at most.</p>
+        <input
+          ref={input}
+          type="file"
+          accept={ATTACH_ACCEPT}
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) void attach(f)
+            e.target.value = ""
+          }}
+        />
+      </div>
+
+      {showNotes && (
         <label className="block space-y-1.5 text-xs text-muted-foreground">
-          Notes, a proposal or a client email (optional)
+          {review ? "The plan or brief to review" : "Notes, a proposal or a client email (optional)"}
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={5} maxLength={20000} className="text-sm text-foreground" />
         </label>
-      ) : (
-        <button type="button" onClick={() => setShowNotes(true)} className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-          Add notes or paste a proposal
-        </button>
       )}
       {error && <p className="text-[13px] text-rag-red">{error}</p>}
       <div className="flex justify-end">
-        <Button onClick={start} disabled={busy || request.trim().length < 3 || Boolean(disabled)} title={disabled ?? undefined}>
-          {busy ? "Starting…" : "Generate brief"}
+        <Button
+          onClick={start}
+          disabled={busy || uploading || request.trim().length < 3 || missingPlan || Boolean(disabled)}
+          title={disabled ?? (missingPlan ? "Attach the plan or brief to review, or paste it" : undefined)}
+        >
+          {busy ? "Starting…" : review ? "Review it" : "Generate brief"}
         </Button>
       </div>
     </section>
@@ -189,9 +275,18 @@ function BriefPanel(p: Props & { row: BriefRow; onArchived: () => void }) {
     <section className="surface overflow-hidden">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b px-5 py-4">
         <div className="min-w-0">
-          <div className="eyebrow">Campaign brief</div>
-          <h2 className="text-2xl">{row.brief?.title ?? "New brief"}</h2>
+          <div className="eyebrow">{row.mode === "review" ? "Review" : "Campaign brief"}</div>
+          <h2 className="text-2xl">{row.brief?.title ?? (row.mode === "review" ? "Reviewing your plan" : "New brief")}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{row.request}</p>
+          {row.attachments.length > 0 && (
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {row.attachments.map((a) => (
+                <span key={a.path} className="inline-flex items-center gap-1">
+                  <Paperclip className="size-3" aria-hidden /> {a.name}
+                </span>
+              ))}
+            </p>
+          )}
         </div>
         {p.canEdit && (
           <Button variant="ghost" size="sm" onClick={archive} disabled={pending || working(row.status)}>
@@ -207,7 +302,7 @@ function BriefPanel(p: Props & { row: BriefRow; onArchived: () => void }) {
       )}
       {row.status === "writing" && (
         <div className="flex items-center gap-3 px-5 py-6 text-sm text-muted-foreground">
-          <Spinner label="Writing" /> Writing the brief. A minute or two.
+          <Spinner label="Writing" /> {row.mode === "review" ? "Reviewing your plan and writing the improved brief." : "Writing the brief."} A minute or two.
         </div>
       )}
       {row.status === "failed" && <Failed row={row} canEdit={p.canEdit} />}
