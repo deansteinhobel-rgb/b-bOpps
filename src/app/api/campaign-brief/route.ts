@@ -2,8 +2,9 @@ import { after, NextResponse } from "next/server"
 import { z } from "zod"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { aiConfigured } from "@/lib/ai/claude"
+import { checkAttachment } from "@/lib/campaign-brief/attachments"
 import { runAsk, runWrite } from "@/lib/campaign-brief/generate"
-import type { BriefQuestion } from "@/lib/campaign-brief/schema"
+import { MAX_ATTACHMENTS, type BriefQuestion } from "@/lib/campaign-brief/schema"
 import { rateLimit } from "@/lib/rate-limit"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fromJson, toJson } from "@/lib/supabase/db"
@@ -12,7 +13,13 @@ import { createClient } from "@/lib/supabase/server"
 // Each step takes 20 seconds to 2 minutes and runs after the response (see `after`), within this limit.
 export const maxDuration = 300
 
-const Start = z.object({ slug: z.string().min(1).max(80), request: z.string().trim().min(3).max(4000), notes: z.string().max(20000).default("") })
+const Start = z.object({
+  slug: z.string().min(1).max(80),
+  request: z.string().trim().min(3).max(4000),
+  notes: z.string().max(20000).default(""),
+  mode: z.enum(["new", "review"]).default("new"),
+  files: z.array(z.object({ path: z.string().max(300), name: z.string().max(200) })).max(MAX_ATTACHMENTS).default([]),
+})
 const Answer = z.object({ briefId: z.uuid(), answers: z.record(z.string().max(40), z.string().max(2000)) })
 const Revise = z.object({ briefId: z.uuid(), revision: z.string().trim().min(3).max(4000) })
 
@@ -22,7 +29,9 @@ const busy = (row: { status: string; updated_at: string }) => (row.status === "a
 
 /**
  * Planning › Generate a campaign brief (Dean, 2026-10-23). Anyone who can edit the client.
- *   POST { slug, request, notes? } starts a brief: Claude asks its questions first.
+ *   POST { slug, request, notes?, mode?, files? } starts a brief: Claude asks its questions first.
+ *     files are uploads in the client's client-files folder (startBriefUpload); mode "review" checks
+ *     the attached plan and says what to change, so it needs a file or notes.
  *   POST { briefId, answers } writes the brief from the answers (also "Try again" after a failure).
  *   POST { briefId, revision } rewrites a ready brief with the change asked for.
  * Returns the brief id to poll with GET ?brief=.
@@ -62,13 +71,17 @@ export async function POST(request: Request) {
 
   const start = Start.safeParse(body)
   if (!start.success) return refuse("Say what the campaign is for (at least a few words).", 400)
-  const { data: client } = await supabase.from("clients").select("id").eq("slug", start.data.slug).maybeSingle()
+  const s = start.data
+  if (s.mode === "review" && !s.files.length && !s.notes.trim()) return refuse("Attach the plan or brief to review, or paste it in the notes.", 400)
+  const { data: client } = await supabase.from("clients").select("id").eq("slug", s.slug).maybeSingle()
   if (!client) return refuse("This client isn't available to you.", 404)
+  const attachments = await Promise.all(s.files.map((f) => checkAttachment(client.id, f.path, f.name)))
+  if (attachments.some((a) => !a)) return refuse("One of the files didn't upload or isn't a PDF, Word, TXT, MD or CSV file under 10 MB. Attach it again.", 400)
   const limited = await rateLimit(supabase, "campaign_brief")
   if (limited) return refuse(limited, 429)
   const { data: row, error } = await createAdminClient(me.id)
     .from("campaign_briefs")
-    .insert({ client_id: client.id, request: start.data.request, notes: start.data.notes.trim() || null, created_by: me.id })
+    .insert({ client_id: client.id, request: s.request, notes: s.notes.trim() || null, mode: s.mode, attachments: toJson(attachments), created_by: me.id })
     .select("id")
     .single()
   if (error || !row) return refuse("Couldn't start the brief.", 500)

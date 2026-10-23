@@ -5,7 +5,8 @@ import { z } from "zod"
 import { canEdit, getProfile, VIEW_ONLY } from "@/lib/auth"
 import { briefBlocks } from "@/lib/campaign-brief/document"
 import { notionChildren } from "@/lib/campaign-brief/notion"
-import { brief as briefSchema, notionBriefTitle, totalAds } from "@/lib/campaign-brief/schema"
+import { ATTACH_TYPES, MAX_ATTACH_BYTES, brief as briefSchema, notionBriefTitle, totalAds } from "@/lib/campaign-brief/schema"
+import { FILE_BUCKET } from "@/lib/knowledge/brief"
 import { PRIORITIES } from "@/lib/notion/config"
 import { writeDeps } from "@/lib/notion/server"
 import { createNotionAction } from "@/lib/notion/write"
@@ -67,6 +68,30 @@ export async function sendBriefToNotion(raw: z.input<typeof Send>): Promise<Resu
   return res.status === "created"
     ? { ok: true, message: "Sent to Master Production", url: res.page.url }
     : { ok: true, message: "Test mode: the brief was logged, nothing was sent to Notion" }
+}
+
+/**
+ * A signed link to upload one file for a brief into the client's own folder in the private
+ * client-files bucket (the brain's pattern). The start route checks what arrived (type and size from
+ * storage) before Claude reads it.
+ */
+export async function startBriefUpload(raw: { clientSlug: string; name: string; type: string; size: number }): Promise<{ ok: true; path: string; token: string } | { ok: false; message: string }> {
+  const parsed = z.object({ clientSlug: z.string().min(1).max(100), name: z.string().min(1).max(300), type: z.string().max(120), size: z.number().int().min(1) }).safeParse(raw)
+  if (!parsed.success) return { ok: false, message: "Pick a file." }
+  const { clientSlug, name, type, size } = parsed.data
+  const me = await getProfile()
+  if (!canEdit(me)) return { ok: false, message: VIEW_ONLY }
+  if (!ATTACH_TYPES[type]) return { ok: false, message: "PDF, Word, TXT, MD or CSV only." }
+  if (size > MAX_ATTACH_BYTES) return { ok: false, message: "Files must be under 10 MB." }
+  const supabase = await createClient()
+  const { data: client } = await supabase.from("clients").select("id").eq("slug", clientSlug).maybeSingle()
+  if (!client) return { ok: false, message: "This client isn't available to you." }
+  const limited = await rateLimit(supabase, "brain_upload")
+  if (limited) return { ok: false, message: limited }
+  const path = `${client.id}/${Date.now()}-${name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120)}`
+  const { data, error } = await createAdminClient().storage.from(FILE_BUCKET).createSignedUploadUrl(path)
+  if (error || !data) return { ok: false, message: "Couldn't start the upload." }
+  return { ok: true, path, token: data.token }
 }
 
 /** Archive a brief (nothing is ever deleted): it leaves the list; the row stays. */

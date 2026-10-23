@@ -35,6 +35,15 @@ describe("campaign brief document", () => {
     expect(blocks.some((b) => b.t === "h2" && b.text === "Timeline")).toBe(false)
   })
 
+  it("leads a review with what to change and what already works", () => {
+    const reviewed = brief.parse({ ...sample, changes: [{ change: "Cut Meta.", why: "Lead quality was poor in past tests." }], keep: ["The Umbrella angle"] })
+    const blocks = briefBlocks(reviewed, { clientName: "DNSFilter", createdOn: "2026-10-23" })
+    expect(blocks[3]).toEqual({ t: "h2", text: "What we'd change" })
+    expect(blocks[4]).toEqual({ t: "bullet", text: "**Cut Meta.** Lead quality was poor in past tests." })
+    expect(blocks[5]).toEqual({ t: "h2", text: "What already works" })
+    expect(briefBlocks(sample, { clientName: "DNSFilter", createdOn: "2026-10-23" })[3]).toEqual({ t: "h2", text: "Objective" })
+  })
+
   it("splits **bold** lead-ins into runs", () => {
     expect(boldRuns("**Role:** reach owners")).toEqual([
       { text: "Role:", bold: true },

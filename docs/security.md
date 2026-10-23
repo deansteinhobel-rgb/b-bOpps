@@ -87,6 +87,10 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
   `createAdminClient(me.id)` after the RLS read, and briefs are archived, never deleted). The Word
   export reads through RLS. "Send to Notion" goes through `createNotionAction` (operation
   `create_campaign_brief`, the brief as the new page's `children`), one live page per brief.
+  Attached files (up to 3: PDF, Word, TXT, MD, CSV, 10 MB) upload through a signed link into the
+  client's own folder in the private `client-files` bucket (`brain_upload` limit); the start route
+  checks each path's shape and the type and size storage holds before Claude reads it, and file
+  contents are data in the prompt.
 - **Builds and edits on every platform (2026-10-21)**: Google Ads and Meta go through Windsor's
   MCP write actions with a fixed allowlist per connector (`src/lib/windsor/mcp.ts`; never an
   enable, remove or delete action, and creates are forced paused), Reddit and Microsoft Ads through

@@ -73,6 +73,10 @@ export const brief = z.object({
   risks: z.array(short(300)).max(6).default([]),
   /** What the team still has to decide or get from the client. */
   openQuestions: z.array(short(300)).max(6).default([]),
+  /** Review mode: what to change in the attached plan and why, most important first. */
+  changes: z.array(z.object({ change: short(300), why: short(400) })).max(10).default([]),
+  /** Review mode: what the attached plan already gets right. */
+  keep: z.array(short(300)).max(6).default([]),
 })
 export type CampaignBrief = z.infer<typeof brief>
 
@@ -85,6 +89,31 @@ export const question = z.object({
 export type BriefQuestion = z.infer<typeof question>
 
 export type BriefStatus = "asking" | "questions" | "writing" | "ready" | "failed"
+
+/** 'new' writes a brief; 'review' reads the attached plan or brief and says what to change (Dean, 2026-10-23). */
+export type BriefMode = "new" | "review"
+
+/** Files a brief can carry: what Claude can read (PDF as a document, Word as text, plain text). */
+export const ATTACH_TYPES: Record<string, string> = {
+  "application/pdf": "PDF",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word",
+  "text/plain": "Text",
+  "text/markdown": "Markdown",
+  "text/csv": "CSV",
+}
+export const ATTACH_ACCEPT = ".pdf,.docx,.txt,.md,.csv," + Object.keys(ATTACH_TYPES).join(",")
+export const MAX_ATTACHMENTS = 3
+export const MAX_ATTACH_BYTES = 10 * 1024 * 1024
+
+/** The browser's type for a file, with the extensions some systems leave untyped. */
+export function attachType(file: { name: string; type: string }) {
+  if (file.type && ATTACH_TYPES[file.type]) return file.type
+  const ext = file.name.toLowerCase().split(".").pop()
+  return ext === "md" ? "text/markdown" : ext === "docx" ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : ext === "csv" ? "text/csv" : ext === "txt" ? "text/plain" : ext === "pdf" ? "application/pdf" : file.type
+}
+
+export const attachment = z.object({ path: z.string().max(300), name: z.string().max(200), type: z.string().max(120), size: z.number().int().min(0) })
+export type Attachment = z.infer<typeof attachment>
 
 /** Total ads across every channel, for the header and the Notion summary. */
 export const totalAds = (b: CampaignBrief) => b.channels.reduce((s, c) => s + c.adTypes.reduce((t, a) => t + a.quantity, 0), 0)

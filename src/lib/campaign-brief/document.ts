@@ -25,6 +25,16 @@ export function briefBlocks(b: CampaignBrief, meta: DocMeta): DocBlock[] {
   p(`${meta.clientName} · ${meta.createdOn} · ${totalAds(b)} ads across ${b.channels.length} channel${b.channels.length === 1 ? "" : "s"}`)
   p(`**${b.summary.trim()}**`)
 
+  // Review mode leads with the verdict on the attached plan.
+  if (b.changes.length) {
+    h2("What we'd change")
+    bullets(b.changes.map((c) => `**${c.change}** ${c.why}`))
+  }
+  if (b.keep.length) {
+    h2("What already works")
+    bullets(b.keep)
+  }
+
   h2("Objective")
   p(b.objective)
 
