@@ -404,3 +404,54 @@ describe("createNotionAction: email sequence briefs (content library, Dean 2026-
     expect(notion.pages.create).not.toHaveBeenCalled()
   })
 })
+
+describe("createNotionAction: campaign briefs (Generate a campaign brief, Dean 2026-10-23)", () => {
+  const children = [{ object: "block", type: "paragraph", paragraph: { rich_text: [{ type: "text", text: { content: "Hi" } }] } }]
+  const camp: ActionInput = {
+    ...input,
+    title: "Lumaux | Campaign Brief | MSP partners",
+    checkResultId: null,
+    appLink: "/clients/camber/campaign-brief?brief=brief-1",
+    campaignBrief: { briefId: "brief-1", briefKey: "campaign:brief-1", children },
+  }
+
+  it("is a dry run by default, logged as create_campaign_brief with its brief and key", async () => {
+    const { db, calls } = fakeDb()
+    const notion = fakeNotion()
+    const res = await createNotionAction({ db, notion, env: env() }, camp)
+    expect(res.status).toBe("dry_run")
+    expect(notion.pages.create).not.toHaveBeenCalled()
+    expect(calls[0].args[0]).toMatchObject({ operation: "create_campaign_brief", campaign_brief_id: "brief-1", brief_key: "campaign:brief-1", dry_run: true })
+    expect(calls.some((c) => c.table === "campaign_briefs")).toBe(false)
+  })
+
+  it("creates the page with the brief as its content, existing options only, title as given", async () => {
+    const { db } = fakeDb()
+    const res = await createNotionAction({ db, notion: null, env: env() }, camp)
+    expect(res.payload!.children).toEqual(children)
+    const p = res.payload!.properties as Record<string, { select?: { name: string }; status?: { name: string }; title?: { text: { content: string } }[] }>
+    expect(p["Production Type"].select!.name).toBe("Paid Media")
+    expect(p["Master Status"].status!.name).toBe("New")
+    expect(p).not.toHaveProperty("Status Content")
+    expect(p.Project.title![0].text.content).toBe("Lumaux | Campaign Brief | MSP partners")
+  })
+
+  it("live: creates one page and links it to the brief", async () => {
+    const { db, calls } = fakeDb()
+    const notion = fakeNotion()
+    const res = await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, camp)
+    expect(res.status).toBe("created")
+    expect(notion.pages.create).toHaveBeenCalledTimes(1)
+    const link = calls.find((c) => c.table === "campaign_briefs")!
+    expect(link.args[0]).toMatchObject({ notion_page_id: "page-1", notion_page_url: page.url })
+    expect(link.args.slice(1)).toEqual(["id", "brief-1"])
+  })
+
+  it("never sends a second live page for the same brief (unique brief_key)", async () => {
+    const { db } = fakeDb({ duplicate: true })
+    const notion = fakeNotion()
+    const res = await createNotionAction({ db, notion, env: env({ writesEnabled: true, dryRun: false }) }, camp)
+    expect(res.status).toBe("failed")
+    expect(notion.pages.create).not.toHaveBeenCalled()
+  })
+})

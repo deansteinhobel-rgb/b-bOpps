@@ -14,14 +14,15 @@ import { describeTargets, loadTargets } from "@/lib/targets"
  * (12 weeks), this month's pacing, top campaigns, ad fatigue, every past test with its outcome and
  * findings, this sprint's plan, logged changes, and earlier suggestions we approved or rejected.
  * Aggregates only, no raw rows. Uses the admin client: call only after checking access.
+ * With no sprint (the campaign brief, 2026-10-23), every test counts as past and nothing as planned.
  */
-export async function buildSprintContext(db: Db, clientId: string, sprintId: string) {
+export async function buildSprintContext(db: Db, clientId: string, sprintId: string | null) {
   const [{ data: client }, { data: sprint }, overview] = await Promise.all([
     db.from("clients").select("name, currency, monthly_kpi_target, main_kpi").eq("id", clientId).single(),
-    db.from("sprints").select("number, start_date, end_date").eq("id", sprintId).single(),
+    sprintId ? db.from("sprints").select("number, start_date, end_date").eq("id", sprintId).single() : Promise.resolve({ data: null }),
     getOverview(db, clientId),
   ])
-  if (!client || !sprint) throw new Error("Client or sprint not found")
+  if (!client || (sprintId && !sprint)) throw new Error("Client or sprint not found")
   const cur = client.currency as string
   const m = (v: number | null | undefined) => (v === null || v === undefined || !Number.isFinite(v) ? "–" : money(v, cur))
   const pct = (v: number | null | undefined, d = 2) => (v === null || v === undefined ? "–" : `${(v * 100).toFixed(d)}%`)
@@ -30,7 +31,7 @@ export async function buildSprintContext(db: Db, clientId: string, sprintId: str
   lines.push(`# Client: ${client.name}`)
   lines.push(`Currency ${cur} (write amounts with the symbol, e.g. ${money(1200, cur)}, never the code). Main KPI: cost per result (spend / (conversions + leads)). Target per result: ${describeTargets(await loadTargets(db, clientId, client.monthly_kpi_target), (v) => m(v))}.`)
   lines.push(`Connected platforms (via Windsor): ${overview ? [...new Set(overview.pacing.map((p) => PLATFORM_LABEL[p.platform]))].join(", ") : "none yet"}. Google Ads counts conversions; LinkedIn and Meta count conversions + leads; Reddit counts lead and sign-up conversions, view-through included.`)
-  lines.push(`Sprint being planned: Sprint ${sprint.number}, ${sprint.start_date} to ${sprint.end_date} (two weeks).`)
+  if (sprint) lines.push(`Sprint being planned: Sprint ${sprint.number}, ${sprint.start_date} to ${sprint.end_date} (two weeks).`)
 
   // The Client brain: must-knows and the brief built from the client's Notion HQ.
   const brain = await briefForPrompt(clientId)
@@ -123,8 +124,10 @@ export async function buildSprintContext(db: Db, clientId: string, sprintId: str
     ].filter(Boolean)
     lines.push(`- ${bits.join("; ")}`)
   }
-  lines.push(`\n## Already planned in this sprint (${now.length}). Don't repeat these.`)
-  for (const t of now) lines.push(`- ${plat(t.platform)} · "${t.title}" (${t.status})`)
+  if (sprintId) {
+    lines.push(`\n## Already planned in this sprint (${now.length}). Don't repeat these.`)
+    for (const t of now) lines.push(`- ${plat(t.platform)} · "${t.title}" (${t.status})`)
+  }
 
   if (changes?.length) {
     lines.push("\n## Recent account changes logged by the team")

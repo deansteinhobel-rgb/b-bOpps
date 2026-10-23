@@ -29,6 +29,8 @@ export const LIMITS = {
   // The campaign builder (2026-10-21): plans and re-plans with answers, edits to live campaigns, research by hand.
   campaign_plan: { max: 20, seconds: 86400, what: "campaign plans a day" },
   campaign_edit: { max: 30, seconds: 86400, what: "campaign edits a day" },
+  // Generate a campaign brief (2026-10-23): starting one, answering its questions and each revision count once.
+  campaign_brief: { max: 30, seconds: 86400, what: "campaign brief runs a day" },
   targeting_lookup: { max: 300, seconds: 86400, what: "audience lookups a day" },
   playbook_research: { max: 4, seconds: 86400, what: "playbook research runs a day" },
   build_image: { max: 60, seconds: 86400, what: "ad image uploads a day" },
