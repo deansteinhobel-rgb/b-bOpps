@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import { canEdit, getProfile } from "@/lib/auth"
 import { aiConfigured } from "@/lib/ai/claude"
-import { brief as briefSchema, question, type BriefStatus } from "@/lib/campaign-brief/schema"
+import { attachment, brief as briefSchema, question, type BriefMode, type BriefStatus } from "@/lib/campaign-brief/schema"
 import { notionWritesLive } from "@/lib/notion/server"
 import { peopleForClient } from "@/lib/people"
 import { fromJson } from "@/lib/supabase/db"
@@ -28,7 +28,7 @@ export default async function CampaignBriefPage({ params, searchParams }: PagePr
   const [{ data: rows }, people] = await Promise.all([
     supabase
       .from("campaign_briefs")
-      .select("id, request, notes, status, questions, answers, brief, error, notion_page_url, created_at, updated_at, profiles:created_by(full_name)")
+      .select("id, request, notes, mode, attachments, status, questions, answers, brief, error, notion_page_url, created_at, updated_at, profiles:created_by(full_name)")
       .eq("client_id", client.id)
       .is("archived_at", null)
       .order("created_at", { ascending: false })
@@ -41,6 +41,11 @@ export default async function CampaignBriefPage({ params, searchParams }: PagePr
       id: r.id,
       request: r.request,
       notes: r.notes,
+      mode: r.mode as BriefMode,
+      attachments: fromJson<unknown[]>(r.attachments, []).flatMap((a) => {
+        const x = attachment.safeParse(a)
+        return x.success ? [x.data] : []
+      }),
       status: r.status as BriefStatus,
       questions: fromJson<unknown[]>(r.questions, []).flatMap((q) => {
         const x = question.safeParse(q)
@@ -60,7 +65,7 @@ export default async function CampaignBriefPage({ params, searchParams }: PagePr
   return (
     <div className="space-y-4">
       <p className="max-w-3xl text-sm text-muted-foreground">
-        Say what the campaign is for and Claude writes the brief from everything Lumaux knows about {client.name}: the client brain, calls, the numbers, past tests and competitor ads. It asks a few questions first. Send the brief to Notion or download it as Word.
+        Say what the campaign is for and Claude writes the brief from everything Lumaux knows about {client.name}: the client brain, calls, the numbers, past tests and competitor ads. Attach files for more context, or attach a plan you already have and Claude says what to change. It asks a few questions first. Send the brief to Notion or download it as Word.
       </p>
       <BriefGenerator
         slug={slug}

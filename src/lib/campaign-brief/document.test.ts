@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { boldRuns, briefBlocks, docxFileName } from "./document"
 import { MAX_NOTION_BLOCKS, notionChildren } from "./notion"
-import { brief, totalAds, type CampaignBrief } from "./schema"
+import { brief, parseBrief, totalAds, type CampaignBrief } from "./schema"
 
 const sample: CampaignBrief = brief.parse({
   title: "MSP partners",
@@ -35,6 +35,15 @@ describe("campaign brief document", () => {
     expect(blocks.some((b) => b.t === "h2" && b.text === "Timeline")).toBe(false)
   })
 
+  it("leads a review with what to change and what already works", () => {
+    const reviewed = brief.parse({ ...sample, changes: [{ change: "Cut Meta.", why: "Lead quality was poor in past tests." }], keep: ["The Umbrella angle"] })
+    const blocks = briefBlocks(reviewed, { clientName: "DNSFilter", createdOn: "2026-10-23" })
+    expect(blocks[3]).toEqual({ t: "h2", text: "What we'd change" })
+    expect(blocks[4]).toEqual({ t: "bullet", text: "**Cut Meta.** Lead quality was poor in past tests." })
+    expect(blocks[5]).toEqual({ t: "h2", text: "What already works" })
+    expect(briefBlocks(sample, { clientName: "DNSFilter", createdOn: "2026-10-23" })[3]).toEqual({ t: "h2", text: "Objective" })
+  })
+
   it("splits **bold** lead-ins into runs", () => {
     expect(boldRuns("**Role:** reach owners")).toEqual([
       { text: "Role:", bold: true },
@@ -61,5 +70,23 @@ describe("campaign brief as Notion blocks", () => {
     const cut = notionChildren(many, "https://app/x") as { paragraph?: { rich_text: { text: { content: string } }[] } }[]
     expect(cut).toHaveLength(MAX_NOTION_BLOCKS)
     expect(cut.at(-1)!.paragraph!.rich_text.map((r) => r.text.content).join("")).toContain("https://app/x")
+  })
+})
+
+describe("parseBrief", () => {
+  it("trims overlong text and lists instead of failing", () => {
+    const raw = { ...sample, summary: "x".repeat(700), risks: ["a", "b", "c", "d", "e", "f", "g", "h"], channels: [{ ...sample.channels[0], adTypes: [{ format: "Single image", quantity: 2, specs: "s".repeat(500) }] }] }
+    const r = parseBrief(raw)
+    expect(r.success).toBe(true)
+    expect(r.data!.summary).toHaveLength(600)
+    expect(r.data!.summary.endsWith("…")).toBe(true)
+    expect(r.data!.risks).toHaveLength(6)
+    expect(r.data!.channels[0].adTypes[0].specs).toHaveLength(400)
+  })
+
+  it("still fails on a missing required field", () => {
+    const noChannels: Partial<CampaignBrief> = { ...sample }
+    delete noChannels.channels
+    expect(parseBrief(noChannels).success).toBe(false)
   })
 })
