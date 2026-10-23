@@ -48,6 +48,8 @@ const PLANNING: TabGroup = {
     { href: "/sprint", label: "Sprint tests" },
     // Dean, 2026-10-21: plan and build LinkedIn campaigns (General and ABX), paused, from everything Lumaux knows.
     { href: "/build", label: "Campaign builder" },
+    // Dean, 2026-10-23: a campaign brief from a prompt and everything Lumaux knows; to Notion or Word.
+    { href: "/campaign-brief", label: "Generate a campaign brief" },
     { href: "/ideas", label: "Content ideas" },
     { href: "/library", label: "Content library" },
     { href: "/briefs", label: "Notion briefs" },

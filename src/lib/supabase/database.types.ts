@@ -592,6 +592,97 @@ export type Database = {
           },
         ]
       }
+      campaign_briefs: {
+        Row: {
+          answers: Json
+          archived_at: string | null
+          archived_by: string | null
+          brief: Json | null
+          client_id: string
+          created_at: string
+          created_by: string | null
+          error: string | null
+          id: string
+          model: string | null
+          notes: string | null
+          notion_page_id: string | null
+          notion_page_url: string | null
+          notion_sent_at: string | null
+          questions: Json
+          request: string
+          revision: string | null
+          status: string
+          updated_at: string
+          usage: Json | null
+        }
+        Insert: {
+          answers?: Json
+          archived_at?: string | null
+          archived_by?: string | null
+          brief?: Json | null
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          model?: string | null
+          notes?: string | null
+          notion_page_id?: string | null
+          notion_page_url?: string | null
+          notion_sent_at?: string | null
+          questions?: Json
+          request: string
+          revision?: string | null
+          status?: string
+          updated_at?: string
+          usage?: Json | null
+        }
+        Update: {
+          answers?: Json
+          archived_at?: string | null
+          archived_by?: string | null
+          brief?: Json | null
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          error?: string | null
+          id?: string
+          model?: string | null
+          notes?: string | null
+          notion_page_id?: string | null
+          notion_page_url?: string | null
+          notion_sent_at?: string | null
+          questions?: Json
+          request?: string
+          revision?: string | null
+          status?: string
+          updated_at?: string
+          usage?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_briefs_archived_by_fkey"
+            columns: ["archived_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_briefs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_briefs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_build_plans: {
         Row: {
           answers: Json
@@ -2861,6 +2952,7 @@ export type Database = {
       notion_write_log: {
         Row: {
           brief_key: string | null
+          campaign_brief_id: string | null
           check_result_id: string | null
           client_id: string | null
           completed_at: string | null
@@ -2878,6 +2970,7 @@ export type Database = {
         }
         Insert: {
           brief_key?: string | null
+          campaign_brief_id?: string | null
           check_result_id?: string | null
           client_id?: string | null
           completed_at?: string | null
@@ -2895,6 +2988,7 @@ export type Database = {
         }
         Update: {
           brief_key?: string | null
+          campaign_brief_id?: string | null
           check_result_id?: string | null
           client_id?: string | null
           completed_at?: string | null
@@ -2911,6 +3005,13 @@ export type Database = {
           success?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "notion_write_log_campaign_brief_id_fkey"
+            columns: ["campaign_brief_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_briefs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notion_write_log_check_result_id_fkey"
             columns: ["check_result_id"]

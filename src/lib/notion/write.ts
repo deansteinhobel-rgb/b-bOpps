@@ -1,10 +1,12 @@
 /**
  * THE ONLY PLACE THE APP WRITES TO NOTION (CLAUDE.md "Notion write-side rules").
  *
- * It only ever CREATES pages on the Master Production board, of three kinds:
+ * It only ever CREATES pages on the Master Production board, of four kinds:
  *   - an action (from a red check or the New action form),
- *   - a sprint test brief (briefing the team on a planned test; Dean, 2026-09-28), and
- *   - an email sequence brief (approving a content library sequence; Dean, 2026-10-14).
+ *   - a sprint test brief (briefing the team on a planned test; Dean, 2026-09-28),
+ *   - an email sequence brief (approving a content library sequence; Dean, 2026-10-14), and
+ *   - a campaign brief (Planning › Generate a campaign brief; Dean, 2026-10-23), created with the
+ *     brief as the page's content (pages.create `children`; nothing is appended afterwards).
  * A page can get ONE comment, added straight after the app creates it (the brief for the team, with
  * people tagged; Dean, 2026-09-30). No updates, no deletes, no edits to pages the app didn't create.
  *
@@ -34,6 +36,8 @@ export type ActionInput = {
    * as given.
    */
   sequenceBrief?: { contentPieceId: string; briefKey: string; vertical: string | null } | null
+  /** Set for a campaign brief: the brief, a key unique to it (one live page each), and the page's content as Notion blocks. The title is used as given. */
+  campaignBrief?: { briefId: string; briefKey: string; children: object[] } | null
   /** Overrides the "QA Document" link back into the app (a path like /clients/x/sprint, or a full URL). */
   appLink?: string
   createdBy: { id: string; full_name: string | null; email: string }
@@ -41,7 +45,7 @@ export type ActionInput = {
   comment?: { text: string; mentions: { id: string; name: string }[] } | null
 }
 
-export type WriteOperation = "create_action" | "create_test_brief" | "create_comment" | "create_sequence_brief"
+export type WriteOperation = "create_action" | "create_test_brief" | "create_comment" | "create_sequence_brief" | "create_campaign_brief"
 
 /** Only what createNotionAction needs from Supabase (the admin client in production, a fake in tests). */
 export type WriteDb = {
@@ -74,7 +78,7 @@ export type WriteResult =
   | { status: "created"; logId: number; payload: ActionPayload; page: { id: string; url: string }; comment?: CommentResult }
   | { status: "failed"; logId: number | null; payload: ActionPayload | null; error: string }
 
-export type ActionPayload = { parent: { data_source_id: string }; properties: Record<string, unknown> }
+export type ActionPayload = { parent: { data_source_id: string }; properties: Record<string, unknown>; children?: object[] }
 export type RichTextItem = { type: "text"; text: { content: string; link?: { url: string } }; annotations?: { bold: true } } | { type: "mention"; mention: { user: { id: string } } }
 export type CommentPayload = { parent: { page_id: string }; rich_text: RichTextItem[] }
 
@@ -204,6 +208,7 @@ export function buildActionPayload(input: ActionInput, env: Pick<WriteDeps["env"
     properties[PROP.statusReporting] = { select: { name: s.statusReporting } }
     if (input.sequenceBrief.vertical) properties[PROP.vertical] = { select: { name: input.sequenceBrief.vertical } }
   }
+  if (input.campaignBrief) return { parent: { data_source_id: env.dataSourceId }, properties, children: input.campaignBrief.children.slice(0, 100) }
   return { parent: { data_source_id: env.dataSourceId }, properties }
 }
 
@@ -214,7 +219,7 @@ export async function createNotionAction(deps: WriteDeps, input: ActionInput): P
   const clientAllowed = !deps.env.liveClients || deps.env.liveClients.includes(input.client.slug.toLowerCase())
   const live = deps.env.writesEnabled && !deps.env.dryRun && clientAllowed
   const payload = buildActionPayload(input, deps.env)
-  const operation: WriteOperation = input.sequenceBrief ? "create_sequence_brief" : input.sprintTestId ? "create_test_brief" : "create_action"
+  const operation: WriteOperation = input.campaignBrief ? "create_campaign_brief" : input.sequenceBrief ? "create_sequence_brief" : input.sprintTestId ? "create_test_brief" : "create_action"
 
   // 1. Log first. No log, no write.
   const { data: log, error: logError } = await deps.db
@@ -229,11 +234,12 @@ export async function createNotionAction(deps: WriteDeps, input: ActionInput): P
       payload,
       dry_run: !live,
       ...(input.sequenceBrief ? { content_piece_id: input.sequenceBrief.contentPieceId, brief_key: input.sequenceBrief.briefKey } : {}),
+      ...(input.campaignBrief ? { campaign_brief_id: input.campaignBrief.briefId, brief_key: input.campaignBrief.briefKey } : {}),
     })
     .select("id")
     .single()
   // A unique index allows one live page per test brief and per check action (migration 20261013000057),
-  // and per sequence approval (brief_key, migration 20261014000058).
+  // per sequence approval (brief_key, migration 20261014000058) and per campaign brief (migration 20261023000091).
   if (logError?.code === "23505") return { status: "failed", logId: null, payload, error: "This was already sent to Notion. Refresh to see it." }
   if (logError || !log) return { status: "failed", logId: null, payload, error: `Couldn't write the log, so nothing was sent to Notion. ${logError?.message ?? ""}`.trim() }
   const logId = log.id as number
@@ -303,6 +309,9 @@ export async function createNotionAction(deps: WriteDeps, input: ActionInput): P
   }
   if (input.sequenceBrief) {
     await deps.db.from("content_pieces").update({ notion_page_id: page.id, notion_page_url: page.url, notion_briefed_at: new Date().toISOString() }).eq("id", input.sequenceBrief.contentPieceId)
+  }
+  if (input.campaignBrief) {
+    await deps.db.from("campaign_briefs").update({ notion_page_id: page.id, notion_page_url: page.url, notion_sent_at: new Date().toISOString() }).eq("id", input.campaignBrief.briefId)
   }
   const comment = await addComment(page.id)
 
