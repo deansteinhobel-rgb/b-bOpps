@@ -594,9 +594,9 @@ export type Database = {
       }
       campaign_briefs: {
         Row: {
+          answers: Json
           archived_at: string | null
           archived_by: string | null
-          answers: Json
           brief: Json | null
           client_id: string
           created_at: string
@@ -616,9 +616,9 @@ export type Database = {
           usage: Json | null
         }
         Insert: {
+          answers?: Json
           archived_at?: string | null
           archived_by?: string | null
-          answers?: Json
           brief?: Json | null
           client_id: string
           created_at?: string
@@ -638,9 +638,9 @@ export type Database = {
           usage?: Json | null
         }
         Update: {
+          answers?: Json
           archived_at?: string | null
           archived_by?: string | null
-          answers?: Json
           brief?: Json | null
           client_id?: string
           created_at?: string
@@ -3005,6 +3005,13 @@ export type Database = {
           success?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "notion_write_log_campaign_brief_id_fkey"
+            columns: ["campaign_brief_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_briefs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notion_write_log_check_result_id_fkey"
             columns: ["check_result_id"]
