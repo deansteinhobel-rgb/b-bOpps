@@ -109,7 +109,10 @@ export function briefBlocks(b: CampaignBrief, meta: DocMeta): DocBlock[] {
 /** File name for the Word export: "DNSFilter campaign brief - MSP partners.docx". */
 export function docxFileName(clientName: string, title: string) {
   const clean = (s: string) => s.replace(/[\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim()
-  return `${clean(clientName)} campaign brief - ${clean(title)}`.slice(0, 120) + ".docx"
+  const name = clean(clientName)
+  // Titles often start with the client's name already ("DNSFilter MSP Partner Acquisition").
+  const rest = clean(title).replace(new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*[-–:]?\\s*`, "i"), "") || clean(title)
+  return `${name} campaign brief - ${rest}`.slice(0, 120) + ".docx"
 }
 
 /** "**Label:** text" split into runs, for writers that format bold themselves (Word). */

@@ -44,6 +44,7 @@ describe("campaign brief document", () => {
 
   it("makes a safe Word file name", () => {
     expect(docxFileName("DNSFilter", "MSP / partners: Q1?")).toBe("DNSFilter campaign brief - MSP partners Q1.docx")
+    expect(docxFileName("DNSFilter", "DNSFilter MSP Partner Acquisition")).toBe("DNSFilter campaign brief - MSP Partner Acquisition.docx")
   })
 })
 
