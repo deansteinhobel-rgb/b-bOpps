@@ -80,6 +80,13 @@ What protects Lumaux, and the settings that have to be switched on by hand. Star
   send one partial update from a fixed list of fields, and can only ever set a status of PAUSED.
   `ad_playbooks` and every-client rules aren't client-scoped (public research and B&B's own
   rules); every-client rules are admin-edited, client rules follow `can_edit_client`.
+- **Generate a campaign brief (2026-10-23)**: `/api/campaign-brief` calls Claude server-side (no web
+  tools) for anyone who can edit the client, rate-limited (`campaign_brief`, 30 a day); the request,
+  pasted notes and all client context are data in the prompt. `campaign_briefs` is client-scoped
+  (`can_access_client` read, no insert, update or delete policies: the server writes with
+  `createAdminClient(me.id)` after the RLS read, and briefs are archived, never deleted). The Word
+  export reads through RLS. "Send to Notion" goes through `createNotionAction` (operation
+  `create_campaign_brief`, the brief as the new page's `children`), one live page per brief.
 - **Builds and edits on every platform (2026-10-21)**: Google Ads and Meta go through Windsor's
   MCP write actions with a fixed allowlist per connector (`src/lib/windsor/mcp.ts`; never an
   enable, remove or delete action, and creates are forced paused), Reddit and Microsoft Ads through
